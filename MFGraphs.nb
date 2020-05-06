@@ -1,0 +1,150 @@
+(* Content-type: application/vnd.wolfram.mathematica *)
+
+(*** Wolfram Notebook File ***)
+(* http://www.wolfram.com/nb *)
+
+(* CreatedBy='Mathematica 12.0' *)
+
+(*CacheID: 234*)
+(* Internal cache information:
+NotebookFileLineBreakTest
+NotebookFileLineBreakTest
+NotebookDataPosition[       158,          7]
+NotebookDataLength[      6886,        140]
+NotebookOptionsPosition[      6249,        120]
+NotebookOutlinePosition[      6587,        135]
+CellTagsIndexPosition[      6544,        132]
+WindowFrame->Normal*)
+
+(* Beginning of Notebook Content *)
+Notebook[{
+
+Cell[CellGroupData[{
+Cell[BoxData["$Packages"], "Input",
+ CellChangeTimes->{{3.7976725829900217`*^9, 3.797672586001088*^9}},
+ CellLabel->"In[4]:=",ExpressionUUID->"171a0a7a-e752-4965-912d-3d59900dd8aa"],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{"\<\"MFGraphs`\"\>", ",", "\<\"MEET`Profiler`\"\>", 
+   ",", "\<\"MEET`\"\>", ",", "\<\"DocumentationSearch`\"\>", 
+   ",", "\<\"EntityFramework`\"\>", ",", "\<\"CURLLink`URLResponseTime`\"\>", 
+   ",", "\<\"CURLLink`Utilities`\"\>", ",", "\<\"CURLInfo`\"\>", 
+   ",", "\<\"CURLLink`Cookies`\"\>", ",", "\<\"CURLLink`HTTP`\"\>", 
+   ",", "\<\"OAuthSigning`\"\>", ",", "\<\"CURLLink`URLFetch`\"\>", 
+   ",", "\<\"CURLLink`\"\>", ",", "\<\"Macros`\"\>", 
+   ",", "\<\"DocumentationSearch`Skeletonizer`\"\>", ",", "\<\"JLink`\"\>", 
+   ",", "\<\"GetFEKernelInit`\"\>", ",", "\<\"URLUtilities`\"\>", 
+   ",", "\<\"JSONTools`\"\>", ",", "\<\"EntityFrameworkLoader`\"\>", 
+   ",", "\<\"WebAudioSearchLoader`\"\>", ",", "\<\"Templating`\"\>", 
+   ",", "\<\"NeuralFunctions`\"\>", ",", "\<\"MobileMessaging`\"\>", 
+   ",", "\<\"Interpreter`\"\>", ",", "\<\"IntegratedServices`\"\>", 
+   ",", "\<\"IconizeLoader`\"\>", ",", "\<\"HTTPHandling`\"\>", 
+   ",", "\<\"Forms`\"\>", ",", "\<\"ExternalEvaluate`\"\>", 
+   ",", "\<\"Cryptography`\"\>", ",", "\<\"Blockchain`\"\>", 
+   ",", "\<\"Authentication`\"\>", ",", "\<\"SystemTools`\"\>", 
+   ",", "\<\"SecureShellLink`\"\>", ",", "\<\"MailLinkLoader`\"\>", 
+   ",", "\<\"IMAPLinkLoader`\"\>", ",", "\<\"UnitTable`\"\>", 
+   ",", "\<\"ResourceFunctionHelpers`\"\>", ",", "\<\"NeuralNetworks`\"\>", 
+   ",", "\<\"NaturalLanguage`\"\>", ",", "\<\"CloudObjectLoader`\"\>", 
+   ",", "\<\"AlphaScannerFunctions`\"\>", ",", "\<\"ResourceLocator`\"\>", 
+   ",", "\<\"PacletManager`\"\>", ",", "\<\"PersistenceLocations`\"\>", 
+   ",", "\<\"System`\"\>", ",", "\<\"Global`\"\>"}], "}"}]], "Output",
+ CellChangeTimes->{3.797672587086122*^9},
+ CellLabel->"Out[4]=",ExpressionUUID->"9817dad5-fd9c-48d8-aa29-ccb714b61f00"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"Names", "[", "\"\<MFGraphs`*\>\"", "]"}]], "Input",
+ CellChangeTimes->{{3.797672592063796*^9, 3.797672608869453*^9}},
+ CellLabel->"In[5]:=",ExpressionUUID->"aecc78c2-fb35-42ec-b9a1-498465d2ede2"],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{"\<\"a\"\>", ",", "\<\"AllTransitions\"\>", 
+   ",", "\<\"AllTransitions$\"\>", ",", "\<\"alpha\"\>", 
+   ",", "\<\"AtHead\"\>", ",", "\<\"AtTail\"\>", 
+   ",", "\<\"AuxiliaryGraph\"\>", ",", "\<\"AuxiliaryGraph$\"\>", 
+   ",", "\<\"a$\"\>", ",", "\<\"b\"\>", ",", "\<\"BEL\"\>", 
+   ",", "\<\"BEL$\"\>", ",", "\<\"BG\"\>", ",", "\<\"BG$\"\>", 
+   ",", "\<\"b$\"\>", ",", "\<\"c\"\>", ",", "\<\"Compu\"\>", 
+   ",", "\<\"curr\"\>", ",", "\<\"CurrentCompCon\"\>", 
+   ",", "\<\"CurrentGathering\"\>", ",", "\<\"CurrentSplitting\"\>", 
+   ",", "\<\"c$\"\>", ",", "\<\"Data\"\>", ",", "\<\"DataToEquations\"\>", 
+   ",", "\<\"DataToGraph\"\>", ",", "\<\"DifferenceU\"\>", 
+   ",", "\<\"edge\"\>", ",", "\<\"edge1\"\>", ",", "\<\"edge1$\"\>", 
+   ",", "\<\"edge2\"\>", ",", "\<\"edge2$\"\>", ",", "\<\"EE\"\>", 
+   ",", "\<\"EL\"\>", ",", "\<\"EL$\"\>", ",", "\<\"EntranceVertices\"\>", 
+   ",", "\<\"EntranceVertices$\"\>", ",", "\<\"EntryArgs\"\>", 
+   ",", "\<\"EntryDataAssociation\"\>", ",", "\<\"EqAll\"\>", 
+   ",", "\<\"EqBalanceGatheringCurrents\"\>", 
+   ",", "\<\"EqBalanceSplittingCurrents\"\>", ",", "\<\"EqCompCon\"\>", 
+   ",", "\<\"EqCurrentCompCon\"\>", ",", "\<\"EqEntryIn\"\>", 
+   ",", "\<\"EqExitValues\"\>", ",", "\<\"EqNoInt\"\>", 
+   ",", "\<\"EqPosCon\"\>", ",", "\<\"EqPosCon$\"\>", 
+   ",", "\<\"EqSwitchingConditions\"\>", ",", "\<\"EqTransitionCompCon\"\>", 
+   ",", "\<\"EqValue\"\>", ",", "\<\"EqValueAuxiliaryEdges\"\>", 
+   ",", "\<\"ExitCosts\"\>", ",", "\<\"ExitValues\"\>", 
+   ",", "\<\"ExitVertices\"\>", ",", "\<\"ExitVertices$\"\>", 
+   ",", "\<\"FG\"\>", ",", "\<\"FG$\"\>", ",", "\<\"fux\"\>", 
+   ",", "\<\"FVL\"\>", ",", "\<\"FVL$\"\>", ",", "\<\"g\"\>", 
+   ",", "\<\"G\"\>", ",", "\<\"h\"\>", ",", "\<\"H\"\>", ",", "\<\"HJ\"\>", 
+   ",", "\<\"IncomingEdges\"\>", ",", "\<\"InEdges\"\>", 
+   ",", "\<\"InEdges$\"\>", ",", "\<\"InRules\"\>", 
+   ",", "\<\"InwardVertices\"\>", ",", "\<\"InwardVertices$\"\>", 
+   ",", "\<\"j\"\>", ",", "\<\"jargs\"\>", ",", "\<\"jargs$\"\>", 
+   ",", "\<\"js\"\>", ",", "\<\"js$\"\>", ",", "\<\"jts\"\>", 
+   ",", "\<\"jts$\"\>", ",", "\<\"jtvars\"\>", ",", "\<\"jtvars$\"\>", 
+   ",", "\<\"jvars\"\>", ",", "\<\"jvars$\"\>", ",", "\<\"k\"\>", 
+   ",", "\<\"k$\"\>", ",", "\<\"m\"\>", ",", "\<\"M\"\>", 
+   ",", "\<\"mfunc\"\>", ",", "\<\"NoDeadEnds\"\>", 
+   ",", "\<\"NoDeadStarts\"\>", ",", "\<\"NonZeroEntryCurrents\"\>", 
+   ",", "\<\"OtherWay\"\>", ",", "\<\"OutEdges\"\>", ",", "\<\"OutEdges$\"\>",
+    ",", "\<\"OutgoingEdges\"\>", ",", "\<\"OutRules\"\>", 
+   ",", "\<\"OutwardVertices\"\>", ",", "\<\"OutwardVertices$\"\>", 
+   ",", "\<\"p\"\>", ",", "\<\"p$\"\>", ",", "\<\"R\"\>", ",", "\<\"RR\"\>", 
+   ",", "\<\"sol\"\>", ",", "\<\"SwitchingCosts\"\>", 
+   ",", "\<\"TransitionCompCon\"\>", ",", "\<\"TransitionsAt\"\>", 
+   ",", "\<\"Transu\"\>", ",", "\<\"triple2path\"\>", ",", "\<\"u\"\>", 
+   ",", "\<\"uargs\"\>", ",", "\<\"uargs$\"\>", ",", "\<\"ufunc\"\>", 
+   ",", "\<\"us\"\>", ",", "\<\"us$\"\>", ",", "\<\"UU\"\>", 
+   ",", "\<\"uvars\"\>", ",", "\<\"uvars$\"\>", ",", "\<\"ux\"\>", 
+   ",", "\<\"v\"\>", ",", "\<\"V\"\>", ",", "\<\"VL\"\>", ",", "\<\"VL$\"\>", 
+   ",", "\<\"v$\"\>", ",", "\<\"x\"\>", ",", "\<\"y\"\>", ",", "\<\"y$\"\>"}],
+   "}"}]], "Output",
+ CellChangeTimes->{3.797672609325582*^9},
+ CellLabel->"Out[5]=",ExpressionUUID->"be7e8e65-32e4-4286-abb3-1708381c2d0a"]
+}, Open  ]]
+},
+WindowSize->{808, 911},
+WindowMargins->{{236, Automatic}, {Automatic, 58}},
+FrontEndVersion->"12.0 for Mac OS X x86 (64-bit) (April 8, 2019)",
+StyleDefinitions->"Default.nb"
+]
+(* End of Notebook Content *)
+
+(* Internal cache information *)
+(*CellTagsOutline
+CellTagsIndex->{}
+*)
+(*CellTagsIndex
+CellTagsIndex->{}
+*)
+(*NotebookFileOutline
+Notebook[{
+Cell[CellGroupData[{
+Cell[580, 22, 181, 2, 44, "Input",ExpressionUUID->"171a0a7a-e752-4965-912d-3d59900dd8aa"],
+Cell[764, 26, 1788, 27, 224, "Output",ExpressionUUID->"9817dad5-fd9c-48d8-aa29-ccb714b61f00"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[2589, 58, 219, 3, 44, "Input",ExpressionUUID->"aecc78c2-fb35-42ec-b9a1-498465d2ede2"],
+Cell[2811, 63, 3422, 54, 342, "Output",ExpressionUUID->"be7e8e65-32e4-4286-abb3-1708381c2d0a"]
+}, Open  ]]
+}
+]
+*)
+
+(* End of internal cache information *)
+
