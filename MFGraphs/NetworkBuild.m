@@ -1,6 +1,7 @@
 (* Wolfram Language package *)
 
 DataToGraph[Data_?AssociationQ] :=
+
     
     Module[{BG, EntranceVertices, InwardVertices, InEdges, ExitVertices, OutwardVertices, OutEdges, AuxiliaryGraph, FG},
     BG = AdjacencyGraph[Data["Vertices List"], Data["Adjacency Matrix"], VertexLabels -> "Name"];
