@@ -1,5 +1,9 @@
 (* Wolfram Language package *)
 
+   
+jays=Association[{"edges"->jvars[AtHead[edge]] - jvars[AtTail[edge]]}]
+
+
 F[j_?NumericQ, x_?NumericQ] :=
     First@Values@FindRoot[H[x, -j/(m^(1 - alpha)), m], {m, 1}];
 
@@ -16,7 +20,17 @@ With[{j = #},
 	]
 ]
 
-
+world = Association[{
+   "other" -> Association[EqAll && EqCompCon],
+   "lhs" -> 
+    Association[
+     "edge" -> (uvars[AtHead[edge]] - uvars[AtTail[edge]] - 
+          jvars[AtHead[edge]] - jvars[AtTail[edge]]) & /@ 
+      EdgeList[BG]], 
+   "rhs" -> 
+    Association[
+     "edge" -> (Intg(jays[edge])) & /@ EdgeList[BG]]
+   }]
 
 (*TODO build a function that returns the result for the critical congestion case*)
 
@@ -45,19 +59,6 @@ of BG. Run "the code" in the critical congestion and feed it to G.*)
 ]
 DataToEquations[Data];
 *)
-world = Association[{
-   "other" -> Association[EqAll && EqCompCon],
-   "lhs" -> 
-    Association[
-     "edge" -> (uvars[AtHead[edge]] - uvars[AtTail[edge]] - 
-          jvars[AtHead[edge]] - jvars[AtTail[edge]]) & /@ 
-      EdgeList[BG]], 
-   "rhs" -> 
-    Association[
-     "edge" -> (Intg(jays[edge])) & /@ EdgeList[BG]]
-   }]
-   
-jays=Association[{"edges"->jvars[AtHead[edge]] - jvars[AtTail[edge]]}]
 
 (*TODO finish this which diogo started.*)
 G[world_Association] := 
