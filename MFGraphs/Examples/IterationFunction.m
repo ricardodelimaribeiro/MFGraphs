@@ -3,7 +3,6 @@
    
 jays=Association[{"edges"->jvars[AtHead[edge]] - jvars[AtTail[edge]]}]
 
-
 F[j_?NumericQ, x_?NumericQ] :=
     First@Values@FindRoot[H[x, -j/(m^(1 - alpha)), m], {m, 1}];
 
