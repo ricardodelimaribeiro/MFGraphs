@@ -4,6 +4,7 @@
 
 Begin["`Private`"]*)
 
+
 DataToEquations[Data_?AssociationQ] := Module[{BG, EntranceVertices, InwardVertices, InEdges, ExitVertices, 
   OutwardVertices, OutEdges, AuxiliaryGraph, FG,
   AtHead, AtTail , TransitionsAt, OtherWay, triple2path,

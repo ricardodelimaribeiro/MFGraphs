@@ -1,5 +1,6 @@
 (* Wolfram Language package *)
 (*TODO use module, block or with to localize the variables! DONE*)
+
 AtHead[a_ \[DirectedEdge] b_] := {b, a \[DirectedEdge] b};
 AtTail[a_ \[DirectedEdge] b_] := {a, a \[DirectedEdge] b};
 TransitionsAt[G_, k_] := 
