@@ -1,6 +1,7 @@
 (* Wolfram Language package *)
 (*TODO turn this into an association DONE *)
 
+
 Parameters := Module[{alpha, beta, g, W, V, H},
  alpha = 1;
  beta = 2;
