@@ -1,6 +1,10 @@
 (* Wolfram Language package *)
+<<<<<<< HEAD
 (*TODO use module, block or with to localize the variables! DONE*)
 
+=======
+(*TODO use module, block or with to localize the variables!*)
+>>>>>>> branch 'master' of https://github.com/ricardodelimaribeiro/MFGraphs
 AtHead[a_ \[DirectedEdge] b_] := {b, a \[DirectedEdge] b};
 AtTail[a_ \[DirectedEdge] b_] := {a, a \[DirectedEdge] b};
 TransitionsAt[G_, k_] := 
