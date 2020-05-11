@@ -1,5 +1,12 @@
 (* Wolfram Language package *)
+(*TODO put usage messages outside of Private. (so we can use them)*)
+OtherWay::usage =
+"OtherWay[{a,a\[DirectedEdge]b}] returns {b,a\[DirectedEdge]b}";
 
+triple2path::usage =
+"triple2path[{a, b, c}, G] takes 3 ordered vertices and gives the pair of edges conecting the first two and the last two. If this is not feasible, error message with {a, b, c}!";
+
+Begin["`Private`"]
 AtHead[a_ \[DirectedEdge] b_] :=
     {b, a \[DirectedEdge] b};
 
@@ -9,8 +16,6 @@ AtTail[a_ \[DirectedEdge] b_] :=
 TransitionsAt[G_, k_] :=
     Prepend[#, k] & /@ Permutations[IncidenceList[G, k], {2}];
 
-OtherWay::usage =
-"OtherWay[{a,a\[DirectedEdge]b}]={b,a\[DirectedEdge]b}";
 
 OtherWay[{c_, a_ \[DirectedEdge] b_}] :=
     {If[ c === a,
@@ -18,10 +23,6 @@ OtherWay[{c_, a_ \[DirectedEdge] b_}] :=
          a
      ], a \[DirectedEdge] b}
 
-triple2path::usage =
-"triple2path[{a,b,c},G] 
-	takes 3 ordered vertices and gives the pair of edges conecting the first two and the last two. 
-	If this is not feasible, error message with {a, b, c}!";
 
 triple2path[{a_, b_, c_}, G_] :=
     Module[ {EL, FG = G},
@@ -84,3 +85,4 @@ EE = Exists[#1, #2] &;
 UU = Solve[#1, #2, Reals] &;
 
 RR = Reduce[#1, #2, Reals] &;
+End[]

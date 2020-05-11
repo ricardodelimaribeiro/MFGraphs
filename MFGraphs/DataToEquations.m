@@ -1,14 +1,29 @@
 (* Wolfram Language package *)
 (*Assembles the stationary mfg equations using the notion of current*)
-(*DataToEquations::usage = "takes data assotiation to the equations";
+DataToEquations::usage = "takes data assotiation to the equations";
 
-Begin["`Private`"]*)
+Begin["`Private`"]
 (*TODO remove (most) functions from the association*)
-DataToEquations[Data_?AssociationQ] :=
-    Module[ {BG, EntranceVertices, InwardVertices, InEdges, ExitVertices, 
-    OutwardVertices, OutEdges, AuxiliaryGraph, FG,
-    AtHead, AtTail , TransitionsAt, OtherWay, triple2path,
-    VL, EL, BEL, jargs, js, jvars, FVL, AllTransitions, jts, jtvars, 
+(*TODO how do we use usage message to make template on the notebook*)
+DataToEquations::usage = 
+"DataToEquations[<|\"Vertices List\"->{x}|>] Inputs the data as an association and returns the equations for the stationary mean-field game on the network, except for the coupling equations.";
+
+DataToEquations[Data_?AssociationQ] := 
+    Module[ {BG, 
+        EntranceVertices, 
+        InwardVertices, 
+        InEdges, 
+        ExitVertices, 
+    OutwardVertices, 
+    OutEdges, 
+    AuxiliaryGraph, 
+    FG,
+    AtHead, 
+    AtTail , 
+    TransitionsAt, OtherWay, triple2path,
+    VL, EL, BEL, jargs, 
+    js, jvars, FVL, 
+    AllTransitions, jts, jtvars, 
     uargs, us, uvars,
     EqPosCon, CurrentCompCon, EqCurrentCompCon, TransitionCompCon, 
     EqTransitionCompCon,
@@ -119,8 +134,7 @@ DataToEquations[Data_?AssociationQ] :=
         jvars = AssociationThread[jargs, js];
         FVL = VertexList[FG];
         AllTransitions = 
-         TransitionsAt[FG, #] & /@ FVL // 
-   Catenate(*at vertex from first edge to second edge*);
+         TransitionsAt[FG, #] & /@ FVL // Catenate(*at vertex from first edge to second edge*);
         jts = Unique["jt"] & /@ AllTransitions;
         jtvars = AssociationThread[AllTransitions, jts];
         uargs = Join[AtTail /@ EL, AtHead /@ EL];
@@ -228,8 +242,8 @@ DataToEquations[Data_?AssociationQ] :=
         EqNoInt = EqAll && EqValueAuxiliaryEdges;
         EqAll = EqAll && EqValue && EqValueAuxiliaryEdges;
         Association[{
-        	"BG" -> BG, 
-        	"EntranceVertices" -> EntranceVertices, 
+            "BG" -> BG, 
+            "EntranceVertices" -> EntranceVertices, 
           "InwardVertices" -> InwardVertices, 
           "InEdges" -> InEdges, 
           "ExitVertices" -> ExitVertices, 
@@ -430,5 +444,5 @@ Module[{
 (*TODO is it possible to assamble the equations by edge/vertex? Then we could try to difuse the information through the graph.*)
 (*EqAll=DataToEquations[Data];*)
 
-(*End[]*)
+End[]
 
