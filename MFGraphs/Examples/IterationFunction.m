@@ -20,7 +20,7 @@ With[{j = #},
 ]
 
 world = Association[{
-   "other" -> Association[EqAll && EqCompCon],(*this comes (probably) from the DataToEquations function*)
+   "other" -> EqNoInt,(*this comes (probably) from the DataToEquations function*)
    "lhs" -> 
     Association[
      "edge" -> (uvars[AtHead[edge]] - uvars[AtTail[edge]] - 
