@@ -1,5 +1,6 @@
 (* Wolfram Language package *)
-(*TODO put usage messages outside of Private. (so we can use them)*)
+(*TODO put usage messages outside of Private. (so we can use them) DONE*)
+
 OtherWay::usage =
 "OtherWay[{a,a\[DirectedEdge]b}] returns {b,a\[DirectedEdge]b}";
 
