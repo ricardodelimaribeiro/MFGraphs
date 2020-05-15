@@ -19,7 +19,13 @@ With[{j = #},
 	]
 ]
 
+DataEqs = DataToEquations[Data];
 world = Association[{
+   "EqAll" -> DataEqs["EqAll"],
+   "EqAllComp" -> DataEqs["EqAllComp"]
+   }]
+   
+(*world = Association[{
    "other" -> EqNoInt,(*this comes (probably) from the DataToEquations function*)
    "lhs" -> 
     Association[
@@ -29,7 +35,7 @@ world = Association[{
    "rhs" -> 
     Association[
      "edge" -> (Intg(jays[edge])) & /@ EdgeList[BG]]
-   }]
+   }]*)
 
 (*TODO build a function that returns the result for the critical congestion case*)
 
