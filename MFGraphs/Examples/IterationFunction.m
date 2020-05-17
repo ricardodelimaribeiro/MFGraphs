@@ -1,7 +1,8 @@
 (* Wolfram Language package *)
+MFGEquations = DataToEquations[Data];
 
    
-jays = Association[{"edges"->jvars[AtHead[edge]] - jvars[AtTail[edge]]}]
+jays = AssociationThread[{#,jvars[AtHead[#]] - jvars[AtTail[#]]}& /@ MFGEquations["EL"]](*TODO check if this is what we want. or something else.*)
 
 F[j_?NumericQ, x_?NumericQ] :=
     First@Values@FindRoot[H[x, -j/(m^(1 - alpha)), m], {m, 1}];
@@ -17,21 +18,22 @@ With[{j = #},
 		m[x_?NumericQ] := F[j, x];
 		Intg[j]
 	]
-]
+]&
 
-DataEqs = DataToEquations[Data];
 world = Association[{
    "EqAll" -> DataEqs["EqAll"],
    "EqAllComp" -> DataEqs["EqAllComp"]
    }]
    
+   
+   
 (*world = Association[{
    "other" -> EqNoInt,(*this comes (probably) from the DataToEquations function*)
    "lhs" -> 
     Association[
-     "edge" -> (uvars[AtHead[edge]] - uvars[AtTail[edge]] - 
-          jvars[AtHead[edge]] - jvars[AtTail[edge]]) & /@ 
-      EdgeList[BG]], 
+     "edge" -> (uvars[AtHead[#]] - uvars[AtTail[#]] - (*edge is #.....*)
+          jays[#]) & /@ 
+      MFGEquations["BEL"]], 
    "rhs" -> 
     Association[
      "edge" -> (Intg(jays[edge])) & /@ EdgeList[BG]]

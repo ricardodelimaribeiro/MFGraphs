@@ -7,6 +7,16 @@ OtherWay::usage =
 triple2path::usage =
 "triple2path[{a, b, c}, G] takes 3 ordered vertices and gives the pair of edges conecting the first two and the last two. If this is not feasible, error message with {a, b, c}!";
 
+AtHead::usage = ""; 
+
+AtTail::usage = "";
+
+EE::usage = "";
+
+UU::usage = "";
+
+RR::usage = "";
+
 Begin["`Private`"]
 AtHead[a_ \[DirectedEdge] b_] :=
     {b, a \[DirectedEdge] b};

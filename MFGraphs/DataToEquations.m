@@ -1,15 +1,13 @@
 (* Wolfram Language package *)
 (*Assembles the stationary mfg equations using the notion of current*)
-DataToEquations::usage = "takes data assotiation to the equations";
-
-Begin["`Private`"]
-(*TODO remove (most) functions from the association DONE*)
-(*TODO how do we use usage message to make template on the notebook*)
-
 DataToEquations::usage = 
 "DataToEquations[<|\"Vertices List\"->{x}|>] Inputs the data as an association and returns the equations for the stationary mean-field game on the network, except for the coupling equations.";
 
-DataToEquations[Data_?AssociationQ] = 
+Begin["`Private`"]
+(*TODO how do we use usage message to make template on the notebook*)
+(*DataToEquations::usage = "takes data assotiation to the equations";*)
+
+DataToEquations[Data_?AssociationQ] := 
  Module[{BG, EntranceVertices, InwardVertices, InEdges, ExitVertices, 
    OutwardVertices, OutEdges, AuxiliaryGraph, FG, VL, EL, BEL, jargs, 
    js, jvars, FVL, AllTransitions, jts, jtvars, uargs, us, uvars, 
@@ -21,9 +19,8 @@ DataToEquations[Data_?AssociationQ] =
    ExitValues, EqExitValues, SwitchingCosts, OutRules, InRules, 
    Transu, EqSwitchingConditions, Compu, EqCompCon, EqValue, 
    EqValueAuxiliaryEdges, EqAllComp, EqAll},
-  BG = AdjacencyGraph[Data["Vertices List"], Data["Adjacency Matrix"],
-     VertexLabels -> "Name"];
-  EntranceVertices = First /@ Data["Entrance Vertices and Currents"];
+   BG = AdjacencyGraph[Data["Vertices List"], Data["Adjacency Matrix"], VertexLabels -> "Name"];
+   EntranceVertices = First /@ Data["Entrance Vertices and Currents"];
   InwardVertices = 
    AssociationThread[EntranceVertices, 
     Unique["en"] & /@ EntranceVertices];
@@ -164,25 +161,32 @@ general cases.*)
   (*EqAll=EqAll&&EqValue&&EqValueAuxiliaryEdges;*)
   
   Association[{
-  	"BG" -> BG, "EntranceVertices" -> EntranceVertices, 
-    "InwardVertices" -> InwardVertices, "InEdges" -> InEdges, 
+  	"BG" -> BG, 
+  	"EntranceVertices" -> EntranceVertices, 
+    "InwardVertices" -> InwardVertices, 
+    "InEdges" -> InEdges, 
     "ExitVertices" -> ExitVertices, 
-    "OutwardVertices" -> OutwardVertices, "OutEdges" -> OutEdges, 
-    "AuxiliaryGraph" -> AuxiliaryGraph, "FG" -> FG, "VL" -> VL, 
-    "EL" -> EL, "BEL" -> BEL, "jargs" -> jargs, "js" -> js, 
+    "OutwardVertices" -> OutwardVertices, 
+    "OutEdges" -> OutEdges, 
+    "AuxiliaryGraph" -> AuxiliaryGraph, 
+    "FG" -> FG, 
+    "VL" -> VL, 
+    "EL" -> EL, 
+    "BEL" -> BEL, 
+    "jargs" -> jargs, "js" -> js, 
     "jvars" -> jvars, "FVL" -> FVL, 
     "AllTransitions" -> AllTransitions, "jts" -> jts, 
     "jtvars" -> jtvars, "uargs" -> uargs, "us" -> us, 
     "uvars" -> uvars, "EqPosCon" -> EqPosCon, 
-    "CurrentCompCon[a\[DirectedEdge]b]" -> CurrentCompCon, 
+    "CurrentCompCon" -> CurrentCompCon, 
     "EqCurrentCompCon" -> EqCurrentCompCon, 
-    "TransitionCompCon[{v, edge1, edge2}]" -> TransitionCompCon, 
+    "TransitionCompCon" -> TransitionCompCon, 
     "EqTransitionCompCon" -> EqTransitionCompCon, 
-    "IncomingEdges[k]" -> IncomingEdges, 
-    "OutgoingEdges[k]" -> OutgoingEdges, "NoDeadEnds" -> NoDeadEnds, 
+    "IncomingEdges" -> IncomingEdges, 
+    "OutgoingEdges" -> OutgoingEdges, "NoDeadEnds" -> NoDeadEnds, 
     "NoDeadStarts" -> NoDeadStarts, 
-    "CurrentSplitting[{c,a\[DirectedEdge]b}]" -> CurrentSplitting, 
-    "CurrentGathering[{c,a\[DirectedEdge]b}]" -> CurrentGathering, 
+    "CurrentSplitting" -> CurrentSplitting, 
+    "CurrentGathering" -> CurrentGathering, 
     "EqBalanceSplittingCurrents" -> EqBalanceSplittingCurrents, 
     "EqBalanceGatheringCurrents" -> EqBalanceGatheringCurrents, 
     "EntryArgs" -> EntryArgs, 
@@ -190,12 +194,12 @@ general cases.*)
     "EqEntryIn" -> EqEntryIn, 
     "NonZeroEntryCurrents" -> NonZeroEntryCurrents, 
     "ExitCosts" -> ExitCosts, 
-    "ExitValues[a\[DirectedEdge]b]" -> ExitValues, 
+    "ExitValues" -> ExitValues, 
     "EqExitValues" -> EqExitValues, 
     "SwitchingCosts" -> SwitchingCosts, "OutRules" -> OutRules, 
-    "InRules" -> InRules, "Transu[{v,edge1,edge2}]" -> Transu, 
+    "InRules" -> InRules, "Transu" -> Transu, 
     "EqSwitchingConditions" -> EqSwitchingConditions, 
-    "Compu[{v,edge1,edge2}]" -> Compu, "EqCompCon" -> EqCompCon, 
+    "Compu" -> Compu, "EqCompCon" -> EqCompCon, 
     "EqValue" -> EqValue, 
     "EqValueAuxiliaryEdges" -> EqValueAuxiliaryEdges, 
     "EqAllComp" -> EqAllComp, "EqAll" -> EqAll
