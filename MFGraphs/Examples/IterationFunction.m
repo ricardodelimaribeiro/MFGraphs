@@ -2,7 +2,7 @@
 MFGEquations = DataToEquations[Data];
 
    
-jays = AssociationThread[{#,jvars[AtHead[#]] - jvars[AtTail[#]]}& /@ MFGEquations["EL"]](*TODO check if this is what we want. or something else.*)
+jays = AssociationThread[{#,jvars[AtHead[#]] - jvars[AtTail[#]]}& /@ MFGEquations["BEL"]](*TODO check if this is what we want. or something else.*)
 
 F[j_?NumericQ, x_?NumericQ] :=
     First@Values@FindRoot[H[x, -j/(m^(1 - alpha)), m], {m, 1}];
@@ -21,23 +21,18 @@ With[{j = #},
 ]&
 
 world = Association[{
-   "EqAll" -> DataEqs["EqAll"],
-   "EqAllComp" -> DataEqs["EqAllComp"]
-   }]
-   
-   
-   
-(*world = Association[{
-   "other" -> EqNoInt,(*this comes (probably) from the DataToEquations function*)
+  
+   "EqAll" ->  MFGEquations["EqAll"],
+   "EqAllComp" ->  MFGEquations["EqAllComp"],
    "lhs" -> 
-    Association[
-     "edge" -> (uvars[AtHead[#]] - uvars[AtTail[#]] - (*edge is #.....*)
-          jays[#]) & /@ 
-      MFGEquations["BEL"]], 
+    AssociationThread[
+   "#" -> (uvars[AtHead[#]] - uvars[AtTail[#]] -  jays[#]) & /@ MFGEquations["BEL"]], 
    "rhs" -> 
-    Association[
-     "edge" -> (Intg(jays[edge])) & /@ EdgeList[BG]]
-   }]*)
+    AssociationThread[
+     "#" -> (Intg(jays[#]) - jays[#]) & /@ MFGEquations["BEL"]]
+   }]
+ 
+(*edge is #.....*) 
 
 (*TODO build a function that returns the result for the critical congestion case*)
 
