@@ -1,16 +1,23 @@
 (* Wolfram Language package *)
+
+Needs["MFGraphs`Examples`ExamplesParameters`"]
+Needs["MFGraphs`Examples`ExamplesData`"]
+Data = DataG[2];
+
 MFGEquations = DataToEquations[Data];
 
-   
-jays = AssociationThread[{#,jvars[AtHead[#]] - jvars[AtTail[#]]}& /@ MFGEquations["BEL"]](*TODO check if this is what we want. or something else.*)
+jays = AssociationThread[
+   MFGEquations[
+    "BEL"], (MFGEquations["jvars"][AtHead[#]] - 
+       MFGEquations["jvars"][AtTail[#]] &) /@ MFGEquations["BEL"]];
 
 F[j_?NumericQ, x_?NumericQ] :=
-    First@Values@FindRoot[H[x, -j/(m^(1 - alpha)), m], {m, 1}];
+    First@Values@FindRoot[Parameters["H[x,p,m]"][x, -j/(m^(1 - Parameters["alpha"])), m], {m, 1}];
 
 (*TODO check if this is the right Intg function. Do the math!!*)    
     
-Intg[j_] :=
-    - j NIntegrate[1/(F[j, x]^(1 - alpha)), {x, 0, 1}]
+Intg[j_?NumericQ] :=
+    - j NIntegrate[1/(F[j, x]^(1 - Parameters["alpha"])), {x, 0, 1}]
 
 (*TODO this goes in the rhs asociation. DONE*)
 With[{j = #},
@@ -25,11 +32,11 @@ world = Association[{
    "EqAll" ->  MFGEquations["EqAll"],
    "EqAllComp" ->  MFGEquations["EqAllComp"],
    "lhs" -> 
-    AssociationThread[
-   "#" -> (uvars[AtHead[#]] - uvars[AtTail[#]] -  jays[#]) & /@ MFGEquations["BEL"]], 
+    Association[
+   (# -> MFGEquations["uvars"][AtHead[#]] - MFGEquations["uvars"][AtTail[#]] -  jays[#] &)/@ MFGEquations["BEL"]], 
    "rhs" -> 
-    AssociationThread[
-     "#" -> (Intg(jays[#]) - jays[#]) & /@ MFGEquations["BEL"]]
+    Association[
+     (# -> Intg(jays[#]) - jays[#] &) /@ MFGEquations["BEL"]]
    }]
  
 (*edge is #.....*) 
