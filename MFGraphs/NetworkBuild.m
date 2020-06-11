@@ -1,5 +1,12 @@
 (* Wolfram Language package *)
+DataToGraph::usage = 
+"DataToGraph[<|\"Vertices List\" -> {1, 
+  2}, \"Adjacency Matrix\" -> {{0, 1}, {0, 
+   0}}, \"Entrance Vertices and Currents\" -> {{1, 
+   I1}}, \"Exit Vertices and Terminal Costs\" -> {{2, 
+   U1}}, \"Switching Costs\" -> {}|>] builds the graph with corresponding data.";
 
+Begin["`Private`"]
 DataToGraph[Data_?AssociationQ] :=
    
     Module[{BG, EntranceVertices, InwardVertices, InEdges, ExitVertices, OutwardVertices, OutEdges, AuxiliaryGraph, FG},
@@ -25,3 +32,4 @@ DataToGraph[Data_?AssociationQ] :=
     	"FG" -> FG
     	 }]
     ]
+End[]
