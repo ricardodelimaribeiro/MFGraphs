@@ -7,7 +7,7 @@ BeginPackage["MFGraphs`"]
 
 Get["MFGraphs`AuxiliaryFunctions`"]
 
-(*Get["MFGraphs`NetworkBuild`"]*)
+Get["MFGraphs`NetworkBuild`"]
 
 Get["MFGraphs`DataToEquations`"]
 
