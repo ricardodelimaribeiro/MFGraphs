@@ -9,7 +9,7 @@ MFGEquations = DataToEquations[Data];
 jays = AssociationThread[
    MFGEquations[
     "BEL"], (MFGEquations["jvars"][AtHead[#]] - 
-       MFGEquations["jvars"][AtTail[#]] &) /@ MFGEquations["BEL"]];
+       MFGEquations["jvars"][AtTail[#]] &) /@ MFGEquations["BEL"]];(*this is done in the variables level.*)
 
 F[j_?NumericQ, x_?NumericQ] :=
     First@Values@FindRoot[Parameters["H[x,p,m]"][x, -j/(m^(1 - Parameters["alpha"])), m], {m, 1}];
@@ -43,6 +43,7 @@ world = Association[{
 
 (*TODO build a function that returns the result for the critical congestion case*)
 
+(*TODO learn how to document code!*)
 
 (*TODO make the iterative function work on all the values.*)
 

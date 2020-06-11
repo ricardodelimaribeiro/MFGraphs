@@ -163,6 +163,7 @@ DataToEquations[Data_?AssociationQ] :=
         EqAll = EqAll && EqValueAuxiliaryEdges;
         (*EqAll=EqAll&&EqValue&&EqValueAuxiliaryEdges;*)
         Association[{
+        	(*Graph structure*)
             "BG" -> BG, 
             "EntranceVertices" -> EntranceVertices, 
           "InwardVertices" -> InwardVertices, 
@@ -175,25 +176,32 @@ DataToEquations[Data_?AssociationQ] :=
           "VL" -> VL, 
           "EL" -> EL, 
           "BEL" -> BEL, 
+          "FVL" -> FVL, 
+          "AllTransitions" -> AllTransitions, 
+          "IncomingEdges" -> IncomingEdges, 
+          "OutgoingEdges" -> OutgoingEdges, 
+          "NoDeadEnds" -> NoDeadEnds, 
+          "NoDeadStarts" -> NoDeadStarts, 
+          (*variables*)
           "jargs" -> jargs, 
           "js" -> js, 
           "jvars" -> jvars, 
-          "FVL" -> FVL, 
-          "AllTransitions" -> AllTransitions, 
           "jts" -> jts, 
           "jtvars" -> jtvars, 
           "uargs" -> uargs, 
           "us" -> us, 
           "uvars" -> uvars, 
-          "EqPosCon" -> EqPosCon, 
+          (*equations*)
+          (*complementarity*)
           "CurrentCompCon" -> CurrentCompCon, 
           "EqCurrentCompCon" -> EqCurrentCompCon, 
           "TransitionCompCon" -> TransitionCompCon, 
           "EqTransitionCompCon" -> EqTransitionCompCon, 
-          "IncomingEdges" -> IncomingEdges, 
-          "OutgoingEdges" -> OutgoingEdges, 
-          "NoDeadEnds" -> NoDeadEnds, 
-          "NoDeadStarts" -> NoDeadStarts, 
+          "Compu" -> Compu, 
+          "EqCompCon" -> EqCompCon, 
+          "EqAllComp" -> EqAllComp, (*union of all complementarity conditions*)
+          (*linear equations (and inequalities)*)
+          "EqPosCon" -> EqPosCon, 
           "CurrentSplitting" -> CurrentSplitting, 
           "CurrentGathering" -> CurrentGathering, 
           "EqBalanceSplittingCurrents" -> EqBalanceSplittingCurrents, 
@@ -210,13 +218,9 @@ DataToEquations[Data_?AssociationQ] :=
           "InRules" -> InRules, 
           "Transu" -> Transu, 
           "EqSwitchingConditions" -> EqSwitchingConditions, 
-          "Compu" -> Compu, 
-          "EqCompCon" -> EqCompCon, 
           "EqValue" -> EqValue, 
           "EqValueAuxiliaryEdges" -> EqValueAuxiliaryEdges, 
-          "EqAllComp" -> EqAllComp, 
           "EqAll" -> EqAll
-          
           }]
     ]
 
