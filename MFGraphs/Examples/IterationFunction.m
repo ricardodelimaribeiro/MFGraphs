@@ -6,6 +6,8 @@ Data = DataG[2];
 
 MFGEquations = DataToEquations[Data];
 
+ToRules @ Or @@ Reduce[# && Data[type2] && Data[type3]]&/@Data[type1] (*if Data[type1] has head Or*)
+
 jays = AssociationThread[
    MFGEquations[
     "BEL"], (MFGEquations["jvars"][AtHead[#]] - 
