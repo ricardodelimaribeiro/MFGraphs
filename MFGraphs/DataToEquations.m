@@ -9,6 +9,8 @@ DataToEquations::usage =
 
 Begin["`Private`"]
 
+
+
 DataToEquations[Data_?AssociationQ] :=
     Module[ {BG, EntranceVertices, InwardVertices, InEdges, ExitVertices, 
       OutwardVertices, OutEdges, AuxiliaryGraph, FG, VL, EL, BEL, jargs, 
@@ -19,8 +21,9 @@ DataToEquations[Data_?AssociationQ] :=
       EqBalanceSplittingCurrents, EqBalanceGatheringCurrents, EntryArgs, 
       EntryDataAssociation, EqEntryIn, NonZeroEntryCurrents, ExitCosts, 
       ExitValues, EqExitValues, SwitchingCosts, OutRules, InRules, 
-      Transu, EqSwitchingConditions, Compu, EqCompCon, EqValue, 
-      EqValueAuxiliaryEdges, EqAllComp, EqAll},
+      Transu, EqSwitchingConditions, Compu, EqCompCon,
+      EqValueAuxiliaryEdges, EqAllComp, EqAll, SignedCurrents, Nrhs, Nlhs, RulesEntryIn, 
+      RulesExitValues, Boo, EqAllRules, EqAllCompRules, EqAllAll, EqAllAllSimple},
         BG = AdjacencyGraph[
             Data["Vertices List"], 
             Data["Adjacency Matrix"], 
@@ -50,9 +53,9 @@ DataToEquations[Data_?AssociationQ] :=
         js = Unique["j"] & /@ jargs;
         jvars = AssociationThread[jargs, js];
         FVL = VertexList[FG];
+        SignedCurrents =   AssociationThread[BEL, (jvars[AtHead[#]] - jvars[AtTail[#]] &) /@ BEL];
         AllTransitions = 
-         TransitionsAt[FG, #] & /@ FVL // 
-    Catenate(*at vertex from first edge to second edge*);
+         TransitionsAt[FG, #] & /@ FVL // Catenate(*at vertex from first edge to second edge*);
         jts = Unique["jt"] & /@ AllTransitions;
         jtvars = AssociationThread[AllTransitions, jts];
         uargs = Join[AtTail /@ EL, AtHead /@ EL];
@@ -105,6 +108,7 @@ DataToEquations[Data_?AssociationQ] :=
         EqEntryIn = 
          And @@ ((jvars[#] == EntryDataAssociation[#]) & /@ (AtHead /@ 
               InEdges));
+        RulesEntryIn = ToRules[EqEntryIn];
         NonZeroEntryCurrents = 
          And @@ (Positive[EntryDataAssociation[#]] & /@ (AtHead /@ InEdges));
         (*useful for the general case...*)
@@ -120,6 +124,7 @@ DataToEquations[Data_?AssociationQ] :=
          And @@ (ExitValues /@ 
             IncidenceList[AuxiliaryGraph, 
              OutwardVertices /@ ExitVertices]);
+        RulesExitValues = ToRules[EqExitValues];
         EqAll = EqAll && EqExitValues;
         SwitchingCosts = 
          AssociationThread[
@@ -150,22 +155,24 @@ DataToEquations[Data_?AssociationQ] :=
             uvars[{v, edge1}] - uvars[{v, edge2}] - 
             SwitchingCosts[{v, edge1, edge2}] == 0;
         EqCompCon = And @@ Compu /@ AllTransitions;
-        (*EqAll=EqAll&&EqCompCon;*)
-        (*EqValue=
-        And@@((DifferenceU[#]\[Equal]uvars[AtHead[#]]-uvars[AtTail[#]])&/@
-        EdgeList[BG]);*)(*use the same reasoning to approach the more \
-      general cases.*)
-        EqValueAuxiliaryEdges = 
-         And @@ ((uvars[AtHead[#]] - uvars[AtTail[#]] == 0) & /@ 
-            EdgeList[AuxiliaryGraph]);
+        EqValueAuxiliaryEdges = And @@ ((uvars[AtHead[#]] - uvars[AtTail[#]] == 0) & /@ EdgeList[AuxiliaryGraph]);
         (*EqNoInt=EqAll&&EqValueAuxiliaryEdges;*)
         EqAllComp = EqCurrentCompCon && EqTransitionCompCon && EqCompCon;
         EqAll = EqAll && EqValueAuxiliaryEdges;
-        (*EqAll=EqAll&&EqValue&&EqValueAuxiliaryEdges;*)
+        
+        (*Pre-processing: substitute rules in all equations and hand-sides...*)
+        EqAllCompRules = EqAllComp /. Join[RulesEntryIn, RulesExitValues];
+        EqAllRules = EqAll /. Join[RulesEntryIn, RulesExitValues];
+        EqAllAll = EqAll && EqAllComp;(*this is in the place of Boo, without the brackets.*)
+        Print["Solving the linear equations"];
+(*        EqAllAllSimple = Select[EqAllAll,  Head[#] === Equal &] // Solve; *)
+        Nlhs = Flatten[uvars[AtHead[#]] - uvars[AtTail[#]] + SignedCurrents[#] & /@ BEL];
+        Nrhs =  Flatten[Intg[SignedCurrents[#]] + SignedCurrents[#] & /@ BEL];
+        Print["Done."];
         Association[{
-        	(*Graph structure*)
-            "BG" -> BG, 
-            "EntranceVertices" -> EntranceVertices, 
+          (*Graph structure*)
+          "BG" -> BG, 
+          "EntranceVertices" -> EntranceVertices, 
           "InwardVertices" -> InwardVertices, 
           "InEdges" -> InEdges, 
           "ExitVertices" -> ExitVertices, 
@@ -218,9 +225,16 @@ DataToEquations[Data_?AssociationQ] :=
           "InRules" -> InRules, 
           "Transu" -> Transu, 
           "EqSwitchingConditions" -> EqSwitchingConditions, 
-          "EqValue" -> EqValue, 
           "EqValueAuxiliaryEdges" -> EqValueAuxiliaryEdges, 
-          "EqAll" -> EqAll
+          "EqAll" -> EqAll, 
+          "jays" -> SignedCurrents, 
+          "Nrhs" -> Nrhs, 
+          "Nlhs" -> Nlhs, 
+          "Boo" -> Boo,
+          "EqAllCompRules" -> EqAllCompRules,
+          "EqAllRules" -> EqAllRules,
+          "EqAllAll" -> EqAllAll,
+          "EqAllAllSimple" -> EqAllAllSimple
           }]
     ]
 

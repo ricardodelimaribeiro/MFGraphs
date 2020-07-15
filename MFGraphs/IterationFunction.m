@@ -2,36 +2,43 @@
 
 (* Wolfram Language package *)
 
-Needs["MFGraphs`Examples`ExamplesParameters`"]
-Needs["MFGraphs`Examples`ExamplesData`"]
-Data = DataG[2];
 
-MFGEquations = DataToEquations[Data];
+(*Data = DataG[2];
+MFGEquations = DataToEquations[Data];*)
 
-ToRules @ Or @@ Reduce[# && Data[type2] && Data[type3]]&/@Data[type1] (*if Data[type1] has head Or*)
-
-jays = AssociationThread[
+(*ToRules @ Or @@ Reduce[# && Data[type2] && Data[type3]]&/@Data[type1] (*if Data[type1] has head Or*)
+*)
+(*jays = AssociationThread[
    MFGEquations[
     "BEL"], (MFGEquations["jvars"][AtHead[#]] - 
        MFGEquations["jvars"][AtTail[#]] &) /@ MFGEquations["BEL"]];(*this is done in the variables level.*)
+*)
 
+F::usage =
+"";
+
+Intg::usage =
+"";
+
+
+Begin["`Private`"]
 F[j_?NumericQ, x_?NumericQ] :=
     First@Values@FindRoot[Parameters["H[x,p,m]"][x, -j/(m^(1 - Parameters["alpha"])), m], {m, 1}];
 (*we are solving the h-j equation for m given that u_x = -j*m^(alpha-1) *)
 
     
 Intg[j_?NumericQ] :=
-    - j NIntegrate[1/(F[j, x]^(1 - Parameters["alpha"])), {x, 0, 1}]
+    - j NIntegrate[F[j, x]^(Parameters["alpha"] - 1), {x, 0, 1}] // Quiet
 (*this is the rhs of the integral of u_x from 0 to 1: ingetral_0^1 -j*m^(alpha-1) dx*)
 
-With[{j = #},
+(*With[{j = #},
 	Module [{m},
 		m[x_?NumericQ] := F[j, x];
 		Intg[j]
 	]
-]&
+]&*)
 
-world = Association[{
+(*world = Association[{
   
    "EqAll" ->  MFGEquations["EqAll"],
    "EqAllComp" ->  MFGEquations["EqAllComp"],
@@ -41,7 +48,7 @@ world = Association[{
    "rhs" -> 
     Association[
      (# -> Intg(jays[#]) - jays[#] &) /@ MFGEquations["BEL"]]
-   }]
+   }]*)
  
 (*edge is #.....*) 
 
@@ -75,7 +82,7 @@ DataToEquations[Data];
 *)
 
 (*TODO finish this which diogo started.*)
-G[world_Association] := 
+(*G[world_Association] := 
 Function[ jays,
 	Module[{AssembledEquations},
 		AssembledEquations = And@@Map[world["lhs"][#] == world["rhs"][#][jays[#]], world["edges"]];
@@ -84,8 +91,9 @@ Function[ jays,
 ]
 
 FixedPoint[G,0]
+*)
 
-
-EqValue[T_] = 
+(*EqValue[T_] = 
  And @@ ((T[#] == uvars[AtHead[#]] - uvars[AtTail[#]]) & /@ BEL); 
- (* TODO use the same reasoning to approach the more general cases.*)
+*) (* TODO use the same reasoning to approach the more general cases.*)
+End[]

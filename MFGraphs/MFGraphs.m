@@ -11,6 +11,7 @@ Get["MFGraphs`NetworkBuild`"]
 
 Get["MFGraphs`DataToEquations`"]
 
+Get["MFGraphs`IterationFunction`"]
 
 Begin["`Private`"]
 (* Implementation of the package *)

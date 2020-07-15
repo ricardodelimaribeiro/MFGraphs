@@ -118,7 +118,7 @@ Test = Association[{
         2}},(*SwitchingCostsData=*){}},
     (*1 edge*)
     26 -> {(*VL=*){1,2},(*AM=*){{0, 1}, {0, 0}},
-    	(*DataIn=*){{1,1}},(*FinalCosts=*){{2, 2}},(*SwitchingCostsData=*){}}
+    	(*DataIn=*){{1,80}},(*FinalCosts=*){{2, 15}},(*SwitchingCostsData=*){}}
     }];
     
 
