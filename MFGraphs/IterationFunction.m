@@ -39,7 +39,7 @@ AssociateTo[
     Select[Reduce[# && 
          And @@ ((# == 0) & /@ Eqs["Nlhs"] /. Eqs["globalrules"]), 
         Reals, Backsubstitution -> True] & /@ 
-      Eqs["Boo"], (# =!= False) &]];
+      Eqs["EqAllAll"], (# =!= False) &]];
   listeqs = List @@ eqs;
   rules = Solve[List @@ eqs, Reals];
   If[Length[rules] > 1, 
