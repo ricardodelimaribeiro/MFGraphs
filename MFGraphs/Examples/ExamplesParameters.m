@@ -3,7 +3,7 @@
 Parameters =
     Module[ {alpha, beta, g, W, V, H},
         alpha = 1;
-        beta = 2;
+        beta = 1;
         g = If[ beta == 0, 
                 Log,
                 Function[{m},m^beta]
