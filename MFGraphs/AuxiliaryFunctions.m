@@ -76,4 +76,28 @@ EE = Exists[#1, #2] &;
 UU = Solve[#1, #2, Reals] &;
 
 RR = Reduce[#1, #2, Reals] &;
+
+F[j_?NumericQ, x_?NumericQ] :=
+      
+  First@Values@
+    FindRoot[
+     Parameters["H[x,p,m]"][x, -j/(m^(1 - Parameters["alpha"])), 
+      m], {m, 1}];
+(*we are solving the h-j equation for m given that u_x = \
+-j*m^(alpha-1) *)
+
+Intg[j_?NumericQ] :=
+     - j NIntegrate[
+    1/(F[j, x]^(1 - Parameters["alpha"])), {x, 0, 1}] // Quiet
+(*this is the rhs of the integral of u_x from 0 to 1: ingetral_0^1 \
+-j*m^(alpha-1) dx*)
+With[{j = #},
+   	Module [{m},
+    		m[x_?NumericQ] := F[j, x];
+    		Intg[j]
+    	]
+   ] &;
+  
+  
+  
 End[]

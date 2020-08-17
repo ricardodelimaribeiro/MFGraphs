@@ -23,7 +23,7 @@ DataToEquations[Data_?AssociationQ] :=
       ExitValues, EqExitValues, SwitchingCosts, OutRules, InRules, 
       Transu, EqSwitchingConditions, Compu, EqCompCon,
       EqValueAuxiliaryEdges, EqAllComp, EqAll, SignedCurrents, Nrhs, Nlhs, RulesEntryIn, 
-      RulesExitValues, Boo, EqAllRules, EqAllCompRules, EqAllAll, EqAllAllSimple},
+      RulesExitValues, EqAllRules, EqAllCompRules, EqAllAll, EqAllAllSimple},
         BG = AdjacencyGraph[
             Data["Vertices List"], 
             Data["Adjacency Matrix"], 
@@ -70,11 +70,11 @@ DataToEquations[Data_?AssociationQ] :=
             jtvars[{v, edge1, edge2}] == 0 || jtvars[{v, edge2, edge1}] == 0;
         EqTransitionCompCon = 
          And @@ ((Sort /@ TransitionCompCon /@ AllTransitions) // Union);
-        (*EqAll=EqPosCon&&EqCurrentCompCon&&EqTransitionCompCon;*)
         IncomingEdges[k_] :=
             {k, #1} & /@ 
             IncidenceList[FG, 
-            k](*all edges "oriented" towards the vertex k*)
+            k]
+            (*all edges "oriented" towards the vertex k*)
         (*all edges\ \
       "oriented" away from the vertex k*);
         OutgoingEdges[k_] :=
@@ -96,8 +96,7 @@ DataToEquations[Data_?AssociationQ] :=
         EqAll = 
          EqPosCon && EqBalanceSplittingCurrents && 
           EqBalanceGatheringCurrents;
-        (*EqAll=EqAll&&EqBalanceSplittingCurrents&&
-        EqBalanceGatheringCurrents;*)
+   
         EntryArgs = 
          AtHead /@ ((EdgeList[
                 AuxiliaryGraph, _ \[DirectedEdge] #] & /@ (First /@ 
@@ -156,7 +155,7 @@ DataToEquations[Data_?AssociationQ] :=
             SwitchingCosts[{v, edge1, edge2}] == 0;
         EqCompCon = And @@ Compu /@ AllTransitions;
         EqValueAuxiliaryEdges = And @@ ((uvars[AtHead[#]] - uvars[AtTail[#]] == 0) & /@ EdgeList[AuxiliaryGraph]);
-        (*EqNoInt=EqAll&&EqValueAuxiliaryEdges;*)
+
         EqAllComp = EqCurrentCompCon && EqTransitionCompCon && EqCompCon;
         EqAll = EqAll && EqValueAuxiliaryEdges;
         
@@ -229,8 +228,7 @@ DataToEquations[Data_?AssociationQ] :=
           "EqAll" -> EqAll, 
           "jays" -> SignedCurrents, 
           "Nrhs" -> Nrhs, 
-          "Nlhs" -> Nlhs, 
-          "Boo" -> Boo,
+          "Nlhs" -> Nlhs,
           "EqAllCompRules" -> EqAllCompRules,
           "EqAllRules" -> EqAllRules,
           "EqAllAll" -> EqAllAll,
