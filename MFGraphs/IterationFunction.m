@@ -11,7 +11,7 @@
 (*TODO make the iterative function work on all the values.*)
 
 
-Data = DataG[2];
+Data = DataG[17];
 MFGEquations = DataToEquations[Data];
 
 EqEliminatorX[system_] := 
@@ -30,7 +30,7 @@ EqEliminatorX[system_] :=
 AssociateTo[
   MFGEquations, {"reduced" -> 
     FixedPoint[EqEliminatorX, 
-     MFGEquations["EqAllComp"] && MFGEquations["EqAll"], 10], 
+     MFGEquations["EqAllCompRules"] && MFGEquations["EqAllRules"], 10], 
    "globalrules" -> globalrules}];
    
    StartSolverX[Eqs_Association] :=
