@@ -4,15 +4,18 @@
 
 BeginPackage["MFGraphs`"]
 (* Exported symbols added here with SymbolName::usage *) 
+Get["MFGraphs`Examples`ExamplesParameters`"];
+
+Get["MFGraphs`Examples`ExamplesData`"];
 
 Get["MFGraphs`AuxiliaryFunctions`"]
 
-Get["MFGraphs`NetworkBuild`"]
+(*Get["MFGraphs`NetworkBuild`"]*)
 
 Get["MFGraphs`DataToEquations`"]
 
 Get["MFGraphs`IterationFunction`"]
-
+ 
 Begin["`Private`"]
 (* Implementation of the package *)
 
