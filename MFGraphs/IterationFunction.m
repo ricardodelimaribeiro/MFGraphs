@@ -19,14 +19,16 @@ FixedPointSolverStepX::usage =
 
 Begin["`Private`"]
 
-EqEliminatorX[system_] :=
-Module[ {newrules},(*replace rules in system before solving*)
- 	newrules = Select[system, (Head[#] === Equal) &] && And @@ (globalrules /. Rule -> Equal) // Solve // First // Quiet;
-    (*Print[newrules]*);
-    globalrules =  newrules;(*replace in the rules before appending*)
-    system /. globalrules
+EqEliminatorX[{system_, rules_}] :=
+If[Head[system] === And, 
+	Module[ {newrules},(*replace rules in system before solving*)
+ 	newrules = Select[system, (Head[#] === Equal) &] && And @@ (rules /. Rule -> Equal) // Solve // First // Quiet;
+    {system /. newrules, newrules}],
+    {system, rules}
 ];
-   
+   (*TODO critical congestion solution tester: replace "solution" on the equations. Look at the output to figure out if it works!! *)
+   (*in the nonlinear probelm, look for approximately equalities.*)
+   (*TODO use the result of the fixed point in this function and the fixed point simplifier again.*)
 StartSolverX[Eqs_Association] :=
 Module[ {eqs, listeqs, rules},
 	eqs = DeleteDuplicates[Select[Reduce[# && And @@ ((# == 0) & /@ Eqs["Nlhs"] /. Eqs["globalrules"]), Reals, Backsubstitution -> True] & /@ Eqs["EqAllAll"], (# =!= False) &]];
