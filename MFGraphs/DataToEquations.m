@@ -23,7 +23,7 @@ DataToEquations[Data_?AssociationQ] :=
       ExitValues, EqExitValues, SwitchingCosts, OutRules, InRules, 
       Transu, EqSwitchingConditions, Compu, EqCompCon,
       EqValueAuxiliaryEdges, EqAllComp, EqAll, SignedCurrents, Nrhs, Nlhs, RulesEntryIn, 
-      RulesExitValues, EqAllRules, EqAllCompRules, EqAllAll, EqAllAllSimple},
+      RulesExitValues, EqAllRules, EqAllCompRules, EqAllAll, EqAllAllSimple, EqAllAllRules, reduced},
         BG = AdjacencyGraph[
             Data["Vertices List"], 
             Data["Adjacency Matrix"], 
@@ -163,11 +163,20 @@ DataToEquations[Data_?AssociationQ] :=
         EqAllCompRules = EqAllComp /. Join[RulesEntryIn, RulesExitValues];
         EqAllRules = EqAll /. Join[RulesEntryIn, RulesExitValues];
         EqAllAll = EqAll && EqAllComp;(*this is in the place of Boo, without the brackets.*)
+        EqAllAllRules = EqAllCompRules && EqAllRules;
         Print["Solving the linear equations"];
-(*        EqAllAllSimple = Select[EqAllAll,  Head[#] === Equal &] // Solve; *)
+        reduced = 
+  			FixedPoint[EqEliminatorX, {EqAllAll, Join[RulesEntryIn, RulesExitValues]}, 10];
+ 		EqAllAllSimple = reduced[[1]];
+ 		
         Nlhs = Flatten[uvars[AtHead[#]] - uvars[AtTail[#]] + SignedCurrents[#] & /@ BEL];
         Nrhs =  Flatten[Intg[SignedCurrents[#]] + SignedCurrents[#] & /@ BEL];
-        Print["Done."];
+       	Print["more stuff"];
+       	EqCriticalCase = # && And @@ (# == 0) & /@ Nlhs;
+       	EqCriticalCaseRules = EqCriticalCase /. reduced[[2]];(*TODO put these blue stuff in the module variables*)
+       	
+       	criticalreduced = FixedPoint[EqEliminatorX, {reduced[[1]] && EqCriticalCaseRules, reduced[[2]]},10]; (*TODO see if this is enough in the place of startsolverX*)
+       	
         Association[{
           (*Graph structure*)
           "BG" -> BG, 
@@ -232,7 +241,14 @@ DataToEquations[Data_?AssociationQ] :=
           "EqAllCompRules" -> EqAllCompRules,
           "EqAllRules" -> EqAllRules,
           "EqAllAll" -> EqAllAll,
-          "EqAllAllSimple" -> EqAllAllSimple
+          "EqAllAllSimple" -> EqAllAllSimple,
+          "RulesEntryIn"-> RulesEntryIn,
+          "RulesExitValues" -> RulesExitValues,
+          "EqAllAllRules" -> EqAllAllRules,
+          "reduced system" -> reduced[[1]],
+          "reducing rules" -> reduced[[2]],
+          "EqCriticalCaseRules" -> EqCriticalCaseRules,
+          "EqCriticalCase" -> EqCriticalCase 
           }]
     ]
 

@@ -31,7 +31,7 @@ If[Head[system] === And,
    (*TODO use the result of the fixed point in this function and the fixed point simplifier again.*)
 StartSolverX[Eqs_Association] :=
 Module[ {eqs, listeqs, rules},
-	eqs = DeleteDuplicates[Select[Reduce[# && And @@ ((# == 0) & /@ Eqs["Nlhs"] /. Eqs["globalrules"]), Reals, Backsubstitution -> True] & /@ Eqs["EqAllAll"], (# =!= False) &]];
+	eqs = DeleteDuplicates[Select[Reduce[# && And @@ ((# == 0) & /@ Eqs["Nlhs"] /. Eqs["reducing rules"]), Reals, Backsubstitution -> True] & /@ Eqs["EqAllAll"], (# =!= False) &]];
     listeqs = List @@ eqs;
     rules = Solve[List @@ eqs, Reals];
     If[ Length[rules] > 1,
@@ -43,12 +43,14 @@ Module[ {eqs, listeqs, rules},
   
 FixedPointSolverStepX[Eqs_Association][rules_] :=
 Module[ {system, nonlinear, newsolve},
-	nonlinear = And @@ (MapThread[(#1 == #2) &, {Eqs["Nlhs"] /. Eqs["globalrules"], (Eqs["Nrhs"] /. rules[[1]])}]);
+	nonlinear = And @@ (MapThread[(#1 == #2) &, {Eqs["Nlhs"] /. Eqs["reducing rules"], (Eqs["Nrhs"] /. rules[[1]])}]);
     Print[nonlinear];
-    system = nonlinear && Eqs["reduced"];
+    system = nonlinear && Eqs["reduced system"];
     Print[system];
-    globalrules = Eqs["globalrules"];
-    newsolve = FixedPoint[EqEliminatorX, First@system, 10];
+    globalrules = Eqs["reducing rules"];
+    newsolve = FixedPoint[EqEliminatorX, {system, rules}, 10];
+    
+    	
     Print[newsolve];
     globalrules
        (*Try to use EqEliminatorX here. 
