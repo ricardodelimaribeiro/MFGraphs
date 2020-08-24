@@ -23,7 +23,8 @@ DataToEquations[Data_?AssociationQ] :=
       ExitValues, EqExitValues, SwitchingCosts, OutRules, InRules, 
       Transu, EqSwitchingConditions, Compu, EqCompCon,
       EqValueAuxiliaryEdges, EqAllComp, EqAll, SignedCurrents, Nrhs, Nlhs, RulesEntryIn, 
-      RulesExitValues, EqAllRules, EqAllCompRules, EqAllAll, EqAllAllSimple, EqAllAllRules, reduced},
+      RulesExitValues, EqAllRules, EqAllCompRules, EqAllAll, EqAllAllSimple, EqAllAllRules, reduced,
+      EqCriticalCase, EqCriticalCaseRules, criticalreduced },
         BG = AdjacencyGraph[
             Data["Vertices List"], 
             Data["Adjacency Matrix"], 
@@ -173,9 +174,11 @@ DataToEquations[Data_?AssociationQ] :=
         Nrhs =  Flatten[Intg[SignedCurrents[#]] + SignedCurrents[#] & /@ BEL];
        	Print["more stuff"];
        	EqCriticalCase = # && And @@ (# == 0) & /@ Nlhs;
-       	EqCriticalCaseRules = EqCriticalCase /. reduced[[2]];(*TODO put these blue stuff in the module variables*)
+       	EqCriticalCaseRules = EqCriticalCase /. reduced[[2]];
+       	(*TODO put these blue stuff in the module variables*)
        	
-       	criticalreduced = FixedPoint[EqEliminatorX, {reduced[[1]] && EqCriticalCaseRules, reduced[[2]]},10]; (*TODO see if this is enough in the place of startsolverX*)
+       	criticalreduced = FixedPoint[EqEliminatorX, {reduced[[1]] && EqCriticalCaseRules, reduced[[2]]},10]; 
+       	(*TODO see if this is enough in the place of startsolverX*)
        	
         Association[{
           (*Graph structure*)
@@ -253,4 +256,3 @@ DataToEquations[Data_?AssociationQ] :=
     ]
 
 End[]
-
