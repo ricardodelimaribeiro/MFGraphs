@@ -19,14 +19,20 @@ AtHead::usage =
 AtTail::usage = 
 "";
 
-EE::usage = 
+IncomingEdges::usage = 
+"";
+
+OutgoingEdges::usage = 
+"";
+
+(*EE::usage = 
 "";
 
 UU::usage = 
 "";
 
 RR::usage = 
-"";
+"";*)
 F::usage =
 "";
 
@@ -42,7 +48,7 @@ AtTail[a_ \[DirectedEdge] b_] :=
 
 TransitionsAt[G_, k_] :=
     Prepend[#, k] & /@ Permutations[IncidenceList[G, k], {2}];
-
+    
 
 OtherWay[{c_, a_ \[DirectedEdge] b_}] :=
     {If[ c === a,
@@ -75,12 +81,17 @@ triple2path[{a_, b_, c_}, G_] :=
         ]
     ];
 
-
-EE = Exists[#1, #2] &;
+IncomingEdges[k_] := {k, #1} & /@ IncidenceList[FG,k];
+(*all edges "oriented" towards the vertex k*)
+       
+OutgoingEdges[k_] := OtherWay /@ ({k, #} & /@ IncidenceList[FG, k]);
+(*all edges "oriented" away from the vertex k*)
+            
+(*EE = Exists[#1, #2] &;
 
 UU = Solve[#1, #2, Reals] &;
 
-RR = Reduce[#1, #2, Reals] &;
+RR = Reduce[#1, #2, Reals] &;*)
 
 F[j_?NumericQ, x_?NumericQ] :=
 First @ Values @ FindRoot[Parameters["H[x,p,m]"][x, -j/(m^(1 - Parameters["alpha"])),m], {m, 1}];
@@ -102,3 +113,4 @@ Intg[j_?NumericQ] :=
   
   
 End[]
+
