@@ -68,18 +68,10 @@ DataToEquations[Data_?AssociationQ] :=
              jvars[{b, a \[DirectedEdge] b}] == 0;
         EqCurrentCompCon = And @@ (CurrentCompCon /@ EL);
         TransitionCompCon[{v_, edge1_, edge2_}] :=
-            jtvars[{v, edge1, edge2}] == 0 || jtvars[{v, edge2, edge1}] == 0;
+            jtvars[{v, edge1, edge2}] == 0 || jtvars[{v, edge2, edge1}] == 0; 
         EqTransitionCompCon = 
          And @@ ((Sort /@ TransitionCompCon /@ AllTransitions) // Union);
-        IncomingEdges[k_] :=
-            {k, #1} & /@ 
-            IncidenceList[FG, 
-            k]
-            (*all edges "oriented" towards the vertex k*)
-        (*all edges\ \
-      "oriented" away from the vertex k*);
-        OutgoingEdges[k_] :=
-            OtherWay /@ ({k, #} & /@ IncidenceList[FG, k]);
+ 
         NoDeadEnds = IncomingEdges /@ VL // Flatten[#, 1] &;
         NoDeadStarts = OutgoingEdges /@ VL // Flatten[#, 1] &;
         CurrentSplitting[{c_, a_ \[DirectedEdge] b_}] :=
@@ -165,7 +157,7 @@ DataToEquations[Data_?AssociationQ] :=
         EqAllRules = EqAll /. Join[RulesEntryIn, RulesExitValues];
         EqAllAll = EqAll && EqAllComp;(*this is in the place of Boo, without the brackets.*)
         EqAllAllRules = EqAllCompRules && EqAllRules;
-        Print["Solving the linear equations"];
+       
         reduced = 
   			FixedPoint[EqEliminatorX, {EqAllAll, Join[RulesEntryIn, RulesExitValues]}, 10];
  		EqAllAllSimple = reduced[[1]];
@@ -175,7 +167,7 @@ DataToEquations[Data_?AssociationQ] :=
        	Print["more stuff"];
        	EqCriticalCase = # && And @@ (# == 0) & /@ Nlhs;
        	EqCriticalCaseRules = EqCriticalCase /. reduced[[2]];
-       	(*TODO put these blue stuff in the module variables*)
+       
        	
        	criticalreduced = FixedPoint[EqEliminatorX, {reduced[[1]] && EqCriticalCaseRules, reduced[[2]]},10]; 
        	(*TODO see if this is enough in the place of startsolverX*)
@@ -196,8 +188,6 @@ DataToEquations[Data_?AssociationQ] :=
           "BEL" -> BEL, 
           "FVL" -> FVL, 
           "AllTransitions" -> AllTransitions, 
-          "IncomingEdges" -> IncomingEdges, 
-          "OutgoingEdges" -> OutgoingEdges, 
           "NoDeadEnds" -> NoDeadEnds, 
           "NoDeadStarts" -> NoDeadStarts, 
           (*variables*)
@@ -256,3 +246,4 @@ DataToEquations[Data_?AssociationQ] :=
     ]
 
 End[]
+
