@@ -19,11 +19,11 @@ AtHead::usage =
 AtTail::usage = 
 "";
 
-IncomingEdges::usage = 
+(*IncomingEdges::usage = 
 "";
 
 OutgoingEdges::usage = 
-"";
+"";*)
 
 (*EE::usage = 
 "";
@@ -81,11 +81,6 @@ triple2path[{a_, b_, c_}, G_] :=
         ]
     ];
 
-IncomingEdges[k_] := {k, #1} & /@ IncidenceList[FG,k];
-(*all edges "oriented" towards the vertex k*)
-       
-OutgoingEdges[k_] := OtherWay /@ ({k, #} & /@ IncidenceList[FG, k]);
-(*all edges "oriented" away from the vertex k*)
             
 (*EE = Exists[#1, #2] &;
 

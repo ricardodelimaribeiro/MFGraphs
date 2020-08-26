@@ -16,7 +16,7 @@ DataToEquations[Data_?AssociationQ] :=
       OutwardVertices, OutEdges, AuxiliaryGraph, FG, VL, EL, BEL, jargs, 
       js, jvars, FVL, AllTransitions, jts, jtvars, uargs, us, uvars, 
       EqPosCon, CurrentCompCon, EqCurrentCompCon, TransitionCompCon, 
-      EqTransitionCompCon, IncomingEdges, OutgoingEdges, NoDeadEnds, 
+      EqTransitionCompCon, NoDeadEnds, 
       NoDeadStarts, CurrentSplitting, CurrentGathering, 
       EqBalanceSplittingCurrents, EqBalanceGatheringCurrents, EntryArgs, 
       EntryDataAssociation, EqEntryIn, NonZeroEntryCurrents, ExitCosts, 
@@ -25,6 +25,12 @@ DataToEquations[Data_?AssociationQ] :=
       EqValueAuxiliaryEdges, EqAllComp, EqAll, SignedCurrents, Nrhs, Nlhs, RulesEntryIn, 
       RulesExitValues, EqAllRules, EqAllCompRules, EqAllAll, EqAllAllSimple, EqAllAllRules, reduced,
       EqCriticalCase, EqCriticalCaseRules, criticalreduced },
+      IncomingEdges[k_] := {k, #1} & /@ IncidenceList[FG,k];
+(*all edges "oriented" towards the vertex k*)
+       
+OutgoingEdges[k_] := OtherWay /@ ({k, #} & /@ IncidenceList[FG, k]);
+(*all edges "oriented" away from the vertex k*)
+
         BG = AdjacencyGraph[
             Data["Vertices List"], 
             Data["Adjacency Matrix"], 
@@ -172,6 +178,8 @@ DataToEquations[Data_?AssociationQ] :=
        	criticalreduced = FixedPoint[EqEliminatorX, {reduced[[1]] && EqCriticalCaseRules, reduced[[2]]},10]; 
        	(*TODO see if this is enough in the place of startsolverX*)
        	
+       	
+       	(*TODO return the left and right hand sides of the nonlinear equations*)
         Association[{
           (*Graph structure*)
           "BG" -> BG, 

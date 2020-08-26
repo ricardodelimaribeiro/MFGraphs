@@ -10,6 +10,10 @@
 
 (*TODO make the iterative function work on all the values.*)
 
+FixedSolverStepX2::usage = 
+"";
+
+
 EqEliminatorX::usage = 
 "";
 StartSolverX::usage = 
@@ -35,14 +39,14 @@ Module[ {eqs, listeqs, rules},
     listeqs = List @@ eqs;
     rules = Solve[List @@ eqs, Reals];
     If[ Length[rules] > 1,
-    	Print["There is more than one set of NotFalse equations!"];
+    	Print["There is more than one set of NotFalse equations!"];(*rules is a list with solution lists*)
         rules,
         rules
     ]
 ]
   
 FixedPointSolverStepX[Eqs_Association][rules_] :=
-Module[ {system, nonlinear, newsolve},
+Module[ {system, nonlinear, newsolve, globalrules},
 	nonlinear = And @@ (MapThread[(#1 == #2) &, {Eqs["Nlhs"] /. Eqs["reducing rules"], (Eqs["Nrhs"] /. rules[[1]])}]);
     Print[nonlinear];
     system = nonlinear && Eqs["reduced system"];
@@ -57,4 +61,20 @@ Module[ {system, nonlinear, newsolve},
            But rembemer it changes the globalrules variable (which is global)*)
 ]
   
+FixedSolverStepX2[Eqs_Association][rules_] :=
+Module[ {system, nonlinear, newsolve},
+	nonlinear = And @@ (MapThread[(Equal[#1,#2]) &, {Eqs["Nlhs"], (Eqs["Nrhs"] /. rules)}]);
+    nonlinear = nonlinear/.Eqs["reducing rules"];(*this is the update on the left hand side, basically*)
+    Print["nonlinear: ",nonlinear];
+    system = nonlinear && Eqs["reduced system"];
+    Print["SYSTEM: ", system];
+    newsolve = FixedPoint[EqEliminatorX, {system, rules}, 10];
+(*    Print["newsolve: ", newsolve];*)
+    newsolve[[2]]
+       (*Try to use EqEliminatorX here. 
+           But rembemer it changes the globalrules variable (which is global)*)
+]
+
+
+
 End[]
