@@ -15,43 +15,43 @@ DataToEquations[Data_?AssociationQ] :=
     Module[ {BG, EntranceVertices, InwardVertices, InEdges, ExitVertices, 
       OutwardVertices, OutEdges, AuxiliaryGraph, FG, VL, EL, BEL, jargs, 
       js, jvars, FVL, AllTransitions, jts, jtvars, uargs, us, uvars, 
-      EqPosCon, CurrentCompCon, EqCurrentCompCon, TransitionCompCon, 
-      EqTransitionCompCon, NoDeadEnds, 
-      NoDeadStarts, CurrentSplitting, CurrentGathering, 
-      EqBalanceSplittingCurrents, EqBalanceGatheringCurrents, EntryArgs, 
-      EntryDataAssociation, EqEntryIn, NonZeroEntryCurrents, ExitCosts, 
-      ExitValues, EqExitValues, SwitchingCosts, OutRules, InRules, 
-      Transu, EqSwitchingConditions, Compu, EqCompCon,
-      EqValueAuxiliaryEdges, EqAllComp, EqAll, SignedCurrents, Nrhs, Nlhs, RulesEntryIn, 
+      EqPosCon, EqCurrentCompCon, EqTransitionCompCon, NoDeadEnds, 
+      NoDeadStarts, EqBalanceSplittingCurrents, EqBalanceGatheringCurrents, EntryArgs, 
+      EntryDataAssociation, EqEntryIn, NonZeroEntryCurrents, ExitCosts, EqExitValues, SwitchingCosts, OutRules, InRules, 
+      EqSwitchingConditions, EqCompCon, EqValueAuxiliaryEdges, EqAllComp, EqAll, SignedCurrents, Nrhs, Nlhs, RulesEntryIn, 
       RulesExitValues, EqAllRules, EqAllCompRules, EqAllAll, EqAllAllSimple, EqAllAllRules, reduced,
       EqCriticalCase, EqCriticalCaseRules, criticalreduced },
-      IncomingEdges[k_] := {k, #1} & /@ IncidenceList[FG,k];
-(*all edges "oriented" towards the vertex k*)
-       
-OutgoingEdges[k_] := OtherWay /@ ({k, #} & /@ IncidenceList[FG, k]);
-(*all edges "oriented" away from the vertex k*)
 
-        BG = AdjacencyGraph[
-            Data["Vertices List"], 
-            Data["Adjacency Matrix"], 
-            VertexLabels -> "Name"];
+      (*Begin Internal functions for DataToEquations: *)
+        IncomingEdges[k_] :=
+            {k, #1} & /@ IncidenceList[FG,k]; (*all edges "oriented" towards the vertex k*)
+        OutgoingEdges[k_] :=
+            OtherWay /@ ({k, #} & /@ IncidenceList[FG, k]); (*all edges "oriented" away from the vertex k*)
+        CurrentCompCon[a_ \[DirectedEdge] b_] :=
+            jvars[{a, a \[DirectedEdge] b}] == 0 || jvars[{b, a \[DirectedEdge] b}] == 0;
+        CurrentSplitting[{c_, a_ \[DirectedEdge] b_}] :=
+            Select[AllTransitions, (Take[#, 2] == {c, a \[DirectedEdge] b}) &];
+        CurrentGathering[{c_, a_ \[DirectedEdge] b_}] :=
+            Select[AllTransitions, (Part[#, {1, 3}] == OtherWay[{c, a \[DirectedEdge] b}]) &];
+        TransitionCompCon[{v_, edge1_, edge2_}] :=
+            jtvars[{v, edge1, edge2}] == 0 || jtvars[{v, edge2, edge1}] == 0;
+        ExitValues[a_ \[DirectedEdge] b_] :=
+            Total[uvars /@ {{b, DirectedEdge[a, b]}}] == ExitCosts[b];
+        Transu[{v_, edge1_, edge2_}] :=
+            (*uvars[{v, edge2}] <= SwitchingCosts[{v, edge2, edge1}] + uvars[{v, edge1}];*)
+        	NonNegative[SwitchingCosts[{v,edge2,edge1}]+uvars[{v,edge1}]-uvars[{v,edge2}]];
+        Compu[{v_, edge1_, edge2_}] :=
+            (jtvars[{v, edge1, edge2}] == 0) || uvars[{v, edge1}] - uvars[{v, edge2}] - SwitchingCosts[{v, edge1, edge2}] == 0;
+      (*End*)
+       
+        BG = AdjacencyGraph[Data["Vertices List"], Data["Adjacency Matrix"], VertexLabels -> "Name"];
         EntranceVertices = First /@ Data["Entrance Vertices and Currents"];
-        InwardVertices = 
-         AssociationThread[EntranceVertices, 
-          Unique["en"] & /@ EntranceVertices];
-        (*Defines auxiliary vertices for the entrance vertices*)
-        InEdges = 
-         MapThread[
-          DirectedEdge, {InwardVertices /@ EntranceVertices, 
-           EntranceVertices}];
+        InwardVertices = AssociationThread[EntranceVertices, Unique["en"] & /@ EntranceVertices]; (*Defines auxiliary vertices for the entrance vertices*)
+        InEdges = MapThread[DirectedEdge, {InwardVertices /@ EntranceVertices, EntranceVertices}];
         ExitVertices = First /@ Data["Exit Vertices and Terminal Costs"];
-        OutwardVertices = 
-         AssociationThread[ExitVertices, Unique["ex"] & /@ ExitVertices];
-        OutEdges = 
-         MapThread[
-          DirectedEdge, {ExitVertices, OutwardVertices /@ ExitVertices}];
-        AuxiliaryGraph = 
-         Graph[Join[InEdges, OutEdges], VertexLabels -> "Name"];
+        OutwardVertices = AssociationThread[ExitVertices, Unique["ex"] & /@ ExitVertices];
+        OutEdges = MapThread[DirectedEdge, {ExitVertices, OutwardVertices /@ ExitVertices}];
+        AuxiliaryGraph = Graph[Join[InEdges, OutEdges], VertexLabels -> "Name"];
         FG = EdgeAdd[BG, Join[InEdges, OutEdges]];
         VL = Data["Vertices List"];
         EL = EdgeList[FG];
@@ -61,128 +61,68 @@ OutgoingEdges[k_] := OtherWay /@ ({k, #} & /@ IncidenceList[FG, k]);
         jvars = AssociationThread[jargs, js];
         FVL = VertexList[FG];
         SignedCurrents =   AssociationThread[BEL, (jvars[AtHead[#]] - jvars[AtTail[#]] &) /@ BEL];
-        AllTransitions = 
-         TransitionsAt[FG, #] & /@ FVL // Catenate(*at vertex from first edge to second edge*);
+        AllTransitions = TransitionsAt[FG, #] & /@ FVL // Catenate (*at vertex from first edge to second edge*);
         jts = Unique["jt"] & /@ AllTransitions;
         jtvars = AssociationThread[AllTransitions, jts];
         uargs = Join[AtTail /@ EL, AtHead /@ EL];
         us = Unique["u"] & /@ uargs;
         uvars = AssociationThread[uargs, us];
         EqPosCon = And @@ (NonNegative /@ Join[jvars, jtvars]);
-        CurrentCompCon[a_ \[DirectedEdge] b_] :=
-            jvars[{a, a \[DirectedEdge] b}] == 0 || 
-             jvars[{b, a \[DirectedEdge] b}] == 0;
         EqCurrentCompCon = And @@ (CurrentCompCon /@ EL);
-        TransitionCompCon[{v_, edge1_, edge2_}] :=
-            jtvars[{v, edge1, edge2}] == 0 || jtvars[{v, edge2, edge1}] == 0; 
-        EqTransitionCompCon = 
-         And @@ ((Sort /@ TransitionCompCon /@ AllTransitions) // Union);
- 
+        EqTransitionCompCon = And @@ ((Sort /@ TransitionCompCon /@ AllTransitions) // Union);
         NoDeadEnds = IncomingEdges /@ VL // Flatten[#, 1] &;
         NoDeadStarts = OutgoingEdges /@ VL // Flatten[#, 1] &;
-        CurrentSplitting[{c_, a_ \[DirectedEdge] b_}] :=
-            Select[AllTransitions, (Take[#, 2] == {c, 
-                 a \[DirectedEdge] b}) &];
-        CurrentGathering[{c_, a_ \[DirectedEdge] b_}] :=
-            Select[AllTransitions, (Part[#, {1, 3}] == 
-                OtherWay[{c, a \[DirectedEdge] b}]) &];
-        EqBalanceSplittingCurrents = 
-         And @@ ((jvars[#] == Total[jtvars /@ CurrentSplitting[#]]) & /@ 
-            NoDeadEnds);
-        EqBalanceGatheringCurrents = 
-         And @@ ((jvars[#] == Total[jtvars /@ CurrentGathering[#]]) & /@ 
-            NoDeadStarts);
-        EqAll = 
-         EqPosCon && EqBalanceSplittingCurrents && 
-          EqBalanceGatheringCurrents;
-   
-        EntryArgs = 
-         AtHead /@ ((EdgeList[
-                AuxiliaryGraph, _ \[DirectedEdge] #] & /@ (First /@ 
-                Data["Entrance Vertices and Currents"])) // Flatten[#, 1] &);
-        EntryDataAssociation = 
-         AssociationThread[EntryArgs, 
-          Last /@ Data["Entrance Vertices and Currents"]];
-        EqEntryIn = 
-         And @@ ((jvars[#] == EntryDataAssociation[#]) & /@ (AtHead /@ 
-              InEdges));
+        EqBalanceSplittingCurrents = And @@ ((jvars[#] == Total[jtvars /@ CurrentSplitting[#]]) & /@ NoDeadEnds);
+        EqBalanceGatheringCurrents = And @@ ((jvars[#] == Total[jtvars /@ CurrentGathering[#]]) & /@ NoDeadStarts);
+        EqAll = EqPosCon && EqBalanceSplittingCurrents && EqBalanceGatheringCurrents;
+        EntryArgs = AtHead /@ ((EdgeList[AuxiliaryGraph, _ \[DirectedEdge] #] & /@ (First /@ Data["Entrance Vertices and Currents"])) // Flatten[#, 1] &);
+        EntryDataAssociation = AssociationThread[EntryArgs, Last /@ Data["Entrance Vertices and Currents"]];
+        EqEntryIn = And @@ ((jvars[#] == EntryDataAssociation[#]) & /@ (AtHead /@ InEdges));
         RulesEntryIn = ToRules[EqEntryIn];
-        NonZeroEntryCurrents = 
-         And @@ (Positive[EntryDataAssociation[#]] & /@ (AtHead /@ InEdges));
-        (*useful for the general case...*)
+        NonZeroEntryCurrents = And @@ (Positive[EntryDataAssociation[#]] & /@ (AtHead /@ InEdges)); (*useful for the general case...*)
         EqAll = EqAll && EqEntryIn;
-        ExitCosts = 
-         AssociationThread[
-          OutwardVertices /@ (First /@ 
-             Data["Exit Vertices and Terminal Costs"]), 
-          Last /@ Data["Exit Vertices and Terminal Costs"]];
-        ExitValues[a_ \[DirectedEdge] b_] :=
-            Total[uvars /@ {{b, DirectedEdge[a, b]}}] == ExitCosts[b];
-        EqExitValues = 
-         And @@ (ExitValues /@ 
-            IncidenceList[AuxiliaryGraph, 
-             OutwardVertices /@ ExitVertices]);
+        ExitCosts = AssociationThread[OutwardVertices /@ (First /@ Data["Exit Vertices and Terminal Costs"]), Last /@ Data["Exit Vertices and Terminal Costs"]];
+        EqExitValues = And @@ (ExitValues /@ IncidenceList[AuxiliaryGraph, OutwardVertices /@ ExitVertices]);
         RulesExitValues = ToRules[EqExitValues];
         EqAll = EqAll && EqExitValues;
-        SwitchingCosts = 
-         AssociationThread[
-          Join[AllTransitions, 
-           triple2path[Take[#, 3], FG] & /@ Data["Switching Costs"]], 
-          Join[Table[0, Length[AllTransitions]], 
-           Last[#] & /@ 
-            Data["Switching Costs"]]](*Swithing cost is initialized with 0. \
-      AssociationThread associates the last association!*);
-        OutRules = 
-         Rule[#, Infinity] & /@ (Outer[Flatten[{AtTail[#1], #2}] &, 
-             OutEdges, EL] // Flatten[#, 1] &);
+        SwitchingCosts = AssociationThread[Join[AllTransitions, triple2path[Take[#, 3], FG] & /@ Data["Switching Costs"]], Join[Table[0, Length[AllTransitions]], Last[#] & /@ Data["Switching Costs"]]];(*Swithing cost is initialized with 0. AssociationThread associates the last association!*)
+        OutRules = Rule[#, Infinity] & /@ (Outer[Flatten[{AtTail[#1], #2}] &, OutEdges, EL] // Flatten[#, 1] &);
         AssociateTo[SwitchingCosts, Association[OutRules]];
-        InRules = 
-         Rule[#, Infinity] & /@ (Outer[{#2[[2]], #1, #2} &, 
-             IncidenceList[FG, #] & /@ EntranceVertices, InEdges] // 
-      Flatten[#, 2] &);
+        InRules = Rule[#, Infinity] & /@ (Outer[{#2[[2]], #1, #2} &, IncidenceList[FG, #] & /@ EntranceVertices, InEdges] // Flatten[#, 2] &);
         AssociateTo[SwitchingCosts, Association[InRules]];
-        Transu[{v_, edge1_, edge2_}] :=
-            uvars[{v, edge2}] <= 
-             SwitchingCosts[{v, edge2, edge1}] + uvars[{v, edge1}];
-        (*Transu[{v_,edge1_,edge2_}]:=NonNegative[SwitchingCosts[{v,edge2,
-        edge1}]+uvars[{v,edge1}]-uvars[{v,edge2}]];*)
         EqSwitchingConditions = (And @@ Transu /@ AllTransitions);
         EqAll = EqAll && EqSwitchingConditions;
-        Compu[{v_, edge1_, edge2_}] :=
-            (jtvars[{v, edge1, edge2}] == 0) || 
-            uvars[{v, edge1}] - uvars[{v, edge2}] - 
-            SwitchingCosts[{v, edge1, edge2}] == 0;
         EqCompCon = And @@ Compu /@ AllTransitions;
         EqValueAuxiliaryEdges = And @@ ((uvars[AtHead[#]] - uvars[AtTail[#]] == 0) & /@ EdgeList[AuxiliaryGraph]);
-
         EqAllComp = EqCurrentCompCon && EqTransitionCompCon && EqCompCon;
         EqAll = EqAll && EqValueAuxiliaryEdges;
         
         (*Pre-processing: substitute rules in all equations and hand-sides...*)
-        EqAllCompRules = EqAllComp /. Join[RulesEntryIn, RulesExitValues];
-        EqAllRules = EqAll /. Join[RulesEntryIn, RulesExitValues];
+        EqAllCompRules = EqAllComp /. Join[RulesEntryIn, RulesExitValues]; (*unnecessary*)
+        EqAllRules = EqAll /. Join[RulesEntryIn, RulesExitValues]; (*unnecessary*)
         EqAllAll = EqAll && EqAllComp;(*this is in the place of Boo, without the brackets.*)
         EqAllAllRules = EqAllCompRules && EqAllRules;
-       
-        reduced = 
-  			FixedPoint[EqEliminatorX, {EqAllAll, Join[RulesEntryIn, RulesExitValues]}, 10];
- 		EqAllAllSimple = reduced[[1]];
- 		
+        Print["Finished assembling strucural equations: "];
+        reduced = FixedPoint[EqEliminatorX, {EqAllAll, Join[RulesEntryIn, RulesExitValues]}, 10];
+        EqAllAllSimple = reduced[[1]];
+        
+        
         Nlhs = Flatten[uvars[AtHead[#]] - uvars[AtTail[#]] + SignedCurrents[#] & /@ BEL];
         Nrhs =  Flatten[Intg[SignedCurrents[#]] + SignedCurrents[#] & /@ BEL];
-       	Print["more stuff"];
-       	EqCriticalCase = # && And @@ (# == 0) & /@ Nlhs;
-       	EqCriticalCaseRules = EqCriticalCase /. reduced[[2]];
-       
-       	
-       	criticalreduced = FixedPoint[EqEliminatorX, {reduced[[1]] && EqCriticalCaseRules, reduced[[2]]},10]; 
-       	(*TODO see if this is enough in the place of startsolverX*)
-       	
-       	
-       	(*TODO return the left and right hand sides of the nonlinear equations*)
+        
+        Nlhs = Nlhs/.reduced[[2]];
+        Nrhs = Nrhs/.reduced[[2]];
+        
+        Print["Critical case: "];
+        EqCriticalCase = And @@ ((# == 0) & /@ Nlhs);
+        EqCriticalCaseRules = EqCriticalCase /. reduced[[2]]; (*unnecessary*)
+        criticalreduced = FixedPoint[EqEliminatorX, {reduced[[1]] && EqCriticalCaseRules, reduced[[2]]},10]; 
+           (*TODO see if this is enough in the place of startsolverX*)
+                   
+           (*TODO return the left and right hand sides of the nonlinear equations*)
         Association[{
           (*Graph structure*)
-          "BG" -> BG, 
+          (*"BG" -> BG, 
           "EntranceVertices" -> EntranceVertices, 
           "InwardVertices" -> InwardVertices, 
           "InEdges" -> InEdges, 
@@ -190,8 +130,8 @@ OutgoingEdges[k_] := OtherWay /@ ({k, #} & /@ IncidenceList[FG, k]);
           "OutwardVertices" -> OutwardVertices, 
           "OutEdges" -> OutEdges, 
           "AuxiliaryGraph" -> AuxiliaryGraph, 
-          "FG" -> FG, 
-          "VL" -> VL, 
+          "FG" -> FG, *)
+          "VL" -> VL, (*
           "EL" -> EL, 
           "BEL" -> BEL, 
           "FVL" -> FVL, 
@@ -206,50 +146,52 @@ OutgoingEdges[k_] := OtherWay /@ ({k, #} & /@ IncidenceList[FG, k]);
           "jtvars" -> jtvars, 
           "uargs" -> uargs, 
           "us" -> us, 
-          "uvars" -> uvars, 
-          (*equations*)
-          (*complementarity*)
-          "CurrentCompCon" -> CurrentCompCon, 
-          "EqCurrentCompCon" -> EqCurrentCompCon, 
-          "TransitionCompCon" -> TransitionCompCon, 
-          "EqTransitionCompCon" -> EqTransitionCompCon, 
-          "Compu" -> Compu, 
-          "EqCompCon" -> EqCompCon, 
-          "EqAllComp" -> EqAllComp, (*union of all complementarity conditions*)
-          (*linear equations (and inequalities)*)
-          "EqPosCon" -> EqPosCon, 
-          "CurrentSplitting" -> CurrentSplitting, 
-          "CurrentGathering" -> CurrentGathering, 
-          "EqBalanceSplittingCurrents" -> EqBalanceSplittingCurrents, 
-          "EqBalanceGatheringCurrents" -> EqBalanceGatheringCurrents, 
-          "EntryArgs" -> EntryArgs, 
-          "EntryDataAssociation" -> EntryDataAssociation, 
-          "EqEntryIn" -> EqEntryIn, 
-          "NonZeroEntryCurrents" -> NonZeroEntryCurrents, 
-          "ExitCosts" -> ExitCosts, 
-          "ExitValues" -> ExitValues, 
-          "EqExitValues" -> EqExitValues, 
+          "uvars" -> uvars,
           "SwitchingCosts" -> SwitchingCosts, 
           "OutRules" -> OutRules, 
           "InRules" -> InRules, 
-          "Transu" -> Transu, 
+          
+          
+          
+          "EntryArgs" -> EntryArgs, 
+          "EntryDataAssociation" -> EntryDataAssociation, 
+          "jays" -> SignedCurrents, 
+          "NonZeroEntryCurrents" -> NonZeroEntryCurrents, 
+          "ExitCosts" -> ExitCosts, 
+          
+          
+          *) 
+          (*equations*)
+          (*complementarity*)
+(*          "EqCurrentCompCon" -> EqCurrentCompCon, 
+          "EqTransitionCompCon" -> EqTransitionCompCon, 
+          "EqCompCon" -> EqCompCon, 
+          "EqAllComp" -> EqAllComp, (*union of all complementarity conditions*)*)
+          
+          (*linear equations (and inequalities)*)
+          (*"EqPosCon" -> EqPosCon, 
+          "EqBalanceSplittingCurrents" -> EqBalanceSplittingCurrents, 
+          "EqBalanceGatheringCurrents" -> EqBalanceGatheringCurrents, 
+          "EqEntryIn" -> EqEntryIn, 
+          "EqExitValues" -> EqExitValues, 
           "EqSwitchingConditions" -> EqSwitchingConditions, 
           "EqValueAuxiliaryEdges" -> EqValueAuxiliaryEdges, 
-          "EqAll" -> EqAll, 
-          "jays" -> SignedCurrents, 
-          "Nrhs" -> Nrhs, 
-          "Nlhs" -> Nlhs,
-          "EqAllCompRules" -> EqAllCompRules,
-          "EqAllRules" -> EqAllRules,
+          "EqAll" -> EqAll, *)
+         (* "EqAllCompRules" -> EqAllCompRules,
+          "EqAllRules" -> EqAllRules,*)
           "EqAllAll" -> EqAllAll,
-          "EqAllAllSimple" -> EqAllAllSimple,
-          "RulesEntryIn"-> RulesEntryIn,
-          "RulesExitValues" -> RulesExitValues,
-          "EqAllAllRules" -> EqAllAllRules,
-          "reduced system" -> reduced[[1]],
-          "reducing rules" -> reduced[[2]],
+          "reduced" -> reduced,
+(*          "EqAllAllSimple" -> EqAllAllSimple,*)
+(*          "RulesEntryIn"-> RulesEntryIn,
+          "RulesExitValues" -> RulesExitValues,*)
+(*          "EqAllAllRules" -> EqAllAllRules,*)
+          (*"reduced system" -> reduced[[1]],
+          "reducing rules" -> reduced[[2]],*)
+          "Nlhs" -> Nlhs,
           "EqCriticalCaseRules" -> EqCriticalCaseRules,
-          "EqCriticalCase" -> EqCriticalCase 
+(*          "EqCriticalCase" -> EqCriticalCase ,*)
+          "criticalreduced" -> criticalreduced,
+          "Nrhs" -> Nrhs
           }]
     ]
 

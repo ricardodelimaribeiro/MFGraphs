@@ -47,7 +47,7 @@ Module[ {eqs, listeqs, rules},
   
 FixedPointSolverStepX[Eqs_Association][rules_] :=
 Module[ {system, nonlinear, newsolve, globalrules},
-	nonlinear = And @@ (MapThread[(#1 == #2) &, {Eqs["Nlhs"] /. Eqs["reducing rules"], (Eqs["Nrhs"] /. rules[[1]])}]);
+	nonlinear = And @@ (MapThread[(#1 == #2) &, {Eqs["Nlhs"] /. Eqs["reducing rules"], (Eqs["Nrhs"] /. rules)}]);
     Print[nonlinear];
     system = nonlinear && Eqs["reduced system"];
     Print[system];
@@ -64,13 +64,12 @@ Module[ {system, nonlinear, newsolve, globalrules},
 FixedSolverStepX2[Eqs_Association][rules_] :=
 Module[ {system, nonlinear, newsolve},
 	nonlinear = And @@ (MapThread[(Equal[#1,#2]) &, {Eqs["Nlhs"], (Eqs["Nrhs"] /. rules)}]);
-    nonlinear = nonlinear/.Eqs["reducing rules"];(*this is the update on the left hand side, basically*)
-    Print["nonlinear: ",nonlinear];
+    Print["nonlinear: ",nonlinear];(*hopefully these are all numeric.*)
     system = nonlinear && Eqs["reduced system"];
     Print["SYSTEM: ", system];
-    newsolve = FixedPoint[EqEliminatorX, {system, rules}, 10];
-(*    Print["newsolve: ", newsolve];*)
-    newsolve[[2]]
+    newsolve = FixedPoint[EqEliminatorX, {system, Eqs["reducing rules"]}, 10];
+    Print["newsolve 2: ", newsolve];
+    Association @ newsolve[[2]]
        (*Try to use EqEliminatorX here. 
            But rembemer it changes the globalrules variable (which is global)*)
 ]
