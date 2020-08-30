@@ -20,7 +20,7 @@ DataToEquations[Data_?AssociationQ] :=
       EntryDataAssociation, EqEntryIn, NonZeroEntryCurrents, ExitCosts, EqExitValues, SwitchingCosts, OutRules, InRules, 
       EqSwitchingConditions, EqCompCon, EqValueAuxiliaryEdges, EqAllComp, EqAll, SignedCurrents, Nrhs, Nlhs, RulesEntryIn, 
       RulesExitValues, EqAllRules, EqAllCompRules, EqAllAll, EqAllAllSimple, EqAllAllRules, reduced,
-      EqCriticalCase, EqCriticalCaseRules, criticalreduced },
+      EqCriticalCase, EqCriticalCaseRules, criticalreduced, EqGeneralCase },
 
       (*Begin Internal functions for DataToEquations: *)
         IncomingEdges[k_] :=
@@ -96,30 +96,33 @@ DataToEquations[Data_?AssociationQ] :=
         EqValueAuxiliaryEdges = And @@ ((uvars[AtHead[#]] - uvars[AtTail[#]] == 0) & /@ EdgeList[AuxiliaryGraph]);
         EqAllComp = EqCurrentCompCon && EqTransitionCompCon && EqCompCon;
         EqAll = EqAll && EqValueAuxiliaryEdges;
-        
         (*Pre-processing: substitute rules in all equations and hand-sides...*)
         EqAllCompRules = EqAllComp /. Join[RulesEntryIn, RulesExitValues]; (*unnecessary*)
         EqAllRules = EqAll /. Join[RulesEntryIn, RulesExitValues]; (*unnecessary*)
         EqAllAll = EqAll && EqAllComp;(*this is in the place of Boo, without the brackets.*)
         EqAllAllRules = EqAllCompRules && EqAllRules;
-        Print["Finished assembling strucural equations: "];
+        Print["DataToEquations: Finished assembling strucural equations: "];
+        (*Print["Initial system-rules :", {EqAllAll, Join[RulesEntryIn, RulesExitValues]}]*)
         reduced = FixedPoint[EqEliminatorX, {EqAllAll, Join[RulesEntryIn, RulesExitValues]}, 10];
         EqAllAllSimple = reduced[[1]];
-        
-        
         Nlhs = Flatten[uvars[AtHead[#]] - uvars[AtTail[#]] + SignedCurrents[#] & /@ BEL];
-        Nrhs =  Flatten[Intg[SignedCurrents[#]] + SignedCurrents[#] & /@ BEL];
-        
         Nlhs = Nlhs/.reduced[[2]];
-        Nrhs = Nrhs/.reduced[[2]];
-        
-        Print["Critical case: "];
+        Print["DataToEquations: Critical case ... "];
         EqCriticalCase = And @@ ((# == 0) & /@ Nlhs);
-        EqCriticalCaseRules = EqCriticalCase /. reduced[[2]]; (*unnecessary*)
-        criticalreduced = FixedPoint[EqEliminatorX, {reduced[[1]] && EqCriticalCaseRules, reduced[[2]]},10]; 
-           (*TODO see if this is enough in the place of startsolverX*)
-                   
-           (*TODO return the left and right hand sides of the nonlinear equations*)
+        (*Print[EqCriticalCase];*)
+        (*EqCriticalCaseRules = EqCriticalCase /. reduced[[2]]*)(*unnecessary*)
+        (*Print[EqCriticalCaseRules];*)
+        criticalreduced = FixedPoint[EqEliminatorX, {reduced[[1]] && EqCriticalCase, reduced[[2]]},10];
+        Print["DataToEquations: Reducing ..."]; 
+        criticalreduced = {criticalreduced[[1]]//Reduce,criticalreduced[[2]]};
+        criticalreduced = FixedPoint[EqEliminatorX, criticalreduced,10];
+           (*DONE: it solves the critical congestion! see if this is enough in the place of startsolverX*)
+           (*DONE return the left and right hand sides of the nonlinear equations*)
+        Nrhs =  Flatten[Intg[SignedCurrents[#]] + SignedCurrents[#] & /@ BEL];
+        Nrhs = Nrhs/.reduced[[2]];
+        EqGeneralCase = And @@ (MapThread[(#1 == #2) &, {Nlhs , Nrhs}]);
+        
+        Print["DataToEquations: Done."];
         Association[{
           (*Graph structure*)
           (*"BG" -> BG, 
@@ -129,9 +132,9 @@ DataToEquations[Data_?AssociationQ] :=
           "ExitVertices" -> ExitVertices, 
           "OutwardVertices" -> OutwardVertices, 
           "OutEdges" -> OutEdges, 
-          "AuxiliaryGraph" -> AuxiliaryGraph, 
-          "FG" -> FG, *)
-          "VL" -> VL, (*
+          "AuxiliaryGraph" -> AuxiliaryGraph,*) 
+          "FG" -> FG, (*
+          "VL" -> VL, 
           "EL" -> EL, 
           "BEL" -> BEL, 
           "FVL" -> FVL, 
@@ -188,10 +191,11 @@ DataToEquations[Data_?AssociationQ] :=
           (*"reduced system" -> reduced[[1]],
           "reducing rules" -> reduced[[2]],*)
           "Nlhs" -> Nlhs,
-          "EqCriticalCaseRules" -> EqCriticalCaseRules,
-(*          "EqCriticalCase" -> EqCriticalCase ,*)
+          (*"EqCriticalCaseRules" -> EqCriticalCaseRules,*)
+          "EqCriticalCase" -> EqCriticalCase ,
           "criticalreduced" -> criticalreduced,
-          "Nrhs" -> Nrhs
+          "Nrhs" -> Nrhs,
+          "EqGeneralCase" -> EqGeneralCase
           }]
     ]
 
