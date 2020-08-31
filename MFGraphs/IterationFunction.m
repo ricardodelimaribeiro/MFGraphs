@@ -26,16 +26,24 @@ Begin["`Private`"]
 
 EqEliminatorX[{system_, rules_}] := (*if it solves, system becomes True. rules is a list of rules or an association.*)
 Which[Head[system] === And, 
-	Module[ {newrules, rulesAss},(*replace rules in system before solving*)
-		rulesAss = Association[rules];
+	Module[ {newrules, rulesAss = Association[rules]},(*replace rules in system before solving*)
 		newrules = Select[system, (Head[#] === Equal) &]  // Solve // First // Quiet; (*The reason we use Quiet is:  Solve::svars: Equations may not give solutions for all "solve" variables.*)
-		(*Print["newrules :", newrules]*);
-    	{system /. newrules, AssociateTo[rulesAss, newrules]/.newrules}],
+		(*Print["rulesAss: ", rulesAss];
+		Print["newrules: ", newrules];
+		Print["system: ",system];
+		Print["system newrules: ", system /. newrules];*)
+    	{system /. newrules, AssociateTo[rulesAss, newrules]/.newrules}
+    ],
+    Head[system] === Equal,
+    Module[ {newrules, rulesAss = Association[rules]},(*replace rules in system before solving*)
+    	newrules = First[Solve[system]];
+    	{system /. newrules, AssociateTo[rulesAss, newrules]/.newrules}
+    ],		
     system === True,
-    	Print["EqEliminatorX: Reached a solution!"];
-    	{system, rules},
+    Print["EqEliminatorX: Reached a solution!"];
+    {system, rules},
     True,
-    	Print["Something is wrong with the equations: ", system];    
+    Print["Something is wrong with the equations: ", system];    
     {system, rules}
 ];
    (*TODO critical congestion solution tester: replace "solution" on the equations. Look at the output to figure out if it works!! *)
@@ -61,8 +69,6 @@ Module[ {system, nonlinear, newsolve, globalrules},
     Print[system];
     globalrules = Eqs["reducing rules"];
     newsolve = FixedPoint[EqEliminatorX, {system, rules}, 10];
-    
-    	
     Print[newsolve];
     globalrules
        (*Try to use EqEliminatorX here. 
@@ -72,15 +78,16 @@ Module[ {system, nonlinear, newsolve, globalrules},
 FixedSolverStepX2[Eqs_Association][rules_] :=
 Module[ {system, nonlinear, newsolve},
 	nonlinear = And @@ (MapThread[(Equal[#1,#2]) &, {Eqs["Nlhs"], (Eqs["Nrhs"] /. rules)}]);
-    (*Print["Step: nonlinear: ",nonlinear];(*hopefully these are all numeric.*)*)
+    Print["Step: nonlinear: ",nonlinear];(*hopefully these are all numeric.*)
     system = Eqs["reduced"][[1]] && nonlinear;
-    (*Print["Step: SYSTEM: ", system];*)
+    Print["Step: SYSTEM: ", system];
     newsolve = FixedPoint[EqEliminatorX, {system, Eqs["reduced"][[2]]}, 10];
-    (*Print["Step: newsolve 2: ", newsolve];*)
-    Print["Step: Reducing ..."];
+    Print["Step: newsolve 2: ", newsolve];
+    Print["Step: Reducing ..."];(*be carefull here!*)(*TODO think of the cases when Reduce returns False...*)
     newsolve = {newsolve[[1]]//Reduce,newsolve[[2]]}//Quiet;(*We use Quiet because of: Reduce::ratnz: Reduce was unable to solve the system with inexact coefficients. The answer was obtained by solving a corresponding exact system and numericizing the result.*)
-    newsolve = FixedPoint[EqEliminatorX, newsolve,10];
-    (*Print["Step: newsolve 3: ", newsolve];*)
+    Print["Step: newsolve 2 resolved", newsolve];
+    newsolve = FixedPoint[EqEliminatorX, newsolve, 10];
+    Print["Step: newsolve 3: ", newsolve];
 	Association @ newsolve[[2]]
 ]
 
