@@ -20,7 +20,7 @@ DataToEquations[Data_?AssociationQ] :=
       EntryDataAssociation, EqEntryIn, NonZeroEntryCurrents, ExitCosts, EqExitValues, SwitchingCosts, OutRules, InRules, 
       EqSwitchingConditions, EqCompCon, EqValueAuxiliaryEdges, EqAllComp, EqAll, SignedCurrents, Nrhs, Nlhs, RulesEntryIn, 
       RulesExitValues, EqAllRules, EqAllCompRules, EqAllAll, EqAllAllSimple, EqAllAllRules, reduced,
-      EqCriticalCase, EqCriticalCaseRules, criticalreduced, EqGeneralCase },
+      EqCriticalCase, BoundaryRules, criticalreduced, EqGeneralCase },
 
       (*Begin Internal functions for DataToEquations: *)
         IncomingEdges[k_] :=
@@ -97,14 +97,17 @@ DataToEquations[Data_?AssociationQ] :=
         EqAllComp = EqCurrentCompCon && EqTransitionCompCon && EqCompCon;
         EqAll = EqAll && EqValueAuxiliaryEdges;
         (*Pre-processing: substitute rules in all equations and hand-sides...*)
+        BoundaryRules = Join[RulesEntryIn, RulesExitValues];
         EqAllCompRules = EqAllComp /. Join[RulesEntryIn, RulesExitValues]; (*unnecessary*)
-        EqAllRules = EqAll /. Join[RulesEntryIn, RulesExitValues]; (*unnecessary*)
+        EqAllRules = EqAll /. BoundaryRules; (*unnecessary*)
         EqAllAll = EqAll && EqAllComp;(*this is in the place of Boo, without the brackets.*)
         EqAllAllRules = EqAllCompRules && EqAllRules;
         Print["DataToEquations: Finished assembling strucural equations. Reducing the structural system ... "];
-        (*Print["Initial system-rules :", {EqAllAll, Join[RulesEntryIn, RulesExitValues]}]*)
-        reduced = FixedPoint[EqEliminatorX, {EqAllAll, Join[RulesEntryIn, RulesExitValues]}, 10];
+        (*Print["Initial system-rules :", {EqAllAll, BoundaryRules}]*)
+        reduced = FixedPoint[EqEliminatorX, {EqAllAll, BoundaryRules}, 10];
+        Print["First reduced: ",reduced];
         EqAllAllSimple = Reduce[reduced[[1]],Reals]; (*this eliminates most, if not all, inequalities in the system.*)
+        Print["Reduce on the above system: ",EqAllAllSimple];
         reduced = FixedPoint[EqEliminatorX, {EqAllAllSimple, reduced[[2]]}, 10];(*TODO test with a LARGE graph. one entrance and one exit but with 10 edges (11 vertices). *)
         (*TODO to have an idea of what is happening, use Lenght @ FixedPointList and Last @ FixedPointList.*)
         Nlhs = Flatten[uvars[AtHead[#]] - uvars[AtTail[#]] + SignedCurrents[#] & /@ BEL];
@@ -116,8 +119,8 @@ DataToEquations[Data_?AssociationQ] :=
         (*Print[EqCriticalCaseRules];*)
         criticalreduced = FixedPoint[EqEliminatorX, {reduced[[1]] && EqCriticalCase, reduced[[2]]},10];
         Print["DataToEquations: Reducing ..."]; 
-        criticalreduced = {Reduce[criticalreduced[[1]],Reals],criticalreduced[[2]]};
-        criticalreduced = FixedPoint[EqEliminatorX, criticalreduced,10];
+        criticalreduced = {Reduce[criticalreduced[[1]], Reals], criticalreduced[[2]]};
+        criticalreduced = FixedPoint[EqEliminatorX, criticalreduced, 10];
            (*DONE: it solves the critical congestion! see if this is enough in the place of startsolverX*)
            (*DONE return the left and right hand sides of the nonlinear equations*)
         Nrhs =  Flatten[Intg[SignedCurrents[#]] + SignedCurrents[#] & /@ BEL];
@@ -185,6 +188,7 @@ DataToEquations[Data_?AssociationQ] :=
          (* "EqAllCompRules" -> EqAllCompRules,
           "EqAllRules" -> EqAllRules,*)
           "EqAllAll" -> EqAllAll,
+          "BoundaryRules" -> BoundaryRules,
           "reduced" -> reduced,
 (*          "EqAllAllSimple" -> EqAllAllSimple,*)
 (*          "RulesEntryIn"-> RulesEntryIn,
