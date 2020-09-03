@@ -1,7 +1,7 @@
 (* Wolfram Language package *)
 (* this file looks like what we want.*)
-   alpha = 0.5;
-   beta = 1;
+   alpha = 2;
+   beta = 0;
 Parameters =
     Module[ {g, W, V, H},
         g = If[ beta == 0, 
