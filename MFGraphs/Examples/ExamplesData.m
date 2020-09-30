@@ -115,7 +115,7 @@ Test = Association[{
     (*2 edges*)
     25 -> {{1, 2, 
        3}, {{0, 1, 0}, {0, 0, 1}, {0, 0, 0}}, {{2, 2}}, {{1, 
-        1},{3,5}},(*SwitchingCostsData=*){}},
+        5},{3,5}},(*SwitchingCostsData=*){}},
     (*1 edge*)
     26 -> {(*VL=*){1,2},(*AM=*){{0, 1}, {0, 0}},
     	(*DataIn=*){{1,80}},(*FinalCosts=*){{2, 15}},(*SwitchingCostsData=*){}},

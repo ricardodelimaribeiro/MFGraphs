@@ -54,17 +54,18 @@ EqEliminatorX[{system_, rules_}] := (*if it solves, system becomes True. rules i
   
 EqEliminatorX2[{AA_, rules_}] :=
     Module[ {NN, OO, EE, AA2, Asrules = Association[rules]},
-    	(*Print["System Heads: ",List @@ DeleteDuplicates@(Head[#] & /@ AA)];
-    	Print["Rules association input: ", Asrules];*)
+    	Print["System Heads: ",List @@ DeleteDuplicates@(Head[#] & /@ AA)];
+    	Print["Rules association input: ", Asrules];
     	AA2 = AA /. Asrules;
     	EE = Select[AA2, Head[#] === Equal &];
         NN = Select[AA2, Head[#] === NonNegative &];
         OO = Select[AA2, Head[#] === Or &];
-        (*Print["NonNegative: ", NN];
+        Print["NonNegative: ", NN];
         Print["Alternatives: ", OO];
-        Print["Equalities: ", EE];*)
+        Print["Equalities: ", EE];
         AssociateTo[Asrules, Solve[EE, Reals] // First // Quiet];
-        {OO, NN, Asrules} /. Asrules
+        Print[Asrules];
+        {OO, NN, Asrules/. Asrules} 
     ]
 
 EqEliminatorX2[{OO_, NN_, sol_Association}] :=
@@ -100,6 +101,8 @@ FixedSolverStepX2[Eqs_Association][rules_] :=
         (*Print["Step: newsolve 3: ", newsolve];*)
         newsolve[[3]]
     ]
+    
+    (*TODO use Chop with a predefined tolerance*)
 (*This is the implementation we were using that works in some cases.*)
 FixedSolverStepX1[Eqs_Association][rules_] :=
     Module[ {system, nonlinear, newsolve},

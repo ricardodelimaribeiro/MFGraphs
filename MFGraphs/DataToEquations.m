@@ -12,14 +12,14 @@ Begin["`Private`"]
 
 
 DataToEquations[Data_?AssociationQ] :=
-    Module[ {BG, EntranceVertices, InwardVertices, InEdges, ExitVertices, 
+    Module[ {showAll = True, BG, EntranceVertices, InwardVertices, InEdges, ExitVertices, 
       OutwardVertices, OutEdges, AuxiliaryGraph, FG, VL, EL, BEL, jargs, 
       js, jvars, FVL, AllTransitions, jts, jtvars, uargs, us, uvars, 
       EqPosCon, EqCurrentCompCon, EqTransitionCompCon, NoDeadEnds, 
       NoDeadStarts, EqBalanceSplittingCurrents, EqBalanceGatheringCurrents, EntryArgs, 
       EntryDataAssociation, EqEntryIn, NonZeroEntryCurrents, ExitCosts, EqExitValues, SwitchingCosts, OutRules, InRules, 
       EqSwitchingConditions, EqCompCon, EqValueAuxiliaryEdges, EqAllComp, EqAll, SignedCurrents, Nrhs, Nlhs, NrhsR, NlhsR, RulesEntryIn, 
-      RulesExitValues, EqAllRules, EqAllCompRules, EqAllAll, EqAllAllSimple, EqAllAllRules, reduced,
+      RulesExitValues, EqAllRules, EqAllCompRules, EqAllAll, EqAllAllRules, reduced,
       EqCriticalCase, BoundaryRules, criticalreduced, EqGeneralCase },
 
       (*Begin Internal functions for DataToEquations: *)
@@ -140,6 +140,83 @@ DataToEquations[Data_?AssociationQ] :=
         EqGeneralCase = And @@ (MapThread[(#1 == #2) &, {Nlhs , Nrhs}]);
         
         Print["DataToEquations: Done."];
+        If[showAll == True,
+        	Association[{
+          (*Graph structure*)
+          "BG" -> BG, 
+          "EntranceVertices" -> EntranceVertices, 
+          "InwardVertices" -> InwardVertices, 
+          "InEdges" -> InEdges, 
+          "ExitVertices" -> ExitVertices, 
+          "OutwardVertices" -> OutwardVertices, 
+          "OutEdges" -> OutEdges, 
+          "AuxiliaryGraph" -> AuxiliaryGraph, 
+          "FG" -> FG, 
+          "VL" -> VL, 
+          "EL" -> EL, 
+          "BEL" -> BEL, 
+          "FVL" -> FVL, 
+          "AllTransitions" -> AllTransitions, 
+          "NoDeadEnds" -> NoDeadEnds, 
+          "NoDeadStarts" -> NoDeadStarts, 
+          (*variables*)
+          "jargs" -> jargs, 
+          "js" -> js, 
+          "jvars" -> jvars, 
+          "jts" -> jts, 
+          "jtvars" -> jtvars, 
+          "uargs" -> uargs, 
+          "us" -> us, 
+          "uvars" -> uvars,
+          "SwitchingCosts" -> SwitchingCosts, 
+          "OutRules" -> OutRules, 
+          "InRules" -> InRules, 
+          
+          
+          
+          "EntryArgs" -> EntryArgs, 
+          "EntryDataAssociation" -> EntryDataAssociation, 
+          "jays" -> SignedCurrents, 
+          "NonZeroEntryCurrents" -> NonZeroEntryCurrents, 
+          "ExitCosts" -> ExitCosts, 
+          
+          
+           
+          (*equations*)
+          (*complementarity*)
+          "EqCurrentCompCon" -> EqCurrentCompCon, 
+          "EqTransitionCompCon" -> EqTransitionCompCon, 
+          "EqCompCon" -> EqCompCon, 
+          "EqAllComp" -> EqAllComp, (*union of all complementarity conditions*)
+          
+          (*linear equations (and inequalities)*)
+          "EqPosCon" -> EqPosCon, 
+          "EqBalanceSplittingCurrents" -> EqBalanceSplittingCurrents, 
+          "EqBalanceGatheringCurrents" -> EqBalanceGatheringCurrents, 
+          "EqEntryIn" -> EqEntryIn, 
+          "EqExitValues" -> EqExitValues, 
+          "EqSwitchingConditions" -> EqSwitchingConditions, 
+          "EqValueAuxiliaryEdges" -> EqValueAuxiliaryEdges, 
+          "EqAll" -> EqAll, 
+          "EqAllCompRules" -> EqAllCompRules,
+          "EqAllRules" -> EqAllRules,
+          "EqAllAll" -> EqAllAll,
+          "BoundaryRules" -> BoundaryRules,
+          "reduced" -> reduced,
+          "EqAllAllSimple" -> EqAllAllSimple,
+          "RulesEntryIn"-> RulesEntryIn,
+          "RulesExitValues" -> RulesExitValues,
+          "EqAllAllRules" -> EqAllAllRules,
+          "reduced system" -> reduced[[1]],
+          "reducing rules" -> reduced[[2]],
+          "Nlhs" -> Nlhs,
+          "EqCriticalCaseRules" -> EqCriticalCaseRules,
+          "EqCriticalCase" -> EqCriticalCase ,
+          "criticalreduced" -> criticalreduced,
+          "Nrhs" -> Nrhs,
+          "EqGeneralCase" -> EqGeneralCase
+          }]
+        	,
         Association[{
           (*Graph structure*)
           (*"BG" -> BG, 
@@ -215,6 +292,7 @@ DataToEquations[Data_?AssociationQ] :=
           "Nrhs" -> Nrhs,
           "EqGeneralCase" -> EqGeneralCase
           }]
+        ]
     ]
 
 End[]
