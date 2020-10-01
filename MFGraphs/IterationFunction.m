@@ -27,8 +27,11 @@ EqEliminatorX2::usage =
 Begin["`Private`"]
 
 EqEliminatorX[{system_, rules_}] := (*if it solves, system becomes True. rules is a list of rules or an association.*)
+	(*system = system /. rules;*)(*TODO why does this not work?*)
+	(*Print[system];*)
     Which[Head[system] === And, (*TODO what if the Head is Or? As in a boolean-converted system...*)
         Module[ {newrules, rulesAss = Association[rules]},(*replace rules in system before solving*)
+        	(*system = system /. rules;*)(*TODO why not use rules in the system before anything else?*)
             newrules = Select[system, (Head[#] === Equal) &]  // Solve // First // Quiet; (*The reason we use Quiet is:  Solve::svars: Equations may not give solutions for all "solve" variables.*)
             (*Print["rulesAss: ", rulesAss];
             Print["newrules: ", newrules];
@@ -91,7 +94,7 @@ EqEliminatorX2[{OO_, NN_, sol_Association}] :=
 
 FixedSolverStepX2[Eqs_Association][rules_] :=
     Module[ {system, nonlinear, newsolve},
-        nonlinear = And @@ (MapThread[(Equal[#1,#2]) &, {Eqs["Nlhs"], (Eqs["Nrhs"] /. rules)}]);
+        nonlinear = And @@ (MapThread[(Equal[#1,#2]) &, {Eqs["Nlhs"], Chop[(Eqs["Nrhs"] /. rules),10^-14]}]);
         Print["Step: nonlinear: ",nonlinear];(*hopefully these are all numeric.*)
         system = Eqs["EqAllAll"] && nonlinear;
         (*Print["Step: SYSTEM: ", system];*)
@@ -106,7 +109,7 @@ FixedSolverStepX2[Eqs_Association][rules_] :=
 (*This is the implementation we were using that works in some cases.*)
 FixedSolverStepX1[Eqs_Association][rules_] :=
     Module[ {system, nonlinear, newsolve},
-        nonlinear = And @@ (MapThread[(Equal[#1,#2]) &, {Eqs["Nlhs"], (Eqs["Nrhs"] /. rules)}]);
+        nonlinear = And @@ (MapThread[(Equal[#1,#2]) &, {Eqs["Nlhs"], Chop[(Eqs["Nrhs"] /. rules),10^-14]}]);
         Print["Step: nonlinear: ",nonlinear];(*hopefully these are all numeric.*)
         system = Eqs["EqAllAll"] && nonlinear;
         (*Print["Step: SYSTEM: ", system];*)
