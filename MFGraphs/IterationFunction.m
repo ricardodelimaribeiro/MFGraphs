@@ -45,8 +45,8 @@ EqEliminatorX[{system_, rules_}] := (*if it solves, system becomes True. rules i
             {system /. newrules, AssociateTo[rulesAss, newrules]/.newrules}
         ],        
         system === True,
-        Print["EqEliminatorX: Reached a solution!"];
-        {system, rules},
+        (*Print["EqEliminatorX: Reached a solution!"];
+        *){system, rules},
         True,
         Print["Eliminator: System is not True and Head of system is NOT And or Equal. Returning the input."];
         {system, rules}
@@ -56,34 +56,34 @@ EqEliminatorX[{system_, rules_}] := (*if it solves, system becomes True. rules i
    (*TODO use the result of the fixed point in this function and the fixed point simplifier again.*)
   
 EqEliminatorX2[{AA_, rules_}] :=
-    Module[ {NN, OO, EE, AA2, Asrules = Association[rules]},
-    	Print["System Heads: ",List @@ DeleteDuplicates@(Head[#] & /@ AA)];
-    	Print["Rules association input: ", Asrules];
-    	AA2 = AA /. Asrules;
+    Module[ {NN, OO, EE, AA2 = AA, Asrules = Association[rules]},
+    	(*Print["System Heads: ",List @@ DeleteDuplicates@(Head[#] & /@ AA)];
+    	Print["Rules association input: ", Asrules];*)
+    	(*AA2 = AA /. Asrules;*)
     	EE = Select[AA2, Head[#] === Equal &];
         NN = Select[AA2, Head[#] === NonNegative &];
         OO = Select[AA2, Head[#] === Or &];
-        Print["NonNegative: ", NN];
+        (*Print["NonNegative: ", NN];
         Print["Alternatives: ", OO];
-        Print["Equalities: ", EE];
+        Print["Equalities: ", EE];*)
         AssociateTo[Asrules, Solve[EE, Reals] // First // Quiet];
-        Print[Asrules];
+        (*Print[Asrules];*)
         {OO, NN, Asrules/. Asrules} 
     ]
 
 EqEliminatorX2[{OO_, NN_, sol_Association}] :=
     Module[ {OO2, NN2, EE2, AA2, Assol = sol},
-        AA2 = BooleanConvert[Reduce[(NN && OO) /. sol, Reals] // Quiet,"CNF"]; (*Quiet : Reduce::ratnz: Reduce was unable to solve the system with inexact coefficients. The answer was obtained by solving a corresponding exact system and numericizing the result.*)
+        NN2 = NN /. Assol;
+        OO2 = OO /. Assol;
+        AA2 = BooleanConvert[Reduce[NN2 && OO2, Reals] // Quiet,"CNF"]; (*Quiet : Reduce::ratnz: Reduce was unable to solve the system with inexact coefficients. The answer was obtained by solving a corresponding exact system and numericizing the result.*)
         (*Print["System Heads: ",List @@ DeleteDuplicates@(Head[#] & /@ AA2)];*)
     	(*Print["Rules association input: ", Assol];*)
-        NN2 = NN /. sol;
-        OO2 = OO /. sol;
         (*Print["System Heads: ",List @@ DeleteDuplicates@(Head[#] & /@ AA2)];
         Print["NonNegative: ", NN2];
-        Print["Alternatives: ", OO2];
-        Print["Sistem: ", AA2];*)
+        Print["Alternatives: ", OO2];*)
+        (*Print["EqEliminatorX2: Sistem: ", AA2];*)
         If[AA2 === True, 
-        	{OO2, NN2, Assol} /. Assol,
+        	{OO2, NN2, Assol},
         	EE2 = Select[AA2, Head[#] === Equal &];
         	AssociateTo[Assol, Solve[EE2, Reals] // First // Quiet];
         	{OO2, NN2, Assol} /. Assol
@@ -95,7 +95,7 @@ EqEliminatorX2[{OO_, NN_, sol_Association}] :=
 FixedSolverStepX2[Eqs_Association][rules_] :=
     Module[ {system, nonlinear, newsolve},
         nonlinear = And @@ (MapThread[(Equal[#1,#2]) &, {Eqs["Nlhs"], Chop[(Eqs["Nrhs"] /. rules),10^-14]}]);
-        Print["Step: nonlinear: ",nonlinear];(*hopefully these are all numeric.*)
+        (*Print["FixedSolveX2: Step: nonlinear: ",nonlinear];(*hopefully these are all numeric.*)*)
         system = Eqs["EqAllAll"] && nonlinear;
         (*Print["Step: SYSTEM: ", system];*)
         newsolve = FixedPoint[EqEliminatorX2, {system, Eqs["reduced"][[2]]}, 10];
@@ -110,7 +110,7 @@ FixedSolverStepX2[Eqs_Association][rules_] :=
 FixedSolverStepX1[Eqs_Association][rules_] :=
     Module[ {system, nonlinear, newsolve},
         nonlinear = And @@ (MapThread[(Equal[#1,#2]) &, {Eqs["Nlhs"], Chop[(Eqs["Nrhs"] /. rules),10^-14]}]);
-        Print["Step: nonlinear: ",nonlinear];(*hopefully these are all numeric.*)
+        (*Print["Step: nonlinear: ",nonlinear];(*hopefully these are all numeric.*)*)
         system = Eqs["EqAllAll"] && nonlinear;
         (*Print["Step: SYSTEM: ", system];*)
         newsolve = FixedPoint[EqEliminatorX, {system, Eqs["reduced"][[2]]}, 10];
