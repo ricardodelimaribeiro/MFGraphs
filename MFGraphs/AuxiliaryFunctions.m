@@ -95,8 +95,8 @@ F[j_?NumericQ, x_?NumericQ] :=
 
 (*TODO is m becoming zero?*)
 Intg[j_?NumericQ] :=
-	If[j == 0. , 0. ,
-    - j NIntegrate[ 1/(F[j, x]^(1 - Parameters["alpha"])), {x, 0, 1}] // Quiet
+	If[j == 0.|| j == 0 , 0. ,
+    -j Chop[NIntegrate[ 1/(F[j, x]^(1 - Parameters["alpha"])), {x, 0, 1}]] // Quiet
 	]
 (*this is the rhs of the integral of u_x from 0 to 1: ingetral_0^1 \
 -j*m^(alpha-1) dx*)
