@@ -89,7 +89,7 @@ UU = Solve[#1, #2, Reals] &;
 RR = Reduce[#1, #2, Reals] &;*)
 
 F[j_?NumericQ, x_?NumericQ] :=
-	First @ Values @ FindRoot[Parameters["H[x,p,m]"][x, -j/(m^(1 - Parameters["alpha"])),m], {m, 1}];
+	First @ Values @ FindRoot[Parameters["H[x,p,m]"][x, -j/(m^(1 - Parameters["alpha"])),m], {m, .5}];
 (*we are solving the h-j equation for m given that u_x = -j*m^(alpha-1) *)
 
 
