@@ -132,8 +132,9 @@ DataToEquations[Data_?AssociationQ] :=
         (*Old idea: *)
         (*criticalreduced1 = FixedPoint[EqEliminatorX, {reduced1[[1]] && EqCriticalCase, reduced1[[2]]},10];*)
         criticalreduced1 = FixedPoint[EqEliminatorX, {EqAllAll && EqCriticalCase, BoundaryRules}];
-        (*Print["DataToEquations: first criticalreduce: ", criticalreduced1];*)
+        Print["DataToEquations: first criticalreduce: ", criticalreduced1];
         criticalreduced1 = {BooleanConvert[Reduce[criticalreduced1[[1]], Reals], "CNF"], criticalreduced1[[2]]};
+        Print[criticalreduced1];(*TODO print more...*)
         criticalreduced1 = FixedPoint[EqEliminatorX, criticalreduced1];
         (*Print["DataToEquations: second criticalreduce: ", criticalreduced1];*)
 
