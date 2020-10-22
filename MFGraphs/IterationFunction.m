@@ -185,6 +185,7 @@ EqEliminatorX3[{AA_, rules_List}] :=
         If[number > 1,
         	Print["EqEliminatorX2: Number of solutions: ", Length @ newrules]];
         AssociateTo[Asrules, newrules // First];
+        		(*TODO try without booleanconvert and reduce here*)        
         {BooleanConvert[Reduce[AA2/.Asrules, Reals] // Quiet,"CNF"], Asrules/. Asrules} (*Quiet : Reduce::ratnz: Reduce was unable to solve the system with inexact coefficients. The answer was obtained by solving a corresponding exact system and numericizing the result.*) 
     ]
     
@@ -209,7 +210,7 @@ Module[{EE, AA2 = AA, newrules, Asrules = rules, number},
         		];
         		AssociateTo[Asrules, newrules // First // Quiet];
         		(*Print[Asrules];*)
-        		{BooleanConvert[Reduce[AA2/.Asrules, Reals] // Quiet,"CNF"], Asrules/. Asrules} (*TODO return message and STOP if Total @ Values[Asrules] is not numeric*)
+        			{BooleanConvert[Reduce[AA2/.Asrules, Reals] // Quiet,"CNF"], Asrules/. Asrules} (*TODO return message and STOP if Total @ Values[Asrules] is not numeric*)
         	]
         ]
     ]
