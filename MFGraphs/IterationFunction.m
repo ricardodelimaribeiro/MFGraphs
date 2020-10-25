@@ -180,6 +180,8 @@ FixedSolverStepX1[Eqs_Association][rules_] :=
         	Print["Possible multiple solutions \n", {system, rules}];
         	sol = {}; 
         ];
+        Print[rules];
+        Print[sol];
         Append[rules, sol] /. sol
     ]
 EqEliminatorX3[{AA_, rules_List}] :=
