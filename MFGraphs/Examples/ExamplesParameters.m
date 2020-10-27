@@ -22,3 +22,11 @@ Parameters =
           		"H[x,p,m]" -> H
           	}]
     	]
+    	
+g = If[ beta == 0,
+		Log,
+        Function[{m}, m^beta]
+    ];
+W = Function[{x, a}, a Sin[2 Pi (x + 1/4)]^2];
+V = Function[{x}, W[x, A]];
+H = Function[{x,p,m}, p^2/(2 m^alpha) + V[x] - g[m]];
