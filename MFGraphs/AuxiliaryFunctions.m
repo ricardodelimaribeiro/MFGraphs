@@ -34,10 +34,16 @@ UU::usage =
 RR::usage = 
 "";*)
 F::usage =
-"";
+"for a numeric value of the current, this is the solution, m, for the H-J equation (u_x = -j)";
 
 Intg::usage = 
 "";
+
+M::usage = 
+"M[j,x] F without the Parameters association";
+
+IntM::usage = 
+"IntM[j] Intg without the Parameters association";
 
 Begin["`Private`"]
 AtHead[a_ \[DirectedEdge] b_] :=
@@ -100,6 +106,16 @@ Intg[j_?NumericQ] :=
 	]
 (*this is the rhs of the integral of u_x from 0 to 1: ingetral_0^1 \
 -j*m^(alpha-1) dx*)
+
+M[j_?NumericQ, x_?NumericQ] :=
+	First @ Values @ FindRoot[H[x, -j/(m^(1 - alpha)),m], {m, 1}];
+
+
+IntM[j_?NumericQ] :=
+	If[j == 0.|| j == 0 , 0. ,
+    -j Chop[NIntegrate[ 1/(M[j, x]^(1 - alpha)), {x, 0, 1}]] // Quiet
+	]
+
 
 (*TODO : from previous guess, look at rhs, if m is negative, the corresponding j needs to be 0*)
 
