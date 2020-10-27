@@ -18,9 +18,9 @@ FixedSolverStepX1::usage =
 "";
 
 FixedSolverStepX3::usage = 
-"";
+""; 
 
-FixedSolverStepX4::usage = 
+FixedReduceX1::usage = 
 "";
 
 EqEliminatorX::usage = 
@@ -35,16 +35,12 @@ EqEliminatorX3::usage =
 Begin["`Private`"]
 
    (*TODO critical congestion solution tester: replace "solution" on the equations. Look at the output to figure out if it works!! *)
-   (*in the nonlinear probelm, look for approximately equalities.*)
-   (*TODO use the result of the fixed point in this function and the fixed point simplifier again.*)
+   (*in the nonlinear problem, look for approximate equalities.*)
   
 EqEliminatorX2[{AA_, rules_List}] :=
     Module[ {EE, AA2, newrules, Asrules = Association @ rules, number},
-    	(*Print["rules List"];*)
-    	(*Print["System Heads: ",List @@ DeleteDuplicates@(Head[#] & /@ AA)];*)
     	EE = Select[AA, Head[#] === Equal &];
         AA2 = Select[AA, Head[#] =!= Equal &];
-        (*Print["Equalities: ", EE];*)
         newrules = Solve[EE, Reals]//Quiet;
         number = Length @ newrules;
         If[number > 1,
@@ -55,7 +51,6 @@ EqEliminatorX2[{AA_, rules_List}] :=
     
 EqEliminatorX2[{AA_, rules_Association}] := 
 Module[{EE, AA2, newrules, Asrules = rules, number},
-		(*Print["AA: ", AA];*)
         AA2 = BooleanConvert[Reduce[AA, Reals] // Quiet,"CNF"]; (*Quiet : Reduce::ratnz: Reduce was unable to solve the system with inexact coefficients. The answer was obtained by solving a corresponding exact system and numericizing the result.*)
     	Print["EqEliminartorX2: Count! "];
         Which[AA2 === True, 
@@ -68,7 +63,6 @@ Module[{EE, AA2, newrules, Asrules = rules, number},
         	If[EE === True,
         		{AA2, Asrules},
         		newrules = Solve[EE, Reals]//Quiet;
-        		(*Print[newrules];*)
         		number = Length[newrules];
         		Which[number > 1,
         			Print["EqEliminatorX2: Number of solutions: ", Length @ newrules, "\nThe system is: ", AA2],
@@ -76,118 +70,105 @@ Module[{EE, AA2, newrules, Asrules = rules, number},
         			Print["No solution for the system: ", EE];
         		];
         		AssociateTo[Asrules, newrules // First // Quiet];
-        		(*Print[Asrules];*)
         		{AA2, Asrules} /. Asrules (*TODO return message and STOP if Total @ Values[Asrules] is not numeric*)
         	]
         ]
-    ]
- 
-(*EqEliminatorX2[{AA_, rules_}] := 
-    Module[ {EE},
-        EE = Select[AA, Head[#] === Equal &];
-        If[EE === True,
-        	Print["There are no equalities."];
-        	EqEliminatorX2[{AA,Association @ rules}],
-        	Print["There are equalities!!"];
-        	EqEliminatorX2[{AA,Normal @ rules}]
-        ]
-    ]*)
- 
+    ] 
 
 FixedSolverStepX2[Eqs_Association][rules_] :=
     Module[ {system, nonlinear, newsolve},
         nonlinear = And @@ (MapThread[(Equal[#1,#2]) &, {Eqs["Nlhs"], Chop[(Eqs["Nrhs"] /. rules),10^-6]}]);
         system = Eqs["EqAllAll"] && nonlinear;
-        (*give system with sol to structural equations to equalities eliminator*)
         newsolve = FixedPoint[EqEliminatorX2, {system, Eqs["BoundaryRules"]}];
-(*        Print["FixedX2: newsolve: ", {newsolve[[1]], Values@KeySort@newsolve[[2]]}];*)
         Print["FixedX2: next step: ", And @@ (MapThread[(Equal[#1,#2]) &, {Eqs["Nlhs"], Chop[(Eqs["Nrhs"] /. newsolve[[2]]),10^-6]}])];
         newsolve[[2]]
     ]
     
-
-(*EqEliminatorX[{system_, rules_}] := (*if it solves, system becomes True. rules is a list of rules or an association.*)
-Module[{newrules, rulesAss = Association @ rules},
-	Which[Head[system] === And, (*TODO what if the Head is Or? As in a boolean-converted system...*)
-		(*system = system /. rules;*)(*TODO why not use rules in the system before anything else?*)
-			newrules = Select[system, (Head[#] === Equal) &]  // Solve // First // Quiet; (*The reason we use Quiet is:  Solve::svars: Equations may not give solutions for all "solve" variables.*)
-        	(*Print["rulesAss: ", rulesAss];
-        	Print["newrules: ", newrules];
-        	Print["system: ",system];
-        	Print["system newrules: ", system /. newrules];*)
-        	{system, AssociateTo[rulesAss, newrules]} /. newrules,
-        Head[system] === Equal,
-        	newrules = First[Solve[system]];
-        	{system, AssociateTo[rulesAss, newrules]} /. newrules,        
-        system === True,
-        (*Print["EqEliminatorX: Reached a solution!"];*)
-        	{system, rules},
-        True,
-        	Print["Eliminator: System is not True and Head of system is NOT And or Equal. Returning the input."];
-        	{system, rules}
-    	]
-	]*)
-
 EqEliminatorX[{system_, rules_}] := (*if it solves, system becomes True. rules is a list of rules or an association.*)
+Module[{EE, newrules, rulesAss = Association[rules]},
     Which[
-    	Head[system] === And, 
-    		(*Print["And"];*)
-        	Module[ {EE, newrules, rulesAss = Association[rules]},
-        		EE = Select[system, (Head[#] === Equal) &];
-            	If[EE === {}, 
-            		{system, rules},
+    	Head[system] === And,
+    		EE = Select[system, (Head[#] === Equal) &];
+            If[EE === {},
+            	{system, rulesAss},
                		newrules =  Solve[EE, Reals] // Quiet; (*The reason we use Quiet is:  Solve::svars: Equations may not give solutions for all "solve" variables.*)
                		If[newrules === {},
-               			{system, rules},
+               			{system, rulesAss},
                			newrules = First @ newrules;  
                			{system, AssociateTo[rulesAss, newrules]}/.newrules
-               		] 
-            	]
-        	],
+               		]
+            ],
         Head[system] === Equal,
-        	Print["Equal"];
-        	Module[ {newrules, rulesAss = Association[rules]},
-            	newrules = Solve[system, Reals];
-            	Print[newrules];
-            	newrules = First @ newrules;
-            	{system, AssociateTo[rulesAss, newrules]}/.newrules
-        	],        
+            newrules = Solve[system, Reals];
+            Print["EEX: newrules when Head is Equal: ", newrules];
+            newrules = First @ newrules;
+            {system, AssociateTo[rulesAss, newrules]}/.newrules,        
         system === True,
-        	{system, rules},
+        	{system, rulesAss},
         True,
-        	Print["Eliminator: System is not True and Head of system is NOT And or Equal. Returning the input."];
-        	{system, rules}
+        	(*Print["EEX: System is not True and Head of system is NOT And nor Equal. Returning the input:\n", {system, rulesAss}];
+        	Print["EEX: Testing Reduce:\n", {Reduce[system, Reals], rulesAss}];*)
+        	{Reduce[system, Reals] // Quiet, rulesAss}
+    ]
+];
+
+FixedReduceX1[Eqs_Association][rules_] :=
+    Module[ {nonlinear, system = Eqs["EqAllAll"], auxsys, auxsol},
+    	(*Print["FRX1: first EEX..."];*)
+    	{auxsys, auxsol} = FixedPoint[EqEliminatorX, {system, Eqs["BoundaryRules"]}];
+        (*Print["FRX1: Structural stuff: \n", {auxsys, auxsol//KeySort}];*)
+        auxsys = Reduce[auxsys,Reals];
+        (*Print["FRX1: Structural stuff -> Reduce: \n", auxsys];*)
+        nonlinear = And @@ (MapThread[(Equal[#1,#2]) &, {Eqs["Nlhs"], Chop[#,10^-3]&/@(Eqs["Nrhs"] /. rules)}]);
+        (*Print["FRX1: nonlinear: \n", nonlinear];*)
+        auxsys = auxsys && nonlinear /. auxsol;        
+        (*Print["FRX1: second EEX..."];*)
+        {auxsys, auxsol} = FixedPoint[EqEliminatorX, {auxsys, auxsol}];
+        (*Print["FRX1: Structural stuff + nonlinear: \n", {auxsys, auxsol//KeySort}];*)
+        (*Print["FRX1: Structural stuff + nonlinear -> Reduce: \n", Reduce[auxsys,Reals]];*)
+        Print[Norm[Eqs["Nlhs"] - Eqs["Nrhs"] /. auxsol]];
+        auxsol
+        (*Reduce[Eqs["AllAll"] && nonlinear, Reals]*)
     ];
-    
-    
-    (*TODO use Chop with a predefined tolerance*)
+
 FixedSolverStepX1[Eqs_Association][rules_] :=
-    Module[ {system, nonlinear, sol},
+    Module[ {system = Eqs["EqAllAll"], nonlinear, sol, nsol},
         nonlinear = And @@ (MapThread[(Equal[#1,#2]) &, {Eqs["Nlhs"], Chop[(Eqs["Nrhs"] /. rules),10^-6]}]);
-        system = Eqs["EqAllAll"] && nonlinear;
-        {system, sol} = FixedPoint[EqEliminatorX, {system, Eqs["BoundaryRules"]}];
+        nsol = Solve[nonlinear, Reals] // Quiet // First // Association;
+
+        (*begin: for debuggin purposes*)
+        (*end*)
+
+        (*Print["FSSX1: ", nonlinear];*)
+        (*Print["FSSX1: nonlinear rules: ", nsol];*)
+        system = system /. nsol;
+        AssociateTo[nsol, Eqs["BoundaryRules"]] /. nsol;
+        (*Print["FSSX1: initial rules for EqEliminatorX: ", nsol];*)
+        {system, nsol} = FixedPoint[EqEliminatorX, {system,  nsol}];
+        Print["FSSX1: system: ", system];
         system = Reduce[system, Reals] // Quiet;(*TODO Quiet. We use Quiet because of: Reduce::ratnz: Reduce was unable to solve the system with inexact coefficients. The answer was obtained by solving a corresponding exact system and numericizing the result.*)
+        Print["FSSX1: reduced system: ", system];
         If[system === True ||
         	Head[system] === Equal || 
         	(Head[system] === And && DeleteDuplicates[Head /@ system] === Equal),
-        	(*Print["FixedStepX: Good job! \n"];*)
-        	sol = Solve[system, Reals];
+        	Print["FSSX1: If is true"];
+        	sol = Solve[system, Reals] // Quiet;
         	If[Length[sol] == 1,
         		sol = First @ sol,
-        		Print["Not just one solution: ", sol];
+        		Print["FixedSolverStepX1: Not just one solution: ", sol];
         		sol = {};
         	],
-        	Print["Possible multiple solutions \n", {system, rules}];
+        	(*Print["FSSX1: If is false"];*)
+        	Print["FixedSolverStepX1: System is ", system, "\nReturning the input rules/association: \n", rules];
         	sol = {}; 
         ];
-        Print[rules];
-        Print[sol];
-        Append[rules, sol] /. sol
+        Print["FSSX1: End of code: {system, nonlinear}\n", {system,nonlinear},
+        	"\nFSSX1: End of code: {system, nonlinear} /. nsol\n",{system,nonlinear} /. nsol,
+        	"\nFSSX1: End of code: {system, nonlinear} /. (AssociateTo[nsol, sol] /. sol)\n",{system,nonlinear} /. (AssociateTo[nsol, sol] /. sol)];   
+        AssociateTo[nsol, sol] /. sol
     ]
 EqEliminatorX3[{AA_, rules_List}] :=
     Module[ {EE, AA2, newrules, Asrules = Association @ rules, number},
-    	(*Print["rules List"];*)
-    	(*Print["System Heads: ",List @@ DeleteDuplicates@(Head[#] & /@ AA)];*)
     	EE = Select[AA, Head[#] === Equal &];
         AA2 = Select[AA, Head[#] =!= Equal &];
         (*Print["Equalities: ", EE];*)
@@ -241,28 +222,34 @@ Module[{EE, AA2 = AA, newrules, Asrules = rules, number},
 
 
 End[]
-(*
-EqEliminatorX2[{AA_, rules_Association}] := 
-    Module[ {EE, AA2, newrules, Asrules = rules, number},
-        EE = Select[AA, Head[#] === Equal &];
-        If[EE === True,
-        	AA2 = BooleanConvert[Reduce[AA, Reals] // Quiet,"CNF"], (*Quiet : Reduce::ratnz: Reduce was unable to solve the system with inexact coefficients. The answer was obtained by solving a corresponding exact system and numericizing the result.*)
-        	AA2 = Select[AA, Head[#] =!= Equal &]
-        ];
-        	newrules = Solve[EE, Reals]//Quiet;
-        	number = Length @ newrules;
-        	If[number > 1,
-        		Print["EqEliminatorX2: Number of solutions: ", Length @ newrules],
-        		AssociateTo[Asrules, newrules // First];
-        	{AA2, Asrules}/. Asrules 
-        	]
-        ];
-        (*Print["System Heads: ",List @@ DeleteDuplicates@(Head[#] & /@ AA2)];*)
-    	If[AA2 === True, 
-        	{AA2, Asrules},
-        	AssociateTo[Asrules, Solve[EE, Reals] // First // Quiet];
-        	{AA2, Asrules} /. Asrules
-        ]
-    ]
 
-*)    
+
+(*EqEliminatorX[{system_, rules_}] := (*if it solves, system becomes True. rules is a list of rules or an association.*)
+    Which[
+    	Head[system] === And, 
+        	Module[ {EE, newrules, rulesAss = Association[rules]},
+        		EE = Select[system, (Head[#] === Equal) &];
+            	If[EE === {}, 
+            		{system, rulesAss},
+               		newrules =  Solve[EE, Reals] // Quiet; (*The reason we use Quiet is:  Solve::svars: Equations may not give solutions for all "solve" variables.*)
+               		If[newrules === {},
+               			{system, rulesAss},
+               			newrules = First @ newrules;  
+               			{system, AssociateTo[rulesAss, newrules]}/.newrules
+               		] 
+            	]
+        	],
+        Head[system] === Equal,
+        	Module[ {newrules, rulesAss = Association[rules]},
+            	newrules = Solve[system, Reals];
+            	Print[newrules];
+            	newrules = First @ newrules;
+            	{system, AssociateTo[rulesAss, newrules]}/.newrules
+        	],        
+        system === True,
+        	{system, Association @ rules},
+        True,
+        	Print["Eliminator: System is not True and Head of system is NOT And or Equal. Returning the input."];
+        	{system, Association @ rules}
+    ];
+*)
