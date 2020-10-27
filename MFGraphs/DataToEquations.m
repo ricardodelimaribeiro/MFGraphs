@@ -18,9 +18,9 @@ DataToEquations[Data_?AssociationQ] :=
       EqPosCon, EqCurrentCompCon, EqTransitionCompCon, NoDeadEnds, 
       NoDeadStarts, EqBalanceSplittingCurrents, EqBalanceGatheringCurrents, EntryArgs, 
       EntryDataAssociation, EqEntryIn, NonZeroEntryCurrents, ExitCosts, EqExitValues, SwitchingCosts, OutRules, InRules, 
-      EqSwitchingConditions, EqCompCon, EqValueAuxiliaryEdges, EqAllComp, EqAll, SignedCurrents, Nrhs, Nlhs, NrhsR, NlhsR, RulesEntryIn, 
+      EqSwitchingConditions, EqCompCon, EqValueAuxiliaryEdges, EqAllComp, EqAll, SignedCurrents, Nrhs, Nlhs, RulesEntryIn, 
       RulesExitValues, EqAllRules, EqAllCompRules, EqAllAll, EqAllAllRules, reduced1,reduced2,
-      EqCriticalCase, BoundaryRules, criticalreduced1, criticalreduced2, EqGeneralCase, EqAllAllSimple, sol, newsol, system, rules },
+      EqCriticalCase, BoundaryRules, criticalreduced1, criticalreduced2, EqGeneralCase, EqAllAllSimple, sol, system, rules },
 
       (*Begin Internal functions for DataToEquations: *)
         IncomingEdges[k_] :=
@@ -38,7 +38,6 @@ DataToEquations[Data_?AssociationQ] :=
         ExitValues[a_ \[DirectedEdge] b_] :=
             Total[uvars /@ {{b, DirectedEdge[a, b]}}] == ExitCosts[b];
         Transu[{v_, edge1_, edge2_}] :=
-            (*uvars[{v, edge2}] <= SwitchingCosts[{v, edge2, edge1}] + uvars[{v, edge1}];*)
         	NonNegative[SwitchingCosts[{v,edge2,edge1}]+uvars[{v,edge1}]-uvars[{v,edge2}]];
         Compu[{v_, edge1_, edge2_}] :=
             (jtvars[{v, edge1, edge2}] == 0) || uvars[{v, edge1}] - uvars[{v, edge2}] - SwitchingCosts[{v, edge1, edge2}] == 0;
@@ -105,54 +104,32 @@ DataToEquations[Data_?AssociationQ] :=
         
         Print["DataToEquations: Finished assembling strucural equations. Reducing the structural system ... "];
         
-        (*Print["Initial system-rules :", {EqAllAll, BoundaryRules}]
-        (*New idea:*)
-        reduced2 = FixedPoint[EqEliminatorX3, {EqAllAll, BoundaryRules}, 10];
-		
-        (*Old idea:*)
-        reduced1 = FixedPoint[EqEliminatorX, {EqAllAll, BoundaryRules}, 10];
-        (*Print["DataToEquations: first reduce: ", reduced1];*)
-        EqAllAllSimple = BooleanConvert[Reduce[reduced1[[1]], Reals],"CNF"]; (*Reduce eliminates most, if not all, inequalities in the system. BooleanConvert may get them back, but it is ok.*)
-        (*Print["DataToEquations: first reduce reduced: ", EqAllAllSimple];*)
-        (*Print["DataToEquations: first reduce cnf: ", BooleanConvert[EqAllAllSimple,"CNF"]];*)
-        reduced1 = FixedPoint[EqEliminatorX, {EqAllAllSimple, reduced1[[2]]}, 10];(*TODO test with a LARGE graph. one entrance and one exit but with 10 edges (11 vertices). *)
-        (*Print["DataToEquations: second reduce: ", reduced1];*)
-        (*TODO to have an idea of what is happening, use Lenght @ FixedPointList and Last @ FixedPointList.*)*)
         Nlhs = Flatten[uvars[AtHead[#]] - uvars[AtTail[#]] + SignedCurrents[#] & /@ BEL];
-        (*Nlhs = Nlhs/.reduced1[[2]];*)
         Print["DataToEquations: Critical case ... "];
-        EqCriticalCase = And @@ ((# == 0) & /@ Nlhs);
-        (*Print[EqCriticalCase];*)
-        		
-		(*New idea: *)
-		(*criticalreduced2 = FixedPoint[EqEliminatorX3, {reduced2[[1]] && EqCriticalCase, reduced2[[2]]},10];*)
-		(*criticalreduced2 = FixedPoint[EqEliminatorX3, {EqAllAll && EqCriticalCase, BoundaryRules}];*)
-		(*Print["DataToEquations: first criticalreduce: ", criticalreduced2];*)
-		
+        EqCriticalCase = And @@ ((# == 0) & /@ Nlhs);	
         (*New-Old idea: *)
         {system, rules} = FixedPoint[EqEliminatorX, {EqAllAll && EqCriticalCase, BoundaryRules}];
         system = Reduce[system, Reals];
         If[system === True ||
         	Head[system] === Equal || 
         	(Head[system] === And && DeleteDuplicates[Head /@ system] === Equal),
-        	Print["EliminatorX: Good job! \n"];
         	sol = Solve[system,Reals];
         	If[Length[sol] == 1,
         		{system, rules} = {system, AssociateTo[ rules, First@ sol]} /. First@ sol,
         		Print[sol];
         	],
-        	Print["Possible multiple solutions \n", {system, rules}]; 
+        	Print["DataToEquations: Possible multiple solutions \n", {system, rules}]; 
         ];
         criticalreduced1 = {system, rules};
+        If[system === True,
+        	Print["DataToEquations: Critical congestion solved."];,
+        	Print["DataToEquations: Something went wrong, check the data."];
+        ];
+        
         (*what are the possible outputs here? True, Equal, And of Equal, (anytinhg else, multiple solutions, check this by substituting on the variable associations)*)
-        (*Print["After eqelemin: ", {system, rules}];*)
-        (*{system, rules} = FixedPoint[EqEliminatorX, {system, rules}];*)
-        (*Print["DataToEquations: second criticalreduce: ", {system, rules}];*)
 
-           (*DONE: it solves the critical congestion! see if this is enough in the place of startsolverX*)
-           (*DONE return the left and right hand sides of the nonlinear equations*)
-        Nrhs =  Flatten[Intg[SignedCurrents[#]] + SignedCurrents[#] & /@ BEL];
-        (*Nrhs = Nrhs/.reduced1[[2]];*)
+        (*return the left and right hand sides of the nonlinear equations*)
+        Nrhs =  Flatten[IntM[SignedCurrents[#]] + SignedCurrents[#] & /@ BEL];
         EqGeneralCase = And @@ (MapThread[(#1 == #2) &, {Nlhs , Nrhs}]);
         
         Print["DataToEquations: Done."];
