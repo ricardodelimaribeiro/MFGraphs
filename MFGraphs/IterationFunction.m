@@ -90,7 +90,7 @@ Module[{EE, newrules, rulesAss = Association[rules]},
     	Head[system] === And,
     		EE = Select[system, (Head[#] === Equal) &];
             If[EE === {},
-            	{system, rulesAss},
+            	{Reduce[system, Reals], rulesAss},
                		newrules =  Solve[EE, Reals] // Quiet; (*The reason we use Quiet is:  Solve::svars: Equations may not give solutions for all "solve" variables.*)
                		If[newrules === {},
                			{system, rulesAss},
@@ -102,7 +102,7 @@ Module[{EE, newrules, rulesAss = Association[rules]},
             newrules = Solve[system, Reals];
             Print["EEX: newrules when Head is Equal: ", newrules];
             newrules = First @ newrules;
-            {system, AssociateTo[rulesAss, newrules]}/.newrules,        
+            {system, AssociateTo[rulesAss, newrules]} /. newrules,        
         system === True,
         	{system, rulesAss},
         True,
