@@ -20,8 +20,9 @@ DataToEquations[Data_?AssociationQ] :=
       EntryDataAssociation, EqEntryIn, NonZeroEntryCurrents, ExitCosts, EqExitValues, SwitchingCosts, OutRules, InRules, 
       EqSwitchingConditions, EqCompCon, EqValueAuxiliaryEdges, EqAllComp, EqAll, SignedCurrents, Nrhs, Nlhs, RulesEntryIn, 
       RulesExitValues, EqAllRules, EqAllCompRules, EqAllAll, EqAllAllRules, reduced1,reduced2,
-      EqCriticalCase, BoundaryRules, criticalreduced1, criticalreduced2, EqGeneralCase, EqAllAllSimple, sol, system, rules },
-
+      EqCriticalCase, BoundaryRules, criticalreduced1, criticalreduced2, EqGeneralCase, EqAllAllSimple, sol, system, rules ,TOL},
+      (*Set the tolerance for Chop*)
+      TOL = 10^(-14);
       (*Begin Internal functions for DataToEquations: *)
         IncomingEdges[k_] :=
             {k, #1} & /@ IncidenceList[FG,k]; (*all edges "oriented" towards the vertex k*)
@@ -206,7 +207,8 @@ DataToEquations[Data_?AssociationQ] :=
           "criticalreduced1" -> criticalreduced1,
           "criticalreduced2" -> criticalreduced2,
           "Nrhs" -> Nrhs,
-          "EqGeneralCase" -> EqGeneralCase
+          "EqGeneralCase" -> EqGeneralCase,
+          "TOL"->TOL
           }]
         	,
         Association[{
@@ -283,7 +285,8 @@ DataToEquations[Data_?AssociationQ] :=
           "criticalreduced1" -> criticalreduced1,
           "criticalreduced2" -> criticalreduced2,
           "Nrhs" -> Nrhs,
-          "EqGeneralCase" -> EqGeneralCase
+          "EqGeneralCase" -> EqGeneralCase,
+          "TOL" -> TOL
           }]
         ]
     ]

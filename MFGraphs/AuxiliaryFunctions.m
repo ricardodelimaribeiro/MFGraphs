@@ -113,7 +113,7 @@ M[j_?NumericQ, x_?NumericQ] :=
 
 IntM[j_?NumericQ] :=
 	If[j == 0.|| j == 0 , 0. ,
-    -j Chop[NIntegrate[ 1/(M[j, x]^(1 - alpha)), {x, 0, 1}]] // Quiet
+    -j NIntegrate[ 1/(M[j, x]^(1 - alpha)), {x, 0, 1}] // Quiet
 	]
 
 

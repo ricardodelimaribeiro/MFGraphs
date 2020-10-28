@@ -119,14 +119,14 @@ FixedReduceX1[Eqs_Association][rules_] :=
         (*Print["FRX1: Structural stuff: \n", {auxsys, auxsol//KeySort}];*)
         auxsys = Reduce[auxsys,Reals];
         (*Print["FRX1: Structural stuff -> Reduce: \n", auxsys];*)
-        nonlinear = And @@ (MapThread[(Equal[#1,#2]) &, {Eqs["Nlhs"], Chop[#,10^-3]&/@(Eqs["Nrhs"] /. rules)}]);
+        nonlinear = And @@ (MapThread[(Equal[#1,#2]) &, {Eqs["Nlhs"], Chop[#,Eqs["TOL"]]&/@(Eqs["Nrhs"] /. rules)}]);
         (*Print["FRX1: nonlinear: \n", nonlinear];*)
         auxsys = auxsys && nonlinear /. auxsol;        
         (*Print["FRX1: second EEX..."];*)
         {auxsys, auxsol} = FixedPoint[EqEliminatorX, {auxsys, auxsol}];
         (*Print["FRX1: Structural stuff + nonlinear: \n", {auxsys, auxsol//KeySort}];*)
         (*Print["FRX1: Structural stuff + nonlinear -> Reduce: \n", Reduce[auxsys,Reals]];*)
-        Print[Norm[Eqs["Nlhs"] - Eqs["Nrhs"] /. auxsol]];
+        Print["FRX1: Error on the nonlinear terms: ", Norm[Eqs["Nlhs"] - Eqs["Nrhs"] /. auxsol]];
         auxsol
         (*Reduce[Eqs["AllAll"] && nonlinear, Reals]*)
     ];
