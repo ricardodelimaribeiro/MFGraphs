@@ -22,7 +22,7 @@ DataToEquations[Data_?AssociationQ] :=
       RulesExitValues, EqAllRules, EqAllCompRules, EqAllAll, EqAllAllRules, reduced1,reduced2,
       EqCriticalCase, BoundaryRules, criticalreduced1, criticalreduced2, EqGeneralCase, EqAllAllSimple, sol, system, rules ,TOL},
       (*Set the tolerance for Chop*)
-      TOL = 10^(-14);
+      TOL = 10^(-13);
       (*Begin Internal functions for DataToEquations: *)
         IncomingEdges[k_] :=
             {k, #1} & /@ IncidenceList[FG,k]; (*all edges "oriented" towards the vertex k*)
