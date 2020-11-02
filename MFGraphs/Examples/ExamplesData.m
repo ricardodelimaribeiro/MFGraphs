@@ -81,7 +81,7 @@ Test = Association[{
         (*FinalCosts=*){{4, 1}},
         (*SwitchingCostsData=*){{1, 2, 4, 1}, {1, 2, 3, 2}, {3, 2,1, 0}, {3, 2, 4, 1}, {4, 2, 1, 2}, {4, 2, 3, 0}}},
     (*Attraction Problem*)
-    11 -> {
+    11 -> {(*TODO try "one edge" with 3 or 4 vertices, the current is already set, there should be two iterations on the fixed point.*)
         (*VL=*){1, 2, 3, 4},
         (*AM=*){{0, 1, 1, 0}, {0, 0, 1, 1}, {0, 0, 0, 1}, {0, 0, 0, 0}},
         (*DataIn=*){{1, I1}},
