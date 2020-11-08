@@ -10,20 +10,26 @@ EqEliminatorX::usage =
 "EqEliminator[{system, rules}] extracts the equalities of the system, solves and appends them to rules, and returns a new pair {system, rules} /. rules. ";
 
 Begin["`Private`"]
+CleanAndReplace::usage =
+"CleanAndReplace[{system,rules}] returns True if the system is approximately (difference in each equation is less than 10^(-10) ) solved by rules.";
+CleanAndReplace[{system_,rules_}]:=
+    (system /. Equal -> (zob[#1-#2]&)/. rules // Chop ) /. zob -> (# == 0.&)
     
 EqEliminatorX[{system_, rules_}] := 
 Module[{EE, newrules, rulesAss = Association[rules]},
+	(*Print["EEX :", {system,rules}];*)
     Which[
     	Head[system] === And,
     		EE = Select[system, (Head[#] === Equal) &];
             If[EE === {},
             	{Reduce[system, Reals], rulesAss},
-               		newrules =  Solve[EE, Reals] // Quiet; (*The reason we use Quiet is:  Solve::svars: Equations may not give solutions for all "solve" variables.*)
-               		If[newrules === {},
-               			{system, rulesAss},
-               			newrules = First @ newrules;  
-               			{system, AssociateTo[rulesAss, newrules]}/.newrules
-               		]
+            	Print["EEX: ", EE];
+            	newrules =  Solve[EE, Reals] // Quiet; (*The reason we use Quiet is:  Solve::svars: Equations may not give solutions for all "solve" variables.*)
+               	If[newrules === {},
+               		{system, rulesAss},
+               		newrules = First @ newrules;  
+               		{CleanAndReplace[{system, newrules}] , AssociateTo[rulesAss, newrules] //. newrules}
+               	]
             ],
         Head[system] === Equal,
             newrules = Solve[system, Reals];
@@ -44,9 +50,11 @@ Module[ {nonlinear, system = Eqs["EqAllAll"], auxsys, auxsol},
         (*Print["FRX1: Structural stuff: \n", {auxsys, auxsol//KeySort}];*)
     auxsys = Reduce[auxsys, Reals];
         (*Print["FRX1: Structural stuff -> Reduce: \n", auxsys];*)
-    nonlinear = And @@ (MapThread[(Equal[#1,#2]) &, {Eqs["Nlhs"], Chop[#,Eqs["TOL"]]&/@(Eqs["Nrhs"] /. rules)}]);
+    nonlinear = And @@ (MapThread[(Equal[#1,#2]) &, {Eqs["Nlhs"], Chop[#,Eqs["TOL"]]&/@(Eqs["Nrhs"]/. auxsol /. rules)}]);
     	(*Print["FRX1: nonlinear: \n", nonlinear];*)
-    auxsys = auxsys && nonlinear /. auxsol;        
+    auxsys = (auxsys && nonlinear) /. auxsol;  
+    	(*Print["FRX1: new nonlinear: \n", {auxsys, auxsol, auxsys/.auxsol}];*)  
+    	    
     {auxsys, auxsol} = FixedPoint[EqEliminatorX, {auxsys, auxsol}];
         (*Print["FRX1: Structural stuff + nonlinear: \n", {auxsys, auxsol//KeySort}];*)
         (*Print["FRX1: Structural stuff + nonlinear -> Reduce: \n", auxsys, Reduce[auxsys,Reals]];*)
