@@ -22,7 +22,7 @@ DataToEquations[Data_?AssociationQ] :=
       RulesExitValues, EqAllRules, EqAllCompRules, EqAllAll, EqAllAllRules, reduced1,reduced2,
       EqCriticalCase, BoundaryRules, criticalreduced1, criticalreduced2, EqGeneralCase, EqAllAllSimple, sol, system, rules ,TOL},
       (*Set the tolerance for Chop*)
-      TOL = 10^(-13);
+      TOL = 10^(-6);
       (*Begin Internal functions for DataToEquations: *)
         IncomingEdges[k_] :=
             {k, #1} & /@ IncidenceList[FG,k]; (*all edges "oriented" towards the vertex k*)
@@ -109,7 +109,10 @@ DataToEquations[Data_?AssociationQ] :=
         Print["DataToEquations: Critical case ... "];
         EqCriticalCase = And @@ ((# == 0) & /@ Nlhs);	
         (*New-Old idea: *)
+        (*Print["DataToEquations: ", {EqAllAll && EqCriticalCase, BoundaryRules}];*)
         {system, rules} = FixedPoint[EqEliminatorX, {EqAllAll && EqCriticalCase, BoundaryRules}];
+        Print["D2E: ", {system, rules}];
+        
         system = Reduce[system, Reals];
         If[system === True ||
         	Head[system] === Equal || 
