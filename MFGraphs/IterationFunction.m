@@ -13,22 +13,33 @@ Begin["`Private`"]
 CleanAndReplace::usage =
 "CleanAndReplace[{system,rules}] returns True if the system is approximately (difference in each equation is less than 10^(-10) ) solved by rules.";
 CleanAndReplace[{system_,rules_}]:=
-    (system /. Equal -> (zob[#1-#2]&)/. rules // Chop ) /. zob -> (# == 0.&)
+    (system /. Equal -> (zob[#1-#2]&)/. rules // Chop[#,10^(-12)]& ) /. zob -> (# == 0.&)
     
 EqEliminatorX[{system_, rules_}] := 
-Module[{EE, newrules, rulesAss = Association[rules]},
-	(*Print["EEX :", {system,rules}];*)
+Module[{EE, ON, newrules, rulesAss = Association[rules]},
+	(*Print["EEX {system, rules}:", {system,rules}];*)
     Which[
     	Head[system] === And,
     		EE = Select[system, (Head[#] === Equal) &];
+    		ON = Select[system, (Head[#] =!= Equal) &];
             If[EE === {},
             	{Reduce[system, Reals], rulesAss},
-            	Print["EEX: ", EE];
+            	(*Print["EEX: ", EE];*)
             	newrules =  Solve[EE, Reals] // Quiet; (*The reason we use Quiet is:  Solve::svars: Equations may not give solutions for all "solve" variables.*)
-               	If[newrules === {},
-               		{system, rulesAss},
+               	(*Print["EEX: newrules before if: ", newrules];*)
+            	If[newrules === {},
+               		(*Print["EEX: ", EE];*)
+               		{ON && Simplify @ EE, rulesAss},(*{system, rulesAss},*)
                		newrules = First @ newrules;  
-               		{CleanAndReplace[{system, newrules}] , AssociateTo[rulesAss, newrules] //. newrules}
+               		(*Print["EEX: {system, newrules}: ", {system, newrules}];*)
+               		(*Print["EEX: Really solve? \n", EE, EE /. newrules];
+               		Print["EEX: Clean and Replace: \n", CleanAndReplace[{system, newrules}]];
+               		Print["EEX: Clean and Replace just equalities: \n", CleanAndReplace[{EE, newrules}]];
+               		Print["EEX: just substitute and simplify: \n", Simplify @ (system /. newrules)];*)
+               		If[Simplify @ (EE /. newrules) === False,
+               			{ON && CleanAndReplace[{EE, newrules}] , AssociateTo[rulesAss, newrules]} /. newrules,
+               			{system, AssociateTo[rulesAss, newrules]} /. newrules
+               		]
                	]
             ],
         Head[system] === Equal,
@@ -53,17 +64,18 @@ Module[ {nonlinear, system = Eqs["EqAllAll"], auxsys, auxsol},
     nonlinear = And @@ (MapThread[(Equal[#1,#2]) &, {Eqs["Nlhs"], Chop[#,Eqs["TOL"]]&/@(Eqs["Nrhs"]/. auxsol /. rules)}]);
     	(*Print["FRX1: nonlinear: \n", nonlinear];*)
     auxsys = (auxsys && nonlinear) /. auxsol;  
-    	(*Print["FRX1: new nonlinear: \n", {auxsys, auxsol, auxsys/.auxsol}];*)  
-    	    
+		(*Print["FRX1: new nonlinear: \n", {auxsys, auxsol, auxsys/.auxsol}];*)  
+    	(*Print["FRX1: ", {auxsys /. Solve[auxsys,Reals], Solve[auxsys,Reals]}];*)    
     {auxsys, auxsol} = FixedPoint[EqEliminatorX, {auxsys, auxsol}];
+    (*Print["FRX1: Structural stuff + nonlinear sol: \n", auxsol];*)
         (*Print["FRX1: Structural stuff + nonlinear: \n", {auxsys, auxsol//KeySort}];*)
         (*Print["FRX1: Structural stuff + nonlinear -> Reduce: \n", auxsys, Reduce[auxsys,Reals]];*)
     If[auxsys === False,
     	(*Print["rules :", rules];*)
-    	Print["The last system in the iteration was inconsistent.\nThrowing the last feasible solution."];
-    	auxsol = rules;
+    	Print["FRX1: The last system in the iteration was inconsistent.\nThrowing the last feasible solution."];
+    	(*auxsol = rules;*)
     	Throw[rules],
-    	Print["FRX1: The Error on the nonlinear terms is ", Norm[Eqs["Nlhs"] - Eqs["Nrhs"] /. auxsol]];
+    	Print["FRX1: The relative Error on the nonlinear terms is ", Norm[(Eqs["Nlhs"] - Eqs["Nrhs"])/Eqs["Nlhs"] /. auxsol]];
     ];
     auxsol
 ];
