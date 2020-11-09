@@ -29,19 +29,19 @@ DataToEquations[Data_?AssociationQ] :=
         OutgoingEdges[k_] :=
             OtherWay /@ ({k, #} & /@ IncidenceList[FG, k]); (*all edges "oriented" away from the vertex k*)
         CurrentCompCon[a_ \[DirectedEdge] b_] :=
-            jvars[{a, a \[DirectedEdge] b}] == 0 || jvars[{b, a \[DirectedEdge] b}] == 0;
+            jvars[{a, a \[DirectedEdge] b}] == 0. || jvars[{b, a \[DirectedEdge] b}] == 0.;
         CurrentSplitting[{c_, a_ \[DirectedEdge] b_}] :=
             Select[AllTransitions, (Take[#, 2] == {c, a \[DirectedEdge] b}) &];
         CurrentGathering[{c_, a_ \[DirectedEdge] b_}] :=
             Select[AllTransitions, (Part[#, {1, 3}] == OtherWay[{c, a \[DirectedEdge] b}]) &];
         TransitionCompCon[{v_, edge1_, edge2_}] :=
-            jtvars[{v, edge1, edge2}] == 0 || jtvars[{v, edge2, edge1}] == 0;
+            jtvars[{v, edge1, edge2}] == 0. || jtvars[{v, edge2, edge1}] == 0.;
         ExitValues[a_ \[DirectedEdge] b_] :=
             Total[uvars /@ {{b, DirectedEdge[a, b]}}] == ExitCosts[b];
         Transu[{v_, edge1_, edge2_}] :=
         	NonNegative[SwitchingCosts[{v,edge2,edge1}]+uvars[{v,edge1}]-uvars[{v,edge2}]];
         Compu[{v_, edge1_, edge2_}] :=
-            (jtvars[{v, edge1, edge2}] == 0) || uvars[{v, edge1}] - uvars[{v, edge2}] - SwitchingCosts[{v, edge1, edge2}] == 0;
+            (jtvars[{v, edge1, edge2}] == 0.) || uvars[{v, edge1}] - uvars[{v, edge2}] - SwitchingCosts[{v, edge1, edge2}] == 0;
       (*End*)
        
         BG = AdjacencyGraph[Data["Vertices List"], Data["Adjacency Matrix"], VertexLabels -> "Name"];
@@ -93,7 +93,7 @@ DataToEquations[Data_?AssociationQ] :=
         EqSwitchingConditions = (And @@ Transu /@ AllTransitions);
         EqAll = EqAll && EqSwitchingConditions;
         EqCompCon = And @@ Compu /@ AllTransitions;
-        EqValueAuxiliaryEdges = And @@ ((uvars[AtHead[#]] - uvars[AtTail[#]] == 0) & /@ EdgeList[AuxiliaryGraph]);
+        EqValueAuxiliaryEdges = And @@ ((uvars[AtHead[#]] - uvars[AtTail[#]] == 0.) & /@ EdgeList[AuxiliaryGraph]);
         EqAllComp = EqCurrentCompCon && EqTransitionCompCon && EqCompCon;
         EqAll = EqAll && EqValueAuxiliaryEdges;
         (*Pre-processing: substitute rules in all equations and hand-sides...*)
@@ -107,13 +107,24 @@ DataToEquations[Data_?AssociationQ] :=
         
         Nlhs = Flatten[uvars[AtHead[#]] - uvars[AtTail[#]] + SignedCurrents[#] & /@ BEL];
         Print["DataToEquations: Critical case ... "];
-        EqCriticalCase = And @@ ((# == 0) & /@ Nlhs);	
+        EqCriticalCase = And @@ ((# == 0.) & /@ Nlhs);	
         (*New-Old idea: *)
         (*Print["DataToEquations: ", {EqAllAll && EqCriticalCase, BoundaryRules}];*)
         {system, rules} = FixedPoint[EqEliminatorX, {EqAllAll && EqCriticalCase, BoundaryRules}];
-        Print["D2E: ", {system, rules}];
         
-        system = Reduce[system, Reals];
+        (*BCsys = BooleanConvert[system];
+        Rlist = Reduce[#, Reals] & /@ BCsys;
+        Slist = Solve[#, Reals] & /@ List @@ Rlist;
+        syssol = DeleteDuplicates[Slist];*)
+        If[system =!= True,
+        Print["DataToEquations: The system is:\n", system,
+        	"\nand the rules are:\n", rules,
+        	"\nInput 1 if you want to continue reducing."];
+        	If[Input[] == 1,
+        		system = Reduce[system, Reals],
+        		Print["Diogo is working on the alternative(s)!"];
+        	];
+        ];
         If[system === True ||
         	Head[system] === Equal || 
         	(Head[system] === And && DeleteDuplicates[Head /@ system] === Equal),
