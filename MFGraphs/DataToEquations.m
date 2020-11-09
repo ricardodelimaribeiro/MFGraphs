@@ -121,10 +121,11 @@ DataToEquations[Data_?AssociationQ] :=
         	"\nand the rules are:\n", rules,
         	"\nInput 1 if you want to continue reducing."];
         	If[Input[] == 1,
-        		system = Reduce[system, Reals],
+        		{time, system} = AbsoluteTiming[Reduce[system, Reals]],
         		Print["Diogo is working on the alternative(s)!"];
         	];
         ];
+        Print["It took ", time, " seconds to Reduce!"];
         If[system === True ||
         	Head[system] === Equal || 
         	(Head[system] === And && DeleteDuplicates[Head /@ system] === Equal),
@@ -132,7 +133,7 @@ DataToEquations[Data_?AssociationQ] :=
         	If[Length[sol] == 1,
         		{system, rules} = {system, AssociateTo[ rules, First@ sol]} /. First@ sol,
         		Print[sol];
-        	],
+        	],(*TDOD move other if here...*)
         	Print["DataToEquations: Possible multiple solutions \n", {system, rules}]; 
         ];
         criticalreduced1 = {system, rules};
