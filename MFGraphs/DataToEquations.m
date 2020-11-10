@@ -20,7 +20,7 @@ DataToEquations[Data_?AssociationQ] :=
       EntryDataAssociation, EqEntryIn, NonZeroEntryCurrents, ExitCosts, EqExitValues, SwitchingCosts, OutRules, InRules, 
       EqSwitchingConditions, EqCompCon, EqValueAuxiliaryEdges, EqAllComp, EqAll, SignedCurrents, Nrhs, Nlhs, RulesEntryIn, 
       RulesExitValues, EqAllRules, EqAllCompRules, EqAllAll, EqAllAllRules, reduced1,reduced2,
-      EqCriticalCase, BoundaryRules, criticalreduced1, criticalreduced2, EqGeneralCase, EqAllAllSimple, sol, system, rules ,TOL},
+      EqCriticalCase, BoundaryRules, criticalreduced1, criticalreduced2, EqGeneralCase, EqAllAllSimple, sol, system, rules ,TOL, time, result},
       (*Set the tolerance for Chop*)
       TOL = 10^(-6);
       (*Begin Internal functions for DataToEquations: *)
@@ -112,20 +112,17 @@ DataToEquations[Data_?AssociationQ] :=
         (*Print["DataToEquations: ", {EqAllAll && EqCriticalCase, BoundaryRules}];*)
         {system, rules} = FixedPoint[EqEliminatorX, {EqAllAll && EqCriticalCase, BoundaryRules}];
         
-        (*BCsys = BooleanConvert[system];
-        Rlist = Reduce[#, Reals] & /@ BCsys;
-        Slist = Solve[#, Reals] & /@ List @@ Rlist;
-        syssol = DeleteDuplicates[Slist];*)
-        If[system =!= True,
-        Print["DataToEquations: The system is:\n", system,
+        {time,system} = AbsoluteTiming @ NewReduce[system];
+        (*If[system =!= True,*)
+        (*Print["DataToEquations: The system is:\n", system,
         	"\nand the rules are:\n", rules,
-        	"\nInput 1 if you want to continue reducing."];
-        	If[Input[] == 1,
+        	"\nInput 1 if you want to continue reducing."];*)
+        	(*If[Input[] == 1,
         		{time, system} = AbsoluteTiming[Reduce[system, Reals]],
         		Print["Diogo is working on the alternative(s)!"];
-        	];
-        ];
-        Print["It took ", time, " seconds to Reduce!"];
+        	];*)
+        (*];*)
+        Print["DataToEquations: It took ", time, " seconds to reduce with NewReduce!"];
         If[system === True ||
         	Head[system] === Equal || 
         	(Head[system] === And && DeleteDuplicates[Head /@ system] === Equal),
@@ -133,10 +130,10 @@ DataToEquations[Data_?AssociationQ] :=
         	If[Length[sol] == 1,
         		{system, rules} = {system, AssociateTo[ rules, First@ sol]} /. First@ sol,
         		Print[sol];
-        	],(*TDOD move other if here...*)
+        	],
         	Print["DataToEquations: Possible multiple solutions \n", {system, rules}]; 
         ];
-        criticalreduced1 = {system, rules};
+        criticalreduced1 = {system, Simplify /@ rules};
         If[system === True,
         	Print["DataToEquations: Critical congestion solved."];,
         	Print["DataToEquations: Something went wrong, check the data."];
