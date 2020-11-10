@@ -14,7 +14,71 @@ CleanAndReplace::usage =
 "CleanAndReplace[{system,rules}] returns True if the system is approximately (difference in each equation is less than 10^(-10) ) solved by rules.";
 CleanAndReplace[{system_,rules_}]:=
     (system /. Equal -> (zob[#1-#2]&)/. rules // Chop[#,10^(-12)]& ) /. zob -> (# == 0.&)
+ 
+ReplaceSolution[True, sol_] := 
+True;
+ReplaceSolution[False, sol_] := 
+False;
+ReplaceSolution[rst_And, sol_] := 
+And @@ (Simplify /@ ((List @@ rst) /. sol))
+ReplaceSolution[rst_, sol_] := 
+rst /. sol
+ 
     
+ZAnd[_, False] := 
+False;
+ZAnd[False, _] := 
+False;
+ZAnd[xp_, True] := 
+xp;
+ZAnd[xp_, eq_Equal] := 
+With[{sol = Solve[eq]},
+   If[sol === {}, False,
+    (xp /. First[sol]) && And @@ (First[sol] /. Rule -> Equal) // 
+     Simplify] ];
+ZAnd[xp_, orxp_Or] := 
+ZAnd[xp, First[orxp]] || ZAnd[xp, Rest[orxp]];
+
+ZAnd[xp_, andxp_And] :=
+ With[{fst = First[andxp], rst = Rest[andxp]},
+  If[Head[fst] === Equal, 
+   (* first is an equality *)
+   With[{sol = Solve[fst]},
+    If[sol === {},
+     False,
+     ZAnd[(xp /. First[sol]) && And @@ (First[sol] /. Rule -> Equal) //
+        Simplify, ReplaceSolution[ rst, First[sol]]]
+     ]
+    ], 
+   (* first is an OR - there are no other alternatives *)
+   With[{
+     sol1 = Solve[fst[[1]]], 
+     sol2 = Solve[fst[[2]]]
+     },
+    If[sol1 === False, False,
+      ZAnd[(xp /. First[sol1]) && 
+         And @@ (First[sol1] /. Rule -> Equal) // Simplify, 
+       ReplaceSolution[ rst, First[sol1]]]]
+     ||
+     If[sol2 === False, False,
+      ZAnd[(xp /. First[sol2]) && 
+         And @@ (First[sol2] /. Rule -> Equal) // Simplify, 
+       ReplaceSolution[ rst, First[sol2]]]]
+    ]
+   ]
+  ]
+  
+NewReduce[True]:=
+True;
+
+
+NewReduce[system_]:=
+Module[{result},
+	result = ZAnd[Select[system, !((Head[#] === Or)||(Head[#]===Equal))&],Select[system, ((Head[#] === Or)||(Head[#]===Equal))&]];
+    result = Reduce[#, Reals]& /@ result // Quiet;(*Reduce was unable to solve the system with inexact coefficients. The answer was obtained by solving a corresponding exact system and numericizing the result.*)
+    Simplify @ result
+];
+
 EqEliminatorX[{system_, rules_}] := 
 Module[{EE, ON, newrules, rulesAss = Association[rules]},
 	(*Print["EEX {system, rules}:", {system,rules}];*)
@@ -59,8 +123,8 @@ Module[ {nonlinear, system = Eqs["EqAllAll"], auxsys, auxsol},
 	(*These two steps can be done in DataToEquations*)
     {auxsys, auxsol} = FixedPoint[EqEliminatorX, {system, Eqs["BoundaryRules"]}]; 
         (*Print["FRX1: Structural stuff: \n", {auxsys, auxsol//KeySort}];*)
-    auxsys = Reduce[auxsys, Reals];
-        (*Print["FRX1: Structural stuff -> Reduce: \n", auxsys];*)
+    auxsys = NewReduce[auxsys];
+        (*Print["FRX1: Structural stuff -> NewReduce: \n", auxsys];*)
     nonlinear = And @@ (MapThread[(Equal[#1,#2]) &, {Eqs["Nlhs"], Chop[#,Eqs["TOL"]]&/@(Eqs["Nrhs"]/. auxsol /. rules)}]);
     	(*Print["FRX1: nonlinear: \n", nonlinear];*)
     auxsys = (auxsys && nonlinear) /. auxsol;  
@@ -75,9 +139,12 @@ Module[ {nonlinear, system = Eqs["EqAllAll"], auxsys, auxsol},
     	Print["FRX1: The last system in the iteration was inconsistent.\nThrowing the last feasible solution."];
     	(*auxsol = rules;*)
     	Throw[rules],
-    	Print["FRX1: The relative Error on the nonlinear terms is ", Norm[(Eqs["Nlhs"] - Eqs["Nrhs"])/Eqs["Nlhs"] /. auxsol]];
+(*    	Print["FRX1: The relative Error on the nonlinear terms is ", Norm[(Eqs["Nlhs"] - Eqs["Nrhs"])/Eqs["Nlhs"] /. auxsol]]//Quiet;
+    	Print["FRX1: The relative Error on the nonlinear terms is ", Norm[(Eqs["Nlhs"] - Eqs["Nrhs"])/Eqs["Nrhs"] /. auxsol]]//Quiet;*)
+    	Print["FRX1: The Minimum between the Error and the relative Errors on the nonlinear terms is ", 
+    		Min[Select[{Norm[(Eqs["Nlhs"] - Eqs["Nrhs"]) /. auxsol],Norm[(Eqs["Nlhs"] - Eqs["Nrhs"])/Eqs["Nlhs"] /. auxsol],Norm[(Eqs["Nlhs"] - Eqs["Nrhs"])/Eqs["Nrhs"] /. auxsol]}, ! (# === Indeterminate) &]]]//Quiet;
     ];
-    auxsol
+    Simplify /@ auxsol
 ];
 
 
