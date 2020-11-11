@@ -87,7 +87,29 @@ RemoveDuplicates[xp_] :=
     xp;
 
 
+(*XPSort[xp_And] := Sort[xp];
+XPSort[xp_] := xp;
 
+
+
+NewReduce[True] :=
+    True;
+
+
+NewReduce[system_] :=
+    Module[ {result},
+        result = ZAnd[Select[system, !((Head[#] === Or)||(Head[#]===Equal))&],Select[system, ((Head[#] === Or)||(Head[#]===Equal))&]];
+        Print["NewReduce: ", Head[result], result];
+        If[Head[result] === Or,
+        	result = RemoveDuplicates[
+        		Reduce[Select[#, (Head[#] =!= Equal) &], Reals] &&
+    			Select[#, (Head[#] === Equal) &] & /@ result]//Quiet,
+        result = Reduce[#, Reals]& /@ result // Quiet
+        ];(*Reduce was unable to solve the system with inexact coefficients. The answer was obtained by solving a corresponding exact system and numericizing the result.*)
+        Reduce @ result
+        (**)
+	];
+*)
 
 
 NewReduce[True] :=
