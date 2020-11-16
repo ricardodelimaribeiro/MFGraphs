@@ -1,6 +1,6 @@
 (* Wolfram Language package *)
 
-Test = Association[{
+Test = Association[
     (*One vertex*)
     1 -> {
         (*VL=*){1},
@@ -133,11 +133,11 @@ Test = Association[{
    
     (* Attraction without edge in the middle*)
     13 -> {
-    	{1, 2, 3, 4}, 
-    	{{0, 1, 1, 0}, {0, 0, 0, 1}, {0, 0, 0, 1}, {0, 0, 0, 0}}, 
-        {{1, I1}}, 
-        {{4, U1}}, 
-        {}},
+    	(*VL=*){1, 2, 3, 4},
+        (*AM=*){{0, 1, 1, 0}, {0, 0, 0, 1}, {0, 0, 0, 1}, {0, 0, 0, 0}},
+        (*DataIn=*){{1, I1}},
+        (*FinalCosts=*){{4, U1}}, 
+        (*SwitchingCostsData=*){{1,2,4,S1},{1,3,4,S2}}},
    
    (*********)
  
@@ -156,7 +156,7 @@ Test = Association[{
         (*AM=*){{0, 0, 0}, {1, 0, 0}, {1, 0, 0}},
         (*DataIn=*){{2, I1}, {3, I2}},
         (*FinalCosts=*){{1, U1}},
-        (*SwitchingCostsData=*){{1, 2, 3, S1}, {3, 2, 1, S2}}},
+        (*SwitchingCostsData=*){{2, 1, 3, S1}, {3, 1, 2,S2}}},
         
               
     (*Error in the switching costs*)
@@ -200,7 +200,7 @@ Test = Association[{
   
         
         *)      
-    }];
+];
     
 
 DataG[n_] :=
