@@ -48,7 +48,9 @@ IntM::usage =
 Begin["`Private`"]
 AtHead[a_ \[DirectedEdge] b_] :=
     {b, a \[DirectedEdge] b};
-
+(*AtHead[edge_] := {edge[[2]], edge}
+AtTail[edge_] := {edge[[1]], edge}
+*)
 AtTail[a_ \[DirectedEdge] b_] :=
     {a, a \[DirectedEdge] b};
 
@@ -61,29 +63,32 @@ OtherWay[{c_, a_ \[DirectedEdge] b_}] :=
          b,
          a
      ], a \[DirectedEdge] b}
-
+(*OtherWay[{a_, a_ \[DirectedEdge] b_}] :=
+    {b, a \[DirectedEdge] b}
+OtherWay[{b_, a_ \[DirectedEdge] b_}] :=
+    {a, a \[DirectedEdge] b}
+OtherWay[{c_, edge_}] := 
+	If[c === edge[[2]], 
+		AtTail[edge],
+		AtHead[edge]
+	]*)
 
 triple2path[{a_, b_, c_}, G_] :=
-    Module[ {EL, FG = G},
-        EL = EdgeList[FG];
-        If[ SubsetQ[AdjacencyList[G, b], {a, c}],
-            If[ MemberQ[EL, a \[DirectedEdge] b],
-                If[ MemberQ[EL, b \[DirectedEdge] c],
-                    {b, a \[DirectedEdge] b, b \[DirectedEdge] c},
-                    {b, a \[DirectedEdge] b, 
-                    c \[DirectedEdge] b}
-                ],
-                If[ MemberQ[EL, b \[DirectedEdge] a],
-                    If[ MemberQ[EL, b \[DirectedEdge] c],
-                        {b, b \[DirectedEdge] a, 
-                        b \[DirectedEdge] c},
-                        {b, b \[DirectedEdge] a, 
-                        c \[DirectedEdge] b}
-                    ]
-                ]
+Module[ {EL = EdgeList[G]},
+    If[ SubsetQ[AdjacencyList[G, b], {a, c}],
+        If[ MemberQ[EL, a \[DirectedEdge] b],
+            If[ MemberQ[EL, b \[DirectedEdge] c],
+                {b, a \[DirectedEdge] b, b \[DirectedEdge] c},
+                {b, a \[DirectedEdge] b, c \[DirectedEdge] b}
             ],
-            StringJoin["\n There is no path from ", ToString[a], " to ", 
-             ToString[b], " to ", ToString[c]]
+            If[ MemberQ[EL, b \[DirectedEdge] a],
+                If[ MemberQ[EL, b \[DirectedEdge] c],
+                    {b, b \[DirectedEdge] a, b \[DirectedEdge] c},
+                    {b, b \[DirectedEdge] a, c \[DirectedEdge] b}
+                ]
+            ]
+        ],
+        StringJoin["\nThere is no path from ", ToString[a], " to ", ToString[b], " to ", ToString[c]]
         ]
     ];
 
