@@ -114,7 +114,8 @@ NewReduce[system_] :=
 
 NewReduce[True] :=
     True;
-
+NewReduce[False] :=
+False;
 
 NewReduce[system_] :=
     Module[ {result},
