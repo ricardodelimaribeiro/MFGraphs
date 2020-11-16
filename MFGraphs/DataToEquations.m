@@ -29,19 +29,21 @@ DataToEquations[Data_?AssociationQ] :=
         OutgoingEdges[k_] :=
             OtherWay /@ ({k, #} & /@ IncidenceList[FG, k]); (*all edges "oriented" away from the vertex k*)
         CurrentCompCon[a_ \[DirectedEdge] b_] :=
-            jvars[{a, a \[DirectedEdge] b}] == 0. || jvars[{b, a \[DirectedEdge] b}] == 0.;
+            jvars[{a, a \[DirectedEdge] b}] == 0 || jvars[{b, a \[DirectedEdge] b}] == 0;
+        (*CurrentCompCon[edge_] := 
+        	jvars[AtTail[edge]] || jvars[AtHead[edge]];*)
         CurrentSplitting[{c_, a_ \[DirectedEdge] b_}] :=
             Select[AllTransitions, (Take[#, 2] == {c, a \[DirectedEdge] b}) &];
         CurrentGathering[{c_, a_ \[DirectedEdge] b_}] :=
             Select[AllTransitions, (Part[#, {1, 3}] == OtherWay[{c, a \[DirectedEdge] b}]) &];
         TransitionCompCon[{v_, edge1_, edge2_}] :=
-            jtvars[{v, edge1, edge2}] == 0. || jtvars[{v, edge2, edge1}] == 0.;
+            jtvars[{v, edge1, edge2}] == 0 || jtvars[{v, edge2, edge1}] == 0;
         ExitValues[a_ \[DirectedEdge] b_] :=
             Total[uvars /@ {{b, DirectedEdge[a, b]}}] == ExitCosts[b];
         Transu[{v_, edge1_, edge2_}] :=
-        	NonNegative[SwitchingCosts[{v,edge2,edge1}]+uvars[{v,edge1}]-uvars[{v,edge2}]];
+        	NonNegative[uvars[{v,edge2}]-uvars[{v,edge1}] + SwitchingCosts[{v,edge1,edge2}]];
         Compu[{v_, edge1_, edge2_}] :=
-            (jtvars[{v, edge1, edge2}] == 0.) || uvars[{v, edge1}] - uvars[{v, edge2}] - SwitchingCosts[{v, edge1, edge2}] == 0;
+            (jtvars[{v, edge1, edge2}] == 0) || uvars[{v,edge2}]-uvars[{v,edge1}] + SwitchingCosts[{v,edge1,edge2}] == 0;
       (*End*)
        
         BG = AdjacencyGraph[Data["Vertices List"], Data["Adjacency Matrix"], VertexLabels -> "Name"];
@@ -85,7 +87,7 @@ DataToEquations[Data_?AssociationQ] :=
         EqExitValues = And @@ (ExitValues /@ IncidenceList[AuxiliaryGraph, OutwardVertices /@ ExitVertices]);
         RulesExitValues = ToRules[EqExitValues];
         EqAll = EqAll && EqExitValues;
-        SwitchingCosts = AssociationThread[Join[AllTransitions, triple2path[Take[#, 3], FG] & /@ Data["Switching Costs"]], Join[Table[0, Length[AllTransitions]], Last[#] & /@ Data["Switching Costs"]]];(*Swithing cost is initialized with 0. AssociationThread associates the last association!*)
+        SwitchingCosts = AssociationThread[Join[AllTransitions, triple2path[Take[#, 3], FG] & /@ Data["Switching Costs"]], Join[Table[0, Length[AllTransitions]], Last[#] & /@ Data["Switching Costs"]]];(*Swithing cost is initialized with 0 AssociationThread associates the last association!*)
         OutRules = Rule[#, Infinity] & /@ (Outer[Flatten[{AtTail[#1], #2}] &, OutEdges, EL] // Flatten[#, 1] &);
         AssociateTo[SwitchingCosts, Association[OutRules]];
         InRules = Rule[#, Infinity] & /@ (Outer[{#2[[2]], #1, #2} &, IncidenceList[FG, #] & /@ EntranceVertices, InEdges] // Flatten[#, 2] &);
@@ -93,7 +95,7 @@ DataToEquations[Data_?AssociationQ] :=
         EqSwitchingConditions = (And @@ Transu /@ AllTransitions);
         EqAll = EqAll && EqSwitchingConditions;
         EqCompCon = And @@ Compu /@ AllTransitions;
-        EqValueAuxiliaryEdges = And @@ ((uvars[AtHead[#]] - uvars[AtTail[#]] == 0.) & /@ EdgeList[AuxiliaryGraph]);
+        EqValueAuxiliaryEdges = And @@ ((uvars[AtHead[#]] - uvars[AtTail[#]] == 0) & /@ EdgeList[AuxiliaryGraph]);
         EqAllComp = EqCurrentCompCon && EqTransitionCompCon && EqCompCon;
         EqAll = EqAll && EqValueAuxiliaryEdges;
         (*Pre-processing: substitute rules in all equations and hand-sides...*)
@@ -107,11 +109,12 @@ DataToEquations[Data_?AssociationQ] :=
         
         Nlhs = Flatten[uvars[AtHead[#]] - uvars[AtTail[#]] + SignedCurrents[#] & /@ BEL];
         Print["DataToEquations: Critical case ... "];
-        EqCriticalCase = And @@ ((# == 0.) & /@ Nlhs);	
+        EqCriticalCase = And @@ ((# == 0) & /@ Nlhs);	
         (*New-Old idea: *)
-        (*Print["DataToEquations: ", {EqAllAll && EqCriticalCase, BoundaryRules}];*)
-        {system, rules} = FixedPoint[EqEliminatorX, {EqAllAll && EqCriticalCase, BoundaryRules}];
-        
+        Print["DataToEquations: ", {EqAllAll && EqCriticalCase, BoundaryRules}];
+        {system, rules} = FixedPoint[EqEliminatorX, {(EqAllAll && EqCriticalCase)/.BoundaryRules, BoundaryRules}];
+        Print["DataToEquations: The system is:\n", system,
+        	"\nand the rules are:\n", rules];
         {time,system} = AbsoluteTiming @ NewReduce[system];
         (*If[system =!= True,*)
         (*Print["DataToEquations: The system is:\n", system,
@@ -123,7 +126,7 @@ DataToEquations[Data_?AssociationQ] :=
         	];*)
         (*];*)
         Print["DataToEquations: It took ", time, " seconds to reduce with NewReduce!"];
-        If[system === True ||
+        Which[system === True ||
         	Head[system] === Equal || 
         	(Head[system] === And && DeleteDuplicates[Head /@ system] === Equal),
         	sol = Solve[system,Reals];
@@ -131,6 +134,9 @@ DataToEquations[Data_?AssociationQ] :=
         		{system, rules} = {system, AssociateTo[ rules, First@ sol]} /. First@ sol,
         		Print[sol];
         	],
+        	system === False,
+        		Print["DataToEquations: Incompatible system."],
+        	True,
         	Print["DataToEquations: Possible multiple solutions \n", {system, rules}]; 
         ];
         criticalreduced1 = {system, Simplify /@ rules};
