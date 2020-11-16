@@ -111,10 +111,10 @@ DataToEquations[Data_?AssociationQ] :=
         Print["DataToEquations: Critical case ... "];
         EqCriticalCase = And @@ ((# == 0) & /@ Nlhs);	
         (*New-Old idea: *)
-        Print["DataToEquations: ", {EqAllAll && EqCriticalCase, BoundaryRules}];
+        (*Print["DataToEquations: ", {EqAllAll && EqCriticalCase, BoundaryRules}];*)
         {system, rules} = FixedPoint[EqEliminatorX, {(EqAllAll && EqCriticalCase)/.BoundaryRules, BoundaryRules}];
-        Print["DataToEquations: The system is:\n", system,
-        	"\nand the rules are:\n", rules];
+        (*Print["DataToEquations: The system is:\n", system,
+        	"\nand the rules are:\n", rules];*)
         {time,system} = AbsoluteTiming @ NewReduce[system];
         (*If[system =!= True,*)
         (*Print["DataToEquations: The system is:\n", system,
