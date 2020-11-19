@@ -41,7 +41,7 @@ DataToEquations[Data_?AssociationQ] :=
         ExitValues[a_ \[DirectedEdge] b_] :=
             Total[uvars /@ {{b, DirectedEdge[a, b]}}] == ExitCosts[b];
         Transu[{v_, edge1_, edge2_}] :=
-        	NonNegative[uvars[{v,edge2}]-uvars[{v,edge1}] + SwitchingCosts[{v,edge1,edge2}]];
+        	NonNegative[uvars[{v,edge2}]-uvars[{v,edge1}] + SwitchingCosts[{v,edge1,edge2}]];(*u1<= u2+S(1,2) for agents going from edge 1 to 2 at some vertex*)
         Compu[{v_, edge1_, edge2_}] :=
             (jtvars[{v, edge1, edge2}] == 0) || uvars[{v,edge2}]-uvars[{v,edge1}] + SwitchingCosts[{v,edge1,edge2}] == 0;
       (*End*)
@@ -113,9 +113,11 @@ DataToEquations[Data_?AssociationQ] :=
         (*New-Old idea: *)
         (*Print["DataToEquations: ", {EqAllAll && EqCriticalCase, BoundaryRules}];*)
         {system, rules} = FixedPoint[EqEliminatorX, {(EqAllAll && EqCriticalCase)/.BoundaryRules, BoundaryRules}];
-        (*Print["DataToEquations: The system is:\n", system,
-        	"\nand the rules are:\n", rules];*)
+        Print["DataToEquations: The system is:\n", system,
+        	"\nand the rules are:\n", rules];
         {time,system} = AbsoluteTiming @ NewReduce[system];
+        Print["DataToEquations: The system is:\n", system,
+        	"\nand the rules are:\n", rules];
         (*If[system =!= True,*)
         (*Print["DataToEquations: The system is:\n", system,
         	"\nand the rules are:\n", rules,
@@ -137,6 +139,7 @@ DataToEquations[Data_?AssociationQ] :=
         	system === False,
         		Print["DataToEquations: Incompatible system."],
         	True,
+        	{system,rules} = FixedPoint[EqEliminatorX, {system, rules}];
         	Print["DataToEquations: Possible multiple solutions \n", {system, rules}]; 
         ];
         criticalreduced1 = {system, Simplify /@ rules};
