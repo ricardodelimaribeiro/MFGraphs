@@ -88,10 +88,12 @@ DataToEquations[Data_?AssociationQ] :=
         RulesExitValues = ToRules[EqExitValues];
         EqAll = EqAll && EqExitValues;
         SwitchingCosts = AssociationThread[Join[AllTransitions, triple2path[Take[#, 3], FG] & /@ Data["Switching Costs"]], Join[Table[0, Length[AllTransitions]], Last[#] & /@ Data["Switching Costs"]]];(*Swithing cost is initialized with 0 AssociationThread associates the last association!*)
+        (*Maybe we dont need these!
+        
         OutRules = Rule[#, Infinity] & /@ (Outer[Flatten[{AtTail[#1], #2}] &, OutEdges, EL] // Flatten[#, 1] &);
         AssociateTo[SwitchingCosts, Association[OutRules]];
         InRules = Rule[#, Infinity] & /@ (Outer[{#2[[2]], #1, #2} &, IncidenceList[FG, #] & /@ EntranceVertices, InEdges] // Flatten[#, 2] &);
-        AssociateTo[SwitchingCosts, Association[InRules]];
+        AssociateTo[SwitchingCosts, Association[InRules]];*)
         EqSwitchingConditions = (And @@ Transu /@ AllTransitions);
         EqAll = EqAll && EqSwitchingConditions;
         EqCompCon = And @@ Compu /@ AllTransitions;
@@ -113,10 +115,10 @@ DataToEquations[Data_?AssociationQ] :=
         (*New-Old idea: *)
         (*Print["DataToEquations: ", {EqAllAll && EqCriticalCase, BoundaryRules}];*)
         {system, rules} = FixedPoint[EqEliminatorX, {(EqAllAll && EqCriticalCase)/.BoundaryRules, BoundaryRules}];
-        Print["DataToEquations: The system is:\n", system,
-        	"\nand the rules are:\n", rules];
+        (*Print["DataToEquations: The system is:\n", system,
+        	"\nand the rules are:\n", rules];*)
         {time,system} = AbsoluteTiming @ NewReduce[system];
-        Print["DataToEquations: The system is:\n", system,
+        Print["DataToEquations: After NewReduce, the system is:\n", system,
         	"\nand the rules are:\n", rules];
         (*If[system =!= True,*)
         (*Print["DataToEquations: The system is:\n", system,
