@@ -88,14 +88,13 @@ DataToEquations[Data_?AssociationQ] :=
         RulesExitValues = ToRules[EqExitValues];
         EqAll = EqAll && EqExitValues;
         SwitchingCosts = AssociationThread[Join[AllTransitions, triple2path[Take[#, 3], FG] & /@ Data["Switching Costs"]], Join[Table[0, Length[AllTransitions]], Last[#] & /@ Data["Switching Costs"]]];(*Swithing cost is initialized with 0 AssociationThread associates the last association!*)
-        (*Maybe we dont need these!
-        
+        (*Infinite switching costs here prevent the network from sucking agents from the exits.*)
         OutRules = Rule[#, Infinity] & /@ (Outer[Flatten[{AtTail[#1], #2}] &, OutEdges, EL] // Flatten[#, 1] &);
         AssociateTo[SwitchingCosts, Association[OutRules]];
         InRules = Rule[#, Infinity] & /@ (Outer[{#2[[2]], #1, #2} &, IncidenceList[FG, #] & /@ EntranceVertices, InEdges] // Flatten[#, 2] &);
-        AssociateTo[SwitchingCosts, Association[InRules]];*)
+        AssociateTo[SwitchingCosts, Association[InRules]];
         EqSwitchingConditions = (And @@ Transu /@ AllTransitions);
-        EqAll = EqAll && EqSwitchingConditions;
+        EqAll = EqAll && EqSwitchingConditions;(*TODO find a way to put this back on?*)
         EqCompCon = And @@ Compu /@ AllTransitions;
         EqValueAuxiliaryEdges = And @@ ((uvars[AtHead[#]] - uvars[AtTail[#]] == 0) & /@ EdgeList[AuxiliaryGraph]);
         EqAllComp = EqCurrentCompCon && EqTransitionCompCon && EqCompCon;
@@ -114,12 +113,10 @@ DataToEquations[Data_?AssociationQ] :=
         EqCriticalCase = And @@ ((# == 0) & /@ Nlhs);	
         (*New-Old idea: *)
         (*Print["DataToEquations: ", {EqAllAll && EqCriticalCase, BoundaryRules}];*)
-        {system, rules} = FixedPoint[EqEliminatorX, {(EqAllAll && EqCriticalCase)/.BoundaryRules, BoundaryRules}];
+        {system, rules} = FixedPoint[EqEliminatorX, {(EqAllAll && EqCriticalCase)/.BoundaryRules, BoundaryRules}];(*TODO check if we can start with {EqAllAll&&EqCriticalCase,{}}, boundaryvalues have equations in EqAllAll.*)
         (*Print["DataToEquations: The system is:\n", system,
         	"\nand the rules are:\n", rules];*)
         {time,system} = AbsoluteTiming @ NewReduce[system];
-        Print["DataToEquations: After NewReduce, the system is:\n", system,
-        	"\nand the rules are:\n", rules];
         (*If[system =!= True,*)
         (*Print["DataToEquations: The system is:\n", system,
         	"\nand the rules are:\n", rules,
@@ -130,6 +127,8 @@ DataToEquations[Data_?AssociationQ] :=
         	];*)
         (*];*)
         Print["DataToEquations: It took ", time, " seconds to reduce with NewReduce!"];
+        Print["DataToEquations: After NewReduce, the system is:\n", system,
+        	"\nand the rules are:\n", rules];
         Which[system === True ||
         	Head[system] === Equal || 
         	(Head[system] === And && DeleteDuplicates[Head /@ system] === Equal),
@@ -141,7 +140,8 @@ DataToEquations[Data_?AssociationQ] :=
         	system === False,
         		Print["DataToEquations: Incompatible system."],
         	True,
-        	{system,rules} = FixedPoint[EqEliminatorX, {system, rules}];
+        	Print["here"];
+        	{system,rules} = FixedPoint[EqEliminatorX, {system, rules},SameTest -> (Length[#1[[2]]]===Length[#2[[2]]]&)];
         	Print["DataToEquations: Possible multiple solutions \n", {system, rules}]; 
         ];
         criticalreduced1 = {system, Simplify /@ rules};
