@@ -23,6 +23,19 @@ DataToEquations[Data_?AssociationQ] :=
       EqCriticalCase, BoundaryRules, criticalreduced1, criticalreduced2, EqGeneralCase, EqAllAllSimple, sol, system, rules ,TOL, time, result},
       (*Set the tolerance for Chop*)
       TOL = 10^(-6);
+      (*Checking consistency on the swithing costs*)
+      ConsistentSwithingCosts[{a_, b_, c_, S_}] :=
+      	Module[{sc = Data["Switching Costs"], or, de, bounds},
+  			or = Cases[sc, {a, b, _, _}];
+  			de = Cases[sc, {_, b, c, _}];
+  			bounds = Outer[Plus, Last /@ or, Last /@ de] // Flatten;
+  			And @@ (S <= # &) /@ bounds
+  		];
+  		If[And@@ConsistentSwithingCosts /@ Data["Switching Costs"],
+  			Print["The swithing costs are compatible."],
+  			Print["The switching costs are incompatible. \nStopping!"];
+  			Throw["Null"]
+  		];
       (*Begin Internal functions for DataToEquations: *)
         IncomingEdges[k_] :=
             {k, #1} & /@ IncidenceList[FG,k]; (*all edges "oriented" towards the vertex k*)
