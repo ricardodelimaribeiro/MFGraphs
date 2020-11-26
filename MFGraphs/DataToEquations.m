@@ -32,7 +32,7 @@ DataToEquations[Data_?AssociationQ] :=
   			And @@ (S <= # &) /@ bounds
   		];
   		If[And@@ConsistentSwithingCosts /@ Data["Switching Costs"],
-  			Print["The swithing costs are compatible."],
+  			Print["The switching costs are compatible."],
   			Print["The switching costs are incompatible. \nStopping!"];
   			Throw["Null"]
   		];
