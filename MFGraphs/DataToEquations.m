@@ -31,7 +31,11 @@ DataToEquations[Data_?AssociationQ] :=
   			bounds = Outer[Plus, Last /@ or, Last /@ de] // Flatten;
   			And @@ (S <= # &) /@ bounds
   		];
-  		If[And@@ConsistentSwithingCosts /@ Data["Switching Costs"],
+  		ccs = ConsistentSwithingCosts /@ Data["Switching Costs"];
+  		Print["DataToEquations: Triangle inequalities for switching costs: ", ccs,
+  			"\nDataToEquations: Reduced: ",Reduce[ccs]];
+  		If[And @@ ccs,
+  			(*this happens when we have non-false condition.*)
   			Print["The switching costs are compatible."],
   			Print["The switching costs are incompatible. \nStopping!"];
   			Throw["Null"]
