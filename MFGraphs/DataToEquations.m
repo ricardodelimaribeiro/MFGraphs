@@ -20,7 +20,7 @@ DataToEquations[Data_?AssociationQ] :=
       EntryDataAssociation, EqEntryIn, NonZeroEntryCurrents, ExitCosts, EqExitValues, SwitchingCosts, OutRules, InRules, 
       EqSwitchingConditions, EqCompCon, EqValueAuxiliaryEdges, EqAllComp, EqAll, SignedCurrents, Nrhs, Nlhs, RulesEntryIn, 
       RulesExitValues, EqAllRules, EqAllCompRules, EqAllAll, EqAllAllRules, reduced1,reduced2,
-      EqCriticalCase, BoundaryRules, criticalreduced1, criticalreduced2, EqGeneralCase, EqAllAllSimple, sol, system, rules ,TOL, time, result},
+      EqCriticalCase, BoundaryRules, criticalreduced1, criticalreduced2, EqGeneralCase, EqCcs, EqAllAllSimple, sol, system, rules ,TOL, time, result},
       (*Set the tolerance for Chop*)
       TOL = 10^(-6);
       (*Checking consistency on the swithing costs*)
@@ -29,12 +29,12 @@ DataToEquations[Data_?AssociationQ] :=
   			or = Cases[sc, {a, b, _, _}];
   			de = Cases[sc, {_, b, c, _}];
   			bounds = Outer[Plus, Last /@ or, Last /@ de] // Flatten;
-  			And @@ (S <= # &) /@ bounds
+  			And @@ (NonNegative[#-S] &) /@ bounds
   		];
-  		ccs = ConsistentSwithingCosts /@ Data["Switching Costs"];
-  		Print["DataToEquations: Triangle inequalities for switching costs: ", ccs,
-  			"\nDataToEquations: Reduced: ",Reduce[ccs]];
-  		If[And @@ ccs,
+  		EqCcs = ConsistentSwithingCosts /@ Data["Switching Costs"];
+  		Print["DataToEquations: Triangle inequalities for switching costs: ", EqCcs,
+  			"\nDataToEquations: Reduced: ",Reduce[EqCcs]];
+  		If[And @@ EqCcs,
   			(*this happens when we have non-false condition.*)
   			Print["The switching costs are compatible."],
   			Print["The switching costs are incompatible. \nStopping!"];
@@ -111,7 +111,7 @@ DataToEquations[Data_?AssociationQ] :=
         InRules = Rule[#, Infinity] & /@ (Outer[{#2[[2]], #1, #2} &, IncidenceList[FG, #] & /@ EntranceVertices, InEdges] // Flatten[#, 2] &);
         AssociateTo[SwitchingCosts, Association[InRules]];
         EqSwitchingConditions = (And @@ Transu /@ AllTransitions);
-        EqAll = EqAll && EqSwitchingConditions;(*TODO find a way to put this back on?*)
+        EqAll = EqAll && EqSwitchingConditions && And @@ EqCcs;(*includes transition inequalities for the values and the triangle inequalities, too.*)
         EqCompCon = And @@ Compu /@ AllTransitions;
         EqValueAuxiliaryEdges = And @@ ((uvars[AtHead[#]] - uvars[AtTail[#]] == 0) & /@ EdgeList[AuxiliaryGraph]);
         EqAllComp = EqCurrentCompCon && EqTransitionCompCon && EqCompCon;
@@ -157,14 +157,14 @@ DataToEquations[Data_?AssociationQ] :=
         	system === False,
         		Print["DataToEquations: Incompatible system."],
         	True,
-        	Print["here"];
+        	Print["DataToEquations: Mixed system: "];
         	{system,rules} = FixedPoint[EqEliminatorX, {system, rules},SameTest -> (Length[#1[[2]]]===Length[#2[[2]]]&)];
         	Print["DataToEquations: Possible multiple solutions \n", {system, rules}]; 
         ];
         criticalreduced1 = {system, Simplify /@ rules};
         If[system === True,
         	Print["DataToEquations: Critical congestion solved."];,
-        	Print["DataToEquations: Something went wrong, check the data."];
+        	Print["DataToEquations: There are multiple solutions for the given data."];
         ];
         
         (*what are the possible outputs here? True, Equal, And of Equal, (anytinhg else, multiple solutions, check this by substituting on the variable associations)*)
