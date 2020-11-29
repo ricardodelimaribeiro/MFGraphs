@@ -109,7 +109,7 @@ EqEliminatorX[{system_, rules_}] :=
                 If[ EE === {},
                     {Reduce[system, Reals], rulesAss},
                     (*Print["EEX: ", EE];*)
-                    newrules =  Solve[EE, Reals] // Quiet; (*The reason we use Quiet is:  Solve::svars: Equations may not give solutions for all "solve" variables.*)
+                    newrules =  Solve[EE, Reals] // Quiet; (*TODO include variables to solve: this way we leave the switching costs unsolved.*)(*The reason we use Quiet is:  Solve::svars: Equations may not give solutions for all "solve" variables.*)
                     (*Print["EEX: newrules before if: ", newrules];*)
                     If[ newrules === {},
                         (*Print["EEX: ", EE];*)
