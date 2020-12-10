@@ -101,7 +101,8 @@ RR = Reduce[#1, #2, Reals] &;*)
 
 F[j_?NumericQ, x_?NumericQ] :=
 	First @ Values @ FindRoot[Parameters["H[x,p,m]"][x, -j/(m^(1 - Parameters["alpha"])),m], {m, 1}];
-(*we are solving the h-j equation for m given that u_x = -j*m^(alpha-1) *)
+(*we are solving the h-j equation, H[x,u_x,m] == 0, for m, given that u_x = -j*m^(alpha-1) 
+The hamiltonian depends on g[m]!*)
 
 
 (*TODO is m becoming zero?*)
