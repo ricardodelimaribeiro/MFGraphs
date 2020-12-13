@@ -148,7 +148,7 @@ FixedReduceX1[Eqs_Association][rules_] :=
         auxsys = NewReduce[auxsys];
             (*Print["FRX1: Structural stuff -> NewReduce: \n", auxsys];*)
         nonlinear = And @@ (MapThread[(Equal[#1,#2]) &, {Eqs["Nlhs"], Chop[#,Eqs["TOL"]]&/@(Eqs["Nrhs"]/. auxsol /. rules)}]);
-            (*Print["FRX1: nonlinear: \n", nonlinear];*)
+            Print["FRX1: nonlinear: \n", nonlinear];
         auxsys = (auxsys && nonlinear) /. auxsol;  
             (*Print["FRX1: new nonlinear: \n", {auxsys, auxsol, auxsys/.auxsol}];*)  
             (*Print["FRX1: ", {auxsys /. Solve[auxsys,Reals], Solve[auxsys,Reals]}];*)
