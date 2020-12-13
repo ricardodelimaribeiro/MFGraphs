@@ -232,20 +232,20 @@ DataToEquations[Data_?AssociationQ] :=
           "EqSwitchingConditions" -> EqSwitchingConditions, 
           "EqValueAuxiliaryEdges" -> EqValueAuxiliaryEdges, 
           "EqAll" -> EqAll, 
-          "EqAllCompRules" -> EqAllCompRules,
-          "EqAllRules" -> EqAllRules,
+          (*"EqAllCompRules" -> EqAllCompRules,*)
+          (*"EqAllRules" -> EqAllRules,*)
           "EqAllAll" -> EqAllAll,
           "BoundaryRules" -> BoundaryRules,
-          "reduced1" -> reduced1,
-          "reduced2" -> reduced2,
-          "EqAllAllSimple" -> EqAllAllSimple,
+          (*"reduced1" -> reduced1,
+          "reduced2" -> reduced2,*)
+          (*"EqAllAllSimple" -> EqAllAllSimple,*)
           "RulesEntryIn"-> RulesEntryIn,
           "RulesExitValues" -> RulesExitValues,
-          "EqAllAllRules" -> EqAllAllRules,
+          (*"EqAllAllRules" -> EqAllAllRules,*)
           "Nlhs" -> Nlhs,
           "EqCriticalCase" -> EqCriticalCase ,
           "criticalreduced1" -> criticalreduced1,
-          "criticalreduced2" -> criticalreduced2,
+          (*"criticalreduced2" -> criticalreduced2,*)
           "Nrhs" -> Nrhs,
           "EqGeneralCase" -> EqGeneralCase,
           "TOL"->TOL
