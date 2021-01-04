@@ -113,13 +113,13 @@ Intg[j_?NumericQ] :=
 (*this is the rhs of the integral of u_x from 0 to 1: ingetral_0^1 \
 -j*m^(alpha-1) dx*)
 
-M[j_?NumericQ, x_?NumericQ] :=
-	First @ Values @ FindRoot[H[x, -j/(m^(1 - alpha)),m], {m, 1}];
+M[j_?NumericQ, x_?NumericQ, edge_] :=
+	First @ Values @ FindRoot[H[x, -j/(m^(1 - alpha)),m, edge], {m, 1}];
 
 
-IntM[j_?NumericQ] :=
+IntM[j_?NumericQ, edge_] :=	
 	If[j == 0.|| j == 0 , 0. ,
-    -j NIntegrate[ 1/(M[j, x]^(1 - alpha)), {x, 0, 1}] // Quiet
+    -j NIntegrate[ 1/(M[j, x, edge]^(1 - alpha)), {x, 0, 1}] // Quiet
 	]
 
 

@@ -20,7 +20,7 @@ DataToEquations[Data_?AssociationQ] :=
       EntryDataAssociation, EqEntryIn, NonZeroEntryCurrents, ExitCosts, EqExitValues, SwitchingCosts, OutRules, InRules, 
       EqSwitchingConditions, EqCompCon, EqValueAuxiliaryEdges, EqAllComp, EqAll, SignedCurrents, Nrhs, Nlhs, RulesEntryIn, 
       RulesExitValues, EqAllRules, EqAllCompRules, EqAllAll, EqAllAllRules, reduced1,reduced2,
-      EqCriticalCase, BoundaryRules, criticalreduced1, criticalreduced2, EqGeneralCase, EqCcs, EqAllAllSimple, sol, system, rules ,TOL, time, result},
+      EqCriticalCase, BoundaryRules, criticalreduced1, criticalreduced2, EqGeneralCase, EqCcs, (*EqAllAllSimple,*) sol, system, rules ,TOL, time(*, result*)},
       (*Set the tolerance for Chop*)
       TOL = 10^(-6);
       (*Checking consistency on the swithing costs*)
@@ -37,8 +37,8 @@ DataToEquations[Data_?AssociationQ] :=
   		If[And @@ EqCcs,
   			(*this happens when we have non-false condition.*)
   			Print["The switching costs are compatible."],
-  			Print["The switching costs are incompatible. \nStopping!"];
-  			Throw["Null"]
+  			Print["The switching costs are ",Style["incompatible", Red],". \nStopping!"];
+  			Return[]
   		];
       (*Begin Internal functions for DataToEquations: *)
         IncomingEdges[k_] :=
@@ -155,7 +155,7 @@ DataToEquations[Data_?AssociationQ] :=
         		Print[sol];
         	],
         	system === False,
-        		Print["DataToEquations: Incompatible system."],
+        		Print["DataToEquations: ",Style["Incompatible system", Red],"."],
         	True,
         	Print["DataToEquations: Mixed system: "];
         	{system,rules} = FixedPoint[EqEliminatorX, {system, rules},SameTest -> (Length[#1[[2]]]===Length[#2[[2]]]&)];
@@ -164,13 +164,15 @@ DataToEquations[Data_?AssociationQ] :=
         criticalreduced1 = {system, Simplify /@ rules};
         If[system === True,
         	Print["DataToEquations: Critical congestion solved."];,
-        	Print["DataToEquations: There are multiple solutions for the given data."];
+        	Print["DataToEquations: There are ", Style["multiple solutions", Red]," for the given data."];
         ];
         
         (*what are the possible outputs here? True, Equal, And of Equal, (anytinhg else, multiple solutions, check this by substituting on the variable associations)*)
 
         (*return the left and right hand sides of the nonlinear equations*)
-        Nrhs =  Flatten[IntM[SignedCurrents[#]] + SignedCurrents[#] & /@ BEL];
+        Print["all ok? up to here?"];
+        Nrhs =  Flatten[IntM[SignedCurrents[#], #] + SignedCurrents[#] & /@ BEL];
+        Print[Nrhs];
         EqGeneralCase = And @@ (MapThread[(#1 == #2) &, {Nlhs , Nrhs}]);
         
         Print["DataToEquations: Done."];

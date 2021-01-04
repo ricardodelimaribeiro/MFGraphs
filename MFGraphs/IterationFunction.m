@@ -147,6 +147,7 @@ FixedReduceX1[Eqs_Association][rules_] :=
             (*Print["FRX1: Structural stuff: \n", {auxsys, auxsol//KeySort}];*)
         auxsys = NewReduce[auxsys];
             (*Print["FRX1: Structural stuff -> NewReduce: \n", auxsys];*)
+            (*Print["FRX1: edge -> hamiltonian: ", Eqs["Nrhs"]];*)
         nonlinear = And @@ (MapThread[(Equal[#1,#2]) &, {Eqs["Nlhs"], Chop[#,Eqs["TOL"]]&/@(Eqs["Nrhs"]/. auxsol /. rules)}]);
             Print["FRX1: nonlinear: \n", nonlinear];
         auxsys = (auxsys && nonlinear) /. auxsol;  
@@ -158,9 +159,9 @@ FixedReduceX1[Eqs_Association][rules_] :=
             (*Print["FRX1: Structural stuff + nonlinear -> Reduce: \n", auxsys, Reduce[auxsys,Reals]];*)
         If[ auxsys === False,
             (*Print["rules :", rules];*)
-            Print["FRX1: The last system in the iteration was inconsistent.\nThrowing the last feasible solution."];
+            Print["FRX1: The last system in the iteration was inconsistent.\nReturning the last feasible solution."];
             (*auxsol = rules;*)
-            Throw[rules],
+            Return[rules],
     (*        Print["FRX1: The relative Error on the nonlinear terms is ", Norm[(Eqs["Nlhs"] - Eqs["Nrhs"])/Eqs["Nlhs"] /. auxsol]]//Quiet;
             Print["FRX1: The relative Error on the nonlinear terms is ", Norm[(Eqs["Nlhs"] - Eqs["Nrhs"])/Eqs["Nrhs"] /. auxsol]]//Quiet;*)
             Print["FRX1: The Minimum between the Error and the relative Errors on the nonlinear terms is ", 
