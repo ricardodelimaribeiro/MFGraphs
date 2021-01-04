@@ -114,7 +114,7 @@ Intg[j_?NumericQ] :=
 -j*m^(alpha-1) dx*)
 
 M[j_?NumericQ, x_?NumericQ, edge_] :=
-	First @ Values @ FindRoot[H[x, -j/(m^(1 - alpha)),m, edge], {m, 1}];
+	Values @ First @ FindRoot[H[x, -j/(m^(1 - alpha)),m, edge], {m, 1}];
 
 
 IntM[j_?NumericQ, edge_] :=	
