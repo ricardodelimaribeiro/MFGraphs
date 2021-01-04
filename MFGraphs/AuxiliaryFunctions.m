@@ -40,10 +40,10 @@ Intg::usage =
 "";
 
 M::usage = 
-"M[j,x] F without the Parameters association";
+"M[j,x, edge] F without the Parameters association";
 
 IntM::usage = 
-"IntM[j] Intg without the Parameters association";
+"IntM[j, edge] Intg without the Parameters association";
 
 Begin["`Private`"]
 AtHead[a_ \[DirectedEdge] b_] :=
