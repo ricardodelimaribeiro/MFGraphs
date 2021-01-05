@@ -42,6 +42,9 @@ Intg::usage =
 M::usage = 
 "M[j,x, edge] F without the Parameters association";
 
+U::usage = 
+"U[x, edge, MFGEquations] is the value function at the edge."
+
 IntM::usage = 
 "IntM[j, edge] Intg without the Parameters association";
 
@@ -114,12 +117,17 @@ Intg[j_?NumericQ] :=
 -j*m^(alpha-1) dx*)
 
 M[j_?NumericQ, x_?NumericQ, edge_] :=
-	Values @ First @ FindRoot[H[x, -j/(m^(1 - alpha)),m, edge], {m, 1}];
+	If[j == 0.|| j == 0 , 0. ,
+	Values @ First @ FindRoot[H[x, -j/(m^(1 - alpha)),m, edge], {m, 1}]];
 
-
+U[x_?NumericQ , edge_, Eqs_Association] :=
+	If[Eqs["jays"][edge] == 0.|| Eqs["jays"][edge] == 0 , (1-x) Cos[17*x] ,
+	Eqs["uvars"][AtTail[edge]] - Eqs["jays"][edge] NIntegrate[
+     M[Eqs["jays"][edge], y, edge]^(alpha - 1), {y, 0, x}]];
+		
 IntM[j_?NumericQ, edge_] :=	
 	If[j == 0.|| j == 0 , 0. ,
-    -j NIntegrate[ 1/(M[j, x, edge]^(1 - alpha)), {x, 0, 1}] // Quiet
+    -j NIntegrate[ M[j, x, edge]^(alpha-1), {x, 0, 1}] // Quiet
 	]
 
 
