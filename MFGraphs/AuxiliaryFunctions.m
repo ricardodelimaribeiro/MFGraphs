@@ -121,7 +121,7 @@ M[j_?NumericQ, x_?NumericQ, edge_] :=
 	Values @ First @ FindRoot[H[x, -j/(m^(1 - alpha)),m, edge], {m, 1}]];
 
 U[x_?NumericQ , edge_, Eqs_Association] :=
-	If[Eqs["jays"][edge] == 0.|| Eqs["jays"][edge] == 0 , (1-x) Cos[17*x] ,
+	If[Eqs["jays"][edge] == 0.|| Eqs["jays"][edge] == 0 , Eqs["uvars"][AtTail[edge]] ,
 	Eqs["uvars"][AtTail[edge]] - Eqs["jays"][edge] NIntegrate[
      M[Eqs["jays"][edge], y, edge]^(alpha - 1), {y, 0, x}]];
 		
