@@ -240,7 +240,13 @@ Test = Association[
         (*AM=*){{0, 1, 0, 0}, {0, 0, 1, 1}, {0, 0, 0, 0}, {0, 0, 0, 0}},
         (*DataIn=*){{1, I1},{4, I2}},
         (*FinalCosts=*){{3, U1}},
-        (*SwitchingCostsData=*){{1, 2, 3, S1}, {1, 2, 4, S2}, {3, 2, 1, S3}, {3, 2, 4, S4}, {4, 2, 1, S5}, {4, 2, 3, S6}}}
+        (*SwitchingCostsData=*){{1, 2, 3, S1}, {1, 2, 4, S2}, {3, 2, 1, S3}, {3, 2, 4, S4}, {4, 2, 1, S5}, {4, 2, 3, S6}}},
+        27 -> {
+        (*VL=*){1, 2},
+        (*AM=*){{0, 1}, {1, 0}},
+        (*DataIn=*){{1, I1}},
+        (*FinalCosts=*){{2, U1}},
+        (*SwitchingCostsData=*){}}
  (* 
     (*Y 1-in 2-out 3 vertices no switching*)
    18 -> {
