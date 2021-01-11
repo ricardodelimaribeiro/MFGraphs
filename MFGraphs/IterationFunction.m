@@ -11,10 +11,12 @@ EqEliminatorX::usage =
 
 ZAnd::usage =
 ""
+NewReduce::usage = 
+""
 
 Begin["`Private`"]
 CleanAndReplace::usage =
-"CleanAndReplace[{system,rules}] returns True if the system is approximately (difference in each equation is less than 10^(-10) ) solved by rules.";
+"CleanAndReplace[{system,rules}] returns True if the system is approximately (difference in each equation is less than 10^(-12) ) solved by rules.";
 CleanAndReplace[{system_,rules_}] :=
     (system /. Equal -> (zob[#1-#2]&)/. rules // Chop[#,10^(-12)]& ) /. zob -> (# == 0.&)
  
@@ -149,7 +151,7 @@ FixedReduceX1[Eqs_Association][rules_] :=
             (*Print["FRX1: Structural stuff -> NewReduce: \n", auxsys];*)
             (*Print["FRX1: edge -> hamiltonian: ", Eqs["Nrhs"]];*)
         nonlinear = And @@ (MapThread[(Equal[#1,#2]) &, {Eqs["Nlhs"], Chop[#,Eqs["TOL"]]&/@(Eqs["Nrhs"]/. auxsol /. rules)}]);
-            Print["FRX1: nonlinear: \n", nonlinear];
+            (*Print["FRX1: nonlinear: \n", nonlinear];*)
         auxsys = (auxsys && nonlinear) /. auxsol;  
             (*Print["FRX1: new nonlinear: \n", {auxsys, auxsol, auxsys/.auxsol}];*)  
             (*Print["FRX1: ", {auxsys /. Solve[auxsys,Reals], Solve[auxsys,Reals]}];*)
@@ -165,12 +167,15 @@ FixedReduceX1[Eqs_Association][rules_] :=
     (*        Print["FRX1: The relative Error on the nonlinear terms is ", Norm[(Eqs["Nlhs"] - Eqs["Nrhs"])/Eqs["Nlhs"] /. auxsol]]//Quiet;
             Print["FRX1: The relative Error on the nonlinear terms is ", Norm[(Eqs["Nlhs"] - Eqs["Nrhs"])/Eqs["Nrhs"] /. auxsol]]//Quiet;*)
             Print["FRX1: The Minimum between the Error and the relative Errors on the nonlinear terms is ", 
-                Min[
+              	Min[
                 	Select[{
                 		Norm[(Eqs["Nlhs"] - Eqs["Nrhs"]) /. auxsol],
-                		(Norm[Eqs["Nlhs"] - Eqs["Nrhs"]]/Norm[Eqs["Nlhs"]]) /. auxsol,
-                		(Norm[Eqs["Nlhs"] - Eqs["Nrhs"]]/Norm[Eqs["Nrhs"]]) /. auxsol
-                		(*Norm[(Eqs["Nlhs"] - Eqs["Nrhs"])/Eqs["Nrhs"] /. auxsol]*)}, !(# === Indeterminate) &]]]//Quiet;
+                		(Norm[(Eqs["Nlhs"] - Eqs["Nrhs"])/Norm[Eqs["Nlhs"]]]) /. auxsol,
+                		(Norm[(Eqs["Nlhs"] - Eqs["Nrhs"])/Norm[Eqs["Nrhs"]]]) /. auxsol
+                		(*Norm[(Eqs["Nlhs"] - Eqs["Nrhs"])/Eqs["Nrhs"] /. auxsol]*)}, !(# === Indeterminate) &]
+                		]
+                		]//Quiet;
+            
         ];
         Simplify /@ auxsol
     ];

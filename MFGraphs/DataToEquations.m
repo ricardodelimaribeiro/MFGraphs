@@ -36,8 +36,8 @@ DataToEquations[Data_?AssociationQ] :=
   			"\nDataToEquations: Reduced: ",Reduce[EqCcs]];
   		If[And @@ EqCcs,
   			(*this happens when we have non-false condition.*)
-  			Print["The switching costs are compatible."],
-  			Print["The switching costs are ",Style["incompatible", Red],". \nStopping!"];
+  			Print["DataToEquations: The switching costs are compatible."],
+  			Print["DataToEquations: The switching costs are ",Style["incompatible", Red],". \nStopping!"];
   			Return[]
   		];
       (*Begin Internal functions for DataToEquations: *)
@@ -132,8 +132,8 @@ DataToEquations[Data_?AssociationQ] :=
         (*Print["DataToEquations: ", {EqAllAll && EqCriticalCase, BoundaryRules}];*)
         {system, rules} = FixedPoint[EqEliminatorX, {(EqAllAll && EqCriticalCase), {}}];
         (*FixedPoint[EqEliminatorX, {(EqAllAll && EqCriticalCase)/.BoundaryRules, BoundaryRules}];*)(*TODO check if we can start with {EqAllAll&&EqCriticalCase,{}}, boundaryvalues have equations in EqAllAll.*)
-        Print["DataToEquations: The system is:\n", system,
-        	"\nand the rules are:\n", rules];
+        (*Print["DataToEquations: The system is:\n", system,
+        	"\nand the rules are:\n", rules];*)
         {time,system} = AbsoluteTiming @ NewReduce[system];
         (*If[system =!= True,*)
         (*Print["DataToEquations: The system is:\n", system,
@@ -145,8 +145,8 @@ DataToEquations[Data_?AssociationQ] :=
         	];*)
         (*];*)
         Print["DataToEquations: It took ", time, " seconds to reduce with NewReduce!"];
-        Print["DataToEquations: After NewReduce, the system is:\n", system,
-        	"\nand the rules are:\n", rules];
+        (*Print["DataToEquations: After NewReduce, the system is:\n", system,
+        	"\nand the rules are:\n", rules];*)
         Which[system === True ||
         	Head[system] === Equal || 
         	(Head[system] === And && DeleteDuplicates[Head /@ system] === Equal),
@@ -171,9 +171,9 @@ DataToEquations[Data_?AssociationQ] :=
         (*what are the possible outputs here? True, Equal, And of Equal, (anytinhg else, multiple solutions, check this by substituting on the variable associations)*)
 
         (*return the left and right hand sides of the nonlinear equations*)
-        Print["all ok? up to here?"];
+        (*Print["all ok? up to here?"];*)
         Nrhs =  Flatten[IntM[SignedCurrents[#], #] + SignedCurrents[#] & /@ BEL];
-        Print[Nrhs];
+        (*Print[Nrhs];*)
         EqGeneralCase = And @@ (MapThread[(#1 == #2) &, {Nlhs , Nrhs}]);
         
         Print["DataToEquations: Done."];
