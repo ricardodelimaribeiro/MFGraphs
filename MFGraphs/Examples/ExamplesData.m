@@ -233,7 +233,19 @@ Test = Association[
         (*FinalCosts=*){{5, U1},{6, U2},{7, U3}},
         (*SwitchingCostsData=*){}},
        
-       
+            23 -> {
+        (*VL=*){1,2,3,4,5,6},
+        (*AM=*){
+        {0,1,1,0,0,0},
+        {0,0,1,0,0,0},
+        {0,0,0,1,1,0},
+        {0,0,0,0,1,1},
+        {0,0,0,0,0,1},
+        {0,0,0,0,0,0}},
+        (*DataIn=*){{1, I1},{2, I2}},
+        (*FinalCosts=*){{4, U1},{5, U2},{6, U3}},
+        (*SwitchingCostsData=*){}},
+   
     (*Y 1-in 2-out 4 vertices with switching*)
     19 -> {
         (*VL=*){1, 2, 3, 4},
