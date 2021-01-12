@@ -93,7 +93,7 @@ DataToEquations[Data_?AssociationQ] :=
         NoDeadStarts = OutgoingEdges /@ VL // Flatten[#, 1] &;
         EqBalanceSplittingCurrents = And @@ ((jvars[#] == Total[jtvars /@ CurrentSplitting[#]]) & /@ NoDeadEnds);
         EqBalanceGatheringCurrents = And @@ ((jvars[#] == Total[jtvars /@ CurrentGathering[#]]) & /@ NoDeadStarts);
-        EqAll = EqPosCon && EqBalanceSplittingCurrents && EqBalanceGatheringCurrents;
+        EqAll = EqPosCon && EqBalanceSplittingCurrents && EqBalanceGatheringCurrents;(*takes too long to Reduce, so don't!*)
         EntryArgs = AtHead /@ ((EdgeList[AuxiliaryGraph, _ \[DirectedEdge] #] & /@ (First /@ Data["Entrance Vertices and Currents"])) // Flatten[#, 1] &);
         EntryDataAssociation = AssociationThread[EntryArgs, Last /@ Data["Entrance Vertices and Currents"]];
         EqEntryIn = And @@ ((jvars[#] == EntryDataAssociation[#]) & /@ (AtHead /@ InEdges));
@@ -110,7 +110,7 @@ DataToEquations[Data_?AssociationQ] :=
         AssociateTo[SwitchingCosts, Association[OutRules]];
         InRules = Rule[#, Infinity] & /@ (Outer[{#2[[2]], #1, #2} &, IncidenceList[FG, #] & /@ EntranceVertices, InEdges] // Flatten[#, 2] &);
         AssociateTo[SwitchingCosts, Association[InRules]];
-        EqSwitchingConditions = (And @@ Transu /@ AllTransitions);
+        EqSwitchingConditions = Reduce[(And @@ Transu /@ AllTransitions), Reals];(*Reducing before joining with other equations*)
         EqAll = EqAll && EqSwitchingConditions && And @@ EqCcs;(*includes transition inequalities for the values and the triangle inequalities, too.*)
         EqCompCon = And @@ Compu /@ AllTransitions;
         EqValueAuxiliaryEdges = And @@ ((uvars[AtHead[#]] - uvars[AtTail[#]] == 0) & /@ EdgeList[AuxiliaryGraph]);
@@ -118,10 +118,8 @@ DataToEquations[Data_?AssociationQ] :=
         EqAll = EqAll && EqValueAuxiliaryEdges;
         (*Pre-processing: substitute rules in all equations and hand-sides...*)
         BoundaryRules = Join[RulesEntryIn, RulesExitValues];
-        EqAllAll = EqAll && EqAllComp;(*this is in the place of Boo, without the brackets.*)
+        EqAllAll = EqAll && EqAllComp;
         EqAllAllRules = EqAllCompRules && EqAllRules;
-        
-        
         
         Print["DataToEquations: Finished assembling strucural equations. Reducing the structural system ... "];
         
