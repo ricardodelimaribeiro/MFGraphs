@@ -98,7 +98,7 @@ Test = Association[
    
         
     (*Attraction Problem*)
-    11 -> {(*TODO try "one edge" with 3 or 4 vertices, the current is already set, there should be two iterations on the fixed point.*)
+    11 -> {
         (*VL=*){1, 2, 3, 4},
         (*AM=*){{0, 1, 1, 0}, {0, 0, 1, 1}, {0, 0, 0, 1}, {0, 0, 0, 0}},
         (*DataIn=*){{1, I1}},

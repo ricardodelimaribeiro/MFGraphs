@@ -1,5 +1,6 @@
 (* Wolfram Language package *)
-(*TODO put usage messages outside of Private. (so we can use them) DONE*)
+SortAnds::usage =
+"SortAnds[system, variables] Sorts equations (and inequalities) according to an orderd list of variables."
 
 OtherWay::usage =
 "OtherWay[{a,a\[DirectedEdge]b}] returns {b,a\[DirectedEdge]b}";
@@ -49,6 +50,27 @@ IntM::usage =
 "IntM[j, edge] Intg without the Parameters association";
 
 Begin["`Private`"]
+
+SortAnds[oldxp_And, vars_] := SortAnds[True, oldxp, vars]
+SortAnds[oldxp_, vars_] := oldxp
+SortAnds[Newxp_, oldxp_, {}] := Newxp && oldxp
+SortAnds[Newxp_, oldxp_And, vars_] :=
+ 
+ With[{variablesofthemoment = Select[vars, ! FreeQ[Newxp, #] &]},
+  If[variablesofthemoment === {},
+   SortAnds[Newxp && Select[oldxp, ! FreeQ[#, First[vars]] &], 
+    Select[oldxp, FreeQ[#, First[vars]] &], Rest[vars]],
+   SortAnds[
+    Newxp && Select[oldxp, ! FreeQ[#, First[variablesofthemoment]] &],
+     Select[oldxp, FreeQ[#, First[variablesofthemoment]] &], 
+    Select[vars, (# =!= First[variablesofthemoment]) &]
+    ]
+   ]
+  ]
+(*if the head is not And*)
+
+SortAnds[Newxp_, oldxp_, vars_] := Newxp && oldxp
+
 AtHead[a_ \[DirectedEdge] b_] :=
     {b, a \[DirectedEdge] b};
 (*AtHead[edge_] := {edge[[2]], edge}
@@ -108,7 +130,7 @@ F[j_?NumericQ, x_?NumericQ] :=
 The hamiltonian depends on g[m]!*)
 
 
-(*TODO is m becoming zero?*)
+(* is m becoming zero?*)
 Intg[j_?NumericQ] :=
 	If[j == 0.|| j == 0 , 0. ,
     -j Chop[NIntegrate[ 1/(F[j, x]^(1 - Parameters["alpha"])), {x, 0, 1}]] // Quiet
@@ -131,17 +153,6 @@ IntM[j_?NumericQ, edge_] :=
 	]
 
 
-(*TODO : from previous guess, look at rhs, if m is negative, the corresponding j needs to be 0*)
-
-
-
-(*TODO figure out what this was:
-	With[{j = #}, Module [{m}, m[x_?NumericQ] := F[j, x];
-		Intg[j]
-	]
-]&;
-*)  
-  
-  
+(*TODO : from previous guess, look at rhs, if m is negative, the corresponding j needs to be 0*)  
 End[]
 
