@@ -126,7 +126,7 @@ EqEliminatorX[{system_, rules_}] :=
                         	(*Print["in if, true"];*)
                             {ON && CleanAndReplace[{EE, newrules}] , AssociateTo[rulesAss, newrules]} /. newrules,
                             (*Print["in if, false"];*)
-                            {system, AssociateTo[rulesAss, newrules]} /. newrules
+                            {system/. newrules, Simplify/@(AssociateTo[rulesAss, newrules]/. newrules)} 
                         ]
                     ]
                 ],
@@ -134,11 +134,12 @@ EqEliminatorX[{system_, rules_}] :=
                 newrules = Solve[system, Reals];
                 Print["EEX: newrules when Head is Equal: ", newrules];
                 newrules = First @ newrules;
-                {system, AssociateTo[rulesAss, newrules]} /. newrules,        
+                {system/. newrules, Simplify/@(AssociateTo[rulesAss, newrules]/. newrules)},
+                (*{system, AssociateTo[rulesAss, newrules]} /. newrules,*)        
             system === True,
-                {system, rulesAss},
+                {system, Simplify @ rulesAss},
             True,
-                {Reduce[system, Reals] // Quiet, rulesAss}
+                {Reduce[system, Reals] // Quiet, Simplify @ rulesAss}
         ]
     ];
 
