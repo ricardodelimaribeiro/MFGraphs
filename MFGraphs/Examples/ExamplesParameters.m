@@ -32,7 +32,7 @@ g = If[ beta == 0,
 
 W::usage =
 ""
-W = Function[{x, a}, a Sin[2 Pi (x + 1/4)]^2];
+W = Function[{y, a}, a Sin[2 Pi (y + 1/4)]^2];
 
 V::usage = 
 ""
@@ -40,4 +40,4 @@ V = Function[{x, edge}, W[x, A]];
 
 H::usage = 
 ""
-H = Function[{x,p,m, edge}, p^2/(2 m^alpha) + V[x, edge] - g[m]];
+H = Function[{xi,p,m, edge}, p^2/(2 m^alpha) + V[xi, edge] - g[m]];
