@@ -123,6 +123,21 @@ DataToEquations[Data_?AssociationQ] :=
         
         Print["DataToEquations: Finished assembling strucural equations. Reducing the structural system ... "];
         
+ (*       {nocasesystem,nocaserules}=FixedPoint[EqEliminatorX,{EqAllAll,{}}];
+        
+        
+        {time,nocasesystem} = Timing[NewReduce[nocasesystem]];(*TODO: SortAnds before this*)
+        Print["Time without SortAnds ", time];
+ 
+        (*{nocasesystem,nocaserules}=FixedPoint[EqEliminatorX,{nocasesystem,nocaserules}]; this was slowing it down (the structure of the system here is not And[Or,Equal,NonNegative].*)
+        
+        (*Print["new-old idea: ",system, " with ", time, " seconds."];*)
+        {system, rules} = FixedPoint[EqEliminatorX, {(nocasesystem && EqCriticalCase)/. nocaserules, nocaserules}];
+ *)
+        
+        
+        
+        
         Nlhs = Flatten[uvars[AtHead[#]] - uvars[AtTail[#]] + SignedCurrents[#] & /@ BEL];
         Print["DataToEquations: Critical case ... "];
         EqCriticalCase = And @@ ((# == 0) & /@ Nlhs);	
