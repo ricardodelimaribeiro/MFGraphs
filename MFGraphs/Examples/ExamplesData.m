@@ -273,7 +273,7 @@ Test = Association[
         {0,0,0,0,0,0,0,0}},
         (*DataIn=*){{1, I1}/.I1->2},
         (*FinalCosts=*){{8, U1}/.U1->0},
-        (*SwitchingCostsData=*){{1,2,4,S1},{5,7,8,S2}}/.{S1->1,S2->1}},
+        (*SwitchingCostsData=*){{1,2,4,S1},{5,7,8,S2}}/.{S1->10,S2->10}},
         
         "Braess congest" -> {
         (*VL=*){1,2,3,4,5,6,7},
@@ -287,7 +287,7 @@ Test = Association[
         {0,0,0,0,0,0,0}},
         (*DataIn=*){{1, I1}/.I1->2},
         (*FinalCosts=*){{7, U1}/.U1->0},
-        (*SwitchingCostsData=*){{1,2,4,S1},{4,6,7,S2}}/.{S1->1,S2->1}}
+        (*SwitchingCostsData=*){{1,2,4,S1},{4,6,7,S2}}/.{S1->10,S2->10}}
  (* 
     (*Y 1-in 2-out 3 vertices no switching*)
    18 -> {
