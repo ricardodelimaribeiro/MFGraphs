@@ -173,7 +173,13 @@ DataToEquations[Data_?AssociationQ] :=
         	True,
         	Print["DataToEquations: Mixed system: "];
         	{system,rules} = FixedPoint[EqEliminatorX, {system, rules},SameTest -> (Length[#1[[2]]]===Length[#2[[2]]]&)];
-        	Print["DataToEquations: Possible multiple solutions \n", {system, rules}]; 
+        	Print["DataToEquations: Possible ", Style["multiple solutions", Red]," \n\t\t", system, "\n\tFinding one instance..."];
+        	Module[{solved = And @@ (Outer[Equal,Keys[rules],Values[rules]]//Diagonal) , onesol},
+        		onesol = First@FindInstance[system&&solved, Join[js,us,jts], Reals];
+        		(*Print["DataToEquations: ", onesol];*)
+        		rules = Association[onesol]; 
+        		system = system/.rules
+        	];
         ];
         criticalreduced1 = {system, Simplify /@ rules};
         If[system === True,
