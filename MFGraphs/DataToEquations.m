@@ -20,7 +20,7 @@ DataToEquations[Data_?AssociationQ] :=
       EntryDataAssociation, EqEntryIn, NonZeroEntryCurrents, ExitCosts, EqExitValues, SwitchingCosts, OutRules, InRules, 
       EqSwitchingConditions, EqCompCon, EqValueAuxiliaryEdges, EqAllComp, EqAll, SignedCurrents, Nrhs, Nlhs, RulesEntryIn, 
       RulesExitValues, EqAllRules, EqAllCompRules, EqAllAll, EqAllAllRules, reduced1,reduced2,
-      EqCriticalCase, BoundaryRules, criticalreduced1, criticalreduced2, EqGeneralCase, EqCcs, (*EqAllAllSimple,*) sol, system, rules ,TOL, time(*, result*)},
+      EqCriticalCase, BoundaryRules, criticalreduced1, criticalreduced2, EqGeneralCase, EqCcs, (*EqAllAllSimple,*) sol, system, rules ,TOL, time,nocasesystem,nocaserules(*, result*)},
       (*Set the tolerance for Chop*)
       TOL = 10^(-6);
       (*Checking consistency on the swithing costs*)
@@ -122,48 +122,33 @@ DataToEquations[Data_?AssociationQ] :=
         EqAllAllRules = EqAllCompRules && EqAllRules;
         
         Print["DataToEquations: Finished assembling strucural equations. Reducing the structural system ... "];
-        
- (*       {nocasesystem,nocaserules}=FixedPoint[EqEliminatorX,{EqAllAll,{}}];
-        
-        
-        {time,nocasesystem} = Timing[NewReduce[nocasesystem]];(*TODO: SortAnds before this*)
-        Print["Time without SortAnds ", time];
- 
-        (*{nocasesystem,nocaserules}=FixedPoint[EqEliminatorX,{nocasesystem,nocaserules}]; this was slowing it down (the structure of the system here is not And[Or,Equal,NonNegative].*)
-        
-        (*Print["new-old idea: ",system, " with ", time, " seconds."];*)
-        {system, rules} = FixedPoint[EqEliminatorX, {(nocasesystem && EqCriticalCase)/. nocaserules, nocaserules}];
- *)
-        
-        
-        
-        
+               
         Nlhs = Flatten[uvars[AtHead[#]] - uvars[AtTail[#]] + SignedCurrents[#] & /@ BEL];
         Print["DataToEquations: Critical case ... "];
         EqCriticalCase = And @@ ((# == 0) & /@ Nlhs);	
-        (*New-Old idea: *)
         (*Print["DataToEquations: ", {EqAllAll && EqCriticalCase, BoundaryRules}];*)
         {system, rules} = FixedPoint[EqEliminatorX, {(EqAllAll && EqCriticalCase), {}}];
+        
+        {nocasesystem, nocaserules} = FixedPoint[EqEliminatorX, {EqAllAll, {}}];
+        (*Print[nocasesystem];
+        {time,nocasesystem} = AbsoluteTiming @ NewReduce[nocasesystem];
+        Print["DataToEquations: It took ", time, " seconds to reduce the general case with NewReduce.","\nThe system is :", nocasesystem];
+ 
+        {nocasesystem,nocaserules}=FixedPoint[EqEliminatorX,{nocasesystem,nocaserules}]; (*this was slowing it down (the structure of the system here is not And[Or,Equal,NonNegative].*)
+        
+        {system, rules} = FixedPoint[EqEliminatorX, {(nocasesystem && EqCriticalCase)/. nocaserules, nocaserules}];
+*)
         (*FixedPoint[EqEliminatorX, {(EqAllAll && EqCriticalCase)/.BoundaryRules, BoundaryRules}];*)(*TODO check if we can start with {EqAllAll&&EqCriticalCase,{}}, boundaryvalues have equations in EqAllAll.*)
         (*Print["DataToEquations: The system is:\n", system,
         	"\nand the rules are:\n", rules];*)
         {time,system} = AbsoluteTiming @ NewReduce[system];
-        (*If[system =!= True,*)
-        (*Print["DataToEquations: The system is:\n", system,
-        	"\nand the rules are:\n", rules,
-        	"\nInput 1 if you want to continue reducing."];*)
-        	(*If[Input[] == 1,
-        		{time, system} = AbsoluteTiming[Reduce[system, Reals]],
-        		Print["Diogo is working on the alternative(s)!"];
-        	];*)
-        (*];*)
-        Print["DataToEquations: It took ", time, " seconds to reduce with NewReduce!"];
+        Print["DataToEquations: It took ", time, " seconds to reduce the critical congestion case with NewReduce!","\nThe system is ", system];
         (*Print["DataToEquations: After NewReduce, the system is:\n", system,
         	"\nand the rules are:\n", rules];*)
         Which[system === True ||
         	Head[system] === Equal || 
         	(Head[system] === And && DeleteDuplicates[Head /@ system] === Equal),
-        	sol = Solve[system,Reals];
+        	sol = Solve[system, Reals];
         	If[Length[sol] == 1,
         		{system, rules} = {system, AssociateTo[ rules, First@ sol]} /. First@ sol,
         		Print[sol];
@@ -171,12 +156,14 @@ DataToEquations[Data_?AssociationQ] :=
         	system === False,
         		Print["DataToEquations: ",Style["Incompatible system", Red],"."],
         	True,
-        	Print["DataToEquations: Mixed system: "];
-        	{system,rules} = FixedPoint[EqEliminatorX, {system, rules},SameTest -> (Length[#1[[2]]]===Length[#2[[2]]]&)];
-        	Print["DataToEquations: Possible ", Style["multiple solutions", Red]," \n\t\t", system, "\n\tFinding one instance..."];
+        	(*Print["DataToEquations: Mixed system: "];*)
+        	Print["DataToEquations: Mixed system: ", system];
+        	{system,rules} = FixedPoint[EqEliminatorX, {system, rules}(*,SameTest -> (Length[#1[[2]]]===Length[#2[[2]]]&)*)];
+        	system = Reduce[system, Reals];
+        	Print["DataToEquations: ", Style["Multiple solutions", Red]," \n\t\t", system, "\n\tFinding one instance..."];
+        	(*FindInstance!!!*)
         	Module[{solved = And @@ (Outer[Equal,Keys[rules],Values[rules]]//Diagonal) , onesol},
-        		onesol = First@FindInstance[system&&solved, Join[js,us,jts], Reals];
-        		(*Print["DataToEquations: ", onesol];*)
+        		onesol = First@FindInstance[system&&solved, Join[js,us,jts], Reals];(*TODO: should we choose a method to select a solution?*)
         		rules = Association[onesol]; 
         		system = system/.rules
         	];
@@ -186,13 +173,7 @@ DataToEquations[Data_?AssociationQ] :=
         	Print["DataToEquations: Critical congestion solved."];,
         	Print["DataToEquations: There are ", Style["multiple solutions", Red]," for the given data."];
         ];
-        
-        (*what are the possible outputs here? True, Equal, And of Equal, (anytinhg else, multiple solutions, check this by substituting on the variable associations)*)
-
-        (*return the left and right hand sides of the nonlinear equations*)
-        (*Print["all ok? up to here?"];*)
         Nrhs =  Flatten[IntM[SignedCurrents[#], #] + SignedCurrents[#] & /@ BEL];
-        (*Print[Nrhs];*)
         EqGeneralCase = And @@ (MapThread[(#1 == #2) &, {Nlhs , Nrhs}]);
         
         Print["DataToEquations: Done."];
@@ -354,4 +335,3 @@ DataToEquations[Data_?AssociationQ] :=
     ]
 
 End[]
-
