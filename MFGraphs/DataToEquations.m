@@ -177,7 +177,8 @@ DataToEquations[Data_?AssociationQ] :=
         EqGeneralCase = And @@ (MapThread[(#1 == #2) &, {Nlhs , Nrhs}]);
         Print["DataToEquations: Minimal Time? \n   1 for yes."];
         If[Input[] === 1,
-        	MinimalTimeRhs = Flatten[-a[SignedCurrents[#], #] + SignedCurrents[#] & /@ BEL];
+        	MinimalTimeRhs = Flatten[-a[SignedCurrents[#], #] + SignedCurrents[#] & /@ BEL];(*the function a should be defined in the notebook it is the beta*current factor on the edges.. *)(*TODO constant times are switching costs!*)
+        	EqMinimalTime = And @@ (MapThread[(#1 == #2) &, {Nlhs, MinimalTimeRhs}]);
         	{mtsys, mtrules} = FixedPoint[EqEliminatorX, {MFGEquations["EqAllAll"] && EqMinimalTime, {}}];
 			{mtsys, mtrules} = FixedPoint[EqEliminatorX, {NewReduce[mtsys], mtrules}],
         	MinimalTimeRhs = "no minimal time parameters"
