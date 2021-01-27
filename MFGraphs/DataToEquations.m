@@ -18,7 +18,7 @@ DataToEquations[Data_?AssociationQ] :=
       EqPosCon, EqCurrentCompCon, EqTransitionCompCon, NoDeadEnds, 
       NoDeadStarts, EqBalanceSplittingCurrents, EqBalanceGatheringCurrents, EntryArgs, 
       EntryDataAssociation, EqEntryIn, NonZeroEntryCurrents, ExitCosts, EqExitValues, SwitchingCosts, OutRules, InRules, 
-      EqSwitchingConditions, EqCompCon, EqValueAuxiliaryEdges, EqAllComp, EqAll, SignedCurrents, Nrhs, Nlhs, RulesEntryIn, 
+      EqSwitchingConditions, EqCompCon, EqValueAuxiliaryEdges, EqAllComp, EqAll, SignedCurrents, Nrhs, Nlhs, RulesEntryIn, MinimalTimeRhs,
       RulesExitValues, EqAllRules, EqAllCompRules, EqAllAll, EqAllAllRules, reduced1,reduced2,
       EqCriticalCase, BoundaryRules, criticalreduced1, criticalreduced2, EqGeneralCase, EqCcs, (*EqAllAllSimple,*) sol, system, rules ,TOL, time,nocasesystem,nocaserules(*, result*)},
       (*Set the tolerance for Chop*)
@@ -129,7 +129,7 @@ DataToEquations[Data_?AssociationQ] :=
         (*Print["DataToEquations: ", {EqAllAll && EqCriticalCase, BoundaryRules}];*)
         {system, rules} = FixedPoint[EqEliminatorX, {(EqAllAll && EqCriticalCase), {}}];
         
-        {nocasesystem, nocaserules} = FixedPoint[EqEliminatorX, {EqAllAll, {}}];
+        {nocasesystem, nocaserules} = FixedPoint[EqEliminatorX, {EqAllAll, {}}];(*TODO return this in the association*)
         (*Print[nocasesystem];
         {time,nocasesystem} = AbsoluteTiming @ NewReduce[nocasesystem];
         Print["DataToEquations: It took ", time, " seconds to reduce the general case with NewReduce.","\nThe system is :", nocasesystem];
@@ -175,6 +175,14 @@ DataToEquations[Data_?AssociationQ] :=
         ];
         Nrhs =  Flatten[IntM[SignedCurrents[#], #] + SignedCurrents[#] & /@ BEL];
         EqGeneralCase = And @@ (MapThread[(#1 == #2) &, {Nlhs , Nrhs}]);
+        Print["DataToEquations: Minimal Time? \n   1 for yes."];
+        If[Input[] === 1,
+        	MinimalTimeRhs = Flatten[-a[SignedCurrents[#], #] + SignedCurrents[#] & /@ BEL];
+        	{mtsys, mtrules} = FixedPoint[EqEliminatorX, {MFGEquations["EqAllAll"] && EqMinimalTime, {}}];
+			{mtsys, mtrules} = FixedPoint[EqEliminatorX, {NewReduce[mtsys], mtrules}],
+        	MinimalTimeRhs = "no minimal time parameters"
+        ];
+        
         
         Print["DataToEquations: Done."];
         If[showAll == True,
@@ -246,6 +254,7 @@ DataToEquations[Data_?AssociationQ] :=
           "RulesExitValues" -> RulesExitValues,
           (*"EqAllAllRules" -> EqAllAllRules,*)
           "Nlhs" -> Nlhs,
+          "MinimalTimeRhs" -> MinimalTimeRhs,
           "EqCriticalCase" -> EqCriticalCase ,
           "criticalreduced1" -> criticalreduced1,
           (*"criticalreduced2" -> criticalreduced2,*)
