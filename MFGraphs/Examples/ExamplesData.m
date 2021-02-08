@@ -1,4 +1,4 @@
-Test = Association[
+test = Association[
     (*One vertex*)
     1 -> {
         (*VL=*){1},
@@ -289,6 +289,27 @@ Test = Association[
         (*FinalCosts=*){{7, U1}/.U1->0},
         (*SwitchingCostsData=*){{1,2,4,S1},{4,6,7,S2}}/.{S1->10,S2->10}},
         
+        "New Braess" -> {(*TODO maybe we can delete the other versions of the braess paradox...*)
+        (*VL=*){1,2,3,4,5,6},
+        (*AM=*){
+        {0,1,0,1,0,0},
+        {0,0,1,0,0,0},
+        {0,0,0,0,0,1},
+        {0,0,0,0,1,0},
+        {0,0,0,0,0,1},
+        {0,0,0,0,0,0}},
+        (*DataIn=*){{1, I1}/.I1->4000},
+        (*FinalCosts=*){{6, U1}/.U1->0},
+        (*SwitchingCostsData=*){{1,2,3,S1}, {3,2,1,S1},{4,5,6,S2}, {6,5,4,S2}}/.{S1->45,S2->45},
+        (*a=*)Function[{j,edge},
+        		Which[
+        			edge === DirectedEdge[3,6] || edge === DirectedEdge[1,4],
+        				j/100,
+        			True, 0
+        		]
+        ]
+        },
+        
         "Big Braess split" -> {
         (*VL=*){1,2,3,4,5,6,7,8,9,10},
         (*AM=*){
@@ -347,17 +368,28 @@ Test = Association[
     
 
 DataG[n_] :=
+If[Length[test[[n]]] === 5,
     AssociationThread[{
     "Vertices List", 
     "Adjacency Matrix", 
     "Entrance Vertices and Currents", 
     "Exit Vertices and Terminal Costs", 
     "Switching Costs"}, 
-    Test[
+    test[
+        n
+    ]
+    ],
+    AssociationThread[{
+    "Vertices List", 
+    "Adjacency Matrix", 
+    "Entrance Vertices and Currents", 
+    "Exit Vertices and Terminal Costs", 
+    "Switching Costs","a"},
+    test[
         n
     ]
     ](*To have a visual of the available examples, run: Table[DataToGraph[DataG[n]],{n,1,Length[Test]}]*)
-                        
+]                     
           
 
 

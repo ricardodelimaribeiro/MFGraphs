@@ -61,16 +61,18 @@ DataToEquations[Data_?AssociationQ] :=
         	NonNegative[uvars[{v,edge2}]-uvars[{v,edge1}] + SwitchingCosts[{v,edge1,edge2}]];(*u1<= u2+S(1,2) for agents going from edge 1 to 2 at some vertex*)
         Compu[{v_, edge1_, edge2_}] :=
             (jtvars[{v, edge1, edge2}] == 0) || uvars[{v,edge2}]-uvars[{v,edge1}] + SwitchingCosts[{v,edge1,edge2}] == 0;
+        a(*[SignedCurrents[edge], edge]:*)=
+        	Lookup[Data, "a" , Funtion[{j, edge}, j]];(*Default corresponds to the classic critical congestion case*)
       (*End*)
        
-        BG = AdjacencyGraph[Data["Vertices List"], Data["Adjacency Matrix"], VertexLabels -> "Name",DirectedEdges -> True];
+        BG = AdjacencyGraph[Data["Vertices List"], Data["Adjacency Matrix"], VertexLabels -> "Name", DirectedEdges -> True, GraphLayout -> "SpringEmbedding"];
         EntranceVertices = First /@ Data["Entrance Vertices and Currents"];
         InwardVertices = AssociationThread[EntranceVertices, Unique["en"] & /@ EntranceVertices]; (*Defines auxiliary vertices for the entrance vertices*)
         InEdges = MapThread[DirectedEdge, {InwardVertices /@ EntranceVertices, EntranceVertices}];
         ExitVertices = First /@ Data["Exit Vertices and Terminal Costs"];
         OutwardVertices = AssociationThread[ExitVertices, Unique["ex"] & /@ ExitVertices];
         OutEdges = MapThread[DirectedEdge, {ExitVertices, OutwardVertices /@ ExitVertices}];
-        AuxiliaryGraph = Graph[Join[InEdges, OutEdges], VertexLabels -> "Name"];
+        AuxiliaryGraph = Graph[Join[InEdges, OutEdges], VertexLabels -> "Name", GraphLayout -> "SpringEmbedding"];
         FG = EdgeAdd[BG, Join[InEdges, OutEdges]];
         VL = Data["Vertices List"];
         EL = EdgeList[FG];
@@ -123,9 +125,19 @@ DataToEquations[Data_?AssociationQ] :=
         
         Print["DataToEquations: Finished assembling strucural equations. Reducing the structural system ... "];
                
+        (*Print["DataToEquations: Minimal Time? \n   1 for yes."];*)
+       (* If[Input[] === 1,
+        	MinimalTimeRhs = Flatten[-a[SignedCurrents[#], #] + SignedCurrents[#] & /@ BEL];(*the function a should be defined in the notebook it is the beta*current factor on the edges.. *)(*TODO constant times are switching costs!*)
+        	EqMinimalTime = And @@ (MapThread[(#1 == #2) &, {Nlhs, MinimalTimeRhs}]);
+        	{mtsys, mtrules} = FixedPoint[EqEliminatorX, {MFGEquations["EqAllAll"] && EqMinimalTime, {}}];
+			{mtsys, mtrules} = FixedPoint[EqEliminatorX, {NewReduce[mtsys], mtrules}],
+        	MinimalTimeRhs = "no minimal time parameters"
+        ];*)
+        MinimalTimeRhs = Flatten[-a[SignedCurrents[#], #] + SignedCurrents[#] & /@ BEL];
+
         Nlhs = Flatten[uvars[AtHead[#]] - uvars[AtTail[#]] + SignedCurrents[#] & /@ BEL];
         Print["DataToEquations: Critical case ... "];
-        EqCriticalCase = And @@ ((# == 0) & /@ Nlhs);	
+        EqCriticalCase = And @@ (MapThread[(#1 == #2) &, {Nlhs, MinimalTimeRhs}]);(*And @@ ((# == 0) & /@ Nlhs);*)	
         (*Print["DataToEquations: ", {EqAllAll && EqCriticalCase, BoundaryRules}];*)
         {system, rules} = FixedPoint[EqEliminatorX, {(EqAllAll && EqCriticalCase), {}}];
         
@@ -175,17 +187,9 @@ DataToEquations[Data_?AssociationQ] :=
         ];
         Nrhs =  Flatten[IntM[SignedCurrents[#], #] + SignedCurrents[#] & /@ BEL];
         EqGeneralCase = And @@ (MapThread[(#1 == #2) &, {Nlhs , Nrhs}]);
-        Print["DataToEquations: Minimal Time? \n   1 for yes."];
-        If[Input[] === 1,
-        	MinimalTimeRhs = Flatten[-a[SignedCurrents[#], #] + SignedCurrents[#] & /@ BEL];(*the function a should be defined in the notebook it is the beta*current factor on the edges.. *)(*TODO constant times are switching costs!*)
-        	EqMinimalTime = And @@ (MapThread[(#1 == #2) &, {Nlhs, MinimalTimeRhs}]);
-        	{mtsys, mtrules} = FixedPoint[EqEliminatorX, {MFGEquations["EqAllAll"] && EqMinimalTime, {}}];
-			{mtsys, mtrules} = FixedPoint[EqEliminatorX, {NewReduce[mtsys], mtrules}],
-        	MinimalTimeRhs = "no minimal time parameters"
-        ];
         
         
-        Print["DataToEquations: Done."];
+        (*Print["DataToEquations: Done."];*)
         If[showAll == True,
         	Association[{
           (*Graph structure*)
