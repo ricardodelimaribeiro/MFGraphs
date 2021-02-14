@@ -368,8 +368,7 @@ test = Association[
     
 
 DataG[n_] :=
-Which[
-	Length[test[[n]]] === 5,
+If[Length[test[[n]]] === 5,
     AssociationThread[{
     "Vertices List", 
     "Adjacency Matrix", 
@@ -380,18 +379,6 @@ Which[
         n
     ]
     ],
-    Length[test[[n]]] === 6,
-    AssociationThread[{
-    "Vertices List", 
-    "Adjacency Matrix", 
-    "Entrance Vertices and Currents", 
-    "Exit Vertices and Terminal Costs", 
-    "Switching Costs","a"},
-    test[
-        n
-    ]
-    ],
-    Length[test[[n]]] === 7,
     AssociationThread[{
     "Vertices List", 
     "Adjacency Matrix", 
@@ -402,8 +389,7 @@ Which[
     test[
         n
     ]
-    ]
-    (*To have a visual of the available examples, run: Table[DataToGraph[DataG[n]],{n,1,Length[Test]}]*)
+    ](*To have a visual of the available examples, run: Table[DataToGraph[DataG[n]],{n,1,Length[Test]}]*)
 ]                     
           
 

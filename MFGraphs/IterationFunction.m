@@ -144,11 +144,15 @@ EqEliminatorX[{system_, rules_}] :=
     ];
 
 FixedReduceX1[Eqs_Association][rules_] :=
-    Module[ {nonlinear, system = Eqs["EqAllAll"], auxsys, auxsol},
-        (*These two steps can be done in DataToEquations*)
-        {auxsys, auxsol} = FixedPoint[EqEliminatorX, {system, Eqs["BoundaryRules"]}]; 
+    Module[ {nonlinear, system = Eqs["nocasesystem"], auxsys, auxsol},
+    	alpha =
+        	Lookup[Eqs["Data"], "alpha", Function[{edge}, 1](*critical congestion is the default.*)];
+
+        (*These two steps can be done in DataToEquations, but the NewReduce was somewhat slow...*)
+        (*{auxsys, auxsol} = FixedPoint[EqEliminatorX, {system, Eqs["BoundaryRules"]}];*)
+        {auxsys, auxsol} = {system, Eqs["nocaserules"]}; 
             (*Print["FRX1: Structural stuff: \n", {auxsys, auxsol//KeySort}];*)
-        auxsys = NewReduce[auxsys];
+        (*auxsys = NewReduce[auxsys]; Done in DataToEquations*)
             (*Print["FRX1: Structural stuff -> NewReduce: \n", auxsys];*)
             (*Print["FRX1: edge -> hamiltonian: ", Eqs["Nrhs"]];*)
         nonlinear = And @@ (MapThread[(Equal[#1,#2]) &, {Eqs["Nlhs"], Chop[#,Eqs["TOL"]]&/@(Eqs["Nrhs"]/. auxsol /. rules)}]);

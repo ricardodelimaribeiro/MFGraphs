@@ -62,8 +62,8 @@ DataToEquations[Data_?AssociationQ] :=
         Compu[{v_, edge1_, edge2_}] :=
             (jtvars[{v, edge1, edge2}] == 0) || uvars[{v,edge2}]-uvars[{v,edge1}] + SwitchingCosts[{v,edge1,edge2}] == 0;
         a(*[SignedCurrents[edge], edge]:*)=
-        	Lookup[Data, "a" , Funtion[{j, edge}, j]];(*Default corresponds to the classic critical congestion case*)
-      (*End*)
+        	Lookup[Data, "a" , Function[{j, edge}, j]];(*Default corresponds to the classic critical congestion case*)
+        (*End*)
        
         BG = AdjacencyGraph[Data["Vertices List"], Data["Adjacency Matrix"], VertexLabels -> "Name", DirectedEdges -> True, GraphLayout -> "SpringEmbedding"];
         EntranceVertices = First /@ Data["Entrance Vertices and Currents"];
@@ -125,32 +125,19 @@ DataToEquations[Data_?AssociationQ] :=
         
         Print["DataToEquations: Finished assembling strucural equations. Reducing the structural system ... "];
                
-        (*Print["DataToEquations: Minimal Time? \n   1 for yes."];*)
-       (* If[Input[] === 1,
-        	MinimalTimeRhs = Flatten[-a[SignedCurrents[#], #] + SignedCurrents[#] & /@ BEL];(*the function a should be defined in the notebook it is the beta*current factor on the edges.. *)(*TODO constant times are switching costs!*)
-        	EqMinimalTime = And @@ (MapThread[(#1 == #2) &, {Nlhs, MinimalTimeRhs}]);
-        	{mtsys, mtrules} = FixedPoint[EqEliminatorX, {MFGEquations["EqAllAll"] && EqMinimalTime, {}}];
-			{mtsys, mtrules} = FixedPoint[EqEliminatorX, {NewReduce[mtsys], mtrules}],
-        	MinimalTimeRhs = "no minimal time parameters"
-        ];*)
         MinimalTimeRhs = Flatten[-a[SignedCurrents[#], #] + SignedCurrents[#] & /@ BEL];
 
         Nlhs = Flatten[uvars[AtHead[#]] - uvars[AtTail[#]] + SignedCurrents[#] & /@ BEL];
         Print["DataToEquations: Critical case ... "];
-        EqCriticalCase = And @@ (MapThread[(#1 == #2) &, {Nlhs, MinimalTimeRhs}]);(*And @@ ((# == 0) & /@ Nlhs);*)	
-        (*Print["DataToEquations: ", {EqAllAll && EqCriticalCase, BoundaryRules}];*)
+        EqCriticalCase = And @@ (MapThread[(#1 == #2) &, {Nlhs, MinimalTimeRhs}]);
+        (*And @@ ((# == 0) & /@ Nlhs);*)	
         {system, rules} = FixedPoint[EqEliminatorX, {(EqAllAll && EqCriticalCase), {}}];
         
-        {nocasesystem, nocaserules} = FixedPoint[EqEliminatorX, {EqAllAll, {}}];(*TODO return this in the association*)
-        (*Print[nocasesystem];
+        {nocasesystem, nocaserules} = FixedPoint[EqEliminatorX, {EqAllAll, {}}];
+        
         {time,nocasesystem} = AbsoluteTiming @ NewReduce[nocasesystem];
         Print["DataToEquations: It took ", time, " seconds to reduce the general case with NewReduce.","\nThe system is :", nocasesystem];
  
-        {nocasesystem,nocaserules}=FixedPoint[EqEliminatorX,{nocasesystem,nocaserules}]; (*this was slowing it down (the structure of the system here is not And[Or,Equal,NonNegative].*)
-        
-        {system, rules} = FixedPoint[EqEliminatorX, {(nocasesystem && EqCriticalCase)/. nocaserules, nocaserules}];
-*)
-        (*FixedPoint[EqEliminatorX, {(EqAllAll && EqCriticalCase)/.BoundaryRules, BoundaryRules}];*)(*TODO check if we can start with {EqAllAll&&EqCriticalCase,{}}, boundaryvalues have equations in EqAllAll.*)
         (*Print["DataToEquations: The system is:\n", system,
         	"\nand the rules are:\n", rules];*)
         {time,system} = AbsoluteTiming @ NewReduce[system];
@@ -168,14 +155,15 @@ DataToEquations[Data_?AssociationQ] :=
         	system === False,
         		Print["DataToEquations: ",Style["Incompatible system", Red],"."],
         	True,
-        	(*Print["DataToEquations: Mixed system: "];*)
-        	Print["DataToEquations: Mixed system: ", system];
-        	{system,rules} = FixedPoint[EqEliminatorX, {system, rules}(*,SameTest -> (Length[#1[[2]]]===Length[#2[[2]]]&)*)];
+        	Print["DataToEquations: The system does not have the original structure: ", system];
+        	{system,rules} = FixedPoint[EqEliminatorX, {system, rules}
+        		(*,SameTest -> (Length[#1[[2]]]===Length[#2[[2]]]&)*)];
         	system = Reduce[system, Reals];
         	Print["DataToEquations: ", Style["Multiple solutions", Red]," \n\t\t", system, "\n\tFinding one instance..."];
         	(*FindInstance!!!*)
         	Module[{solved = And @@ (Outer[Equal,Keys[rules],Values[rules]]//Diagonal) , onesol},
-        		onesol = First@FindInstance[system&&solved, Join[js,us,jts], Reals];(*TODO: should we choose a method to select a solution?*)
+        		onesol = First@FindInstance[system && solved, Join[js, us, jts], Reals];	
+        		(*TODO: should we choose a method to select a solution?*)
         		rules = Association[onesol]; 
         		system = system/.rules
         	];
@@ -192,6 +180,7 @@ DataToEquations[Data_?AssociationQ] :=
         (*Print["DataToEquations: Done."];*)
         If[showAll == True,
         	Association[{
+        		"Data" -> Data,
           (*Graph structure*)
           "BG" -> BG, 
           "EntranceVertices" -> EntranceVertices, 
@@ -259,6 +248,8 @@ DataToEquations[Data_?AssociationQ] :=
           "RulesExitValues" -> RulesExitValues,
           (*"EqAllAllRules" -> EqAllAllRules,*)
           "Nlhs" -> Nlhs,
+          "nocasesystem" -> nocasesystem, 
+          "nocaserules" -> nocaserules,
           "MinimalTimeRhs" -> MinimalTimeRhs,
           "EqCriticalCase" -> EqCriticalCase ,
           "criticalreduced1" -> criticalreduced1,
@@ -269,6 +260,7 @@ DataToEquations[Data_?AssociationQ] :=
           }]
         	,
         Association[{
+        	"Data" -> Data,
           (*Graph structure*)
           (*"BG" -> BG, 
           "EntranceVertices" -> EntranceVertices, 

@@ -38,6 +38,6 @@ V::usage =
 ""
 V = Function[{x, edge}, W[x, A]];
 
-H::usage = 
+H::usage = (*TODO include the other parameter here, if we call it beta, change the the ohter beta!*)
 ""
-H = Function[{xi,p,m, edge}, p^2/(2 m^alpha) + V[xi, edge] - g[m]];
+H = Function[{xi,p,m, edge}, p^2/(2 m^alpha[edge]) + V[xi, edge] - g[m]];
