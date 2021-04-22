@@ -103,29 +103,25 @@ NewReduce[system_] :=
 
 EqEliminatorX[{system_, rules_}] :=
     Module[ {EE, ON, newrules, rulesAss = Association[rules]},
-        (*Print["EEX {system, rules}:", {system,rules}];*)
         Which[
-            Head[system] === And,
+            Head[system] === And, 
+            (*separete equalities from the rest*)
                 EE = Select[system, (Head[#] === Equal) &];
                 ON = Select[system, (Head[#] =!= Equal) &];
-                If[ EE === {},
+                If[ EE === {}, 
+                	(*there were no equalities: just reduce the system*)
                     {Reduce[system, Reals], rulesAss},
-                    (*Print["EEX: ", EE];*)
-                    newrules =  Solve[EE, Reals] // Quiet; (*TODO include variables to solve: this way we leave the switching costs unsolved.*)(*The reason we use Quiet is:  Solve::svars: Equations may not give solutions for all "solve" variables.*)
-                    (*Print["EEX: newrules before if: ", newrules];*)
+                    (*solve the equalities*)
+                    newrules =  Solve[EE, Reals] // Quiet; (*The reason we use Quiet is:  Solve::svars: Equations may not give solutions for all "solve" variables.*)(*TODO include variables to solve: this way we leave the switching costs unsolved.*)
                     If[ newrules === {},
-                        (*Print["EEX: ", EE];*)
-                        {ON && Simplify @ EE, rulesAss},(*{system, rulesAss},*)
-                        newrules = First @ newrules;  
-                        (*Print["EEX: {system, newrules}: ", {system, newrules}];*)
-                        (*Print["EEX: Really solve? \n", EE, EE /. newrules];
-                        Print["EEX: Clean and Replace: \n", CleanAndReplace[{system, newrules}]];
-                        Print["EEX: Clean and Replace just equalities: \n", CleanAndReplace[{EE, newrules}]];
-                        Print["EEX: just substitute and simplify: \n", Simplify @ (system /. newrules)];*)
+                        (*equalities have no solution: simplify them*)
+                        {ON && Simplify @ EE, rulesAss},
+                        (*select the first set of solutions*)
+                        newrules = First @ newrules;  (*TODO: do we have more solutions?*)
                         If[ Simplify @ (EE /. newrules) === False,
-                        	(*Print["in if, true"];*)
+                        	(*false! *)
                             {ON && CleanAndReplace[{EE, newrules}] , AssociateTo[rulesAss, newrules]} /. newrules,
-                            (*Print["in if, false"];*)
+                            (**)
                             {system/. newrules, Simplify/@(AssociateTo[rulesAss, newrules]/. newrules)} 
                         ]
                     ]
@@ -135,7 +131,7 @@ EqEliminatorX[{system_, rules_}] :=
                 Print["EEX: newrules when Head is Equal: ", newrules];
                 newrules = First @ newrules;
                 {system/. newrules, Simplify/@(AssociateTo[rulesAss, newrules]/. newrules)},
-                (*{system, AssociateTo[rulesAss, newrules]} /. newrules,*)        
+                (**)        
             system === True,
                 {system, Simplify @ rulesAss},
             True,
