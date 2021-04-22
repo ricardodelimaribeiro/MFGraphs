@@ -119,22 +119,25 @@ EqEliminatorX[{system_, rules_}] :=
                         (*select the first set of solutions*)
                         newrules = First @ newrules;  (*TODO: do we have more solutions?*)
                         If[ Simplify @ (EE /. newrules) === False,
-                        	(*false! *)
+                        	(*maybe there were numeric errors!*)
                             {ON && CleanAndReplace[{EE, newrules}] , AssociateTo[rulesAss, newrules]} /. newrules,
-                            (**)
+                            (*solution is exact!*)
                             {system/. newrules, Simplify/@(AssociateTo[rulesAss, newrules]/. newrules)} 
                         ]
                     ]
                 ],
             Head[system] === Equal,
-                newrules = Solve[system, Reals];
-                Print["EEX: newrules when Head is Equal: ", newrules];
-                newrules = First @ newrules;
+            	(*one last equality: this is rare! solutions are always unique and satisfy the equation*)
+                newrules = First @ Solve[system, Reals];
+                (*Simplify carries on computations like 1+1 in the Association*)
                 {system/. newrules, Simplify/@(AssociateTo[rulesAss, newrules]/. newrules)},
-                (**)        
             system === True,
+            	(*we need this because this function is used with FixedPoint. 
+            	Makes sure rules are simplified.*)
                 {system, Simplify @ rulesAss},
             True,
+            	(*Maybe the Head is Or or NonNegative (could it be something else?)... 
+            	Just reduce the system while simplifyung the rules.*)
                 {Reduce[system, Reals] // Quiet, Simplify @ rulesAss}
         ]
     ];
