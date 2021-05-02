@@ -129,17 +129,21 @@ DataToEquations[Data_?AssociationQ] :=
 
         Nlhs = Flatten[uvars[AtHead[#]] - uvars[AtTail[#]] + SignedCurrents[#] & /@ BEL];
         Print["DataToEquations: Critical case ... "];
-        EqCriticalCase = And @@ (MapThread[(#1 == #2) &, {Nlhs, MinimalTimeRhs}]);
-        (*And @@ ((# == 0) & /@ Nlhs);*)	
+        EqCriticalCase = And @@ ((# == 0) & /@ Nlhs);
+        
+        EqMinimalTime = And @@ (MapThread[(#1 == #2) &, {Nlhs, MinimalTimeRhs}]);
+        	
         {system, rules} = FixedPoint[EqEliminatorX, {(EqAllAll && EqCriticalCase), {}}];
         
         {nocasesystem, nocaserules} = FixedPoint[EqEliminatorX, {EqAllAll, {}}];
         
-        {time,nocasesystem} = AbsoluteTiming @ NewReduce[nocasesystem];
-        Print["DataToEquations: It took ", time, " seconds to reduce the general case with NewReduce.","\nThe system is :", nocasesystem];
+        (*{time,nocasesystem} = AbsoluteTiming @ NewReduce[nocasesystem];*)
+        (*Print["DataToEquations: It took ", time, " seconds to reduce the general case with NewReduce.","\nThe system is :", nocasesystem];*)
  
         (*Print["DataToEquations: The system is:\n", system,
         	"\nand the rules are:\n", rules];*)
+        	
+        	(*There could be some alternatives and inequalities left, so we BooleanConvert and solve/replace throught the tree*)
         {time,system} = AbsoluteTiming @ NewReduce[system];
         Print["DataToEquations: It took ", time, " seconds to reduce the critical congestion case with NewReduce!","\nThe system is ", system];
         (*Print["DataToEquations: After NewReduce, the system is:\n", system,

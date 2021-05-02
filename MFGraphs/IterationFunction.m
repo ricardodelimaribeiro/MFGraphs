@@ -164,8 +164,9 @@ FixedReduceX1[Eqs_Association][rules_] :=
             (*Print["FRX1: Structural stuff + nonlinear: \n", {auxsys, auxsol//KeySort}];*)
             (*Print["FRX1: Structural stuff + nonlinear -> Reduce: \n", auxsys, Reduce[auxsys,Reals]];*)
         If[ auxsys === False,
+        	(*precision issues...?but it could be the case that the "real" solution is repulsive/unstable.*)
             (*Print["rules :", rules];*)
-            Print["FRX1: The last system in the iteration was inconsistent.\nReturning the last feasible solution."];
+            Print["FRX1: The last system in the iteration was inconsistent.\nReturning the last feasible solution.\nConsider that the solution may be unstable."];
             (*auxsol = rules;*)
             Return[rules],
     (*        Print["FRX1: The relative Error on the nonlinear terms is ", Norm[(Eqs["Nlhs"] - Eqs["Nrhs"])/Eqs["Nlhs"] /. auxsol]]//Quiet;
