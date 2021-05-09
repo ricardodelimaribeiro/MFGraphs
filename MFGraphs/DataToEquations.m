@@ -133,9 +133,9 @@ DataToEquations[Data_?AssociationQ] :=
         (*And @@ ((# == 0) & /@ Nlhs);*)	
         {system, rules} = FixedPoint[EqEliminatorX, {(EqAllAll && EqCriticalCase), {}}];
         
-        {nocasesystem, nocaserules} = FixedPoint[EqEliminatorX, {EqAllAll, {}}];
+        {nocasesystem, nocaserules} = FixedPoint[EqEliminatorX, {EqAllAll, {}}]; (*does this step help speed up fixedreducex1?*)
         
-        {time,nocasesystem} = AbsoluteTiming @ NewReduce[nocasesystem];
+        {time,nocasesystem} = AbsoluteTiming @ NewReduce[nocasesystem]; (*does this step help speed up fixedreducex1?*)
         Print["DataToEquations: It took ", time, " seconds to reduce the general case with NewReduce.","\nThe system is :", nocasesystem];
  
         (*Print["DataToEquations: The system is:\n", system,
