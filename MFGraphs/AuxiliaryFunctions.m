@@ -51,43 +51,46 @@ IntM::usage =
 
 Begin["`Private`"]
 
-SortAnds[oldxp_And, vars_] := SortAnds[True, oldxp, vars]
-SortAnds[oldxp_, vars_] := oldxp
-SortAnds[Newxp_, oldxp_, {}] := Newxp && oldxp
+SortAnds[oldxp_And, vars_] :=
+SortAnds[True, oldxp, vars]
+
+SortAnds[oldxp_, vars_] :=
+oldxp
+
+SortAnds[Newxp_, oldxp_, {}] :=
+Newxp && oldxp
+
 SortAnds[Newxp_, oldxp_And, vars_] :=
- 
- With[{variablesofthemoment = Select[vars, ! FreeQ[Newxp, #] &]},
-  If[variablesofthemoment === {},
-   SortAnds[Newxp && Select[oldxp, ! FreeQ[#, First[vars]] &], 
-    Select[oldxp, FreeQ[#, First[vars]] &], Rest[vars]],
-   SortAnds[
-    Newxp && Select[oldxp, ! FreeQ[#, First[variablesofthemoment]] &],
-     Select[oldxp, FreeQ[#, First[variablesofthemoment]] &], 
-    Select[vars, (# =!= First[variablesofthemoment]) &]
-    ]
-   ]
-  ]
+With[{variablesofthemoment = Select[vars, ! FreeQ[Newxp, #] &]},
+  	If[variablesofthemoment === {},
+   		SortAnds[Newxp && Select[oldxp, ! FreeQ[#, First[vars]] &], Select[oldxp, FreeQ[#, First[vars]] &], Rest[vars]],
+   		SortAnds[Newxp && Select[oldxp, ! FreeQ[#, First[variablesofthemoment]] &],
+     		Select[oldxp, FreeQ[#, First[variablesofthemoment]] &], 
+    		Select[vars, (# =!= First[variablesofthemoment]) &]
+    	]
+   	]
+]
 (*if the head is not And*)
 
-SortAnds[Newxp_, oldxp_, vars_] := Newxp && oldxp
+SortAnds[Newxp_, oldxp_, vars_] :=
+Newxp && oldxp
 
 AtHead[a_ \[DirectedEdge] b_] :=
-    {b, a \[DirectedEdge] b};
+{b, a \[DirectedEdge] b};
 (*AtHead[edge_] := {edge[[2]], edge}
 AtTail[edge_] := {edge[[1]], edge}
 *)
 AtTail[a_ \[DirectedEdge] b_] :=
-    {a, a \[DirectedEdge] b};
+{a, a \[DirectedEdge] b};
 
 TransitionsAt[G_, k_] :=
-    Prepend[#, k] & /@ Permutations[IncidenceList[G, k], {2}];
+Prepend[#, k] & /@ Permutations[IncidenceList[G, k], {2}];
     
-
 OtherWay[{c_, a_ \[DirectedEdge] b_}] :=
-    {If[ c === a,
-         b,
-         a
-     ], a \[DirectedEdge] b}
+{If[ c === a,
+	b,
+	a
+], a \[DirectedEdge] b}
 (*OtherWay[{a_, a_ \[DirectedEdge] b_}] :=
     {b, a \[DirectedEdge] b}
 OtherWay[{b_, a_ \[DirectedEdge] b_}] :=
@@ -114,45 +117,43 @@ Module[ {EL = EdgeList[G]},
             ]
         ],
         StringJoin["\nThere is no path from ", ToString[a], " to ", ToString[b], " to ", ToString[c]]
-        ]
-    ];
-
-            
+	]
+]
+           
 (*EE = Exists[#1, #2] &;
-
 UU = Solve[#1, #2, Reals] &;
-
 RR = Reduce[#1, #2, Reals] &;*)
 
 F[j_?NumericQ, x_?NumericQ] :=
-	First @ Values @ FindRoot[Parameters["H[x,p,m]"][x, -j/(m^(1 - Parameters["alpha"])),m], {m, 1}];
+First @ Values @ FindRoot[Parameters["H[x,p,m]"][x, -j/(m^(1 - Parameters["alpha"])),m], {m, 1}];
 (*we are solving the h-j equation, H[x,u_x,m] == 0, for m, given that u_x = -j*m^(alpha-1) 
 The hamiltonian depends on g[m]!*)
 
-
 (* is m becoming zero?*)
 Intg[j_?NumericQ] :=
-	If[j == 0.|| j == 0 , 0. ,
-    -j Chop[NIntegrate[ 1/(F[j, x]^(1 - Parameters["alpha"])), {x, 0, 1}]] // Quiet
-	]
+If[j == 0.|| j == 0 , 
+	0. ,
+   	-j Chop[NIntegrate[ 1/(F[j, x]^(1 - Parameters["alpha"])), {x, 0, 1}]] // Quiet
+]
 (*this is the rhs of the integral of u_x from 0 to 1: ingetral_0^1 \
 -j*m^(alpha-1) dx*)
 
 M[j_?NumericQ, x_?NumericQ, edge_] :=
-	If[j == 0.|| j == 0 , 0. ,
-	Values @ First @ FindRoot[H[x, -j/(m^(1 - alpha)),m, edge], {m, 1}]];
+If[j == 0.|| j == 0 , 
+	0. ,
+	Values @ First @ FindRoot[H[x, -j/(m^(1 - alpha)),m, edge], {m, 1}]
+]
 
 U[x_?NumericQ , edge_, Eqs_Association] :=
-	If[Eqs["jays"][edge] == 0.|| Eqs["jays"][edge] == 0 , Eqs["uvars"][AtTail[edge]] ,
-	Eqs["uvars"][AtTail[edge]] - Eqs["jays"][edge] NIntegrate[
-     M[Eqs["jays"][edge], y, edge]^(alpha - 1), {y, 0, x}]];
+If[Eqs["jays"][edge] == 0.|| Eqs["jays"][edge] == 0 , 
+	Eqs["uvars"][AtTail[edge]] ,
+	Eqs["uvars"][AtTail[edge]] - Eqs["jays"][edge] NIntegrate[M[Eqs["jays"][edge], y, edge]^(alpha - 1), {y, 0, x}]
+]
 		
 IntM[j_?NumericQ, edge_] :=	
-	If[j == 0.|| j == 0 , 0. ,
-    -j NIntegrate[ M[j, x, edge]^(alpha-1), {x, 0, 1}] // Quiet
-	]
-
-
+If[j == 0.|| j == 0 , 
+	0. ,
+   	-j NIntegrate[ M[j, x, edge]^(alpha-1), {x, 0, 1}] // Quiet
+]
 (*TODO : from previous guess, look at rhs, if m is negative, the corresponding j needs to be 0*)  
 End[]
-
