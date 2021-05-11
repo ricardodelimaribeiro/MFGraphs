@@ -20,7 +20,7 @@ DataToEquations[Data_?AssociationQ] :=
       EntryDataAssociation, EqEntryIn, NonZeroEntryCurrents, ExitCosts, EqExitValues, SwitchingCosts, OutRules, InRules, 
       EqSwitchingConditions, EqCompCon, EqValueAuxiliaryEdges, EqAllComp, EqAll, SignedCurrents, Nrhs, Nlhs, RulesEntryIn, MinimalTimeRhs,
       RulesExitValues, EqAllRules, EqAllCompRules, EqAllAll, EqAllAllRules, reduced1,reduced2,
-      EqCriticalCase, BoundaryRules, criticalreduced1, criticalreduced2, EqGeneralCase, EqCcs, (*EqAllAllSimple,*) sol, system, rules ,TOL, time,nocasesystem,nocaserules(*, result*)},
+      EqCriticalCase, EqMinimalTime, BoundaryRules, criticalreduced1, criticalreduced2, EqGeneralCase, EqCcs, (*EqAllAllSimple,*) sol, system, rules ,TOL, time,nocasesystem,nocaserules(*, result*)},
       (*Set the tolerance for Chop*)
       TOL = 10^(-6);
       (*Checking consistency on the swithing costs*)
@@ -133,9 +133,9 @@ DataToEquations[Data_?AssociationQ] :=
         
         EqMinimalTime = And @@ (MapThread[(#1 == #2) &, {Nlhs, MinimalTimeRhs}]);
         	
-        {system, rules} = FixedPoint[EqEliminatorX, {(EqAllAll && EqCriticalCase), {}}];
+        {system, rules} = CleanEqualities[{(EqAllAll && EqCriticalCase), {}}];
         
-        {nocasesystem, nocaserules} = FixedPoint[EqEliminatorX, {EqAllAll, {}}];
+        {nocasesystem, nocaserules} = CleanEqualities[{EqAllAll, {}}];
         
         (*{time,nocasesystem} = AbsoluteTiming @ NewReduce[nocasesystem];*)
         (*Print["DataToEquations: It took ", time, " seconds to reduce the general case with NewReduce.","\nThe system is :", nocasesystem];*)
@@ -160,8 +160,7 @@ DataToEquations[Data_?AssociationQ] :=
         		Print["DataToEquations: ",Style["Incompatible system", Red],"."],
         	True,
         	Print["DataToEquations: The system does not have the original structure: ", system];
-        	{system,rules} = FixedPoint[EqEliminatorX, {system, rules}
-        		(*,SameTest -> (Length[#1[[2]]]===Length[#2[[2]]]&)*)];
+        	{system,rules} = CleanEqualities[{system, rules}];
         	system = Reduce[system, Reals];
         	Print["DataToEquations: ", Style["Multiple solutions", Red]," \n\t\t", system, "\n\tFinding one instance..."];
         	(*FindInstance!!!*)
