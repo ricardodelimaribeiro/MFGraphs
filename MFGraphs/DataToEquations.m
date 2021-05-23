@@ -13,33 +13,33 @@ Begin["`Private`"]
 
 DataToEquations[Data_?AssociationQ] :=
     Module[ {showAll = True, BG, EntranceVertices, InwardVertices, InEdges, ExitVertices, 
-      OutwardVertices, OutEdges, AuxiliaryGraph, FG, VL, EL, BEL, jargs, 
-      js, jvars, FVL, AllTransitions, jts, jtvars, uargs, us, uvars, 
-      EqPosCon, EqCurrentCompCon, EqTransitionCompCon, NoDeadEnds, 
-      NoDeadStarts, EqBalanceSplittingCurrents, EqBalanceGatheringCurrents, EntryArgs, 
-      EntryDataAssociation, EqEntryIn, NonZeroEntryCurrents, ExitCosts, EqExitValues, SwitchingCosts, OutRules, InRules, 
-      EqSwitchingConditions, EqCompCon, EqValueAuxiliaryEdges, EqAllComp, EqAll, SignedCurrents, Nrhs, Nlhs, RulesEntryIn, MinimalTimeRhs,
-      RulesExitValues, EqAllRules, EqAllCompRules, EqAllAll, EqAllAllRules, reduced1,reduced2,
-      EqCriticalCase, EqMinimalTime, BoundaryRules, criticalreduced1, criticalreduced2, EqGeneralCase, EqCcs, (*EqAllAllSimple,*) sol, system, rules ,TOL, time,nocasesystem,nocaserules(*, result*)},
-      (*Set the tolerance for Chop*)
-      TOL = 10^(-6);
-      (*Checking consistency on the swithing costs*)
-      ConsistentSwithingCosts[{a_, b_, c_, S_}] :=
-      	Module[{sc = Data["Switching Costs"], or, de, bounds},
-  			or = Cases[sc, {a, b, _, _}];
-  			de = Cases[sc, {_, b, c, _}];
-  			bounds = Outer[Plus, Last /@ or, Last /@ de] // Flatten;
-  			And @@ (NonNegative[#-S] &) /@ bounds
-  		];
-  		EqCcs = ConsistentSwithingCosts /@ Data["Switching Costs"];
-  		Print["DataToEquations: Triangle inequalities for switching costs: ", EqCcs,
-  			"\nDataToEquations: Reduced: ",Reduce[EqCcs]];
-  		If[And @@ EqCcs,
-  			(*this happens when we have non-false condition.*)
-  			Print["DataToEquations: The switching costs are compatible."],
-  			Print["DataToEquations: The switching costs are ",Style["incompatible", Red],". \nStopping!"];
-  			Return[]
-  		];
+    OutwardVertices, OutEdges, AuxiliaryGraph, FG, VL, EL, BEL, jargs, 
+    js, jvars, FVL, AllTransitions, jts, jtvars, uargs, us, uvars, 
+    EqPosCon, EqCurrentCompCon, EqTransitionCompCon, NoDeadEnds, 
+    NoDeadStarts, EqBalanceSplittingCurrents, EqBalanceGatheringCurrents, EntryArgs, 
+    EntryDataAssociation, EqEntryIn, NonZeroEntryCurrents, ExitCosts, EqExitValues, SwitchingCosts, OutRules, InRules, 
+    EqSwitchingConditions, EqCompCon, EqValueAuxiliaryEdges, EqAllComp, EqAll, SignedCurrents, Nrhs, Nlhs, RulesEntryIn, MinimalTimeRhs,
+    RulesExitValues, EqAllRules, EqAllCompRules, EqAllAll, EqAllAllRules, reduced1,reduced2,
+    EqCriticalCase, EqMinimalTime, BoundaryRules, criticalreduced1, criticalreduced2, EqGeneralCase, EqCcs, (*EqAllAllSimple,*) sol, system, rules ,TOL, time,nocasesystem,nocaserules(*, result*)},
+    (*Set the tolerance for Chop*)
+        TOL = 10^(-6);
+        (*Checking consistency on the swithing costs*)
+        ConsistentSwithingCosts[{a_, b_, c_, S_}] :=
+            Module[ {sc = Data["Switching Costs"], or, de, bounds},
+                or = Cases[sc, {a, b, _, _}];
+                de = Cases[sc, {_, b, c, _}];
+                bounds = Outer[Plus, Last /@ or, Last /@ de] // Flatten;
+                And @@ (NonNegative[#-S] &) /@ bounds
+            ];
+        EqCcs = ConsistentSwithingCosts /@ Data["Switching Costs"];
+        Print["DataToEquations: Triangle inequalities for switching costs: ", EqCcs,
+            "\nDataToEquations: Reduced: ",Reduce[EqCcs]];
+        If[ And @@ EqCcs,
+              (*this happens when we have non-false condition.*)
+            Print["DataToEquations: The switching costs are compatible."],
+            Print["DataToEquations: The switching costs are ",Style["incompatible", Red],". \nStopping!"];
+            Return[]
+        ];
       (*Begin Internal functions for DataToEquations: *)
         IncomingEdges[k_] :=
             {k, #1} & /@ IncidenceList[FG,k]; (*all edges "oriented" towards the vertex k*)
@@ -48,7 +48,7 @@ DataToEquations[Data_?AssociationQ] :=
         CurrentCompCon[a_ \[DirectedEdge] b_] :=
             jvars[{a, a \[DirectedEdge] b}] == 0 || jvars[{b, a \[DirectedEdge] b}] == 0;
         (*CurrentCompCon[edge_] := 
-        	jvars[AtTail[edge]] || jvars[AtHead[edge]];*)
+            jvars[AtTail[edge]] || jvars[AtHead[edge]];*)
         CurrentSplitting[{c_, a_ \[DirectedEdge] b_}] :=
             Select[AllTransitions, (Take[#, 2] == {c, a \[DirectedEdge] b}) &];
         CurrentGathering[{c_, a_ \[DirectedEdge] b_}] :=
@@ -58,13 +58,12 @@ DataToEquations[Data_?AssociationQ] :=
         ExitValues[a_ \[DirectedEdge] b_] :=
             Total[uvars /@ {{b, DirectedEdge[a, b]}}] == ExitCosts[b];
         Transu[{v_, edge1_, edge2_}] :=
-        	NonNegative[uvars[{v,edge2}]-uvars[{v,edge1}] + SwitchingCosts[{v,edge1,edge2}]];(*u1<= u2+S(1,2) for agents going from edge 1 to 2 at some vertex*)
+            NonNegative[uvars[{v,edge2}]-uvars[{v,edge1}] + SwitchingCosts[{v,edge1,edge2}]];(*u1<= u2+S(1,2) for agents going from edge 1 to 2 at some vertex*)
         Compu[{v_, edge1_, edge2_}] :=
             (jtvars[{v, edge1, edge2}] == 0) || uvars[{v,edge2}]-uvars[{v,edge1}] + SwitchingCosts[{v,edge1,edge2}] == 0;
-        a(*[SignedCurrents[edge], edge]:*)=
-        	Lookup[Data, "a" , Function[{j, edge}, j]];(*Default corresponds to the classic critical congestion case*)
+        a (*[SignedCurrents[edge], edge]:*)=
+            Lookup[Data, "a" , Function[{j, edge}, j]];(*Default corresponds to the classic critical congestion case*)
         (*End*)
-       
         BG = AdjacencyGraph[Data["Vertices List"], Data["Adjacency Matrix"], VertexLabels -> "Name", DirectedEdges -> True, GraphLayout -> "SpringEmbedding"];
         EntranceVertices = First /@ Data["Entrance Vertices and Currents"];
         InwardVertices = AssociationThread[EntranceVertices, Unique["en"] & /@ EntranceVertices]; (*Defines auxiliary vertices for the entrance vertices*)
@@ -82,7 +81,7 @@ DataToEquations[Data_?AssociationQ] :=
         jvars = AssociationThread[jargs, js];
         FVL = VertexList[FG];
         SignedCurrents =   AssociationThread[BEL, (jvars[AtHead[#]] - jvars[AtTail[#]] &) /@ BEL];
-        AllTransitions = TransitionsAt[FG, #] & /@ FVL // Catenate (*at vertex from first edge to second edge*);
+        AllTransitions = TransitionsAt[FG, #] & /@ FVL // Catenate(*at vertex from first edge to second edge*);
         jts = Unique["jt"] & /@ AllTransitions;
         jtvars = AssociationThread[AllTransitions, jts];
         uargs = Join[AtTail /@ EL, AtHead /@ EL];
@@ -122,225 +121,223 @@ DataToEquations[Data_?AssociationQ] :=
         BoundaryRules = Join[RulesEntryIn, RulesExitValues];
         EqAllAll = EqAll && EqAllComp;
         EqAllAllRules = EqAllCompRules && EqAllRules;
-        
-        Print["DataToEquations: Finished assembling strucural equations. Reducing the structural system ... "];
-               
+        Print["DataToEquations: Finished assembling strucural equations."];
+        Print["Reducing the structural system ... "];
         MinimalTimeRhs = Flatten[-a[SignedCurrents[#], #] + SignedCurrents[#] & /@ BEL];
-
         Nlhs = Flatten[uvars[AtHead[#]] - uvars[AtTail[#]] + SignedCurrents[#] & /@ BEL];
         Print["DataToEquations: Critical case ... "];
         EqCriticalCase = And @@ ((# == 0) & /@ Nlhs);
-        
         EqMinimalTime = And @@ (MapThread[(#1 == #2) &, {Nlhs, MinimalTimeRhs}]);
-        	
         {system, rules} = CleanEqualities[{(EqAllAll && EqCriticalCase), {}}];
-        
         {nocasesystem, nocaserules} = CleanEqualities[{EqAllAll, {}}];
         
         (*{time,nocasesystem} = AbsoluteTiming @ NewReduce[nocasesystem];*)
         (*Print["DataToEquations: It took ", time, " seconds to reduce the general case with NewReduce.","\nThe system is :", nocasesystem];*)
  
         (*Print["DataToEquations: The system is:\n", system,
-        	"\nand the rules are:\n", rules];*)
-        	
-        	(*There could be some alternatives and inequalities left, so we BooleanConvert and solve/replace throught the tree*)
+            "\nand the rules are:\n", rules];*)
+            
+            (*There could be some alternatives and inequalities left, so we BooleanConvert and solve/replace throught the tree*)
         {time,system} = AbsoluteTiming @ NewReduce[system];
         Print["DataToEquations: It took ", time, " seconds to reduce the critical congestion case with NewReduce!","\nThe system is ", system];
         (*Print["DataToEquations: After NewReduce, the system is:\n", system,
-        	"\nand the rules are:\n", rules];*)
+            "\nand the rules are:\n", rules];*)
         Which[system === True ||
-        	Head[system] === Equal || 
-        	(Head[system] === And && DeleteDuplicates[Head /@ system] === Equal),
-        	sol = Solve[system, Reals];
-        	If[Length[sol] == 1,
-        		{system, rules} = {system, AssociateTo[ rules, First@ sol]} /. First@ sol,
-        		Print[sol];
-        	],
-        	system === False,
-        		Print["DataToEquations: ",Style["Incompatible system", Red],"."],
-        	True,
-        	Print["DataToEquations: The system does not have the original structure: ", system];
-        	{system,rules} = CleanEqualities[{system, rules}];
-        	system = Reduce[system, Reals];
-        	Print["DataToEquations: ", Style["Multiple solutions", Red]," \n\t\t", system, "\n\tFinding one instance..."];
-        	(*FindInstance!!!*)
-        	Module[{solved = And @@ (Outer[Equal,Keys[rules],Values[rules]]//Diagonal) , onesol},
-        		onesol = First@FindInstance[system && solved, Join[js, us, jts], Reals];	
-        		(*TODO: should we choose a method to select a solution?*)
-        		rules = Association[onesol]; 
-        		system = system/.rules
-        	];
+            Head[system] === Equal || 
+            (Head[system] === And && DeleteDuplicates[Head /@ system] === Equal),
+            sol = Solve[system, Reals];
+            If[ Length[sol] == 1,
+                {system, rules} = {system, AssociateTo[ rules, First@ sol]} /. First@ sol,
+                Print[sol];
+            ],
+            system === False,
+                Print["DataToEquations: ",Style["Incompatible system", Red],"."],
+            True,
+            Print["DataToEquations: The system does not have the original structure: ", system];
+            {system,rules} = CleanEqualities[{system, rules}];
+            system = Reduce[system, Reals];
+            Print["DataToEquations: ", Style["Multiple solutions", Red]," \n\t\t", system, "\n\tFinding one instance..."];
+            (*FindInstance!!!*)
+            Module[ {solved = And @@ (Outer[Equal,Keys[rules],Values[rules]]//Diagonal) , onesol},
+                onesol = First@FindInstance[system && solved, Join[js, us, jts], Reals];    
+                (*TODO: should we choose a method to select a solution?*)
+                rules = Association[onesol];
+                system = system/.rules
+            ];
         ];
         criticalreduced1 = {system, Simplify /@ rules};
-        If[system === True,
-        	Print["DataToEquations: Critical congestion solved."];,
-        	Print["DataToEquations: There are ", Style["multiple solutions", Red]," for the given data."];
+        If[ system === True,
+            Print["DataToEquations: Critical congestion solved."];,
+            Print["DataToEquations: There are ", Style["multiple solutions", Red]," for the given data."];
         ];
         Nrhs =  Flatten[IntM[SignedCurrents[#], #] + SignedCurrents[#] & /@ BEL];
         EqGeneralCase = And @@ (MapThread[(#1 == #2) &, {Nlhs , Nrhs}]);
         
         
         (*Print["DataToEquations: Done."];*)
-        If[showAll == True,
-        	Association[{
-        		"Data" -> Data,
-          (*Graph structure*)
-          "BG" -> BG, 
-          "EntranceVertices" -> EntranceVertices, 
-          "InwardVertices" -> InwardVertices, 
-          "InEdges" -> InEdges, 
-          "ExitVertices" -> ExitVertices, 
-          "OutwardVertices" -> OutwardVertices, 
-          "OutEdges" -> OutEdges, 
-          "AuxiliaryGraph" -> AuxiliaryGraph, 
-          "FG" -> FG, 
-          "VL" -> VL, 
-          "EL" -> EL, 
-          "BEL" -> BEL, 
-          "FVL" -> FVL, 
-          "AllTransitions" -> AllTransitions, 
-          "NoDeadEnds" -> NoDeadEnds, 
-          "NoDeadStarts" -> NoDeadStarts, 
-          (*variables*)
-          "jargs" -> jargs, 
-          "js" -> js, 
-          "jvars" -> jvars, 
-          "jts" -> jts, 
-          "jtvars" -> jtvars, 
-          "uargs" -> uargs, 
-          "us" -> us, 
-          "uvars" -> uvars,
-          "SwitchingCosts" -> SwitchingCosts, 
-          "OutRules" -> OutRules, 
-          "InRules" -> InRules, 
-          
-          
-          
-          "EntryArgs" -> EntryArgs, 
-          "EntryDataAssociation" -> EntryDataAssociation, 
-          "jays" -> SignedCurrents, 
-          "NonZeroEntryCurrents" -> NonZeroEntryCurrents, 
-          "ExitCosts" -> ExitCosts, 
-          
-          
-           
-          (*equations*)
-          (*complementarity*)
-          "EqCurrentCompCon" -> EqCurrentCompCon, 
-          "EqTransitionCompCon" -> EqTransitionCompCon, 
-          "EqCompCon" -> EqCompCon, 
-          "EqAllComp" -> EqAllComp, (*union of all complementarity conditions*)
-          
-          (*linear equations (and inequalities)*)
-          "EqPosCon" -> EqPosCon, 
-          "EqBalanceSplittingCurrents" -> EqBalanceSplittingCurrents, 
-          "EqBalanceGatheringCurrents" -> EqBalanceGatheringCurrents, 
-          "EqEntryIn" -> EqEntryIn, 
-          "EqExitValues" -> EqExitValues, 
-          "EqSwitchingConditions" -> EqSwitchingConditions, 
-          "EqValueAuxiliaryEdges" -> EqValueAuxiliaryEdges, 
-          "EqAll" -> EqAll, 
-          (*"EqAllCompRules" -> EqAllCompRules,*)
-          (*"EqAllRules" -> EqAllRules,*)
-          "EqAllAll" -> EqAllAll,
-          "BoundaryRules" -> BoundaryRules,
-          (*"reduced1" -> reduced1,
-          "reduced2" -> reduced2,*)
-          (*"EqAllAllSimple" -> EqAllAllSimple,*)
-          "RulesEntryIn"-> RulesEntryIn,
-          "RulesExitValues" -> RulesExitValues,
-          (*"EqAllAllRules" -> EqAllAllRules,*)
-          "Nlhs" -> Nlhs,
-          "nocasesystem" -> nocasesystem, 
-          "nocaserules" -> nocaserules,
-          "MinimalTimeRhs" -> MinimalTimeRhs,
-          "EqCriticalCase" -> EqCriticalCase ,
-          "criticalreduced1" -> criticalreduced1,
-          (*"criticalreduced2" -> criticalreduced2,*)
-          "Nrhs" -> Nrhs,
-          "EqGeneralCase" -> EqGeneralCase,
-          "TOL"->TOL
-          }]
-        	,
-        Association[{
-        	"Data" -> Data,
-          (*Graph structure*)
-          (*"BG" -> BG, 
-          "EntranceVertices" -> EntranceVertices, 
-          "InwardVertices" -> InwardVertices, 
-          "InEdges" -> InEdges, 
-          "ExitVertices" -> ExitVertices, 
-          "OutwardVertices" -> OutwardVertices, 
-          "OutEdges" -> OutEdges, 
-          "AuxiliaryGraph" -> AuxiliaryGraph,*) 
-          "FG" -> FG, (*
-          "VL" -> VL, 
-          "EL" -> EL, 
-          "BEL" -> BEL, 
-          "FVL" -> FVL, 
-          "AllTransitions" -> AllTransitions, 
-          "NoDeadEnds" -> NoDeadEnds, 
-          "NoDeadStarts" -> NoDeadStarts, 
-          (*variables*)
-          "jargs" -> jargs, 
-          "js" -> js, 
-          "jvars" -> jvars, 
-          "jts" -> jts, 
-          "jtvars" -> jtvars, 
-          "uargs" -> uargs, 
-          "us" -> us, 
-          "uvars" -> uvars,
-          "SwitchingCosts" -> SwitchingCosts, 
-          "OutRules" -> OutRules, 
-          "InRules" -> InRules, 
-          
-          
-          
-          "EntryArgs" -> EntryArgs, 
-          "EntryDataAssociation" -> EntryDataAssociation, 
-          "jays" -> SignedCurrents, 
-          "NonZeroEntryCurrents" -> NonZeroEntryCurrents, 
-          "ExitCosts" -> ExitCosts, 
-          
-          
-          *) 
-          (*equations*)
-          (*complementarity*)
-(*          "EqCurrentCompCon" -> EqCurrentCompCon, 
-          "EqTransitionCompCon" -> EqTransitionCompCon, 
-          "EqCompCon" -> EqCompCon, 
-          "EqAllComp" -> EqAllComp, (*union of all complementarity conditions*)*)
-          
-          (*linear equations (and inequalities)*)
-          (*"EqPosCon" -> EqPosCon, 
-          "EqBalanceSplittingCurrents" -> EqBalanceSplittingCurrents, 
-          "EqBalanceGatheringCurrents" -> EqBalanceGatheringCurrents, 
-          "EqEntryIn" -> EqEntryIn, 
-          "EqExitValues" -> EqExitValues, 
-          "EqSwitchingConditions" -> EqSwitchingConditions, 
-          "EqValueAuxiliaryEdges" -> EqValueAuxiliaryEdges, 
-          "EqAll" -> EqAll, *)
-         (* "EqAllCompRules" -> EqAllCompRules,
-          "EqAllRules" -> EqAllRules,*)
-          "EqAllAll" -> EqAllAll,
-          "BoundaryRules" -> BoundaryRules,
-          "reduced1" -> reduced1,
-          "reduced2" -> reduced2,
-(*          "EqAllAllSimple" -> EqAllAllSimple,*)
-(*          "RulesEntryIn"-> RulesEntryIn,
-          "RulesExitValues" -> RulesExitValues,*)
-(*          "EqAllAllRules" -> EqAllAllRules,*)
-          (*"reduced system" -> reduced[[1]],
-          "reducing rules" -> reduced[[2]],*)
-          "Nlhs" -> Nlhs,
-          "EqCriticalCase" -> EqCriticalCase ,
-          "criticalreduced1" -> criticalreduced1,
-          "criticalreduced2" -> criticalreduced2,
-          "Nrhs" -> Nrhs,
-          "EqGeneralCase" -> EqGeneralCase,
-          "TOL" -> TOL
-          }]
+        If[ showAll == True,
+            Association[{
+                "Data" -> Data,
+            (*Graph structure*)
+            "BG" -> BG, 
+            "EntranceVertices" -> EntranceVertices, 
+            "InwardVertices" -> InwardVertices, 
+            "InEdges" -> InEdges, 
+            "ExitVertices" -> ExitVertices, 
+            "OutwardVertices" -> OutwardVertices, 
+            "OutEdges" -> OutEdges, 
+            "AuxiliaryGraph" -> AuxiliaryGraph, 
+            "FG" -> FG, 
+            "VL" -> VL, 
+            "EL" -> EL, 
+            "BEL" -> BEL, 
+            "FVL" -> FVL, 
+            "AllTransitions" -> AllTransitions, 
+            "NoDeadEnds" -> NoDeadEnds, 
+            "NoDeadStarts" -> NoDeadStarts, 
+            (*variables*)
+            "jargs" -> jargs, 
+            "js" -> js, 
+            "jvars" -> jvars, 
+            "jts" -> jts, 
+            "jtvars" -> jtvars, 
+            "uargs" -> uargs, 
+            "us" -> us, 
+            "uvars" -> uvars,
+            "SwitchingCosts" -> SwitchingCosts, 
+            "OutRules" -> OutRules, 
+            "InRules" -> InRules, 
+            
+            
+            
+            "EntryArgs" -> EntryArgs, 
+            "EntryDataAssociation" -> EntryDataAssociation, 
+            "jays" -> SignedCurrents, 
+            "NonZeroEntryCurrents" -> NonZeroEntryCurrents, 
+            "ExitCosts" -> ExitCosts, 
+            
+            
+            
+            (*equations*)
+            (*complementarity*)
+            "EqCurrentCompCon" -> EqCurrentCompCon, 
+            "EqTransitionCompCon" -> EqTransitionCompCon, 
+            "EqCompCon" -> EqCompCon, 
+            "EqAllComp" -> EqAllComp, (*union of all complementarity conditions*)
+            
+            (*linear equations (and inequalities)*)
+            "EqPosCon" -> EqPosCon, 
+            "EqBalanceSplittingCurrents" -> EqBalanceSplittingCurrents, 
+            "EqBalanceGatheringCurrents" -> EqBalanceGatheringCurrents, 
+            "EqEntryIn" -> EqEntryIn, 
+            "EqExitValues" -> EqExitValues, 
+            "EqSwitchingConditions" -> EqSwitchingConditions, 
+            "EqValueAuxiliaryEdges" -> EqValueAuxiliaryEdges, 
+            "EqAll" -> EqAll, 
+            (*"EqAllCompRules" -> EqAllCompRules,*)
+            (*"EqAllRules" -> EqAllRules,*)
+            "EqAllAll" -> EqAllAll,
+            "BoundaryRules" -> BoundaryRules,
+            (*"reduced1" -> reduced1,
+            "reduced2" -> reduced2,*)
+            (*"EqAllAllSimple" -> EqAllAllSimple,*)
+            "RulesEntryIn"-> RulesEntryIn,
+            "RulesExitValues" -> RulesExitValues,
+            (*"EqAllAllRules" -> EqAllAllRules,*)
+            "Nlhs" -> Nlhs,
+            "nocasesystem" -> nocasesystem, 
+            "nocaserules" -> nocaserules,
+            "MinimalTimeRhs" -> MinimalTimeRhs,
+            "EqCriticalCase" -> EqCriticalCase ,
+            "criticalreduced1" -> criticalreduced1,
+            (*"criticalreduced2" -> criticalreduced2,*)
+            "Nrhs" -> Nrhs,
+            "EqGeneralCase" -> EqGeneralCase,
+            "TOL"->TOL
+            }],
+            Association[{
+                "Data" -> Data,
+              (*Graph structure*)
+              (*"BG" -> BG, 
+              "EntranceVertices" -> EntranceVertices, 
+              "InwardVertices" -> InwardVertices, 
+              "InEdges" -> InEdges, 
+              "ExitVertices" -> ExitVertices, 
+              "OutwardVertices" -> OutwardVertices, 
+              "OutEdges" -> OutEdges, 
+              "AuxiliaryGraph" -> AuxiliaryGraph,*) 
+              "FG" -> FG, (*
+              "VL" -> VL, 
+              "EL" -> EL, 
+              "BEL" -> BEL, 
+              "FVL" -> FVL, 
+              "AllTransitions" -> AllTransitions, 
+              "NoDeadEnds" -> NoDeadEnds, 
+              "NoDeadStarts" -> NoDeadStarts, 
+              (*variables*)
+              "jargs" -> jargs, 
+              "js" -> js, 
+              "jvars" -> jvars, 
+              "jts" -> jts, 
+              "jtvars" -> jtvars, 
+              "uargs" -> uargs, 
+              "us" -> us, 
+              "uvars" -> uvars,
+              "SwitchingCosts" -> SwitchingCosts, 
+              "OutRules" -> OutRules, 
+              "InRules" -> InRules, 
+              
+              
+              
+              "EntryArgs" -> EntryArgs, 
+              "EntryDataAssociation" -> EntryDataAssociation, 
+              "jays" -> SignedCurrents, 
+              "NonZeroEntryCurrents" -> NonZeroEntryCurrents, 
+              "ExitCosts" -> ExitCosts, 
+              
+              
+              *) 
+              (*equations*)
+              (*complementarity*)
+            (*          "EqCurrentCompCon" -> EqCurrentCompCon, 
+              "EqTransitionCompCon" -> EqTransitionCompCon, 
+              "EqCompCon" -> EqCompCon, 
+              "EqAllComp" -> EqAllComp, (*union of all complementarity conditions*)*)
+              
+              (*linear equations (and inequalities)*)
+              (*"EqPosCon" -> EqPosCon, 
+              "EqBalanceSplittingCurrents" -> EqBalanceSplittingCurrents, 
+              "EqBalanceGatheringCurrents" -> EqBalanceGatheringCurrents, 
+              "EqEntryIn" -> EqEntryIn, 
+              "EqExitValues" -> EqExitValues, 
+              "EqSwitchingConditions" -> EqSwitchingConditions, 
+              "EqValueAuxiliaryEdges" -> EqValueAuxiliaryEdges, 
+              "EqAll" -> EqAll, *)
+             (* "EqAllCompRules" -> EqAllCompRules,
+              "EqAllRules" -> EqAllRules,*)
+              "EqAllAll" -> EqAllAll,
+              "BoundaryRules" -> BoundaryRules,
+              "reduced1" -> reduced1,
+              "reduced2" -> reduced2,
+            (*          "EqAllAllSimple" -> EqAllAllSimple,*)
+            (*          "RulesEntryIn"-> RulesEntryIn,
+              "RulesExitValues" -> RulesExitValues,*)
+            (*          "EqAllAllRules" -> EqAllAllRules,*)
+              (*"reduced system" -> reduced[[1]],
+              "reducing rules" -> reduced[[2]],*)
+              "Nlhs" -> Nlhs,
+              "EqCriticalCase" -> EqCriticalCase ,
+              "criticalreduced1" -> criticalreduced1,
+              "criticalreduced2" -> criticalreduced2,
+              "Nrhs" -> Nrhs,
+              "EqGeneralCase" -> EqGeneralCase,
+              "TOL" -> TOL
+              }]
         ]
     ]
 
-End[]
+CriticalCongestionSolver[D2E_Association] :=
+Module[{system, rules, EqAllAll = Lookup[D2E, "EqAllAll", Print["No equations to solve."]; Return[]], EqCriticalCase = Lookup[D2E,"EqCriticalCase"]},
+{system, rules} = CleanEqualities[{(EqAllAll && EqCriticalCase), {}}];
+]
+    End[]
