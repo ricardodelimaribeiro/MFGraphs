@@ -9,8 +9,6 @@ DataToEquations::usage =
 
 Begin["`Private`"]
 
-
-
 DataToEquations[Data_?AssociationQ] :=
     Module[ {showAll = True, BG, EntranceVertices, InwardVertices, InEdges, ExitVertices, 
     OutwardVertices, OutEdges, AuxiliaryGraph, FG, VL, EL, BEL, jargs, 
@@ -131,8 +129,8 @@ DataToEquations[Data_?AssociationQ] :=
         {system, rules} = CleanEqualities[{(EqAllAll && EqCriticalCase), {}}];
         {nocasesystem, nocaserules} = CleanEqualities[{EqAllAll, {}}];
         
-        (*{time,nocasesystem} = AbsoluteTiming @ NewReduce[nocasesystem];*)
-        (*Print["DataToEquations: It took ", time, " seconds to reduce the general case with NewReduce.","\nThe system is :", nocasesystem];*)
+        {time,nocasesystem} = AbsoluteTiming @ NewReduce[nocasesystem]; (*does this step help speed up fixedreducex1?*)
+        Print["DataToEquations: It took ", time, " seconds to reduce the general case with NewReduce.","\nThe system is :", nocasesystem];
  
         (*Print["DataToEquations: The system is:\n", system,
             "\nand the rules are:\n", rules];*)
