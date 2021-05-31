@@ -7,7 +7,7 @@ FixedReduceX1::usage =
 	MFGEquations should have the Keys EqAllAll, BoundaryRules, Nlhs, Nrhs, TOL";
 
 CleanEqualities::usage = 
-"CleanEqualities[{system,rules}] returns an equivalent pair of system and rules. The equalities are solved and substituted into the system and added to rules."
+"CleanEqualities[{system,rules}] returns an equivalent pair of system and rules without \"loose\" equalities. The equalities are solved and substituted into the system and added to rules."
 
 EqEliminatorX::usage = 
 "EqEliminatorX[{system, rules}] extracts the equalities of the system, solves and appends them to rules, and returns a new pair {system, rules} /. rules. ";

@@ -12,13 +12,14 @@ D2E::usage =
  \"Entrance Vertices and Currents\" -> {{2, I1}}, 
  \"Exit Vertices and Terminal Costs\" -> {{1, U1}, {3, U2}}, 
  \"Switching Costs\" -> {{1, 2, 3, S1}, {3, 2, 1, S2}}|> returns the equations for the stationary mean-field game on the network.]"
-Begin["`Private`"]
 
 CriticalBundle::usage =
 "CriticalBundle[Data] builds equations and solves the critical congestion case."
 
 CriticalCongestionSolver::usage = 
 "CriticalCongestionSolver[eq_Association] returns the critical congestion solution."
+
+Begin["`Private`"]
 D2E[Data_?AssociationQ] :=
     Module[ {showAll = True, BG, EntranceVertices, InwardVertices, InEdges, ExitVertices, 
         OutwardVertices, OutEdges, AuxiliaryGraph, FG, VL, EL, BEL, jargs, 
