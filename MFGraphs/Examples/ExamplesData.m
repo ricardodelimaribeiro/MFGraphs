@@ -127,7 +127,7 @@ test = Association[
         (*AM=*){{0, 1, 1, 0}, {0, 0, 1, 1}, {0, 0, 0, 1}, {0, 0, 0, 0}},
         (*DataIn=*){{1, I1}},
         (*FinalCosts=*){{4, U1}}, 
-        (*SwitchingCostsData=*){}},
+        (*SwitchingCostsData=*){}}/. {I1 -> 1, U1 -> 0, S1 -> 0, S2 -> 0, S3 -> 0, S4 -> 0},
    
     (* Attraction without edge in the middle*)
     13 -> {
@@ -135,7 +135,7 @@ test = Association[
         (*AM=*){{0, 1, 1, 0}, {0, 0, 0, 1}, {0, 0, 0, 1}, {0, 0, 0, 0}},
         (*DataIn=*){{1, I1}},
         (*FinalCosts=*){{4, U1}}, 
-        (*SwitchingCostsData=*){{1,2,4,S1},{1,3,4,S2},{4,2,1,S3},{4,3,1,S4}}},
+        (*SwitchingCostsData=*){{1,2,4,S1},{1,3,4,S2},{4,2,1,S3},{4,3,1,S4}}}/. {I1 -> 1, U1 -> 0, S1 -> 0, S2 -> 0, S3 -> 0, S4 -> 0},
    
    (*********)
  
