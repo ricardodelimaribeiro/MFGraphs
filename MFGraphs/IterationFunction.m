@@ -101,7 +101,7 @@ False;
 NewReduce[system_] :=
 Module[ {result},
 	result = ZAnd[Select[system, !((Head[#] === Or)||(Head[#]===Equal))&],Select[system, ((Head[#] === Or)||(Head[#]===Equal))&]]//DeleteDuplicates;
-	result = Reduce[#, Reals]& /@ result // Quiet;(*Reduce was unable to solve the system with inexact coefficients. The answer was obtained by solving a corresponding exact system and numericizing the result.*)
+	result = Reduce[#, Reals]& @ result // Quiet;(*Reduce was unable to solve the system with inexact coefficients. The answer was obtained by solving a corresponding exact system and numericizing the result.*)
 	Simplify @ result
 ]
 

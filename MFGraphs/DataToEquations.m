@@ -5,7 +5,8 @@ DataToEquations::usage =
 "DataToEquations[<|\"Vertices List\" -> {1, 2, 3}, \"Adjacency Matrix\" -> {{0, 0, 0}, {1, 0, 1}, {0, 0, 0}}, 
  \"Entrance Vertices and Currents\" -> {{2, I1}}, 
  \"Exit Vertices and Terminal Costs\" -> {{1, U1}, {3, U2}}, 
- \"Switching Costs\" -> {{1, 2, 3, S1}, {3, 2, 1, S2}}|>] returns the equations for the stationary mean-field game on the network. This also returns the solution to the critical congestion case and a reduced version of the system/rules for the \"no case\" system.";
+ \"Switching Costs\" -> {{1, 2, 3, S1}, {3, 2, 1, S2}}|>] returns the equations for the stationary mean-field game on the network. 
+ This also returns the solution to the critical congestion case and a reduced version of the system/rules for the \"no case\" system.";
 
 D2E::usage = 
 "D2E[<|\"Vertices List\" -> {1, 2, 3}, \"Adjacency Matrix\" -> {{0, 0, 0}, {1, 0, 1}, {0, 0, 0}}, 
