@@ -43,7 +43,7 @@ With[ {sol = Solve[eq]},
 
 ZAnd[xp_, orxp_Or] :=
 (ZAnd[xp, #] & /@ orxp) // RemoveDuplicates;
-
+(*TODO see if CleanEqualities fits here!!!*)
 ZAnd[xp_, andxp_And] :=
 With[ {fst = First[andxp], rst = Rest[andxp]},
 	If[ Head[fst] === Equal,
@@ -99,9 +99,11 @@ NewReduce[False] :=
 False;
 
 NewReduce[system_] :=
-Module[ {result},
-	result = ZAnd[Select[system, !((Head[#] === Or)||(Head[#]===Equal))&],Select[system, ((Head[#] === Or)||(Head[#]===Equal))&]]//DeleteDuplicates;
-	result = Reduce[#, Reals]& @ result // Quiet;(*Reduce was unable to solve the system with inexact coefficients. The answer was obtained by solving a corresponding exact system and numericizing the result.*)
+Module[ {time,result},
+	{time,result} = AbsoluteTiming[ZAnd[Select[system, !((Head[#] === Or)||(Head[#]===Equal))&],Select[system, ((Head[#] === Or)||(Head[#]===Equal))&]]//DeleteDuplicates];
+	Print["NewReduce: ", "ZAnd took ", time, " to get to \n", result];
+	{time,result} = AbsoluteTiming[Reduce[#, Reals]& @ result // Quiet];(*Reduce was unable to solve the system with inexact coefficients. The answer was obtained by solving a corresponding exact system and numericizing the result.*)
+	Print["NewReduce: ", "Reduce took ", time, " to get to \n", result];
 	Simplify @ result
 ]
 
@@ -114,10 +116,12 @@ Module[ {EE, ON, newrules, rulesAss = Association[rules]},
 		ON = Select[system, (Head[#] =!= Equal) &];
 		If[ EE === {}, 
 			(*there were no equalities: just reduce the system*)
-			{Reduce[system, Reals], rulesAss},
+			(*{Reduce[system, Reals], rulesAss},*)
+			{system, rulesAss},
 			(*solve the equalities*)
 			newrules =  Solve[EE, Reals] // Quiet; (*The reason we use Quiet is:  Solve::svars: Equations may not give solutions for all "solve" variables.*)(*TODO include variables to solve: this way we leave the switching costs unsolved.*)
 			If[ newrules === {},
+				Print["EqEliminatorX: ", EE];
 				(*equalities have no solution: simplify them*)
 				{ON && Simplify @ EE, rulesAss},
                 (*select the first set of solutions*)
@@ -142,14 +146,15 @@ Module[ {EE, ON, newrules, rulesAss = Association[rules]},
         True,
         (*Maybe the Head is Or or NonNegative (could it be something else?)... 
         Just reduce the system while simplifyung the rules.*)
-        {Reduce[system, Reals] // Quiet, Simplify @ rulesAss}
+        (*{Reduce[system, Reals] // Quiet, Simplify @ rulesAss}*)
+        {system, Simplify @ rulesAss}
 	]
 ];
 
 CleanEqualities[{system_,rules_}] := FixedPoint[EqEliminatorX, {system,rules}];
 
 FixedReduceX1[Eqs_Association][rules_] :=
-Module[ {nonlinear, system = Eqs["nocasesystem"], auxsys, auxsol},
+Module[ {nonlinear, system = Eqs["nocasesystem"], auxsys, auxsol, alpha},
 	alpha = Lookup[Eqs["Data"], "alpha", Function[{edge}, 1](*critical congestion is the default.*)];
 	(*These two steps can be done in DataToEquations, but the NewReduce was somewhat slow...*)
     {auxsys, auxsol} = {system, Eqs["nocaserules"]}; 
