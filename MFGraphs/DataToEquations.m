@@ -63,7 +63,8 @@ D2E[Data_?AssociationQ] :=
         ExitValues[a_ \[DirectedEdge] b_] :=
             Total[uvars /@ {{b, DirectedEdge[a, b]}}] == ExitCosts[b];
         Transu[{v_, edge1_, edge2_}] :=
-            NonNegative[uvars[{v,edge2}]-uvars[{v,edge1}] + SwitchingCosts[{v,edge1,edge2}]];(*u1<= u2+S(1,2) for agents going from edge 1 to 2 at some vertex*)
+        	uvars[{v,edge2}]-uvars[{v,edge1}] + SwitchingCosts[{v,edge1,edge2}] >= 0;
+            (*NonNegative[uvars[{v,edge2}]-uvars[{v,edge1}] + SwitchingCosts[{v,edge1,edge2}]];(*u1<= u2+S(1,2) for agents going from edge 1 to 2 at some vertex*)*)
         Compu[{v_, edge1_, edge2_}] :=
             (jtvars[{v, edge1, edge2}] == 0) || uvars[{v,edge2}]-uvars[{v,edge1}] + SwitchingCosts[{v,edge1,edge2}] == 0;
         a (*[SignedCurrents[edge], edge]:*)=
@@ -122,8 +123,7 @@ D2E[Data_?AssociationQ] :=
         AssociateTo[SwitchingCosts, Association[OutRules]];
         InRules = Rule[#, Infinity] & /@ (Outer[{#2[[2]], #1, #2} &, IncidenceList[FG, #] & /@ EntranceVertices, InEdges] // Flatten[#, 2] &);
         AssociateTo[SwitchingCosts, Association[InRules]];
-        EqSwitchingConditions = (*And @@ Transu /@ AllTransitions;*)
-        Reduce[(And @@ Transu /@ AllTransitions), Reals];(*Reducing before joining with other equations*)
+        EqSwitchingConditions = Reduce[(And @@ Transu /@ AllTransitions), Reals];(*Reducing before joining with other equations*)
         EqAll = EqAll && EqSwitchingConditions && And @@ EqCcs;(*includes transition inequalities for the values and the triangle inequalities, too.*)
         EqCompCon = And @@ Compu /@ AllTransitions;
         EqValueAuxiliaryEdges = And @@ ((uvars[AtHead[#]] - uvars[AtTail[#]] == 0) & /@ EdgeList[AuxiliaryGraph]);
@@ -276,8 +276,7 @@ DataToEquations[Data_?AssociationQ] :=
         ExitValues[a_ \[DirectedEdge] b_] :=
             Total[uvars /@ {{b, DirectedEdge[a, b]}}] == ExitCosts[b];
         Transu[{v_, edge1_, edge2_}] :=
-            (*NonNegative[uvars[{v,edge2}]-uvars[{v,edge1}] + SwitchingCosts[{v,edge1,edge2}]];(*u1<= u2+S(1,2) for agents going from edge 1 to 2 at some vertex*)*)
-            uvars[{v,edge2}]-uvars[{v,edge1}] + SwitchingCosts[{v,edge1,edge2}] >= 0;
+            NonNegative[uvars[{v,edge2}]-uvars[{v,edge1}] + SwitchingCosts[{v,edge1,edge2}]];(*u1<= u2+S(1,2) for agents going from edge 1 to 2 at some vertex*)
         Compu[{v_, edge1_, edge2_}] :=
             (jtvars[{v, edge1, edge2}] == 0) || uvars[{v,edge2}]-uvars[{v,edge1}] + SwitchingCosts[{v,edge1,edge2}] == 0;
         a (*[SignedCurrents[edge], edge]:*)=
@@ -306,7 +305,8 @@ DataToEquations[Data_?AssociationQ] :=
         uargs = Join[AtTail /@ EL, AtHead /@ EL];
         us = Unique["u"] & /@ uargs;
         uvars = AssociationThread[uargs, us];
-        EqPosCon = And @@ (NonNegative /@ Join[jvars, jtvars]);
+        EqPosCon = And @@ (#>=0& /@ Join[jvars, jtvars]);
+        (*EqPosCon = And @@ (NonNegative /@ Join[jvars, jtvars]);*)
         EqCurrentCompCon = And @@ (CurrentCompCon /@ EL);
         EqTransitionCompCon = And @@ ((Sort /@ TransitionCompCon /@ AllTransitions) // Union);
         NoDeadEnds = IncomingEdges /@ VL // Flatten[#, 1] &;
@@ -562,7 +562,7 @@ CriticalBundle[Data_Association] :=
 
 
 CriticalCongestionSolver[D2E_Association] :=
-    Module[ {system, rules, time, sol,
+    Module[ {system, rules, (*time,*) sol,
         (*js = Lookup[D2E, "js"],
         us = Lookup[D2E, "us"],
         jts = Lookup[D2E, "jts"],*)
@@ -571,10 +571,16 @@ CriticalCongestionSolver[D2E_Association] :=
         EqCriticalCase = Lookup[D2E,"EqCriticalCase", Print["Critical case equations are missing."];
                                                       Return[]]
         },
-        {time, {system, rules}} = AbsoluteTiming@CleanEqualities[{(EqAllAll && EqCriticalCase), {}}];
+        (*{time, {system, rules}} = AbsoluteTiming@CleanEqualities[{(EqAllAll && EqCriticalCase), {}}];
         Print["It took ", time, " to Clean the equalities and get \n", system];
         {time,system} = AbsoluteTiming @ NewReduce[system];
-        Print["It took ", time, " to NewReduce to ", system];
+        Print["It took ", time, " to NewReduce to \n", system];*)
+        {system, rules} = CleanEqualities[{(EqAllAll && EqCriticalCase), {}}];
+        (*Print[{system, rules}];*)
+        {system, rules} = {system, rules}/.rules; 
+        system = NewReduce[system];
+        (*Print[system];*)
+        (*system = NewReduce[BooleanConvert[system,"CNF"]];*)
         Which[system === True ||Head[system] === Equal || (Head[system] === And && DeleteDuplicates[Head /@ system] === Equal),
             sol = Solve[system, Reals];
             If[ Length[sol] == 1,
@@ -582,12 +588,12 @@ CriticalCongestionSolver[D2E_Association] :=
                 Print[sol];
             ],
             system === False,
-            Print["DataToEquations: ",Style["Incompatible system", Red],"."],
+            Print["CriticalCongestionSolver: ",Style["Incompatible system", Red],"."],
             True,
-            Print["DataToEquations: The system does not have the original structure: ", system];
+            Print["CriticalCongestionSolver: The system does not have the original structure: \n", system];
             {system,rules} = CleanEqualities[{system, rules}];
             system = Reduce[system, Reals];
-            Print["DataToEquations: ", Style["Multiple solutions", Red]," \n\t\t", system(*, "\n\tFinding one instance..."*)];
+            Print["CriticalCongestionSolver: ", Style["Multiple solutions", Red]," \n\t\t", system(*, "\n\tFinding one instance..."*)];
             (*FindInstance!!!*)
             (*Module[ {solved = And @@ (Outer[Equal,Keys[rules],Values[rules]]//Diagonal) , onesol},
                 onesol = First@FindInstance[system && solved, Join[js, us, jts], Reals];    
@@ -597,8 +603,8 @@ CriticalCongestionSolver[D2E_Association] :=
             ];*)
         ];
         If[ system === True,
-            Print["DataToEquations: Critical congestion solved."];,
-            Print["DataToEquations: There are ", Style["multiple solutions", Red]," for the given data."];
+            Print["CriticalCongestionSolver: Critical congestion solved."];,
+            Print["CriticalCongestionSolver: There are ", Style["multiple solutions", Red]," for the given data."];
         ];
         {system, Simplify /@ rules}
     ]
