@@ -20,9 +20,12 @@ CriticalBundle::usage =
 CriticalCongestionSolver::usage = 
 "CriticalCongestionSolver[eq_Association] returns the critical congestion solution."
 
+CriticalCongestionSolverN::usage = 
+""
+
 Begin["`Private`"]
-D2E[Data_?AssociationQ] :=
-    Module[ {showAll = True, BG, EntranceVertices, InwardVertices, InEdges, ExitVertices, 
+D2E[Dat_?AssociationQ] :=
+    Module[ {showAll = True, Data = RoundValues @ Dat, BG, EntranceVertices, InwardVertices, InEdges, ExitVertices, 
         OutwardVertices, OutEdges, AuxiliaryGraph, FG, VL, EL, BEL, jargs, 
         js, jvars, FVL, AllTransitions, jts, jtvars, uargs, us, uvars, 
         EqPosCon, EqCurrentCompCon, EqTransitionCompCon, NoDeadEnds, 
@@ -39,7 +42,7 @@ D2E[Data_?AssociationQ] :=
                 bounds = Outer[Plus, Last /@ or, Last /@ de] // Flatten;
                 And @@ (NonNegative[#-S] &) /@ bounds
             ];
-        EqCcs = ConsistentSwithingCosts /@ Data["Switching Costs"];
+        EqCcs = Simplify[ConsistentSwithingCosts /@ Data["Switching Costs"]];
         If[Reduce[EqCcs]==False,
         	Print["DataToEquations: Triangle inequalities for switching costs: ", EqCcs];
             Print["DataToEquations: The switching costs are ",Style["incompatible", Red],". \nStopping!"];
@@ -106,17 +109,12 @@ D2E[Data_?AssociationQ] :=
         NoDeadStarts = OutgoingEdges /@ VL // Flatten[#, 1] &;
         EqBalanceSplittingCurrents = And @@ ((jvars[#] == Total[jtvars /@ CurrentSplitting[#]]) & /@ NoDeadEnds);
         EqBalanceGatheringCurrents = And @@ ((jvars[#] == Total[jtvars /@ CurrentGathering[#]]) & /@ NoDeadStarts);
-        EqAll = EqPosCon && EqBalanceSplittingCurrents && EqBalanceGatheringCurrents;(*takes too long to Reduce, so don't!*)
         EntryArgs = AtHead /@ ((EdgeList[AuxiliaryGraph, _ \[DirectedEdge] #] & /@ (First /@ Data["Entrance Vertices and Currents"])) // Flatten[#, 1] &);
         EntryDataAssociation = AssociationThread[EntryArgs, Last /@ Data["Entrance Vertices and Currents"]];
         EqEntryIn = And @@ ((jvars[#] == EntryDataAssociation[#]) & /@ (AtHead /@ InEdges));
-        RulesEntryIn = ToRules[EqEntryIn];
         NonZeroEntryCurrents = And @@ (Positive[EntryDataAssociation[#]] & /@ (AtHead /@ InEdges)); (*useful for the general case...*)
-        EqAll = EqAll && EqEntryIn;
         ExitCosts = AssociationThread[OutwardVertices /@ (First /@ Data["Exit Vertices and Terminal Costs"]), Last /@ Data["Exit Vertices and Terminal Costs"]];
         EqExitValues = And @@ (ExitValues /@ IncidenceList[AuxiliaryGraph, OutwardVertices /@ ExitVertices]);
-        RulesExitValues = ToRules[EqExitValues];
-        EqAll = EqAll && EqExitValues;
         SwitchingCosts = AssociationThread[Join[AllTransitions, triple2path[Take[#, 3], FG] & /@ Data["Switching Costs"]], Join[Table[0, Length[AllTransitions]], Last[#] & /@ Data["Switching Costs"]]];(*Swithing cost is initialized with 0 AssociationThread associates the last association!*)
         (*Infinite switching costs here prevent the network from sucking agents from the exits.*)
         OutRules = Rule[#, Infinity] & /@ (Outer[Flatten[{AtTail[#1], #2}] &, OutEdges, EL] // Flatten[#, 1] &);
@@ -124,15 +122,14 @@ D2E[Data_?AssociationQ] :=
         InRules = Rule[#, Infinity] & /@ (Outer[{#2[[2]], #1, #2} &, IncidenceList[FG, #] & /@ EntranceVertices, InEdges] // Flatten[#, 2] &);
         AssociateTo[SwitchingCosts, Association[InRules]];
         EqSwitchingConditions = Reduce[(And @@ Transu /@ AllTransitions), Reals];(*Reducing before joining with other equations*)
-        EqAll = EqAll && EqSwitchingConditions && And @@ EqCcs;(*includes transition inequalities for the values and the triangle inequalities, too.*)
         EqCompCon = And @@ Compu /@ AllTransitions;
         EqValueAuxiliaryEdges = And @@ ((uvars[AtHead[#]] - uvars[AtTail[#]] == 0) & /@ EdgeList[AuxiliaryGraph]);
         EqAllComp = EqCurrentCompCon && EqTransitionCompCon && EqCompCon;
-        EqAll = EqAll && EqValueAuxiliaryEdges;
+        EqAll = EqPosCon && EqBalanceSplittingCurrents && EqBalanceGatheringCurrents && 
+        	EqEntryIn && EqExitValues && EqValueAuxiliaryEdges && EqSwitchingConditions && 
+        	And @@ EqCcs;(*includes transition inequalities for the values and the triangle inequalities, too.*)
         (*Pre-processing: substitute rules in all equations and hand-sides...*)
-        BoundaryRules = Join[RulesEntryIn, RulesExitValues];
         EqAllAll = EqAll && EqAllComp;
-        EqAllAllRules = EqAllCompRules && EqAllRules;
 
         MinimalTimeRhs = Flatten[-a[SignedCurrents[#], #] + SignedCurrents[#] & /@ BEL];
         Nlhs = Flatten[uvars[AtHead[#]] - uvars[AtTail[#]] + SignedCurrents[#] & /@ BEL];
@@ -202,8 +199,6 @@ D2E[Data_?AssociationQ] :=
             (*"reduced1" -> reduced1,
             "reduced2" -> reduced2,*)
             (*"EqAllAllSimple" -> EqAllAllSimple,*)
-            "RulesEntryIn"-> RulesEntryIn,
-            "RulesExitValues" -> RulesExitValues,
             (*"EqAllAllRules" -> EqAllAllRules,*)
             "Nlhs" -> Nlhs,
             "MinimalTimeRhs" -> MinimalTimeRhs,
@@ -593,6 +588,55 @@ CriticalCongestionSolver[D2E_Association] :=
             Print["CriticalCongestionSolver: The system does not have the original structure: \n", system];
             {system,rules} = CleanEqualities[{system, rules}];
             system = Reduce[system, Reals];
+            Print["CriticalCongestionSolver: ", Style["Multiple solutions", Red]," \n\t\t", system(*, "\n\tFinding one instance..."*)];
+            (*FindInstance!!!*)
+            (*Module[ {solved = And @@ (Outer[Equal,Keys[rules],Values[rules]]//Diagonal) , onesol},
+                onesol = First@FindInstance[system && solved, Join[js, us, jts], Reals];    
+                (*TODO: should we choose a method to select a solution?*)
+                rules = Association[onesol];
+                system = system/.rules
+            ];*)
+        ];
+        If[ system === True,
+            Print["CriticalCongestionSolver: Critical congestion solved."];,
+            Print["CriticalCongestionSolver: There are ", Style["multiple solutions", Red]," for the given data."];
+        ];
+        {system, Simplify /@ rules}
+    ]
+    
+CriticalCongestionSolverN[D2E_Association] :=
+    Module[ {system, rules, (*time,*) sol,
+        (*js = Lookup[D2E, "js"],
+        us = Lookup[D2E, "us"],
+        jts = Lookup[D2E, "jts"],*)
+        EqAllAll = Lookup[D2E, "EqAllAll", Print["No equations to solve."];
+                                           Return[]], 
+        EqCriticalCase = Lookup[D2E,"EqCriticalCase", Print["Critical case equations are missing."];
+                                                      Return[]]
+        },
+        (*{time, {system, rules}} = AbsoluteTiming@CleanEqualities[{(EqAllAll && EqCriticalCase), {}}];
+        Print["It took ", time, " to Clean the equalities and get \n", system];
+        {time,system} = AbsoluteTiming @ NewReduce[system];
+        Print["It took ", time, " to NewReduce to \n", system];*)
+        {system, rules} = CleanEqualitiesN[{(EqAllAll && EqCriticalCase), {}}];
+        (*Print[{system, rules}];*)
+        {system, rules} = {system, rules}/.rules; 
+        system = NewReduce[system];
+        (*Print[system];*)
+        (*system = NewReduce[BooleanConvert[system,"CNF"]];*)
+        Which[system === True ||Head[system] === Equal || (Head[system] === And && DeleteDuplicates[Head /@ system] === Equal),
+            sol = NSolve[system];
+            If[ Length[sol] == 1,
+                {system, rules} = {system, AssociateTo[ rules, First@ sol]} /. First@ sol,
+                Print[sol];
+            ],
+            system === False,
+            Print["CriticalCongestionSolver: ",Style["Incompatible system", Red],"."],
+            True,
+            Print["CriticalCongestionSolver: The system does not have the original structure: \n", system];
+            {system,rules} = CleanEqualitiesN[{system, rules}];
+            system = Chop /@ List @@ system;
+            Reduce @ system;
             Print["CriticalCongestionSolver: ", Style["Multiple solutions", Red]," \n\t\t", system(*, "\n\tFinding one instance..."*)];
             (*FindInstance!!!*)
             (*Module[ {solved = And @@ (Outer[Equal,Keys[rules],Values[rules]]//Diagonal) , onesol},
