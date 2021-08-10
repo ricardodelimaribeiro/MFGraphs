@@ -49,8 +49,15 @@ U::usage =
 IntM::usage = 
 "IntM[j, edge] Intg without the Parameters association";
 
+RoundValues::usage =
+"RoundValues Rounds the values in a Rule up to 10 decimal places"
 Begin["`Private`"]
 
+RoundValues[x_?NumberQ] := Round[x, 10^-10]
+RoundValues[Rule[a_, b_]] := Rule[a, RoundValues[b]]
+RoundValues[x_List] := RoundValues /@ x
+RoundValues[x_Association]:= RoundValues /@ x
+	
 SortAnds[oldxp_And, vars_] :=
 SortAnds[True, oldxp, vars]
 
