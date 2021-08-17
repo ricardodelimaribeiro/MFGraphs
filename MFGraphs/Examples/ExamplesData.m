@@ -362,7 +362,23 @@ test = Association[
         {0,0,0,0,0,0,0,0,0}},
         (*DataIn=*){{1, I1}/.I1->2},
         (*FinalCosts=*){{9, U1}/.U1->0},
-        (*SwitchingCostsData=*){{1,3,5,S1},{5,7,9,S2}}/.{S1->10,S2->10}}
+        (*SwitchingCostsData=*){{1,3,5,S1},{5,7,9,S2}}/.{S1->10,S2->10}},
+        
+        "Grid1020" -> {
+        	(*VL=*)VertexList[GridGraph[{10,20}]],
+        (*AM=*)AdjacencyMatrix[GridGraph[{10,20},DirectedEdges->True]],
+        (*DataIn=*){{1, I1}/.I1->400},
+        (*FinalCosts=*){{200, U1}/.U1->0},
+        (*SwitchingCostsData=*){}
+        }(*,
+        
+        "Gridemen" -> {
+        	(*VL=*)VertexList[GridGraph[{eme,ene}]],
+        (*AM=*)AdjacencyMatrix[GridGraph[{eme,ene},DirectedEdges->True]],
+        (*DataIn=*){{1, I1}/.I1->400},
+        (*FinalCosts=*){{eme*ene, U1}/.U1->0},
+        (*SwitchingCostsData=*){}
+        }*)
         
  (* 
     (*Y 1-in 2-out 3 vertices no switching*)
