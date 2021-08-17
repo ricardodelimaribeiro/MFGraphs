@@ -20,12 +20,14 @@ CriticalBundle::usage =
 CriticalCongestionSolver::usage = 
 "CriticalCongestionSolver[eq_Association] returns the critical congestion solution."
 
-CriticalCongestionSolverN::usage = 
+CriticalCongestionStep::usage=
 ""
+(*CriticalCongestionSolverN::usage = 
+""*)
 
 Begin["`Private`"]
 D2E[Dat_?AssociationQ] :=
-    Module[ {showAll = True, Data = RoundValues @ Dat, BG, EntranceVertices, InwardVertices, InEdges, ExitVertices, 
+    Module[ {showAll = True, Data = (*RoundValues @ *)Dat, BG, EntranceVertices, InwardVertices, InEdges, ExitVertices, 
         OutwardVertices, OutEdges, AuxiliaryGraph, FG, VL, EL, BEL, jargs, 
         js, jvars, FVL, AllTransitions, jts, jtvars, uargs, us, uvars, 
         EqPosCon, EqCurrentCompCon, EqTransitionCompCon, NoDeadEnds, 
@@ -73,7 +75,7 @@ D2E[Dat_?AssociationQ] :=
         a (*[SignedCurrents[edge], edge]:*)=
             Lookup[Data, "a" , Function[{j, edge}, j]];(*Default corresponds to the classic critical congestion case*)
         (*End*)
-        BG = AdjacencyGraph[Data["Vertices List"], Data["Adjacency Matrix"], VertexLabels -> "Name", DirectedEdges -> True, GraphLayout -> "SpringEmbedding"];
+        BG = AdjacencyGraph[Data["Vertices List"], Data["Adjacency Matrix"], VertexLabels -> "Name", DirectedEdges -> True];
         EntranceVertices = First /@ Data["Entrance Vertices and Currents"];
         Clear["en*"];
         InwardVertices = AssociationThread[EntranceVertices, Symbol["en" <> ToString[#]] & /@ EntranceVertices]; (*Defines auxiliary vertices for the entrance vertices*)
@@ -102,41 +104,54 @@ D2E[Dat_?AssociationQ] :=
         us = Table[Symbol["u" <> ToString[k]],{k,1, Length@uargs}];
         uvars = AssociationThread[uargs, us];
         (*EqPosCon = And @@ (NonNegative /@ Join[jvars, jtvars])*)
-        EqPosCon = And @@ ( #>=0& /@ Join[jvars, jtvars]);
-        EqCurrentCompCon = And @@ (CurrentCompCon /@ EL);
-        EqTransitionCompCon = And @@ ((Sort /@ TransitionCompCon /@ AllTransitions) // Union);
+        EqPosCon = And @@ ( #>=0& /@ Join[jvars, jtvars]);(*Inequality*)
+        EqCurrentCompCon = And @@ (CurrentCompCon /@ EL);(*Or*)
+        EqTransitionCompCon = And @@ ((Sort /@ TransitionCompCon /@ AllTransitions) // Union);(*Or*)
         NoDeadEnds = IncomingEdges /@ VL // Flatten[#, 1] &;
         NoDeadStarts = OutgoingEdges /@ VL // Flatten[#, 1] &;
-        EqBalanceSplittingCurrents = And @@ ((jvars[#] == Total[jtvars /@ CurrentSplitting[#]]) & /@ NoDeadEnds);
-        EqBalanceGatheringCurrents = And @@ ((jvars[#] == Total[jtvars /@ CurrentGathering[#]]) & /@ NoDeadStarts);
+        EqBalanceSplittingCurrents = And @@ ((jvars[#] == Total[jtvars /@ CurrentSplitting[#]]) & /@ NoDeadEnds);(*Equal*)
+        EqBalanceGatheringCurrents = And @@ ((jvars[#] == Total[jtvars /@ CurrentGathering[#]]) & /@ NoDeadStarts);(*Equal*)
         EntryArgs = AtHead /@ ((EdgeList[AuxiliaryGraph, _ \[DirectedEdge] #] & /@ (First /@ Data["Entrance Vertices and Currents"])) // Flatten[#, 1] &);
-        EntryDataAssociation = AssociationThread[EntryArgs, Last /@ Data["Entrance Vertices and Currents"]];
-        EqEntryIn = And @@ ((jvars[#] == EntryDataAssociation[#]) & /@ (AtHead /@ InEdges));
-        NonZeroEntryCurrents = And @@ (Positive[EntryDataAssociation[#]] & /@ (AtHead /@ InEdges)); (*useful for the general case...*)
+        EntryDataAssociation = RoundValues@AssociationThread[EntryArgs, Last /@ Data["Entrance Vertices and Currents"]];
+        EqEntryIn = And @@ ((jvars[#] == EntryDataAssociation[#]) & /@ (AtHead /@ InEdges));(*Equal*)
+        (*NonZeroEntryCurrents = And @@ (Positive[EntryDataAssociation[#]] & /@ (AtHead /@ InEdges)); (*useful for the general case...*)*)
         ExitCosts = AssociationThread[OutwardVertices /@ (First /@ Data["Exit Vertices and Terminal Costs"]), Last /@ Data["Exit Vertices and Terminal Costs"]];
-        EqExitValues = And @@ (ExitValues /@ IncidenceList[AuxiliaryGraph, OutwardVertices /@ ExitVertices]);
+        EqExitValues = And @@ (ExitValues /@ IncidenceList[AuxiliaryGraph, OutwardVertices /@ ExitVertices]);(*Equal*)
         SwitchingCosts = AssociationThread[Join[AllTransitions, triple2path[Take[#, 3], FG] & /@ Data["Switching Costs"]], Join[Table[0, Length[AllTransitions]], Last[#] & /@ Data["Switching Costs"]]];(*Swithing cost is initialized with 0 AssociationThread associates the last association!*)
         (*Infinite switching costs here prevent the network from sucking agents from the exits.*)
         OutRules = Rule[#, Infinity] & /@ (Outer[Flatten[{AtTail[#1], #2}] &, OutEdges, EL] // Flatten[#, 1] &);
         AssociateTo[SwitchingCosts, Association[OutRules]];
         InRules = Rule[#, Infinity] & /@ (Outer[{#2[[2]], #1, #2} &, IncidenceList[FG, #] & /@ EntranceVertices, InEdges] // Flatten[#, 2] &);
         AssociateTo[SwitchingCosts, Association[InRules]];
-        EqSwitchingConditions = Reduce[(And @@ Transu /@ AllTransitions), Reals];(*Reducing before joining with other equations*)
-        EqCompCon = And @@ Compu /@ AllTransitions;
-        EqValueAuxiliaryEdges = And @@ ((uvars[AtHead[#]] - uvars[AtTail[#]] == 0) & /@ EdgeList[AuxiliaryGraph]);
-        EqAllComp = EqCurrentCompCon && EqTransitionCompCon && EqCompCon;
-        EqAll = EqPosCon && EqBalanceSplittingCurrents && EqBalanceGatheringCurrents && 
-        	EqEntryIn && EqExitValues && EqValueAuxiliaryEdges && EqSwitchingConditions && 
-        	And @@ EqCcs;(*includes transition inequalities for the values and the triangle inequalities, too.*)
-        (*Pre-processing: substitute rules in all equations and hand-sides...*)
-        EqAllAll = EqAll && EqAllComp;
+        EqSwitchingConditions = Reduce[(And @@ Transu /@ AllTransitions), Reals];(*Reducing before joining with other equations*)(*Inequalities*)
+        EqCompCon = And @@ Compu /@ AllTransitions;(*Or*)
+        EqValueAuxiliaryEdges = And @@ ((uvars[AtHead[#]] - uvars[AtTail[#]] == 0) & /@ EdgeList[AuxiliaryGraph]);(*Equal*)
 
         MinimalTimeRhs = Flatten[-a[SignedCurrents[#], #] + SignedCurrents[#] & /@ BEL];
         Nlhs = Flatten[uvars[AtHead[#]] - uvars[AtTail[#]] + SignedCurrents[#] & /@ BEL];
+
         EqCriticalCase = And @@ ((# == 0) & /@ Nlhs);
         EqMinimalTime = And @@ (MapThread[(#1 == #2) &, {Nlhs, MinimalTimeRhs}]);
         Nrhs =  Flatten[IntM[SignedCurrents[#], #] + SignedCurrents[#] & /@ BEL];
-        EqGeneralCase = And @@ (MapThread[(#1 == #2) &, {Nlhs , Nrhs}]);
+        (*EqGeneralCase = And @@ (MapThread[(#1 == #2) &, {Nlhs , Nrhs}]);*)
+        
+        AllEq = EqBalanceSplittingCurrents && EqBalanceGatheringCurrents && EqEntryIn && EqExitValues && EqValueAuxiliaryEdges;
+        AllOr = EqCurrentCompCon && EqTransitionCompCon && EqCompCon;
+        AllIneq = EqPosCon && EqSwitchingConditions;
+        InitRules = Join[ToRules[EqEntryIn],ToRules[EqExitValues]];
+        
+        EqAll = AllEq && AllIneq;
+        
+        (*EqAllComp = EqCurrentCompCon && EqTransitionCompCon && EqCompCon;
+        EqAll = EqPosCon && EqBalanceSplittingCurrents && EqBalanceGatheringCurrents && 
+        	EqEntryIn && EqExitValues && EqValueAuxiliaryEdges && EqSwitchingConditions && 
+        	And @@ EqCcs;(*includes transition inequalities for the values and the triangle inequalities, too.*)*)
+        (*Pre-processing: substitute rules in all equations and hand-sides...*)
+        (*EqAllAll = EqAll && EqAllComp;*)
+        EqAllAll = (EqAll && AllOr);
+
+
+
         If[ showAll == True,
             Association[{
                 "Data" -> Data,
@@ -173,7 +188,7 @@ D2E[Dat_?AssociationQ] :=
             "EntryArgs" -> EntryArgs, 
             "EntryDataAssociation" -> EntryDataAssociation, 
             "jays" -> SignedCurrents, 
-            "NonZeroEntryCurrents" -> NonZeroEntryCurrents, 
+            (*"NonZeroEntryCurrents" -> NonZeroEntryCurrents,*) 
             "ExitCosts" -> ExitCosts, 
             
             (*equations*)
@@ -181,7 +196,7 @@ D2E[Dat_?AssociationQ] :=
             "EqCurrentCompCon" -> EqCurrentCompCon, 
             "EqTransitionCompCon" -> EqTransitionCompCon, 
             "EqCompCon" -> EqCompCon, 
-            "EqAllComp" -> EqAllComp, (*union of all complementarity conditions*)
+            "EqAllComp" -> AllOr, (*union of all complementarity conditions*)
             
             (*linear equations (and inequalities)*)
             "EqPosCon" -> EqPosCon, 
@@ -195,7 +210,7 @@ D2E[Dat_?AssociationQ] :=
             (*"EqAllCompRules" -> EqAllCompRules,*)
             (*"EqAllRules" -> EqAllRules,*)
             "EqAllAll" -> EqAllAll,
-            "BoundaryRules" -> BoundaryRules,
+            "BoundaryRules" -> InitRules,
             (*"reduced1" -> reduced1,
             "reduced2" -> reduced2,*)
             (*"EqAllAllSimple" -> EqAllAllSimple,*)
@@ -204,8 +219,8 @@ D2E[Dat_?AssociationQ] :=
             "MinimalTimeRhs" -> MinimalTimeRhs,
             "EqCriticalCase" -> EqCriticalCase ,
             (*"criticalreduced2" -> criticalreduced2,*)
-            "Nrhs" -> Nrhs,
-            "EqGeneralCase" -> EqGeneralCase
+            "Nrhs" -> Nrhs(*,
+            "EqGeneralCase" -> EqGeneralCase*)
             }],
             Association[{
               "Data" -> Data,
@@ -556,28 +571,23 @@ CriticalBundle[Data_Association] :=
     ]
 
 
-CriticalCongestionSolver[D2E_Association] :=
-    Module[ {system, rules, (*time,*) sol,
-        (*js = Lookup[D2E, "js"],
-        us = Lookup[D2E, "us"],
-        jts = Lookup[D2E, "jts"],*)
+CriticalCongestionSolverN[D2E_Association] :=
+    Module[ {system, rules, sol,
         EqAllAll = Lookup[D2E, "EqAllAll", Print["No equations to solve."];
                                            Return[]], 
         EqCriticalCase = Lookup[D2E,"EqCriticalCase", Print["Critical case equations are missing."];
                                                       Return[]]
         },
-        (*{time, {system, rules}} = AbsoluteTiming@CleanEqualities[{(EqAllAll && EqCriticalCase), {}}];
-        Print["It took ", time, " to Clean the equalities and get \n", system];
-        {time,system} = AbsoluteTiming @ NewReduce[system];
-        Print["It took ", time, " to NewReduce to \n", system];*)
-        {system, rules} = CleanEqualities[{(EqAllAll && EqCriticalCase), {}}];
-        (*Print[{system, rules}];*)
-        {system, rules} = {system, rules}/.rules; 
-        system = NewReduce[system];
-        (*Print[system];*)
-        (*system = NewReduce[BooleanConvert[system,"CNF"]];*)
-        Which[system === True ||Head[system] === Equal || (Head[system] === And && DeleteDuplicates[Head /@ system] === Equal),
-            sol = Solve[system, Reals];
+        rules = First @ Solve[EqCriticalCase];
+	    system = EqAllAll /. rules; 
+    	{system, rules} = CleanEqualities[{system, rules}];
+        {system, rules} = {system, rules}/.rules;
+    	system = NewReduce[BooleanConvert[system,"CNF"]];
+    	{system, rules} = CleanEqualities[{system, rules}];
+    	rules = Simplify @ rules;
+    	Print[system];
+        Which[system === True || Head[system] === Equal || (Head[system] === And && DeleteDuplicates[Head /@ system] === Equal),
+            sol = Solve[system];
             If[ Length[sol] == 1,
                 {system, rules} = {system, AssociateTo[ rules, First@ sol]} /. First@ sol,
                 Print[sol];
@@ -587,7 +597,7 @@ CriticalCongestionSolver[D2E_Association] :=
             True,
             Print["CriticalCongestionSolver: The system does not have the original structure: \n", system];
             {system,rules} = CleanEqualities[{system, rules}];
-            system = Reduce[system, Reals];
+            system = Reduce[system];
             Print["CriticalCongestionSolver: ", Style["Multiple solutions", Red]," \n\t\t", system(*, "\n\tFinding one instance..."*)];
             (*FindInstance!!!*)
             (*Module[ {solved = And @@ (Outer[Equal,Keys[rules],Values[rules]]//Diagonal) , onesol},
@@ -604,52 +614,56 @@ CriticalCongestionSolver[D2E_Association] :=
         {system, Simplify /@ rules}
     ]
     
-CriticalCongestionSolverN[D2E_Association] :=
-    Module[ {system, rules, (*time,*) sol,
-        (*js = Lookup[D2E, "js"],
-        us = Lookup[D2E, "us"],
-        jts = Lookup[D2E, "jts"],*)
-        EqAllAll = Lookup[D2E, "EqAllAll", Print["No equations to solve."];
-                                           Return[]], 
-        EqCriticalCase = Lookup[D2E,"EqCriticalCase", Print["Critical case equations are missing."];
-                                                      Return[]]
+CriticalCongestionSolver[D2E_Association] :=
+    Module[ {system, rules, time,
+        EqAllAll = Lookup[D2E, "EqAllAll", Print["No equations to solve."]; Return[]], 
+        EqCriticalCase = Lookup[D2E,"EqCriticalCase", Print["Critical case equations are missing."]; Return[]],
+        InitRules = Lookup[D2E, "BoundaryRules", {}]                                              
         },
-        (*{time, {system, rules}} = AbsoluteTiming@CleanEqualities[{(EqAllAll && EqCriticalCase), {}}];
-        Print["It took ", time, " to Clean the equalities and get \n", system];
-        {time,system} = AbsoluteTiming @ NewReduce[system];
-        Print["It took ", time, " to NewReduce to \n", system];*)
-        {system, rules} = CleanEqualitiesN[{(EqAllAll && EqCriticalCase), {}}];
-        (*Print[{system, rules}];*)
-        {system, rules} = {system, rules}/.rules; 
-        system = NewReduce[system];
-        (*Print[system];*)
-        (*system = NewReduce[BooleanConvert[system,"CNF"]];*)
-        Which[system === True ||Head[system] === Equal || (Head[system] === And && DeleteDuplicates[Head /@ system] === Equal),
-            sol = NSolve[system];
-            If[ Length[sol] == 1,
-                {system, rules} = {system, AssociateTo[ rules, First@ sol]} /. First@ sol,
-                Print[sol];
-            ],
-            system === False,
-            Print["CriticalCongestionSolver: ",Style["Incompatible system", Red],"."],
-            True,
-            Print["CriticalCongestionSolver: The system does not have the original structure: \n", system];
-            {system,rules} = CleanEqualitiesN[{system, rules}];
-            system = Chop /@ List @@ system;
-            Reduce @ system;
-            Print["CriticalCongestionSolver: ", Style["Multiple solutions", Red]," \n\t\t", system(*, "\n\tFinding one instance..."*)];
-            (*FindInstance!!!*)
-            (*Module[ {solved = And @@ (Outer[Equal,Keys[rules],Values[rules]]//Diagonal) , onesol},
-                onesol = First@FindInstance[system && solved, Join[js, us, jts], Reals];    
-                (*TODO: should we choose a method to select a solution?*)
-                rules = Association[onesol];
-                system = system/.rules
-            ];*)
-        ];
-        If[ system === True,
-            Print["CriticalCongestionSolver: Critical congestion solved."];,
-            Print["CriticalCongestionSolver: There are ", Style["multiple solutions", Red]," for the given data."];
-        ];
-        {system, Simplify /@ rules}
+        EqAllAll = EqAllAll /. InitRules;
+        EqCriticalCase = EqCriticalCase /. InitRules;
+        
+        
+        (*Timed version*)
+        {time,rules} = AbsoluteTiming[First @ Solve @ EqCriticalCase//Quiet];
+        (*Print["Time to solve critical congestion equations only: \n", time];*)
+        system = EqAllAll/.rules;
+        (*{time,{system, rules}} = AbsoluteTiming@CleanEqualities[{system, rules}];
+        Print["Time to CleanEqualities on the whole system: \n", time];
+        {time,{system, rules}} = AbsoluteTiming[{system, rules}/.rules];*)
+        (*Print["Time to replace rules: \n", time];
+        Print[system];
+        {time,system} = AbsoluteTiming@BooleanConvert[system,"CNF"];
+        Print["Time to BooleanConvert to CNF the whole system without equalities: \n", time];
+        Print[system];
+        {time,system} = AbsoluteTiming@NewReduce[system];
+        Print["Time to NewReduce the Boolean Converted system without equalities: \n", time];
+        Print[system];
+        {time,{system, rules}} = AbsoluteTiming@CleanEqualities[{system, rules}];
+        Print["Time to CleanEqualities again: \n", time];
+        {time,rules} = AbsoluteTiming[Simplify /@ rules];
+        {system, rules}/.rules*)
+        {system,rules} = FixedPoint[CriticalCongestionStep, {system,Join[InitRules,rules]}];
+        {time,rules} = AbsoluteTiming[Simplify /@ rules];
+        {system, rules}/.rules
+        (*Untimed version*)
+        (*rules = First @ Solve @ EqCriticalCase//Quiet;
+        {system, rules} = CleanEqualities[{EqAllAll/.rules, rules}];
+        {system, rules} = {system, rules}/.rules;
+        system = NewReduce[BooleanConvert[system,"CNF"]];
+        {system, rules} = CleanEqualities[{system, rules}];
+        {system, Simplify /@ rules}*)
+    ];
+    CriticalCongestionStep[{False, rul_}]:= {False, rul}
+    
+    CriticalCongestionStep[{sys_,rul_}]:=
+    Module[{system=sys,rules=rul},
+     	{system,rules} = CleanEqualities[{system, rules}];
+     	system = BooleanConvert[system,"CNF"];
+     	(*Print["1\n",system,"\n1b:\n",rules];*)
+     	system = NewReduce[system];
+     	(*Print["2\n",system];*)
+     	{system,rules}
     ]
+    
 End[]
