@@ -19,6 +19,9 @@ AtHead::usage =
 
 AtTail::usage = 
 "";
+ColorNetworkByValueFunctionOperator::usage = 
+"
+ColorNetworkByValueFunctionOperator[d2e][rules] "
 
 (*IncomingEdges::usage = 
 "";
@@ -52,6 +55,36 @@ IntM::usage =
 RoundValues::usage =
 "RoundValues Rounds the values in a Rule up to 10 decimal places"
 Begin["`Private`"]
+
+eStyle[colors_][pts_, DirectedEdge[x_, y_]] := {colors[[y]], 
+  Arrow[Line[pts, VertexColors -> {colors[[x]], colors[[y]]}]]}
+
+
+ColorNetworkByValueFunctionOperator[d2e1_Association][rules_] := 
+ Module[{values, colors},
+  values = 
+   d2e1["VL"] /. 
+    KeyMap[#[[1]] &, 
+     d2e1["uvars"] /. 
+      rules];(*this works WITHOUT switching costs*)
+  (*Print[
+  values];*)
+  
+  colors = ColorData["TemperatureMap"] /@ (values/Max[values]);
+  (*Print[colors];*)
+  GraphicsGrid[{
+    {HighlightGraph[
+      SetProperty[d2e1["BG"], EdgeShapeFunction -> eStyle[colors]], 
+      Thread[Style[d2e1["VL"], colors]], 
+      GraphLayout -> "SpringElectricalEmbedding"],
+    BarLegend["TemperatureMap", LegendMarkerSize -> 100(*, 
+      LegendLayout -> "ReversedRow"*)]}
+    }]
+  ]
+
+
+
+
 
 RoundValues[x_?NumberQ] := Round[x, 10^-10]
 RoundValues[Rule[a_, b_]] := Rule[a, RoundValues[b]]
