@@ -27,6 +27,9 @@ ZAnd::usage =
 NewReduce::usage = 
 ""
 
+ReZAnd::usage =
+""
+
 Begin["`Private`"]
 CleanAndReplace::usage =
 "CleanAndReplace[{system,rules}] returns True if the system is approximately (difference in each equation is less than 10^(-12) ) solved by rules.";
@@ -37,18 +40,24 @@ ZAnd[_, False] :=
     False;
 
 ZAnd[xp_, leq_LessEqual] :=
-    (Print["leq!"];
-     xp&&leq)
+    (
+        Simplify[xp && leq]
+    )
+
+ZAnd[xp_, geq_GreaterEqual] :=
+    (    
+        Simplify[xp && geq]
+    )
+
 
 ZAnd[xp_, ineq_Inequality] :=
-(*Print["ineq!"];*)
-    xp&&ineq
+    Simplify[xp && ineq]
 
 ZAnd[False, _] :=
-    False;
+    False
 
 ZAnd[xp_, True] :=
-    xp;
+    xp
 
 ZAnd[xp_, eq_Equal] :=
     With[ {sol = Solve[eq]},
@@ -56,41 +65,36 @@ ZAnd[xp_, eq_Equal] :=
             False,
             (xp /. First[sol]) && And @@ (First[sol] /. Rule -> Equal) // Simplify
         ]
-    ];
+    ]
 
 ZAnd[xp_, orxp_Or] :=
-    (ZAnd[xp, #] & /@ orxp) // RemoveDuplicates;
-
+    (    
+        (*Print["ZAnd OR:\n",orxp];*)
+        (ZAnd[xp, #] & /@ orxp) // RemoveDuplicates
+    )
 ZAnd[xp_, andxp_And] :=
     With[ {fst = First[andxp], rst = Rest[andxp]},
-        Which[ Head[fst] === Equal,
-            (* first is an equality *)
-            (*Print["equal"];*)
-            With[ {sol = Solve[fst]},
-                If[ sol === {},
-                    False,
-                    ZAnd[(xp /. First[sol]) && And @@ (First[sol] /. Rule -> Equal) // Simplify, ReplaceSolution[ rst, First[sol]]]
-                ]
-            ],
+        Which[
             Head[fst] === Or,
-            (*Print["head is: ",Head[fst]];*) 
-            (* first is an OR - there are no other alternatives *)
-            With[ {sol1 = Solve[fst[[1]]], sol2 = Solve[fst[[2]]]},
-                If[ sol1 === False,
-                    False,
-                    ZAnd[(xp /. First[sol1]) && And @@ (First[sol1] /. Rule -> Equal) // Simplify, ReplaceSolution[ rst, First[sol1]]]
-                ]
-                ||
-                If[ sol2 === False,
-                    False,
-                    ZAnd[(xp /. First[sol2]) && And @@ (First[sol2] /. Rule -> Equal) // Simplify, ReplaceSolution[ rst, First[sol2]]]
-                ]
-            ] // RemoveDuplicates,
+            ReZAnd[xp,rst,#]& /@ fst (*// RemoveDuplicates*),
             True,
-            (*Print[Head[fst]];*)
-            ZAnd[xp&&fst,rst]
+            ReZAnd[xp, rst, fst]
         ]
     ]
+    
+ReZAnd[xp_,rst_,fst_Equal] :=
+    Module[ {fsol = First @ Solve @ fst},
+        ZAnd[(xp /. fsol) && And @@ (fsol /. Rule -> Equal) // Simplify, ReplaceSolution[rst, fsol]]
+    ]
+  
+ReZAnd[xp_,rst_,fst_Inequality] :=
+	ZAnd[xp && fst, rst]
+	
+ReZAnd[xp_,rst_,fst_LessEqual] :=
+    ZAnd[xp && fst, rst]
+
+ReZAnd[xp_,rst_,fst_GreaterEqual] :=
+    ZAnd[xp && fst, rst]
 
 ReplaceSolution[True, sol_] :=
     True;
@@ -122,14 +126,16 @@ NewReduce[True] :=
 
 NewReduce[False] :=
     False;
-
+NewReduce[s_Inequality] :=
+    s
 NewReduce[system_] :=
     Module[ {result},
         result = ZAnd[Select[system, !((Head[#] === Or)||(Head[#]===Equal))&],Select[system, ((Head[#] === Or)||(Head[#]===Equal))&]];
         (*Simplify @ result*)
         If[ result === False,
             False,
-            BooleanConvert[result//DeleteDuplicates,"CNF"]
+            (*BooleanConvert[result//DeleteDuplicates,"CNF"]*)
+            result
         ]
     ]
 
@@ -150,7 +156,7 @@ EqEliminatorX[{system_, rules_}] :=
                     (*equalities have no solution: simplify them*)
                     {ON && Simplify @ EE, rulesAss},
                     (*select the first set of solutions*)
-                    newrules = First @ newrules;  (*TODO: do we have more solutions?*)
+                    newrules = First @ newrules;  (*TODO: do we have more solutions? No! Linear equations...*)
                     If[ Simplify @ (EE /. newrules) === False,
                             (*maybe there were numeric errors!*)
                         {ON && CleanAndReplace[{EE, newrules}] , AssociateTo[rulesAss, newrules]} /. newrules,
@@ -179,15 +185,34 @@ EqEliminator[{True, rules_ }] :=
     {True, Simplify /@ rules}
 
 EqEliminator[{system_Or, rules_ }] :=
-    {system, Simplify /@ rules}
+    ((*Print[system];
+    Print[Simplify@system];*)
+       {Simplify @ system, Simplify /@ rules})
+       
+EqEliminator[{system_GreaterEqual, rules_ }] :=
+    ((*Print[system];
+    Print[Simplify@system];*)
+       {Simplify @ system, Simplify /@ rules})
+       
+EqEliminator[{system_LessEqual, rules_ }] :=
+    ((*Print[system];
+    Print[Simplify@system];*)
+       {Simplify @ system, Simplify /@ rules})
+       
+EqEliminator[{system_Inequality, rules_ }] :=
+    ((*Print[system];
+    Print[Simplify@system];*)
+       {Simplify @ system, Simplify /@ rules})
+
+       
 EqEliminator[{False,rules_}] :=
     {False, rules}
+
 
 EqEliminator[{system_, rules_}] :=
     Module[ {EE, ON, newrules, rulesAss = Association[rules]},
         (*separete equalities from the rest*)
-        (*Print["System:\n",system];*)
-        EE = Select[system, (Head[#] === Equal) &];(*Head[system]=!=Or*)
+        EE = Select[system, (Head[#] === Equal) &];
         (*Print["EE:\n", EE];*)
         If[ EE === False,
             Print["EL: ", system];
@@ -214,7 +239,8 @@ FixedReduceX1[Eqs_Association][rules_] :=
         auxsol = First[Solve[nonlinear]//Quiet];
         auxsys = (Eqs["EqAllAll"] && nonlinear) /. auxsol;
         {auxsys, auxsol} = CleanEqualities[{auxsys, auxsol}];
-        auxsys = NewReduce[BooleanConvert[auxsys,"CNF"]];
+        (*auxsys = NewReduce[BooleanConvert[auxsys,"CNF"]];*)
+        auxsys = NewReduce[auxsys];
         {auxsys, auxsol} = CleanEqualities[{auxsys, auxsol}];
         auxsol = Simplify @ auxsol;
         If[ auxsys === False,
@@ -237,7 +263,7 @@ Solver[Eqs_Association][alpha_] :=
             Module[ {js = Lookup[Eqs, "js", Return[]]},
                 rules0 = AssociationThread[js,0& /@ js];
                 {timeFFR, FFR} = AbsoluteTiming@Catch@FixedPoint[FixedReduceX1[Eqs], rules0, 1];
-                Print["It took ", timeFFR, " to solve!\n\tThe system is ",Eqs["EqCriticalCase"]/.FFR];
+                Print["It took ", timeFFR, " seconds to solve!\n\tThe system is ",Simplify[Eqs["EqAllAll"] && Eqs["EqCriticalCase"]/.FFR]];
                 FFR
             ],
             {timeFFR, FFR} = AbsoluteTiming[Catch@FixedPoint[FixedReduceX1[Eqs], rules0, 2] // N // KeySort];
