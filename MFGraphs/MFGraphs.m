@@ -16,12 +16,9 @@ Get["MFGraphs`IterationFunction`"]
 
 Get["MFGraphs`DataToEquations`"]
 
- 
-Begin["`Private`"]
+(*Begin["`Private`"]
 (* Implementation of the package *)
-
-
 End[]
-
+*)
 EndPackage[]
 
