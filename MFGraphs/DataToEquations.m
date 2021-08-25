@@ -7,8 +7,8 @@ D2E::usage =
  \"Switching Costs\" -> {{1, 2, 3, S1}, {3, 2, 1, S2}}|> returns the equations for the stationary mean-field game on the network.]"
 
 Begin["`Private`"]
-D2E[Dat_?AssociationQ] :=
-    Module[ {Data = Dat, BG, EntranceVertices, InwardVertices, InEdges, ExitVertices, 
+D2E[Data_Association] :=
+    Module[ {BG, EntranceVertices, InwardVertices, InEdges, ExitVertices, 
     OutwardVertices, OutEdges, AuxiliaryGraph, FG, VL, EL, BEL, jargs, 
     js, jvars, FVL, AllTransitions, jts, jtvars, uargs, us, uvars, 
     EqPosCon, EqCurrentCompCon, EqTransitionCompCon, NoDeadEnds, 
