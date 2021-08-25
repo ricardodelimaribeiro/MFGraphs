@@ -31,6 +31,9 @@ NewReduce::usage =
 ReZAnd::usage =
 "ReZAnd[] "
 
+RemoveDuplicates::usage =
+"RemoveDuplicates[exp] Sort and DeleteDuplicates"
+
 Begin["`Private`"]
 CleanAndReplace::usage =
 "CleanAndReplace[{system,rules}] returns True if the system is approximately (difference in each equation is less than 10^(-10) ) solved by rules.";
@@ -66,7 +69,8 @@ ZAnd[xp_, eq_Equal] :=
 
 ZAnd[xp_, orxp_Or] :=
     (ZAnd[xp, #] & /@ orxp) // RemoveDuplicates
-        
+    
+        (*TODO check that the structure is basically the same*)
 ZAnd[xp_, andxp_And] :=
     With[ {fst = First[andxp], rst = Rest[andxp]},
         Which[
@@ -82,10 +86,16 @@ ReZAnd[xp_,rst_] :=
     ReZAnd[xp,rst,#]&     
     
 ReZAnd[xp_,rst_,fst_Equal] :=
-    Module[ {fsol = First @ Solve @ fst},
+    Module[ {fsol = First @ Solve @ fst // Quiet},
         ZAnd[(xp /. fsol) && And @@ (fsol /. Rule -> Equal) // Simplify, ReplaceSolution[rst, fsol]]
     ]
-  
+
+(*TODO fix this if needed*)
+ReZAnd[xp_, rst_, fst_And] :=
+    (
+    Print["got And: ", fst]; 
+    ReZAnd[xp,rst] /@ fst 
+    )  
 ReZAnd[xp_,rst_,fst_Inequality] :=
     ZAnd[xp && fst, rst]
     
@@ -102,7 +112,6 @@ ReplaceSolution[False, sol_] :=
     False
 
 ReplaceSolution[rst_And, sol_] :=
-    (*And @@ (Simplify /@ ((List @@ rst) /. sol))*)
     Simplify /@ (rst /. sol)
     
 ReplaceSolution[rst_, sol_] :=
@@ -118,25 +127,35 @@ RemoveDuplicates[xp_] :=
     xp
 
 NewReduce[s_Or] :=
-    s
+    Simplify @ s
 
 NewReduce[True] :=
-    True;
+    True
 
 NewReduce[False] :=
     False
     
+NewReduce[x_Equal] :=
+    Simplify @ x
+    
 NewReduce[s_Inequality] :=
     s
     
-NewReduce[system_] :=
+NewReduce[x_GreaterEqual] :=
+    x
+
+NewReduce[x_LessEqual] :=
+    x
+
+NewReduce[x_Inequality] :=
+    x
+
+NewReduce[system_And] :=
     Module[ {result},
         result = ZAnd[Select[system, !((Head[#] === Or)||(Head[#]===Equal))&],Select[system, ((Head[#] === Or)||(Head[#]===Equal))&]];
-        (*Simplify @ result*)
         If[ result === False,
             False,
-            (*BooleanConvert[result//DeleteDuplicates,"CNF"]*)
-            result
+            result // DeleteDuplicates
         ]
     ]
 
@@ -157,26 +176,24 @@ EqEliminator[{system_Inequality, rules_ }] :=
 
 EqEliminator[{False,rules_}] :=
     {False, rules}
+    
+EqEliminator[{system_, rules_List}] :=
+    EqEliminator[{system, Association[rules]}]
 
-EqEliminator[{system_, rules_}] :=
-    Module[ {EE, ON, newrules, rulesAss = Association[rules]},
-        (*separete equalities from the rest*)
+EqEliminator[{system_And, rules_Association}] :=
+    Module[ {EE, ON, newrules},
+        (*separate equalities from the rest*)
         EE = Select[system, (Head[#] === Equal) &];
-        (*Print["EE:\n", EE];*)
-        If[ EE === False,
-            Print["EL: ", system];
-            Return[{system, rulesAss}]
+
+        If[ EE === True,
+            Return[{system, rules}]
         ];
-        (*TODO include variables to solve: this way we leave the switching costs unsolved.*)
+
         newrules =  Solve[EE] // Quiet; (*The reason we use Quiet is:  Solve::svars: Equations may not give solutions for all "solve" variables.*)
         ON = Select[system, (Head[#] =!= Equal) &];
-        If[ Length[newrules] == 1,
-            newrules = First @ newrules;
-            (*{BooleanConvert[ON//.newrules,"CNF"], Simplify /@ (AssociateTo[rulesAss, newrules]//. newrules)}, (*changed system for ON*)*)
-            {ON//.newrules, Simplify /@ (AssociateTo[rulesAss, newrules]//. newrules)}, (*changed system for ON*)
-            Print["Rules for the equalities: \n", newrules,"\nSystem: \n", EE];
-            {system,rulesAss}
-        ]
+        newrules = First @ newrules;
+        newrules = Join[rules, Association @ newrules];
+        {ON /. newrules, newrules /. newrules}
     ]
 
 CleanEqualities[system_] :=
@@ -188,11 +205,9 @@ CleanEqualities[{system_, rules_}] :=
 FixedReduceX1[Eqs_Association][rules_] :=
     Module[ {nonlinear, auxsys, auxsol, error, TOL = 10^-10},
         nonlinear = And @@ (MapThread[(Equal[#1,#2]) &, {Eqs["Nlhs"], RoundValues[Eqs["Nrhs"]/. rules]}]);
-        (*{nonlinear, auxsol} = CleanEqualities[{nonlinear,{}}];*)
         auxsol = First[Solve[nonlinear]//Quiet];
         auxsys = (Eqs["EqAllAll"] && nonlinear) /. auxsol;
         {auxsys, auxsol} = CleanEqualities[{auxsys, auxsol}];
-        (*auxsys = NewReduce[BooleanConvert[auxsys,"CNF"]];*)
         auxsys = NewReduce[auxsys];
         {auxsys, auxsol} = CleanEqualities[{auxsys, auxsol}];
         auxsol = Simplify @ auxsol;
@@ -230,42 +245,53 @@ Solver[Eqs_Association][alpha_] :=
 CriticalBundle[Data_Association] :=
     Module[ {d2e},
         d2e = D2E[Data];
-        CriticalCongestionSolver[d2e]
+        {d2e,CriticalCongestionSolver[d2e]}
     ]
 
 CriticalCongestionSolver[D2E_Association] :=
-    Module[ {system, rules,
+    Module[ {system, rules, time,
     EqAllAll = Lookup[D2E, "EqAllAll", Print["No equations to solve."];
                                        Return[]], 
     EqCriticalCase = Lookup[D2E,"EqCriticalCase", Print["Critical case equations are missing."];
                                                   Return[]],
-    InitRules = Lookup[D2E, "BoundaryRules", Print["Need boundary conditions"];]  
+    InitRules = Lookup[D2E, "BoundaryRules", Print["Need boundary conditions"];],
+    js =  Values @ Lookup[D2E, "jvars"],
+    jts = Values @ Lookup[D2E, "jtvars"],
+    us = Values @ Lookup[D2E, "uvars"]  
 },
-		InitRules = Join[InitRules,First @ Solve[D2E["AllEq"]/.InitRules]];
-        EqAllAll = EqAllAll /. InitRules;
-        EqCriticalCase = EqCriticalCase /. InitRules;
-        rules = First @ Solve @ EqCriticalCase//Quiet;
-        system = EqAllAll/.rules;
-        Print[system];
-        {system,rules} = FixedPoint[CriticalCongestionStep, {system,Join[InitRules,rules]}];
-        rules = Simplify /@ rules;
-        Simplify /@ ({system, rules}/.rules)
+		Print["Number of variables: ",Length[Join[js,jts,us]]];
+        {system,rules} = CleanEqualities[{EqCriticalCase && EqAllAll, InitRules}];   
+        Print["Removed variables: ",Length[rules]];
+        (*Lets solve for the u*)
+        {time, {system, rules}} = AbsoluteTiming @ CleanEqualities[{(And @@ (NewReduce /@ (Select[system, Function[a, ! FreeQ[a, #]]] & /@ us)) // Simplify) && system, rules}];
+        Print["Time to \"eliminate\" u variables: ",time," seconds and"];
+        Print["Removed variables: ",Length[rules]];
+        system = BooleanConvert[system,"CNF"];
+        {system, rules} = CleanEqualities[{system, rules}];
+        {system, rules} = FixedPoint[CriticalCongestionStep, {system, rules}, SameTest -> 
+            (*(Equal[ #1[[2]], #2[[2]]]&)];*)
+            (Equal[Length[ #1[[2]] ], Length[ #2[[2]] ] ] &) ];(*Try a different test by adding something like: || AllTrue[ (Function[x,FreeQ[x][ #2[[1]] ]] /@ js)]*)
+	        If[ !(And @@ (FreeQ[#][system] & /@ js)),
+            	Print["There are still currents in the system."];
+            	system = Reduce[system, Reals];
+            	Print[system];
+            	{system, rules} = CleanEqualities[{system, rules}]
+        	];
+        rules = Simplify /@ rules /. rules;
+        {system, rules} /. rules
     ]
 
 CriticalCongestionStep[{sys_Or, rul_}] :=
-    {Reduce[sys, Reals], rul}
+    {BooleanConvert[sys,"CNF"], rul}
 
 CriticalCongestionStep[{False, rul_}] :=
     {False, rul}
 
-CriticalCongestionStep[{sys_,rul_}] :=
-    Module[ {system = sys,rules = rul},
-        {system,rules} = CleanEqualities[{system, rules}];
-        system = BooleanConvert[system,"CNF"];
-        (*{system,rules} = CleanEqualities[{system, rules}];*)
-        system = NewReduce[system];
-        {system,rules}
-    ]
+CriticalCongestionStep[{True, rul_}] :=
+    {True, rul}
 
+CriticalCongestionStep[{sys_,rul_}] :=
+    (Print["Removed variables: ",Length[rul]];
+     CleanEqualities[{NewReduce[BooleanConvert[sys,"CNF"](*sys*)], rul}])
 
 End[]
