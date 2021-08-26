@@ -34,6 +34,12 @@ ReZAnd::usage =
 RemoveDuplicates::usage =
 "RemoveDuplicates[exp] Sort and DeleteDuplicates"
 
+EliminateVarsStep::usage = 
+""
+
+EliminateVars::usage = 
+""
+
 Begin["`Private`"]
 CleanAndReplace::usage =
 "CleanAndReplace[{system,rules}] returns True if the system is approximately (difference in each equation is less than 10^(-10) ) solved by rules.";
@@ -180,6 +186,13 @@ EqEliminator[{False,rules_}] :=
 EqEliminator[{system_, rules_List}] :=
     EqEliminator[{system, Association[rules]}]
 
+EqEliminator[{system_Equal, rules_Association}] :=
+Module[{newrules},
+	newrules = First @ Solve[system];
+	newrules = Association[newrules];
+	{True, Join[rules/.newrules,newrules]}
+]
+
 EqEliminator[{system_And, rules_Association}] :=
     Module[ {EE, ON, newrules},
         (*separate equalities from the rest*)
@@ -294,4 +307,28 @@ CriticalCongestionStep[{sys_,rul_}] :=
     (Print["Removed variables: ",Length[rul]];
      CleanEqualities[{NewReduce[BooleanConvert[sys,"CNF"](*sys*)], rul}])
 
+EliminateVarsStep[{{system_, rules_}, {}}] :=
+ {{system, rules}, {}}
+ 
+EliminateVarsStep[{{system_, rules_}, vars_}] :=
+ Module[{var, subsys, subsyscomplement, position , newsys, newrules},
+  var = SelectFirst[vars, ! FreeQ[#][system] &];
+  Print[var];
+  If[Head[var] === Missing,
+   {{system, rules}, {}},
+   position = First@FirstPosition[vars, var];
+   subsys = Select[system, Function[x, ! FreeQ[var][x]]];
+   subsyscomplement = Select[system, Function[x, FreeQ[var][x]]];
+   subsys = Simplify[subsys];
+   newsys = subsys && subsyscomplement;
+   {newsys, newrules} = CleanEqualities[{newsys, rules}];
+   (*{{BooleanConvert[newsys,"CNF"],newrules},Drop[vars,
+   position]}*)
+   {{newsys, newrules}, Drop[vars, position]}
+   ]
+  ]
+  
+EliminateVars[{{system_, rules_}, vars_}] :=
+ FixedPoint[EliminateVarsStep, {{system, rules}, vars}]
+ 
 End[]
