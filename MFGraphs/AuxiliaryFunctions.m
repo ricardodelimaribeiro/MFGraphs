@@ -55,7 +55,150 @@ IntM::usage =
 
 RoundValues::usage =
 "RoundValues Rounds the values in a Rule up to 10 decimal places"
+
+UOrder::usage =
+""
+
+JOrder::usage =
+""
+
+EdgeUOrder::usage =
+""
+
+EdgeJOrder::usage =
+""
+
+SetValuesStep::usage = 
+""
+
+SetUValuesStep::usage =
+""
+
+SetJUValuesStep::usage =
+""
+
+getEqual::usage =
+"selects the equalities form the system"
+
+getNo::usage =
+""
+
+getEqual[system_] := 
+	Select[system, Head[#] === Equal &]
+
+getEqual[system_Equal] := system
+
+getNo[vars1_List, vars2_List] :=
+	getNo[Join[vars1, vars2]]
+
+getNo[vars_List] := 
+	Select[#, Function[exp, And @@ (FreeQ[#][exp] & /@ vars)]] &;
+
 Begin["`Private`"]
+
+SetValuesStep[Eqs_][{system_, rules_}] :=
+    Module[ {subsystem, newrules, rulesAss = Association @ rules},
+        subsystem = 
+         Select[system, 
+          Head[#] === Equal
+            (*Function[dd, !FreeQ[dd,Integer]]*)(*IntegerQ[Last[#]]*) && FreeQ[#, Plus]&](*make sure we are dealing with integers*);
+        Print[subsystem];
+        newrules = First @ Solve[subsystem]//Quiet;
+        {system, AssociateTo[ rulesAss, newrules]} /. newrules
+    ]
+
+SetUValuesStep[Eqs_][{system_, rules_}] :=
+    Module[ {subsystem, newrules, rulesAss = Association @ rules},
+        Print["uvalues"];
+        subsystem = Select[system, Head[#] === Equal&];
+        If[ subsystem === True,
+            {system,rules},
+            subsystem = Select[subsystem, Function[exp, And @@ (FreeQ[#][exp] & /@ Join[Values@Eqs["jtvars"], Values@Eqs["jvars"]])]];
+            newrules = First @ Solve[subsystem]//Quiet;
+            {system, AssociateTo[ rulesAss, newrules]} /. newrules
+        ]
+    ]
+
+SetJUValuesStep[Eqs_][{system_, rules_}] :=
+    Module[ {subsystem, newrules, rulesAss = Association @ rules},
+        Print["jvalues"];
+        subsystem = 
+         Select[system, 
+          Head[#] === Equal&](*make sure we are dealing with integers*);
+        subsystem = Select[subsystem, Function[exp, And @@ (FreeQ[#][exp] & /@ Values@Eqs["jtvars"])]];
+        newrules = First @ Solve[subsystem]//Quiet;
+        {system, AssociateTo[ rulesAss, newrules]} /. newrules
+    ]
+
+EdgeUOrder[d2e_][edges_DirectedEdge] :=
+    Module[ {el, vl, ng, FG = d2e["FG"]},
+        vl = VertexList[edges];
+        ng = NeighborhoodGraph[FG, vl];
+        el = EdgeList[ng];
+        Join[{edges}, el] // DeleteDuplicates
+    ]
+  
+EdgeUOrder[d2e_][edges_Symbol] :=
+    Module[ {FG = d2e["FG"]},
+        IncidenceList[FG, edges]
+    ]
+  
+EdgeUOrder[d2e_][edges_List] :=
+    Module[ {el, vl, ng, FG = d2e["FG"]},
+        If[ Head[First[edges]] === DirectedEdge,
+            vl = VertexList[edges];
+            ng = NeighborhoodGraph[FG, vl];
+            el = EdgeList[ng];
+            Join[edges, el] // DeleteDuplicates,
+            IncidenceList[FG, edges]
+        ]
+    ]
+  
+UOrder[d2e_, uvars_] :=
+    Module[ {edgeorder, uargs, el = d2e["OutEdges"]},
+        edgeorder = FixedPoint[EdgeUOrder[d2e], el];
+        uargs = Flatten[#, 1] &@({AtTail@#, AtHead@#} & /@ edgeorder);
+        uvars /@ uargs
+    ]
+  
+UOrder[d2e_] :=
+    UOrder[d2e, d2e["uvars"]]
+
+EdgeJOrder[d2e_][edges_DirectedEdge] :=
+    Module[ {el, vl, ng, FG = d2e["FG"]},
+        vl = VertexList[edges];
+        ng = NeighborhoodGraph[FG, vl];
+        el = EdgeList[ng];
+        Join[{edges}, el] // DeleteDuplicates
+    ]
+  
+EdgeJOrder[d2e_][edges_Symbol] :=
+    Module[ {FG = d2e["FG"]},
+        IncidenceList[FG, edges]
+    ]
+ 
+EdgeJOrder[d2e_][edges_List] :=
+    Module[ {el, vl, ng, FG = d2e["FG"]},
+        If[ Head[First[edges]] === DirectedEdge,
+            vl = VertexList[edges];
+            ng = NeighborhoodGraph[FG, vl];
+            el = EdgeList[ng];
+            Join[edges, el] // DeleteDuplicates,
+            IncidenceList[FG, edges]
+        ]
+    ]
+  
+JOrder[d2e_, jvars_] :=
+    Module[ {edgeorder, jargs, el = d2e["InEdges"]},
+        edgeorder = FixedPoint[EdgeJOrder[d2e], el];
+        jargs = Flatten[#, 1] &@({AtTail@#, AtHead@#} & /@ edgeorder);
+        jvars /@ jargs
+    ]
+  
+JOrder[d2e_] :=
+    JOrder[d2e, d2e["jvars"]]
+ 
+ 
 
 eStyle[colors_][pts_, DirectedEdge[x_, y_]] :=
     {colors[[y]], 
