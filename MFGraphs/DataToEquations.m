@@ -69,7 +69,7 @@ D2E[Data_Association] :=
         VL = Data["Vertices List"];
         EL = EdgeList[FG];
         BEL = EdgeList[BG];
-        jargs = Join[AtHead /@ EL, AtTail /@ EL];
+        jargs = Flatten[#, 1] &@({AtTail@#, AtHead@#} & /@ EL);(*Join[AtHead /@ EL, AtTail /@ EL];*)
         Clear["j*"];
         js = Table[Symbol["j" <> ToString[k]],{k,1, Length@jargs}];
         jvars = AssociationThread[jargs, js];
@@ -79,7 +79,8 @@ D2E[Data_Association] :=
         Clear["jt*"];
         jts = Table[Symbol["jt" <> ToString[k]],{k,1, Length@AllTransitions}];
         jtvars = AssociationThread[AllTransitions, jts];
-        uargs = Join[AtTail /@ EL, AtHead /@ EL];
+        (*uargs = Join[AtTail /@ EL, AtHead /@ EL];*)
+        uargs = jargs;
         Clear["u*"];
         us = Table[Symbol["u" <> ToString[k]],{k,1, Length@uargs}];
         uvars = AssociationThread[uargs, us];
@@ -121,54 +122,20 @@ D2E[Data_Association] :=
         Join[Data,Association[
         (*Graph structure*)
         "BG" -> BG, 
-        (*"EntranceVertices" -> EntranceVertices, 
-        "InwardVertices" -> InwardVertices, 
         "InEdges" -> InEdges, 
-        "ExitVertices" -> ExitVertices, 
-        "OutwardVertices" -> OutwardVertices, 
-        "OutEdges" -> OutEdges,*) 
-        (*"AuxiliaryGraph" -> AuxiliaryGraph,*) 
+        "OutEdges" -> OutEdges,
         "FG" -> FG, 
-        (*"VL" -> VL, 
-        "EL" -> EL, 
-        "BEL" -> BEL, 
-        "FVL" -> FVL,*) 
-        (*"AllTransitions" -> AllTransitions, 
-        "NoDeadEnds" -> NoDeadEnds, 
-        "NoDeadStarts" -> NoDeadStarts,*) 
         (*variables*)
-        (*"jargs" -> jargs, 
-        "js" -> js,*) 
         "jvars" -> jvars, 
-        (*"jts" -> jts,*) 
         "jtvars" -> jtvars, 
-        (*"uargs" -> uargs, 
-        "us" -> us,*) 
         "uvars" -> uvars,
-        (*"SwitchingCosts" -> SwitchingCosts,*) 
-        "OutRules" -> OutRules, 
-        "InRules" -> InRules, 
-        (*"EntryArgs" -> EntryArgs,*) 
-        (*"EntryDataAssociation" -> EntryDataAssociation,*) 
         "jays" -> SignedCurrents, 
-        "ExitCosts" -> ExitCosts, 
         (*equations*)
         (*complementarity*)
-        (*"EqCurrentCompCon" -> EqCurrentCompCon, 
-        "EqTransitionCompCon" -> EqTransitionCompCon, 
-        "EqCompCon" -> EqCompCon,*) 
         "AllOr" -> AllOr, (*union of all complementarity conditions*)
         "AllEq" -> AllEq,
         "AllIneq" -> AllIneq,
         (*linear equations (and inequalities)*)
-        (*"EqPosCon" -> EqPosCon, 
-        "EqBalanceSplittingCurrents" -> EqBalanceSplittingCurrents, 
-        "EqBalanceGatheringCurrents" -> EqBalanceGatheringCurrents, 
-        "EqEntryIn" -> EqEntryIn, 
-        "EqExitValues" -> EqExitValues, 
-        "EqSwitchingConditions" -> EqSwitchingConditions, 
-        "EqValueAuxiliaryEdges" -> EqValueAuxiliaryEdges, 
-        "EqAll" -> EqAll,*) 
         "EqAllAll" -> EqAllAll,
         "BoundaryRules" -> InitRules,
         "Nlhs" -> Nlhs,
@@ -178,5 +145,41 @@ D2E[Data_Association] :=
         ]
         ]
     ]
-
+		(*"EntranceVertices" -> EntranceVertices,*) 
+		(*"InwardVertices" -> InwardVertices, *)
+        (*"ExitVertices" -> ExitVertices,*) 
+        (*"OutwardVertices" -> OutwardVertices, *)
+		(*"AuxiliaryGraph" -> AuxiliaryGraph,*) 
+        (*"VL" -> VL, 
+        "EL" -> EL, 
+        "BEL" -> BEL, 
+        "FVL" -> FVL,*) 
+        (*"AllTransitions" -> AllTransitions, 
+        "NoDeadEnds" -> NoDeadEnds, 
+        "NoDeadStarts" -> NoDeadStarts,*) 
+        (*"jargs" -> jargs, 
+        "js" -> js,*) 
+        (*"jts" -> jts,*) 
+        (*"uargs" -> uargs, 
+        "us" -> us,*) 
+        (*"SwitchingCosts" -> SwitchingCosts,*) 
+        (*"OutRules" -> OutRules, *)
+        (*"InRules" -> InRules,*) 
+        (*"EntryArgs" -> EntryArgs,*) 
+        (*"EntryDataAssociation" -> EntryDataAssociation,*) 
+        (*"ExitCosts" -> ExitCosts,*) 
+        (*"EqCurrentCompCon" -> EqCurrentCompCon, 
+        "EqTransitionCompCon" -> EqTransitionCompCon, 
+        "EqCompCon" -> EqCompCon,*) 
+        (*"EqPosCon" -> EqPosCon, 
+        "EqBalanceSplittingCurrents" -> EqBalanceSplittingCurrents, 
+        "EqBalanceGatheringCurrents" -> EqBalanceGatheringCurrents, 
+        "EqEntryIn" -> EqEntryIn, 
+        "EqExitValues" -> EqExitValues, 
+        "EqSwitchingConditions" -> EqSwitchingConditions, 
+        "EqValueAuxiliaryEdges" -> EqValueAuxiliaryEdges, 
+        "EqAll" -> EqAll,*) 
+                
+      
+        
 End[]
