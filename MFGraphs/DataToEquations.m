@@ -12,21 +12,23 @@ D2E[Data_Association] :=
     OutwardVertices, OutEdges, AuxiliaryGraph, FG, VL, EL, BEL, jargs, 
     js, jvars, FVL, AllTransitions, jts, jtvars, uargs, us, uvars, 
     EqPosCon, EqCurrentCompCon, EqTransitionCompCon, NoDeadEnds, 
-    NoDeadStarts, EqBalanceSplittingCurrents, EqBalanceGatheringCurrents, ZeroSwitchingCostArgs, EntryArgs, 
+    NoDeadStarts, EqBalanceGatheringCurrents, EntryArgs, RulesCriticalCase,
     EntryDataAssociation, EqEntryIn, ExitCosts, EqExitValues, SwitchingCosts, OutRules, InRules, 
-    EqSwitchingConditions, EqCompCon, EqValueAuxiliaryEdges, AllOr, EqAll, SignedCurrents, Nrhs, Nlhs, MinimalTimeRhs,
-    EqAllAll, EqCriticalCase, EqMinimalTime, EqCcs, AllEq, AllIneq, InitRules, RuleBalanceGatheringCurrents, RuleEntryIn, RuleExitValues, RuleZeroSwitching, SolU},
+    EqSwitchingConditions, EqCompCon, EqValueAuxiliaryEdges, AllOr, SignedCurrents, Nrhs, Nlhs, MinimalTimeRhs,
+    EqAllAll, EqCriticalCase, EqMinimalTime, EqCcs, EqBalanceSplittingCurrents, AllIneq, InitRules, RuleBalanceGatheringCurrents, RuleEntryIn, RuleExitValues, SolU, SC = Lookup[Data, "Switching Costs", {}]},
     (*Checking consistency on the swithing costs*)
-        If[ Lookup[Data, "Switching Costs", {}] =!= {},
+        If[ SC =!= {},
             ConsistentSwithingCosts[{a_, b_, c_, S_}] :=
-                Module[ {sc = Data["Switching Costs"], or, de, bounds},
+                Module[ {sc = SC, or, de, bounds},
                     or = Cases[sc, {a, b, _, _}];
                     de = Cases[sc, {_, b, c, _}];
                     bounds = Outer[Plus, Last /@ or, Last /@ de] // Flatten;
-                    And @@ (NonNegative[#-S] &) /@ bounds
+                    (*And @@ (NonNegative[#-S] &) /@ bounds*)
+                    And @@ (#>=S &) /@ bounds
                 ];
-            EqCcs = Simplify[ConsistentSwithingCosts /@ Data["Switching Costs"]];
-            If[ Reduce[EqCcs]==False,
+            EqCcs = Simplify[ConsistentSwithingCosts /@ SC];
+            If[ (*Reduce[EqCcs]==False*)(*TODO change this to *)
+            		AnyTrue[EqCcs,#===False&],
                 Print["DataToEquations: Triangle inequalities for switching costs: ", EqCcs];
                 Print["DataToEquations: The switching costs are ",Style["incompatible", Red],". \nStopping!"];
                 Return[]
@@ -71,7 +73,7 @@ D2E[Data_Association] :=
         Lookup[Data, "a" , Function[{j, edge}, j]];
         (*End*)
         
-        (*Graph stuff*)
+        (****Graph stuff****)
         BG = AdjacencyGraph[Data["Vertices List"], Data["Adjacency Matrix"], VertexLabels -> "Name", DirectedEdges -> True];
         EntranceVertices = First /@ Data["Entrance Vertices and Currents"];
         ExitVertices = First /@ Data["Exit Vertices and Terminal Costs"];
@@ -119,9 +121,10 @@ D2E[Data_Association] :=
         
         
         (*Elements of the system*)
-		(*Swithing cost is initialized with 0 AssociationThread associates the last association!*)
-        SwitchingCosts = AssociationThread[Join[AllTransitions, triple2path[Take[#, 3], FG] & /@ Data["Switching Costs"]], 
-        	Join[0&/@ AllTransitions, Last[#] & /@ Data["Switching Costs"]]];
+		(*Swithing cost is initialized with 0. 
+		AssociationThread associates the last association!*)
+        SwitchingCosts = AssociationThread[Join[AllTransitions, triple2path[Take[#, 3], FG] & /@ SC], 
+        	Join[0&/@ AllTransitions, Last[#] & /@ SC]];
 
         EqPosCon = And @@ ( #>=0& /@ Join[jvars, jtvars]);(*Inequality*)
         EqCurrentCompCon = And @@ (CurrentCompCon /@ EL);(*Or*)
@@ -135,18 +138,19 @@ D2E[Data_Association] :=
         
         (*First rules: these have some j in terms of jts*)
         InitRules = Association[RuleBalanceGatheringCurrents];
-
+        
         EqEntryIn = And @@ ((jvars[#] == EntryDataAssociation[#]) & /@ (AtHead /@ InEdges));(*Equal*)
+        
         RuleEntryIn = (jvars[#] -> EntryDataAssociation[#]) & /@ (AtHead /@ InEdges);(*Rule*)
-
+		(* Not necessary!! InitRules = InitRules /. RuleEntryIn;*)
         AssociateTo[InitRules, RuleEntryIn];
         
         EqExitValues = And @@ (ExitValues /@ IncidenceList[AuxiliaryGraph, OutwardVertices /@ ExitVertices]);(*Equal*)
+        
         RuleExitValues = ExitRules /@ IncidenceList[AuxiliaryGraph, OutwardVertices /@ ExitVertices];(*Rule*)
-
-        AssociateTo[InitRules,RuleExitValues];
-        (*Print[Keys@InitRules];
-        Print[Keys@RuleExitValues];*)
+		(*Not necessary!! InitRules = InitRules/.RuleExitValues;*)
+        AssociateTo[InitRules, RuleExitValues];
+        
         
         (*Infinite switching costs here prevent the network from sucking agents from the exits.*)
         OutRules = Rule[#, Infinity] & /@ (Outer[Flatten[{AtTail[#1], #2}] &, OutEdges, EL] // Flatten[#, 1] &);
@@ -154,89 +158,64 @@ D2E[Data_Association] :=
         AssociateTo[SwitchingCosts, Association[OutRules]];
         AssociateTo[SwitchingCosts, Association[InRules]];
         
-        (*If[ZeroSwitchingCostArgs === 1,
-        	ZeroSwitchingCostArgs = (Prepend[#] /@ (List /@ IncidenceList[FG,#]))&/@VL;
-			uuu = uvars /@ ZeroSwitchingCostArgs[[#]]&/@VL;
-			RuleZeroSwitching = Flatten[MapThread[Rule, {Most[#],Last[#] (1 & /@ Rest[#])}] & /@ uuu],
-		RuleZeroSwitching = {}
-        ];
-        Print[RuleZeroSwitching//Sort];*)
-        (*Print["lets see if the rules are consistent:\nboundary\n",RuleExitValues,"\nvertices costs\n",RuleZeroSwitching]*);
         
-        (*EqSwitchingConditions = And @@ Transu /@ AllTransitions;*)
+        (*Switching condition equations*)
         EqSwitchingByVertex = Transu/@TransitionsAt[FG, #] & /@ VL;
         EqSwitchingByVertex = BooleanConvert[Reduce[#, Reals], "CNF"] & /@ EqSwitchingByVertex;
         EqSwitchingByVertex = DeleteCases[EqSwitchingByVertex, True];
-        Print[EqSwitchingByVertex];
         EqSwitchingByVertexEqs = DeleteCases[getEqual/@ EqSwitchingByVertex, True];
-        SolU = Flatten[Solve[#, Reals] & /@ EqSwitchingByVertexEqs];
-        AssociateTo[InitRules, SolU];
-        (*Print[Keys@InitRules];
-        Print[Keys@SolU];*)
-        EqSwitchingConditions = And @@ EqSwitchingByVertex;
-       Print[EqSwitchingConditions];
-        (*Print[EqSwitchingConditions/.SolU];*)
-        (* EqSwitchingConditions = Simplify[EqSwitchingConditions/.RuleZeroSwitching];
-        EqSwitchingConditions = Reduce[EqSwitchingConditions, Reals];(*Reducing before joining with other equations, simplify does not do the job!*)(*Inequalities*)
-        *)        
-        EqCompCon = And @@ Compu /@ AllTransitions;(*Or*)
-        Sol34 = Association@First@Solve[getEqual@EqCompCon];
         
+        (*InitRules do not impact on EqSwitchingByV|ertexEqs*)
+        SolU = Flatten[Solve[#, Reals] & /@ EqSwitchingByVertexEqs];
+        (*Not necessary!! InitRules = InitRules /. SolU;*)
+        AssociateTo[InitRules, SolU];
+        
+        EqSwitchingConditions = And @@ EqSwitchingByVertex;
+        EqSwitchingConditions = EqSwitchingConditions/.InitRules;
+        
+        EqCompCon = And @@ Compu /@ AllTransitions;(*Or*)
+        EqCompCon = EqCompCon/.InitRules;
+        
+        Sol34 = Association@First@Solve[getEqual@EqCompCon];
+        InitRules = Simplify/@(InitRules /. Sol34);
         AssociateTo[InitRules,Sol34];
-        (*Print[InitRules//Keys];*)
+        
         EqValueAuxiliaryEdges = And @@ ((uvars[AtHead[#]] - uvars[AtTail[#]] == 0) & /@ EdgeList[AuxiliaryGraph]);(*Equal*)
-        (*RuleValueAuxiliaryEdges =  (uvars[AtHead[#]] -> uvars[AtTail[#]]) & /@ EdgeList[AuxiliaryGraph];(*Rule*)(*TODO check if this is the correct order!*)*)
-        Sol35 = Association@First@Solve[getEqual@EqValueAuxiliaryEdges];
-        AssociateTo[InitRules,Sol35];
-        (*Print[InitRules//Keys];*)
+        EqValueAuxiliaryEdges = EqValueAuxiliaryEdges /. InitRules;
+        
+        Sol35 = Association@First@Solve[getEqual@(EqValueAuxiliaryEdges/.InitRules)];
+        InitRules = InitRules/.Sol35;
+        AssociateTo[InitRules, Sol35];
         
         MinimalTimeRhs = Flatten[-a[SignedCurrents[#], #] + SignedCurrents[#] & /@ BEL];
         Nlhs = Flatten[uvars[AtHead[#]] - uvars[AtTail[#]] + SignedCurrents[#] & /@ BEL];
-        (*RuleCriticalCase = Flatten[uvars[AtHead[#]] -> uvars[AtTail[#]]  - SignedCurrents[#] & /@ BEL];(*Rule*)*)
-        (*uvars[AtTail[#]] -> uvars[AtHead[#]]  + SignedCurrents[#]*)
         
-        (*Print[RuleCriticalCase];*)
         EqCriticalCase = And @@ ((# == 0) & /@ Nlhs);(*Equal*)
         
         EqMinimalTime = And @@ (MapThread[(#1 == #2) &, {Nlhs, MinimalTimeRhs}]);
         Nrhs =  Flatten[IntM[SignedCurrents[#], #] + SignedCurrents[#] & /@ BEL];
-        (*EqGeneralCase = And @@ (MapThread[(#1 == #2) &, {Nlhs , Nrhs}]);*)
-        AllEq = EqBalanceSplittingCurrents (*&& EqBalanceGatheringCurrents*) (*&& EqEntryIn && EqExitValues*);
+        
+        EqBalanceSplittingCurrents = EqBalanceSplittingCurrents/.InitRules (*&& EqBalanceGatheringCurrents*) (*&& EqEntryIn && EqExitValues*);
+        Sol36 = Association@First@Solve[EqBalanceSplittingCurrents];
+        InitRules = Simplify/@(InitRules/.Sol36);
+        AssociateTo[InitRules, Sol36];
+        
         AllOr = EqCurrentCompCon && EqTransitionCompCon && EqCompCon;
+        AllOr = AllOr/.InitRules;
         
         AllIneq = EqPosCon && EqSwitchingConditions;
+        AllIneq = AllIneq /. InitRules;
         
+        EqCriticalCase = EqCriticalCase /. InitRules;
         
+        RulesCriticalCase = Association @ First @ Solve @ EqCriticalCase;
+        RulesCriticalCase = Join[InitRules/.RulesCriticalCase, RulesCriticalCase];
         
-        SolJJt = Association@First@Solve[EqBalanceSplittingCurrents/.InitRules];
-        AssociateTo[InitRules,SolJJt];
-        SolV = Association@First@Solve[EqValueAuxiliaryEdges/.InitRules];
-        AssociateTo[InitRules,SolV];
+        AllOr = AllOr/.InitRules;
+        EqAllAll = AllOr && AllIneq;
         
-        EqAll = Simplify/@(AllEq && AllIneq) /. InitRules;
-        EqAllAll = Simplify/@((EqAll && AllOr) /. InitRules);
-        EqCriticalCase = Simplify/@(EqCriticalCase /. InitRules);
-        Sol44 = Association@First@Solve[getEqual@EqAllAll];
-        
-        Print[EqAll/.Sol44];
-        AssociateTo[InitRules,Sol44];
-        Print[InitRules//Keys];
-        
-        
-        EqAll = Simplify/@(EqAll/.InitRules);
-        EqAllAll = Simplify/@(EqAllAll/.InitRules);
+
         EqCriticalCase = Simplify/@(EqCriticalCase/.InitRules);
-        (*Print[AllOr,"\n",Reduce[AllOr/.InitRules]];*)(* unreasonable time to spend on this*)
-        Sol46=Association@First@Solve[getEqual@EqAllAll];
-        AssociateTo[InitRules,Sol46];
-        Print[AllEq];
-        AllEq = Simplify/@AllEq/.InitRules;
-        Print[AllEq];
-        AllOr = Simplify/@AllOr/.InitRules;
-        EqAll = Simplify/@(EqAll/.InitRules);
-        EqAllAll = Simplify/@(EqAllAll/.InitRules);
-        EqCriticalCase = Simplify/@(EqCriticalCase/.InitRules);
-        CriticalCaseRules = Association@First@Solve[getEqual@EqCriticalCase];
         Join[Data,Association[
         (*Graph structure*)
         "BG" -> BG, 
@@ -251,18 +230,15 @@ D2E[Data_Association] :=
         (*equations*)
         (*complementarity*)
         "AllOr" -> AllOr, (*union of all complementarity conditions*)
-        "AllEq" -> AllEq,
         "AllIneq" -> AllIneq,
         (*linear equations (and inequalities)*)
-		"EqBalanceGatheringCurrents" -> EqBalanceGatheringCurrents,
         "EqAllAll" -> EqAllAll,
         "BoundaryRules" -> InitRules,
         "InitRules" -> InitRules,
+        "RulesCriticalCase" -> RulesCriticalCase,
         "Nlhs" -> Nlhs,
         "MinimalTimeRhs" -> MinimalTimeRhs,
         "EqCriticalCase" -> EqCriticalCase ,
-        "CriticalCaseRules" -> CriticalCaseRules,
-        "EqSwitchingConditions" -> EqSwitchingConditions, 
         "Nrhs" -> Nrhs
         ]
         ]
@@ -300,7 +276,7 @@ D2E[Data_Association] :=
         "EqExitValues" -> EqExitValues, 
         
         "EqValueAuxiliaryEdges" -> EqValueAuxiliaryEdges, 
-        "EqAll" -> EqAll,*) 
+        "AllIneq" -> AllIneq,*) 
                 
       
         
