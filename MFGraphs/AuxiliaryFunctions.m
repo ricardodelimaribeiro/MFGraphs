@@ -9,10 +9,10 @@ triple2path::usage =
 "triple2path[{a, b, c}, G] takes 3 ordered vertices and gives the pair of edges conecting the first two and the last two. If this is not feasible, error message with {a, b, c}!";
 
 TransitionsAt::usage = 
-"";
+"TransitionsAt[G, k]";
 
-OtherWay::usage = 
-"";
+BasicTransitionsAt::usage = 
+"BasicTransitionsAt[G, k]"
 
 AtHead::usage = 
 ""; 
@@ -69,12 +69,18 @@ EdgeJOrder::usage =
 ""
 
 SetValuesStep::usage = 
-""
+"SetValuesStep[Eqs][{system, rules}] returns updated {system, rules} where simple equalities are solve"
 
 SetUValuesStep::usage =
 ""
 
 SetJUValuesStep::usage =
+""
+
+SetJtUValuesStep::usage =
+""
+
+SetJtValuesStep::usage =
 ""
 
 getEqual::usage =
@@ -83,10 +89,14 @@ getEqual::usage =
 getNo::usage =
 ""
 
-getEqual[system_] := 
+getEqual[system_And] := 
 	Select[system, Head[#] === Equal &]
 
 getEqual[system_Equal] := system
+
+getEqual[system_] := True
+
+
 
 getNo[vars1_List, vars2_List] :=
 	getNo[Join[vars1, vars2]]
@@ -109,25 +119,49 @@ SetValuesStep[Eqs_][{system_, rules_}] :=
 
 SetUValuesStep[Eqs_][{system_, rules_}] :=
     Module[ {subsystem, newrules, rulesAss = Association @ rules},
-        Print["uvalues"];
-        subsystem = Select[system, Head[#] === Equal&];
+        subsystem = getEqual[system];
         If[ subsystem === True,
             {system,rules},
-            subsystem = Select[subsystem, Function[exp, And @@ (FreeQ[#][exp] & /@ Join[Values@Eqs["jtvars"], Values@Eqs["jvars"]])]];
+            subsystem = getNo[Values@Eqs["jtvars"], Values@Eqs["jvars"]][subsystem];
             newrules = First @ Solve[subsystem]//Quiet;
-            {system, AssociateTo[ rulesAss, newrules]} /. newrules
+            {Simplify/@ (system/. newrules), AssociateTo[ rulesAss, newrules]/. newrules} 
+        ]
+    ]
+
+SetJtValuesStep[Eqs_][{system_, rules_}] :=
+    Module[ {subsystem, newrules, rulesAss = Association @ rules},
+        subsystem = getEqual[system];
+        If[ subsystem === True,
+            {system,rules},
+            subsystem = getNo[Values@Eqs["uvars"], Values@Eqs["jvars"]][subsystem];
+            newrules = First @ Solve[subsystem]//Quiet;
+            {Simplify/@ (system/. newrules), AssociateTo[ rulesAss, newrules]/. newrules} 
+            (*{system, AssociateTo[ rulesAss, newrules]} /. newrules*)
         ]
     ]
 
 SetJUValuesStep[Eqs_][{system_, rules_}] :=
     Module[ {subsystem, newrules, rulesAss = Association @ rules},
-        Print["jvalues"];
-        subsystem = 
-         Select[system, 
-          Head[#] === Equal&](*make sure we are dealing with integers*);
-        subsystem = Select[subsystem, Function[exp, And @@ (FreeQ[#][exp] & /@ Values@Eqs["jtvars"])]];
-        newrules = First @ Solve[subsystem]//Quiet;
-        {system, AssociateTo[ rulesAss, newrules]} /. newrules
+        subsystem = getEqual[system];
+        If[ subsystem === True,
+            {system,rules}, 
+        	subsystem = getNo[Values@Eqs["jtvars"]][subsystem];
+        	newrules = First @ Solve[subsystem]//Quiet;
+        	{Simplify/@ (system/. newrules), AssociateTo[ rulesAss, newrules]/. newrules} 
+        	(*{system, AssociateTo[ rulesAss, newrules]} /. newrules*)
+        ]
+    ]
+
+SetJtUValuesStep[Eqs_][{system_, rules_}] :=
+    Module[ {subsystem, newrules, rulesAss = Association @ rules},
+        subsystem = getEqual[system];
+        If[ subsystem === True,
+            {system,rules}, 
+        	subsystem = getNo[Values@Eqs["jvars"]][subsystem];
+        	newrules = First @ Solve[subsystem]//Quiet;
+        	{Simplify/@ (system/. newrules), AssociateTo[ rulesAss, newrules]/. newrules} 
+        	(*{system, AssociateTo[ rulesAss, newrules]} /. newrules*)
+        ]
     ]
 
 EdgeUOrder[d2e_][edges_DirectedEdge] :=
@@ -261,22 +295,37 @@ SortAnds[Newxp_, oldxp_And, vars_] :=
 SortAnds[Newxp_, oldxp_, vars_] :=
     Newxp && oldxp
 
-AtHead[a_ \[DirectedEdge] b_] :=
+(*AtHead[a_ \[DirectedEdge] b_] :=
     {b, a \[DirectedEdge] b}
 
 AtTail[a_ \[DirectedEdge] b_] :=
     {a, a \[DirectedEdge] b}
+*)
+AtHead[DirectedEdge[a_, b_]] :=
+    {b, DirectedEdge[a, b]}
+
+AtTail[DirectedEdge[a_, b_]] :=
+    {a, DirectedEdge[a, b]}
 
 TransitionsAt[G_, k_] :=
     Prepend[#, k] & /@ Permutations[IncidenceList[G, k], {2}]
+
+BasicTransitionsAt[G_, k_] :=
+    Prepend[#, k] & /@ Subsets[IncidenceList[G, k],{2}]
     
-OtherWay[{c_, a_ \[DirectedEdge] b_}] :=
+(*OtherWay[{c_, a_ \[DirectedEdge] b_}] :=
     {If[ c === a,
          b,
          a
-     ], a \[DirectedEdge] b}
+     ], a \[DirectedEdge] b}*)
 
-triple2path[{a_, b_, c_}, G_] :=
+OtherWay[{c_, DirectedEdge[a_, b_]}] :=
+    {If[ c === a,
+         b,
+         a
+     ], DirectedEdge[a, b]}
+
+(*triple2path[{a_, b_, c_}, G_] :=
     Module[ {EL = EdgeList[G]},
         If[ SubsetQ[AdjacencyList[G, b], {a, c}],
             If[ MemberQ[EL, a \[DirectedEdge] b],
@@ -293,8 +342,27 @@ triple2path[{a_, b_, c_}, G_] :=
             ],
             StringJoin["\nThere is no path from ", ToString[a], " to ", ToString[b], " to ", ToString[c]]
         ]
+    ]*)
+    
+triple2path[{a_, b_, c_}, G_] :=
+    Module[ {EL = EdgeList[G]},
+        If[ SubsetQ[AdjacencyList[G, b], {a, c}],
+            If[ MemberQ[EL, DirectedEdge[a, b]],
+                If[ MemberQ[EL, DirectedEdge[b, c]],
+                    {b, DirectedEdge[a, b] , DirectedEdge[b, c]},
+                    {b, DirectedEdge[a, b], DirectedEdge[c, b]}
+                ],
+                If[ MemberQ[EL, DirectedEdge[b, a]],
+                    If[ MemberQ[EL, DirectedEdge[b, c]],
+                        {b, DirectedEdge[b, a], DirectedEdge[b, c]},
+                        {b, DirectedEdge[b, a], DirectedEdge[c, b]}
+                    ]
+                ]
+            ],
+            StringJoin["\nThere is no path from ", ToString[a], " to ", ToString[b], " to ", ToString[c]]
+        ]
     ]
-
+    
 F[j_?NumericQ, x_?NumericQ] :=
     First @ Values @ FindRoot[Parameters["H[x,p,m]"][x, -j/(m^(1 - Parameters["alpha"])),m], {m, 1}];
 (*we are solving the h-j equation, H[x,u_x,m] == 0, for m, given that u_x = -j*m^(alpha-1) 
