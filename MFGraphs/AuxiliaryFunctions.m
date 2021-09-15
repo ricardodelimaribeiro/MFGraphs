@@ -104,7 +104,17 @@ getNo[vars1_List, vars2_List] :=
 getNo[vars_List] := 
 	Select[#, Function[exp, And @@ (FreeQ[#][exp] & /@ vars)]] &;
 
+getVar::usage = "getVar[exp] returns the variables in exp"
+
 Begin["`Private`"]
+(*getVar[a_<=b_<=c_]:= Variables /@ {a, b, c} // Flatten*)
+getVar[True] = {}
+getVar[xp_And] := getVar /@ List @@ xp // Flatten // DeleteDuplicates
+getVar[GreaterEqual[xp1_, xp2_]] := 
+ Variables /@ {xp1, xp2} // Flatten
+getVar[Equal[xp1_, xp2_]] := Variables /@ {xp1, xp2} // Flatten
+getVar[LessEqual[xp1_, xp2_, xp3___]] := Variables /@ {xp1, xp2, xp3} // Flatten
+getVar[xp_Or] := getVar /@ List @@ xp // Flatten
 
 SetValuesStep[Eqs_][{system_, rules_}] :=
     Module[ {subsystem, newrules, rulesAss = Association @ rules},
@@ -235,13 +245,17 @@ JOrder[d2e_] :=
  
 
 eStyle[colors_][pts_, DirectedEdge[x_, y_]] :=
-    {colors[[y]], 
-    Arrow[Line[pts, VertexColors -> {colors[[x]], colors[[y]]}]]}
-
+    (*Line[pts, VertexColors -> {colors[[x]], colors[[y]]}]*)
+    	{colors[[y]], Arrow@ Line[pts, VertexColors -> {colors[[x]], colors[[y]]}]}
+    	
+eStyle[colors_][pts_, UndirectedEdge[x_, y_]] := 
+ Line[pts, VertexColors -> {colors[[x]], colors[[y]]}] 
+ 
 ColorNetworkByValueFunctionOperator[d2e1_Association][rules_] :=
     Module[ {values, colors, vl, bg, uvars},
         bg = Lookup[d2e1,"BG", Print["There is no basic graph"];
                                Return[]];
+        (*bg = Graph[bg, DirectedEdges -> False];*)                       
         vl = VertexList[bg];
         uvars = Lookup[d2e1, "uvars", Print["There are no u variables"];
                                       Return[]];
