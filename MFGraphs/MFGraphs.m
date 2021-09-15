@@ -4,9 +4,9 @@
 (*To distribute, use ideas from https://community.wolfram.com/groups/-/m/t/214901*)
 BeginPackage["MFGraphs`"]
 (* Exported symbols added here with SymbolName::usage *) 
-Get["MFGraphs`Examples`ExamplesParameters`"];
+Get["MFGraphs`Examples`ExamplesParameters`"]
 
-Get["MFGraphs`Examples`ExamplesData`"];
+Get["MFGraphs`Examples`ExamplesData`"]
 
 Get["MFGraphs`AuxiliaryFunctions`"]
 
