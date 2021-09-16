@@ -3,7 +3,10 @@
 (* Wolfram Language package *)
 
 CriticalCongestionSolver2::usage = 
-"CriticalCongestionSolver[eq_Association] returns the critical congestion solution."
+"CriticalCongestionSolver2[eq_Association] returns the critical congestion solution."
+
+CriticalCongestionSolverNewReduce::usage = 
+"CriticalCongestionSolverNewReduce[eq_Association] returns the critical congestion solution."
 
 CleanEqualitiesOperator::usage = 
 "CleanEqualitiesOperator[Eqs][{system,rules}] returns an equivalent pair of system and rules without \"loose\" equalities. 
@@ -131,12 +134,12 @@ ReplaceSolution[False, sol_] :=
     False
 
 ReplaceSolution[rst_And, sol_] :=
-    Module[{newrst},
-    	newrst = rst /. sol;
-    	If[Head[newrst] === And,
-    		Reduce[#,Reals]& /@ (rst /. sol),
-    		Reduce[rst /. sol,Reals]
-    	]
+    Module[ {newrst},
+        newrst = rst /. sol;
+        If[ Head[newrst] === And,
+            Reduce[#,Reals]& /@ (rst /. sol),
+            Reduce[rst /. sol,Reals]
+        ]
     ]
     
 ReplaceSolution[rst_, sol_] :=
@@ -162,8 +165,8 @@ NewReduce[False] :=
     False
     
 NewReduce[x_Equal] :=
-(Print["here"];
-    Reduce[x,Reals])
+    (Print["here"];
+     Reduce[x,Reals])
     
 NewReduce[s_Inequality] :=
     s
@@ -179,15 +182,15 @@ NewReduce[x_Inequality] :=
 
 NewReduce[system_And] :=
     Module[ {result,
-    	groups = GroupBy[List @@ system, Head[#] === Or||Head[#]===Equal&],
-    	subgroups,
-    	sorted},
-    	subgroups = GroupBy[groups[True], Head[#]===Equal&];
-    	If[Head[subgroups[False]]===Missing,
-    		result = ZAnd[And@@groups[False],And@@Lookup[subgroups,True,True]],
-    		sorted = SortBy[And@@Lookup[subgroups,False, True],Simplify`SimplifyCount];
-    		result = ZAnd[And@@groups[False],(And@@Lookup[subgroups,True,True])&&sorted]
-    	];
+        groups = GroupBy[List @@ system, Head[#] === Or||Head[#]===Equal&],
+        subgroups,
+        sorted},
+        subgroups = GroupBy[groups[True], Head[#]===Equal&];
+        If[ Head[subgroups[False]]===Missing,
+            result = ZAnd[And@@groups[False],And@@Lookup[subgroups,True,True]],
+            sorted = SortBy[And@@Lookup[subgroups,False, True],Simplify`SimplifyCount];
+            result = ZAnd[And@@groups[False],(And@@Lookup[subgroups,True,True])&&sorted]
+        ];
         (*result = ZAnd[Select[system, !((Head[#] === Or)||(Head[#]===Equal))&],Select[system, ((Head[#] === Or)||(Head[#]===Equal))&]];*)
         If[ result =!= False,
             result = result // DeleteDuplicates
@@ -201,30 +204,30 @@ CleanEqualitiesOperator[Eqs_][system_] :=
 CleanEqualitiesOperator[Eqs_][{system_, rules_}] :=
     FixedPoint[EqEliminator[Eqs], {system /. rules, rules}]
 
-CleanEqualities[system_]:=
-	CleanEqualities[{system,{}}]
+CleanEqualities[system_] :=
+    CleanEqualities[{system,{}}]
 CleanEqualities[{system_, rules_}] :=
-	CleanEqualitiesOperator[<||>][{system, rules}]
+    CleanEqualitiesOperator[<||>][{system, rules}]
 
 CleanEqualities[{system_List, rules_}] :=
-	Module[{systems, ruless, aux},
-	aux = CleanEqualitiesOperator[<||>][{#, rules}] &/@ system;
-	(*aux =First @ aux;*)
-	systems = First /@ aux;
-	systems = And @@ systems;
-	ruless = Last /@ aux;
-	ruless = Join @@ ruless;
-	systems = systems /. ruless;
-	ruless = ruless /. ruless;
-	{systems, ruless}
-	]
+    Module[ {systems, ruless, aux},
+        aux = CleanEqualitiesOperator[<||>][{#, rules}] &/@ system;
+        (*aux =First @ aux;*)
+        systems = First /@ aux;
+        systems = And @@ systems;
+        ruless = Last /@ aux;
+        ruless = Join @@ ruless;
+        systems = systems /. ruless;
+        ruless = ruless /. ruless;
+        {systems, ruless}
+    ]
 
 EqEliminator[Eqs_][{system_, rules_List}] :=
     EqEliminator[Eqs][{system, Association[rules]}]
 
 EqEliminator[Eqs_][{system_, rules_Association}] :=
     Module[ {EE, ON, newrules,groups},
-    	Which[Head[system] === And,	
+        Which[Head[system] === And,    
         (*separate equalities from the rest*)
         groups = GroupBy[List@@system, Head[#]===Equal&];
         EE = And@@Lookup[groups, True, Return[{system, rules},Module]];
@@ -235,18 +238,19 @@ EqEliminator[Eqs_][{system_, rules_Association}] :=
         True,
         EE = True;
         ON = Simplify @ system;
-    	];
+        ];
         newrules = First @ Solve[EE] // Quiet; (*The reason we use Quiet is:  Solve::svars: Equations may not give solutions for all "solve" variables.*)
         newrules = Join[rules, Association @ newrules];
         {ON /. newrules, Expand/@(newrules /. newrules)}
     ]
 
-EqEliminator[{system_, rules_}]:= EqEliminator[<||>][{system, rules}]
+EqEliminator[{system_, rules_}] :=
+    EqEliminator[<||>][{system, rules}]
 
 CriticalCongestionSolver2[Eqs_Association] :=
     Module[ {system, 
     AllIneqs,
-	AllOrs,
+    AllOrs,
     rules,
     js = Values @ Lookup[Eqs, "jvars"],
     aux,
@@ -258,70 +262,189 @@ CriticalCongestionSolver2[Eqs_Association] :=
     newus,
     newjs
     },
-    AllIneqs = Lookup[Eqs, "AllIneq", Print["No inequalities to solve."];
-                                       Return["a"]];
-	AllOrs = Lookup[Eqs, "AllOr", Print["No alternatives to solve. \n",AllOrs];
-                                       Return["b"]];
-    rules = Lookup[Eqs,"RulesCriticalCase", Print["Critical case rules are missing."];
-                                                  Return[]];
-    
-    (*Replace critical congestion rules!*)
-    AllOrs = AllOrs /. rules;
-    AllIneqs = AllIneqs /. rules;
-    (*try to simplify bit by bit:*)
-    system = AllIneqs&&AllOrs;
-    rvars = Variables[Join[us,js]/.rules];
-    newus = Intersection[us,rvars];
-    Print["EliminateVarsSimplify for the us"];
-    {{system, rules}, aux, newus} = EliminateVarsSimplify[Eqs][{{system, rules}, newus, {}}];
-    rules = Expand/@rules;
-    If[Variables[us/.rules] === {},
-    	Print["Finished with the us!"];
-    	If[Variables[js/.rules] === {},
-    		Print["Done!"],
-    		Print["Finish with the js"];
-    		uvalues = AssociationThread[us, us /. rules];
-    		jsys = (Eqs["EqCriticalCase"] /. uvalues) && Eqs["EqPosJs"] && Eqs["EqCurrentCompCon"];
-    		(**Retrieve js values already defined*)
-    		jrules = Select[AssociationThread[js,js/.rules], NumericQ];
-    		{jsys, jrules} = CleanEqualities[{jsys,jrules}];
-    		{{jsys, jrules}, aux, newjs} = EliminateVarsSimplify[Eqs][{{jsys, jrules}, js}];
-    		{jsys, jrules} = CleanEqualities[{jsys,jrules}];
-    		
-  			AssociateTo[uvalues, jrules];
-    	],  
-    	Print["Do what?"];
-    	
-    ];
-	uvalues
-]
+        AllIneqs = Lookup[Eqs, "AllIneq", Print["No inequalities to solve."];
+                                          Return["a"]];
+        AllOrs = Lookup[Eqs, "AllOr", Print["No alternatives to solve. \n",AllOrs];
+                                      Return["b"]];
+        rules = Lookup[Eqs,"RulesCriticalCase", Print["Critical case rules are missing."];
+                                                Return[]];
+        
+        (*Replace critical congestion rules!*)
+        AllOrs = AllOrs /. rules;
+        AllIneqs = AllIneqs /. rules;
+        (*try to simplify bit by bit:*)
+        system = AllIneqs&&AllOrs;
+        rvars = Variables[Join[us,js]/.rules];
+        newus = Intersection[us,rvars];
+        Print[newus];
+        Print["EliminateVarsSimplify for the us"];
+        {{system, rules}, aux, newus} = EliminateVarsSimplify[Eqs][{{system, rules}, newus, {}}];
+        rules = Expand/@rules;
+        If[ Variables[us/.rules] === {},
+            Print["Finished with the us!"],
+            (*There is at least one u variable missing*)
+            system = Simplify /@ system;
+            (*in this association we may have something like u1->u1*)
+            uvalues = Select[AssociationThread[us, us /. rules], NumericQ];
+            Print[Select[uvalues, NumericQ]];
+            jsys = (Eqs["EqCriticalCase"] /. uvalues) && Eqs["EqPosJs"] && Eqs["EqCurrentCompCon"];
+            (*get more equations for us!!!*)
+            (*TODO continue (RE)development on Jamarat-9v.nb 
+            
+            The idea is to get the last value for u OR
+            
+            try to get the most values for j and then go back to u.
+            *)
+            
+            jrules = Select[AssociationThread[js,js/.rules], NumericQ];
+            
+            Print["Here is the system:\n", Simplify /@ system];
+            Print["Here is the possible alternative:\n",
+            	EliminateVarsSimplify[Eqs][{{Simplify/@system, rules}, us, {}}]
+            ];
+            
+            Print[getVar[system]];
+            (*We are not having good behaviour without getting the us.... we throw away some rules in the process.*)
+            Return[rules]
+        ];
+        If[ Variables[js/.rules] === {},
+            Print["Done!"],
+            Print["Finish with the js"];
+            uvalues = AssociationThread[us, us /. rules];
+            jsys = (Eqs["EqCriticalCase"] /. uvalues) && Eqs["EqPosJs"] && Eqs["EqCurrentCompCon"];
+            (**Retrieve js values already defined*)
+            jrules = Select[AssociationThread[js,js/.rules], NumericQ];
+            {jsys, jrules} = CleanEqualities[{jsys,jrules}];
+            {{jsys, jrules}, aux, newjs} = EliminateVarsSimplify[Eqs][{{jsys, jrules}, js}];
+            {jsys, jrules} = CleanEqualities[{jsys,jrules}];
+            AssociateTo[uvalues, jrules];
+        ];
+        uvalues
+    ]
+CriticalCongestionSolverNewReduce[Eqs_Association] :=
+    Module[ {system, 
+    AllIneqs,
+    AllOrs,
+    rules,
+    js = Values @ Lookup[Eqs, "jvars"],
+    aux,
+    rvars,
+    uvalues,
+    jsys,
+    jrules,
+    us = Values[Eqs["uvars"]],
+    newus,
+    newjs
+    },
+        AllIneqs = Lookup[Eqs, "AllIneq", Print["No inequalities to solve."];
+                                          Return["a"]];
+        AllOrs = Lookup[Eqs, "AllOr", Print["No alternatives to solve. \n",AllOrs];
+                                      Return["b"]];
+        rules = Lookup[Eqs,"RulesCriticalCase", Print["Critical case rules are missing."];
+                                                Return[]];
+        
+        (*Replace critical congestion rules!*)
+        AllOrs = AllOrs /. rules;
+        AllIneqs = AllIneqs /. rules;
+        (*try to simplify bit by bit:*)
+        system = AllIneqs&&AllOrs;
+        rvars = Variables[Join[us,js]/.rules];
+        newus = Intersection[us,rvars];
+        Print["EliminateVarsSimplify for the us"];
+        {{system, rules}, aux, newus} = EliminateVars[Eqs][{{system, rules}, newus, 1}];
+        rules = Expand/@rules;
+        If[ Variables[us/.rules] === {},
+            Print["Finished with the us!"];
+        If[ Variables[js/.rules] === {},
+            Print["Done!"],
+            Print["Finish with the js"];
+            uvalues = AssociationThread[us, us /. rules];
+            jsys = (Eqs["EqCriticalCase"] /. uvalues) && Eqs["EqPosJs"] && Eqs["EqCurrentCompCon"];
+            (**Retrieve js values already defined*)
+            jrules = Select[AssociationThread[js,js/.rules], NumericQ];
+            {jsys, jrules} = CleanEqualities[{jsys,jrules}];
+            {{jsys, jrules}, aux, newjs} = EliminateVars[Eqs][{{jsys, jrules}, js, 1}];
+            {jsys, jrules} = CleanEqualities[{jsys,jrules}];
+            AssociateTo[uvalues, jrules];
+        ],
+        Print["Do what?"];
+        ];
+        uvalues
+    ]
 
 EliminateVarsStep[Eqs_][{{system_, rules_}, {}, {}}] :=
     {{system, rules}, {}, {}}
  
 (*Coloque o sistema original com as regras substituidas*)
 EliminateVarsStep[Eqs_][{{system_, rules_}, us_, persistus_}] :=
-    Module[ {var, subsys, position , 
-    	newsys = system, newrules = Association @ rules, 
-    	newus, newpersistus = persistus,
-    	groups},
-        var = SelectFirst[us, ! FreeQ[newsys, #] &];
+    Module[ {var, subsys, position , newsys = system, 
+        newrules = Association @ rules, newus, 
+        newpersistus = persistus, groups
+        },
+        groups = GroupBy[List @@ system, Head[#] === Or &];
+        var = SelectFirst[us, ! FreeQ[And @@ Lookup[groups, True,True], #] &];
         If[ Head[var] === Missing,
             Return[{{newsys, newrules}, {}, persistus}]
         ];
         position = First @ FirstPosition[us, var];
         newus = Drop[us, position];
-        groups = GroupBy[List@@newsys, FreeQ[#, var]&];
-        subsys = Simplify@And@@groups[False];
+        If[ persistus === 1,
+            subsys = Select[newsys, Function[x, !(FreeQ[x, #])]]&/@Take[us, UpTo[1]];(*And @@ Lookup[groups, False, True] &&*) (*Select[newsys, Function[x, !(FreeQ[x, var] && FreeQ[x, First @ newus])]]*)
+            subsys = And @@ subsys,
+            subsys = (*And @@ Lookup[groups, False, True] &&*) Select[newsys, Function[x, !(FreeQ[x, #])]]&/@us;
+            (*Print[subsys];*)
+            subsys = And @@ subsys
+        ];
+        (*Print["EliminateVarsSimplifyStep: Reducing ..."];*)
+        (*Print[subsys];*)
+        (*Print[];
+        
+        Print[];
+        Print[Complement[presentvars, presentus]];*)
+        presentvars = getVar[subsys];
+        Print["present vars: ", presentvars];
+        presentus = Intersection[presentvars, us];
+        (*Print[subsys];
+        Print[Select[subsys, Function[exp, And@@(FreeQ[exp, #]&/@presentus)]]];*)
+        subsys = Reduce[Exists[Complement[presentvars, presentus], Simplify@Select[subsys, Head[#]=!= Or&] ,Select[subsys, Head[#]===Or&]], presentus];
+        (*Print[subsys];*)
+        (*subsys = BooleanConvert[subsys,"CNF"];
+        Print[subsys];
+        subsys = NewReduce[subsys];
+        *)(*Print["EliminateVarsSimplifyStep: Clean equalities for system of ", var];*)
+        {subsys, newrules} = CleanEqualitiesOperator[Eqs][{subsys, newrules}];
+        (*Print["last print in eliminatevarsstep: ", subsys];*)
+        newsys = newsys /. newrules;
+        {{newsys, newrules}, newus, newpersistus}
+    ]
+    
+EliminateVarsSimplifyStep[Eqs_][{{system_, rules_}, us_, persistus_}] :=
+    Module[ {var, subsys, position , newsys = system, 
+        newrules = Association @ rules, newus, allus, groups
+        },
+        allus = Values[Eqs["uvars"]];
+        groups = GroupBy[List @@ system, Head[#] === Or &];
+        var = SelectFirst[us, ! FreeQ[And @@ Lookup[groups, True,True], #] &];
+        If[ Head[var] === Missing,
+            Return[{{newsys, newrules}, {}, persistus}]
+        ];
+        position = First @ FirstPosition[us, var];
+        newus = Drop[us, position];
+        If[ newus == {},
+            subsys = (*And @@ Lookup[groups, False, True] &&*) Select[newsys, Function[x, !FreeQ[x, var]]],
+            Print["all us at the same time!"];
+            subsys = (*And @@ Lookup[groups, False, True] &&*) (*Select[newsys, Function[x, !(FreeQ[x, var] && FreeQ[x, First @ newus])]]*)
+            	Select[newsys, Function[x, !(FreeQ[x, #])]]&/@us;
+            subsys = And @@ subsys;
+        ];
+        Print[subsys];
+        (*Print["EliminateVarsSimplifyStep: Reducing ..."];*)
+        subsys = Reduce[subsys];
+        subsys = Reduce[subsys, Reals];
+        (*Print["EliminateVarsSimplifyStep: Clean equalities for system of ", var];*)
         {subsys, newrules} = CleanEqualitiesOperator[Eqs][{subsys, newrules}];
         newsys = newsys /. newrules;
-        If[ subsys =!= True,
-            newsys = subsys && And@@groups[True];
-            If[ !FreeQ[subsys, var],
-                newpersistus = Join[newpersistus,{var}]
-                ];
-        ];
-        {{Simplify/@(newsys/.newrules), Simplify/@(newrules/.newrules)}, newus, newpersistus}
+        {{newsys, newrules}, newus, Intersection[allus, getVar[newsys]]}
     ]
     
 EliminateVarsSimplifyStep[Eqs_][{{system_, rules_}, {}, {}}] :=
@@ -330,45 +453,23 @@ EliminateVarsSimplifyStep[Eqs_][{{system_, rules_}, {}, {}}] :=
 EliminateVarsSimplifyStep[Eqs_][{{True, rules_}, us_, persistus_}] :=
     {{True, rules}, us, persistus}
  
-EliminateVarsSimplifyStep[Eqs_][{{system_, rules_}, us_, persistus_}] :=
-    Module[ 
-    	{var, subsys, position , newsys = system, 
-    	newrules = Association @ rules, newus, 
-    	newpersistus = persistus, groups
-    	},
-    	groups = GroupBy[List @@ system, Head[#] === Or &];
-        var = SelectFirst[us, ! FreeQ[And @@ Lookup[groups, True,True], #] &];
-        If[ Head[var] === Missing,
-            Return[{{newsys, newrules}, {}, persistus}]
-        ];
-        position = First @ FirstPosition[us, var];
-        newus = Drop[us, position];
-        If[newus == {},
-        	subsys = (*And @@ Lookup[groups, False, True] &&*) Select[newsys, Function[x, !FreeQ[x, var]]]
-        	,
-        	subsys = (*And @@ Lookup[groups, False, True] &&*) Select[newsys, Function[x, !(FreeQ[x, var] && FreeQ[x, First @ newus])]]
-        ];
-        (*Print["EliminateVarsSimplifyStep: Reducing ..."];*)
-        subsys = Reduce[subsys];
-        subsys = Reduce[subsys, Reals];
-        (*Print["EliminateVarsSimplifyStep: Clean equalities for system of ", var];*)
-        {subsys, newrules} = CleanEqualitiesOperator[Eqs][{subsys, newrules}];
-        newsys = newsys /. newrules;
-        {{newsys, newrules}, newus, newpersistus}
-    ]
-    
 EliminateVarsSimplify[Eqs_][{{system_, rules_}, us_}] :=
-    FixedPoint[EliminateVarsSimplifyStep[Eqs], {{system /. rules, rules}, us, {}}]     
+    EliminateVarsSimplify[Eqs][{{system /. rules, rules}, us, {}}]     
 
 EliminateVarsSimplify[Eqs_][{{system_, rules_}, us_, persistus_}] :=
     FixedPoint[EliminateVarsSimplifyStep[Eqs], {{system /. rules, rules}, us, persistus}]     
 
+EliminateVarsStep[Eqs_][{{system_, rules_}, {}, {}}] :=
+    {{system, rules}, {}, {}}
+ 
+EliminateVarsStep[Eqs_][{{True, rules_}, us_, persistus_}] :=
+    {{True, rules}, us, persistus}
+ 
+EliminateVars[Eqs_][{{system_, rules_}, us_}] :=
+    EliminateVars[Eqs][{{system/.rules, rules}, us, {}}]
+ 
 EliminateVars[Eqs_][{{system_, rules_}, us_, persistus_}] :=
     FixedPoint[EliminateVarsStep[Eqs], {{system /. rules, rules}, us, persistus}](*(Length[#1[[1,2]]] === Length[#2[[1,2]]]&)]*)
-
-EliminateVars[Eqs_][{{system_, rules_}, us_}] := 
-	EliminateVars[Eqs][{{system, rules}, us, {}}]
- 
 End[]
 (**********************************************************************)
 (*
