@@ -245,8 +245,8 @@ JOrder[d2e_] :=
  
 
 eStyle[colors_][pts_, DirectedEdge[x_, y_]] :=
-    (*Line[pts, VertexColors -> {colors[[x]], colors[[y]]}]*)
-    	{colors[[y]], Arrow@ Line[pts, VertexColors -> {colors[[x]], colors[[y]]}]}
+    Line[pts, VertexColors -> {colors[[x]], colors[[y]]}]
+    	(*{colors[[y]], Arrow@ Line[pts, VertexColors -> {colors[[x]], colors[[y]]}]}*)
     	
 eStyle[colors_][pts_, UndirectedEdge[x_, y_]] := 
  Line[pts, VertexColors -> {colors[[x]], colors[[y]]}] 
