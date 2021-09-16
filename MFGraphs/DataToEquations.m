@@ -126,12 +126,14 @@ D2E[Data_Association] :=
         EqPosCon = And @@ ( #>=0& /@ Join[jvars, jtvars]);(*Inequality*)
         EqCurrentCompCon = And @@ (CurrentCompCon /@ EL);(*Or*)
         EqTransitionCompCon = And @@ ((Sort /@ TransitionCompCon /@ AllTransitions) // Union);(*Or*)
+        
         NoDeadEnds = IncomingEdges /@ VL // Flatten[#, 1] &;
         EqBalanceSplittingCurrents = And @@ ((jvars[#] == Total[jtvars /@ CurrentSplitting[#]]) & /@ NoDeadEnds);(*Equal*)
         NoDeadStarts = OutgoingEdges /@ VL // Flatten[#, 1] &;
         EqBalanceGatheringCurrents = And @@ ((jvars[#] == Total[jtvars /@ CurrentGathering[#]]) & /@ NoDeadStarts);(*Equal*)
         RuleBalanceGatheringCurrents = (jvars[#] -> Total[jtvars /@ CurrentGathering[#]]) & /@ NoDeadStarts;(*Rule*)
-        Print[EqBalanceSplittingCurrents&&EqBalanceGatheringCurrents];
+        (*Print[EqBalanceSplittingCurrents&&EqBalanceGatheringCurrents];*)
+        
         (*First rules: these have some j in terms of jts*)
         InitRules = Association[RuleBalanceGatheringCurrents];
         
@@ -157,11 +159,12 @@ D2E[Data_Association] :=
         EqSwitchingByVertex = DeleteCases[EqSwitchingByVertex, True];
         Print["CleanEqualities for the switching conditions on each vertex"];
         {EqSwitchingConditions, InitRules} = CleanEqualities[{EqSwitchingByVertex, InitRules}];
+        (*Print[EqSwitchingConditions];*)
         EqCompCon = And @@ Compu /@ AllTransitions;(*Or*)
         (*EqCompCon = EqCompCon/.InitRules;*)
         Print["CleanEqualities for the complementary conditions (given the rules)"];
         {EqCompCon, InitRules} = CleanEqualities[{EqCompCon, InitRules}];
-        EqValueAuxiliaryEdges = And @@ ((uvars[AtHead[#]] - uvars[AtTail[#]] == 0) & /@ EdgeList[AuxiliaryGraph]);(*Equal*)
+        EqValueAuxiliaryEdges = And @@ ((uvars[AtHead[#]] == uvars[AtTail[#]]) & /@ EdgeList[AuxiliaryGraph]);(*Equal*)
         Print["CleanEqualities for the values at the auxiliary edges"];
         {EqValueAuxiliaryEdges, InitRules} = CleanEqualities[{EqValueAuxiliaryEdges, InitRules}];
         MinimalTimeRhs = Flatten[-a[SignedCurrents[#], #] + SignedCurrents[#] & /@ BEL];
