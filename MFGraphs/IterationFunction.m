@@ -276,45 +276,27 @@ CriticalCongestionSolver2[Eqs_Association] :=
         system = AllIneqs&&AllOrs;
         rvars = Variables[Join[us,js]/.rules];
         newus = Intersection[us,rvars];
-        Print[newus];
+        (*Print[newus];*)
         Print["EliminateVarsSimplify for the us"];
         {{system, rules}, aux, newus} = EliminateVarsSimplify[Eqs][{{system, rules}, newus, {}}];
         rules = Expand/@rules;
         If[ Variables[us/.rules] === {},
             Print["Finished with the us!"],
-            (*There is at least one u variable missing*)
-            system = Simplify /@ system;
-            (*in this association we may have something like u1->u1*)
-            uvalues = Select[AssociationThread[us, us /. rules], NumericQ];
-            Print[Select[uvalues, NumericQ]];
-            jsys = (Eqs["EqCriticalCase"] /. uvalues) && Eqs["EqPosJs"] && Eqs["EqCurrentCompCon"];
-            (*get more equations for us!!!*)
-            (*TODO continue (RE)development on Jamarat-9v.nb 
-            
-            The idea is to get the last value for u OR
-            
-            try to get the most values for j and then go back to u.
-            *)
-            
-            jrules = Select[AssociationThread[js,js/.rules], NumericQ];
-            
-            Print["Here is the system:\n", Simplify /@ system];
-            Print["Here is the possible alternative:\n",
-            	EliminateVarsSimplify[Eqs][{{Simplify/@system, rules}, us, {}}]
-            ];
-            
-            Print[getVar[system]];
-            (*We are not having good behaviour without getting the us.... we throw away some rules in the process.*)
-            Return[rules]
+            Print["(Maybe the) system is not feasible!\n
+            \tCheck the paper: The current method for stationary mean-field games on networks"];
+            Return[]
         ];
         If[ Variables[js/.rules] === {},
-            Print["Done!"],
+            Print["Done!"];
+            Return[AssociationThread[Join[us, js], Join[us, js] /. rules]]
+            ,
             Print["Finish with the js"];
             uvalues = AssociationThread[us, us /. rules];
             jsys = (Eqs["EqCriticalCase"] /. uvalues) && Eqs["EqPosJs"] && Eqs["EqCurrentCompCon"];
             (**Retrieve js values already defined*)
-            jrules = Select[AssociationThread[js,js/.rules], NumericQ];
-            {jsys, jrules} = CleanEqualities[{jsys,jrules}];
+            (*Keeping the order for the js Association*)
+            jrules = AssociationThread[js, js/.Select[AssociationThread[js, js/.rules], NumericQ]];
+            {jsys, jrules} = CleanEqualities[{jsys, jrules}];
             {{jsys, jrules}, aux, newjs} = EliminateVarsSimplify[Eqs][{{jsys, jrules}, js}];
             {jsys, jrules} = CleanEqualities[{jsys,jrules}];
             AssociateTo[uvalues, jrules];
@@ -351,12 +333,13 @@ CriticalCongestionSolverNewReduce[Eqs_Association] :=
         rvars = Variables[Join[us,js]/.rules];
         newus = Intersection[us,rvars];
         Print["EliminateVarsSimplify for the us"];
-        {{system, rules}, aux, newus} = EliminateVars[Eqs][{{system, rules}, newus, 1}];
+        {{system, rules}, aux, newus} = EliminateVars[Eqs][{{system, rules}, newus}];
         rules = Expand/@rules;
         If[ Variables[us/.rules] === {},
             Print["Finished with the us!"];
         If[ Variables[js/.rules] === {},
-            Print["Done!"],
+            Print["Done!"];
+            Return[AssociationThread[Join[us, js], Join[us, js] /. rules]],
             Print["Finish with the js"];
             uvalues = AssociationThread[us, us /. rules];
             jsys = (Eqs["EqCriticalCase"] /. uvalues) && Eqs["EqPosJs"] && Eqs["EqCurrentCompCon"];
@@ -379,10 +362,11 @@ EliminateVarsStep[Eqs_][{{system_, rules_}, {}, {}}] :=
 EliminateVarsStep[Eqs_][{{system_, rules_}, us_, persistus_}] :=
     Module[ {var, subsys, position , newsys = system, 
         newrules = Association @ rules, newus, 
-        newpersistus = persistus, groups
+        newpersistus = persistus(*, groups*)
         },
-        groups = GroupBy[List @@ system, Head[#] === Or &];
-        var = SelectFirst[us, ! FreeQ[And @@ Lookup[groups, True,True], #] &];
+        (*groups = GroupBy[List @@ system, Head[#] === Or &];
+        var = SelectFirst[us, ! FreeQ[And @@ Lookup[groups, True, True], #] &];*)
+        var = SelectFirst[us, ! FreeQ[system, #] &];
         If[ Head[var] === Missing,
             Return[{{newsys, newrules}, {}, persistus}]
         ];
@@ -419,31 +403,19 @@ EliminateVarsStep[Eqs_][{{system_, rules_}, us_, persistus_}] :=
     ]
     
 EliminateVarsSimplifyStep[Eqs_][{{system_, rules_}, us_, persistus_}] :=
-    Module[ {var, subsys, position , newsys = system, 
-        newrules = Association @ rules, newus, allus, groups
+    Module[ {subsys, newsys, 
+        newrules, newus, allus
         },
         allus = Values[Eqs["uvars"]];
-        groups = GroupBy[List @@ system, Head[#] === Or &];
-        var = SelectFirst[us, ! FreeQ[And @@ Lookup[groups, True,True], #] &];
-        If[ Head[var] === Missing,
-            Return[{{newsys, newrules}, {}, persistus}]
-        ];
-        position = First @ FirstPosition[us, var];
-        newus = Drop[us, position];
-        If[ newus == {},
-            subsys = (*And @@ Lookup[groups, False, True] &&*) Select[newsys, Function[x, !FreeQ[x, var]]],
-            Print["all us at the same time!"];
-            subsys = (*And @@ Lookup[groups, False, True] &&*) (*Select[newsys, Function[x, !(FreeQ[x, var] && FreeQ[x, First @ newus])]]*)
-            	Select[newsys, Function[x, !(FreeQ[x, #])]]&/@us;
-            subsys = And @@ subsys;
-        ];
-        Print[subsys];
-        (*Print["EliminateVarsSimplifyStep: Reducing ..."];*)
-        subsys = Reduce[subsys];
-        subsys = Reduce[subsys, Reals];
-        (*Print["EliminateVarsSimplifyStep: Clean equalities for system of ", var];*)
-        {subsys, newrules} = CleanEqualitiesOperator[Eqs][{subsys, newrules}];
-        newsys = newsys /. newrules;
+        newus = Drop[us, UpTo[1]];
+        subsys = Select[system, Function[x, !(FreeQ[x, #])]]&/@us;
+        subsys = Reduce[Reduce @ #, Reals]& /@ subsys;
+        (*Print[subsys];*)
+        subsys = And @@ subsys;
+        (*subsys = Reduce[Reduce @ subsys, Reals];*)
+        {subsys, newrules} = CleanEqualitiesOperator[Eqs][{subsys, rules}];
+        newsys = system /. newrules;
+        (*TODO what is the best way to update newus?*)
         {{newsys, newrules}, newus, Intersection[allus, getVar[newsys]]}
     ]
     
