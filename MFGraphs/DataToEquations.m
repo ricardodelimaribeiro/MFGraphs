@@ -18,7 +18,8 @@ D2E[Data_Association] :=
     SignedCurrents, Nrhs, Nlhs, MinimalTimeRhs, EqAllAll, EqCriticalCase, 
     EqMinimalTime, EqCcs, EqBalanceSplittingCurrents, AllIneq, InitRules, 
     RuleBalanceGatheringCurrents, RuleEntryIn, RuleExitValues, 
-    SC = Lookup[Data, "Switching Costs", {}], EqPosJs, TrueEq
+    SC = Lookup[Data, "Switching Costs", {}], EqPosJs, TrueEq,
+    EqBalanceGatheringCurrents
     },
     (*Checking consistency on the swithing costs*)
         If[ SC =!= {},
@@ -128,9 +129,9 @@ D2E[Data_Association] :=
         NoDeadEnds = IncomingEdges /@ VL // Flatten[#, 1] &;
         EqBalanceSplittingCurrents = And @@ ((jvars[#] == Total[jtvars /@ CurrentSplitting[#]]) & /@ NoDeadEnds);(*Equal*)
         NoDeadStarts = OutgoingEdges /@ VL // Flatten[#, 1] &;
-        (*EqBalanceGatheringCurrents = And @@ ((jvars[#] == Total[jtvars /@ CurrentGathering[#]]) & /@ NoDeadStarts);(*Equal*)*)
+        EqBalanceGatheringCurrents = And @@ ((jvars[#] == Total[jtvars /@ CurrentGathering[#]]) & /@ NoDeadStarts);(*Equal*)
         RuleBalanceGatheringCurrents = (jvars[#] -> Total[jtvars /@ CurrentGathering[#]]) & /@ NoDeadStarts;(*Rule*)
-        
+        Print[EqBalanceSplittingCurrents&&EqBalanceGatheringCurrents];
         (*First rules: these have some j in terms of jts*)
         InitRules = Association[RuleBalanceGatheringCurrents];
         
@@ -205,6 +206,7 @@ D2E[Data_Association] :=
         "AllIneq" -> AllIneq,
         "EqPosJs"->EqPosJs,
         "EqCurrentCompCon" -> EqCurrentCompCon,
+        "EqTransitionCompCon" -> EqTransitionCompCon,
         (*linear equations (and inequalities)*)
         "EqAllAll" -> EqAllAll,
         "BoundaryRules" -> InitRules,
@@ -214,7 +216,8 @@ D2E[Data_Association] :=
         "RuleEntryIn" -> RuleEntryIn,
         "Nlhs" -> Nlhs,
         "MinimalTimeRhs" -> MinimalTimeRhs,
-        "EqCriticalCase" -> EqCriticalCase ,
+        "EqCriticalCase" -> EqCriticalCase,
+        "EqSwitchingConditions" -> And @@ EqSwitchingByVertex,
         "Nrhs" -> Nrhs
         ]
         ]
@@ -243,7 +246,7 @@ D2E[Data_Association] :=
         (*"EntryDataAssociation" -> EntryDataAssociation,*) 
         (*"ExitCosts" -> ExitCosts,*) 
         (* 
-        "EqTransitionCompCon" -> EqTransitionCompCon, 
+         
         "EqCompCon" -> EqCompCon,*) 
         (*"EqPosCon" -> EqPosCon, 
         "EqBalanceSplittingCurrents" -> EqBalanceSplittingCurrents, 
