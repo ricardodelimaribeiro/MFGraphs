@@ -5,9 +5,6 @@
 CriticalCongestionSolver2::usage = 
 "CriticalCongestionSolver2[eq_Association] returns the critical congestion solution."
 
-CriticalCongestionSolverNewReduce::usage = 
-"CriticalCongestionSolverNewReduce[eq_Association] returns the critical congestion solution."
-
 CleanEqualitiesOperator::usage = 
 "CleanEqualitiesOperator[Eqs][{system,rules}] returns an equivalent pair of system and rules without \"loose\" equalities. 
 The equalities are solved and substituted into the system and added to rules."
@@ -25,31 +22,15 @@ NewReduce::usage =
 ZAnd::usage =
 "ZAnd[system, orsys] is a recursive function to reduce system&&orsys by checking the feasibility of the alternatives in orsys."
 
-EliminateVars::usage = 
-"EliminateVars[Eqs][{{system, rules}, us, persistus}]"
-
 EliminateVarsSimplify::usage = 
 ""
 
 Begin["`Private`"]
-EliminateVarsStep::usage = 
-""
-
 RemoveDuplicates::usage =
 "RemoveDuplicates[exp] Sort and DeleteDuplicates"
 
-CriticalCongestionStep::usage =
-""
-
 ReZAnd::usage =
 "ReZAnd[] "
-
-Solver::usage =
-"Solver[Eqs_Association][alpha] solves the network problem with the given alpha."
-
-FixedReduceX1::usage = 
-"FixedReduceX1[MFGEquations][rules] gives the solution for the system when the RHS of the nonlinear equations have rules substituted in them.
-	MFGEquations should have the Keys EqAllAll, BoundaryRules, Nlhs, Nrhs, TOL";(*TODO review the keys when critical solver is done...*)
 
 CleanAndReplace::usage =
 "CleanAndReplace[{system,rules}] returns True if the system is approximately (difference in each equation is less than 10^(-10) ) solved by rules.";
@@ -222,6 +203,9 @@ CleanEqualities[{system_List, rules_}] :=
         {systems, ruless}
     ]
 
+EqEliminator[{system_, rules_}] :=
+    EqEliminator[<||>][{system, rules}]
+
 EqEliminator[Eqs_][{system_, rules_List}] :=
     EqEliminator[Eqs][{system, Association[rules]}]
 
@@ -243,9 +227,6 @@ EqEliminator[Eqs_][{system_, rules_Association}] :=
         newrules = Join[rules, Association @ newrules];
         {ON /. newrules, Expand/@(newrules /. newrules)}
     ]
-
-EqEliminator[{system_, rules_}] :=
-    EqEliminator[<||>][{system, rules}]
 
 CriticalCongestionSolver2[Eqs_Association] :=
     Module[ {system, 
@@ -303,6 +284,118 @@ CriticalCongestionSolver2[Eqs_Association] :=
         ];
         uvalues
     ]
+
+EliminateVarsSimplifyStep[Eqs_][{{system_, rules_}, us_, persistus_}] :=
+    Module[ {subsys, newsys, 
+        newrules, newus, allus
+        },
+        allus = Values[Eqs["uvars"]];
+        newus = Drop[us, UpTo[1]];
+        subsys = Select[system, Function[x, !(FreeQ[x, #])]]&/@us;
+        subsys = Reduce[Reduce @ #, Reals]& /@ subsys;
+        Print[subsys];
+        subsys = And @@ subsys;
+        (*subsys = Reduce[Reduce @ subsys, Reals];*)
+        
+        {subsys, newrules} = CleanEqualitiesOperator[Eqs][{subsys, rules}];
+        Print[subsys];
+        newsys = system /. newrules;
+        (*TODO what is the best way to update newus?*)
+        {{newsys, newrules}, newus, Intersection[allus, getVar[newsys]]}
+    ]
+    
+EliminateVarsSimplifyStep[Eqs_][{{system_, rules_}, {}, {}}] :=
+    {{system, rules}, {}, {}}
+ 
+EliminateVarsSimplifyStep[Eqs_][{{True, rules_}, us_, persistus_}] :=
+    {{True, rules}, us, persistus}
+ 
+EliminateVarsSimplify[Eqs_][{{system_, rules_}, us_}] :=
+    EliminateVarsSimplify[Eqs][{{system /. rules, rules}, us, {}}]     
+
+EliminateVarsSimplify[Eqs_][{{system_, rules_}, us_, persistus_}] :=
+    FixedPoint[EliminateVarsSimplifyStep[Eqs], {{system /. rules, rules}, us, persistus}]     
+
+End[]
+(**********************************************************************)
+(*
+CriticalCongestionSolverNewReduce::usage = 
+"CriticalCongestionSolverNewReduce[eq_Association] returns the critical congestion solution."
+
+EliminateVars::usage = 
+"EliminateVars[Eqs][{{system, rules}, us, persistus}]"
+
+EliminateVarsStep::usage = 
+""
+
+CriticalCongestionStep::usage =
+""
+
+Solver::usage =
+"Solver[Eqs_Association][alpha] solves the network problem with the given alpha."
+
+FixedReduceX1::usage = 
+"FixedReduceX1[MFGEquations][rules] gives the solution for the system when the RHS of the nonlinear equations have rules substituted in them.
+	MFGEquations should have the Keys EqAllAll, BoundaryRules, Nlhs, Nrhs, TOL";(*TODO review the keys when critical solver is done...*)
+
+
+
+EliminateVarsStep[Eqs_][{{system_, rules_}, {}, {}}] :=
+    {{system, rules}, {}, {}}
+ 
+EliminateVarsStep[Eqs_][{{True, rules_}, us_, persistus_}] :=
+    {{True, rules}, us, persistus}
+ 
+EliminateVars[Eqs_][{{system_, rules_}, us_}] :=
+    EliminateVars[Eqs][{{system/.rules, rules}, us, {}}]
+ 
+EliminateVars[Eqs_][{{system_, rules_}, us_, persistus_}] :=
+    FixedPoint[EliminateVarsStep[Eqs], {{system /. rules, rules}, us, persistus}](*(Length[#1[[1,2]]] === Length[#2[[1,2]]]&)]*)
+
+(*Coloque o sistema original com as regras substituidas*)
+EliminateVarsStep[Eqs_][{{system_, rules_}, us_, persistus_}] :=
+    Module[ {var, subsys, position , newsys = system, 
+        newrules = Association @ rules, newus, 
+        newpersistus = persistus(*, groups*)
+        },
+        (*groups = GroupBy[List @@ system, Head[#] === Or &];
+        var = SelectFirst[us, ! FreeQ[And @@ Lookup[groups, True, True], #] &];*)
+        var = SelectFirst[us, ! FreeQ[system, #] &];
+        If[ Head[var] === Missing,
+            Return[{{newsys, newrules}, {}, persistus}]
+        ];
+        position = First @ FirstPosition[us, var];
+        newus = Drop[us, position];
+        If[ persistus === 1,
+            subsys = Select[newsys, Function[x, !(FreeQ[x, #])]]&/@Take[us, UpTo[1]];(*And @@ Lookup[groups, False, True] &&*) (*Select[newsys, Function[x, !(FreeQ[x, var] && FreeQ[x, First @ newus])]]*)
+            subsys = And @@ subsys,
+            subsys = (*And @@ Lookup[groups, False, True] &&*) Select[newsys, Function[x, !(FreeQ[x, #])]]&/@us;
+            (*Print[subsys];*)
+            subsys = And @@ subsys
+        ];
+        (*Print["EliminateVarsSimplifyStep: Reducing ..."];*)
+        (*Print[subsys];*)
+        (*Print[];
+        
+        Print[];
+        Print[Complement[presentvars, presentus]];*)
+        presentvars = getVar[subsys];
+        Print["present vars: ", presentvars];
+        presentus = Intersection[presentvars, us];
+        (*Print[subsys];
+        Print[Select[subsys, Function[exp, And@@(FreeQ[exp, #]&/@presentus)]]];*)
+        subsys = Reduce[Exists[Complement[presentvars, presentus], Simplify@Select[subsys, Head[#]=!= Or&] ,Select[subsys, Head[#]===Or&]], presentus];
+        (*Print[subsys];*)
+        (*subsys = BooleanConvert[subsys,"CNF"];
+        Print[subsys];
+        subsys = NewReduce[subsys];
+        *)(*Print["EliminateVarsSimplifyStep: Clean equalities for system of ", var];*)
+        {subsys, newrules} = CleanEqualitiesOperator[Eqs][{subsys, newrules}];
+        (*Print["last print in eliminatevarsstep: ", subsys];*)
+        newsys = newsys /. newrules;
+        {{newsys, newrules}, newus, newpersistus}
+    ]
+    
 CriticalCongestionSolverNewReduce[Eqs_Association] :=
     Module[ {system, 
     AllIneqs,
@@ -355,96 +448,10 @@ CriticalCongestionSolverNewReduce[Eqs_Association] :=
         uvalues
     ]
 
-EliminateVarsStep[Eqs_][{{system_, rules_}, {}, {}}] :=
-    {{system, rules}, {}, {}}
- 
-(*Coloque o sistema original com as regras substituidas*)
-EliminateVarsStep[Eqs_][{{system_, rules_}, us_, persistus_}] :=
-    Module[ {var, subsys, position , newsys = system, 
-        newrules = Association @ rules, newus, 
-        newpersistus = persistus(*, groups*)
-        },
-        (*groups = GroupBy[List @@ system, Head[#] === Or &];
-        var = SelectFirst[us, ! FreeQ[And @@ Lookup[groups, True, True], #] &];*)
-        var = SelectFirst[us, ! FreeQ[system, #] &];
-        If[ Head[var] === Missing,
-            Return[{{newsys, newrules}, {}, persistus}]
-        ];
-        position = First @ FirstPosition[us, var];
-        newus = Drop[us, position];
-        If[ persistus === 1,
-            subsys = Select[newsys, Function[x, !(FreeQ[x, #])]]&/@Take[us, UpTo[1]];(*And @@ Lookup[groups, False, True] &&*) (*Select[newsys, Function[x, !(FreeQ[x, var] && FreeQ[x, First @ newus])]]*)
-            subsys = And @@ subsys,
-            subsys = (*And @@ Lookup[groups, False, True] &&*) Select[newsys, Function[x, !(FreeQ[x, #])]]&/@us;
-            (*Print[subsys];*)
-            subsys = And @@ subsys
-        ];
-        (*Print["EliminateVarsSimplifyStep: Reducing ..."];*)
-        (*Print[subsys];*)
-        (*Print[];
-        
-        Print[];
-        Print[Complement[presentvars, presentus]];*)
-        presentvars = getVar[subsys];
-        Print["present vars: ", presentvars];
-        presentus = Intersection[presentvars, us];
-        (*Print[subsys];
-        Print[Select[subsys, Function[exp, And@@(FreeQ[exp, #]&/@presentus)]]];*)
-        subsys = Reduce[Exists[Complement[presentvars, presentus], Simplify@Select[subsys, Head[#]=!= Or&] ,Select[subsys, Head[#]===Or&]], presentus];
-        (*Print[subsys];*)
-        (*subsys = BooleanConvert[subsys,"CNF"];
-        Print[subsys];
-        subsys = NewReduce[subsys];
-        *)(*Print["EliminateVarsSimplifyStep: Clean equalities for system of ", var];*)
-        {subsys, newrules} = CleanEqualitiesOperator[Eqs][{subsys, newrules}];
-        (*Print["last print in eliminatevarsstep: ", subsys];*)
-        newsys = newsys /. newrules;
-        {{newsys, newrules}, newus, newpersistus}
-    ]
-    
-EliminateVarsSimplifyStep[Eqs_][{{system_, rules_}, us_, persistus_}] :=
-    Module[ {subsys, newsys, 
-        newrules, newus, allus
-        },
-        allus = Values[Eqs["uvars"]];
-        newus = Drop[us, UpTo[1]];
-        subsys = Select[system, Function[x, !(FreeQ[x, #])]]&/@us;
-        subsys = Reduce[Reduce @ #, Reals]& /@ subsys;
-        (*Print[subsys];*)
-        subsys = And @@ subsys;
-        (*subsys = Reduce[Reduce @ subsys, Reals];*)
-        {subsys, newrules} = CleanEqualitiesOperator[Eqs][{subsys, rules}];
-        newsys = system /. newrules;
-        (*TODO what is the best way to update newus?*)
-        {{newsys, newrules}, newus, Intersection[allus, getVar[newsys]]}
-    ]
-    
-EliminateVarsSimplifyStep[Eqs_][{{system_, rules_}, {}, {}}] :=
-    {{system, rules}, {}, {}}
- 
-EliminateVarsSimplifyStep[Eqs_][{{True, rules_}, us_, persistus_}] :=
-    {{True, rules}, us, persistus}
- 
-EliminateVarsSimplify[Eqs_][{{system_, rules_}, us_}] :=
-    EliminateVarsSimplify[Eqs][{{system /. rules, rules}, us, {}}]     
 
-EliminateVarsSimplify[Eqs_][{{system_, rules_}, us_, persistus_}] :=
-    FixedPoint[EliminateVarsSimplifyStep[Eqs], {{system /. rules, rules}, us, persistus}]     
 
-EliminateVarsStep[Eqs_][{{system_, rules_}, {}, {}}] :=
-    {{system, rules}, {}, {}}
- 
-EliminateVarsStep[Eqs_][{{True, rules_}, us_, persistus_}] :=
-    {{True, rules}, us, persistus}
- 
-EliminateVars[Eqs_][{{system_, rules_}, us_}] :=
-    EliminateVars[Eqs][{{system/.rules, rules}, us, {}}]
- 
-EliminateVars[Eqs_][{{system_, rules_}, us_, persistus_}] :=
-    FixedPoint[EliminateVarsStep[Eqs], {{system /. rules, rules}, us, persistus}](*(Length[#1[[1,2]]] === Length[#2[[1,2]]]&)]*)
-End[]
-(**********************************************************************)
-(*
+
+
 FixedReduceX1[Eqs_Association][rules_] :=
     Module[ {nonlinear, auxsys, auxsol, error, TOL = 10^-10},
         nonlinear = And @@ (MapThread[(Equal[#1,#2]) &, {Eqs["Nlhs"], RoundValues[Eqs["Nrhs"]/. rules]}]);
