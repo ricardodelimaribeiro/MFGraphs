@@ -19,7 +19,7 @@ D2E[Data_Association] :=
     EqMinimalTime, EqCcs, EqBalanceSplittingCurrents, AllIneq, InitRules, 
     RuleBalanceGatheringCurrents, RuleEntryIn, RuleExitValues, 
     SC = Lookup[Data, "Switching Costs", {}], EqPosJs, TrueEq,
-    EqBalanceGatheringCurrents
+    EqBalanceGatheringCurrents, costpluscurrents, EqNonCritical, RuleNonCritical
     },
     (*Checking consistency on the swithing costs*)
         If[ SC =!= {},
@@ -31,14 +31,15 @@ D2E[Data_Association] :=
                     (*And @@ (NonNegative[#-S] &) /@ bounds*)
                     And @@ (#>=S &) /@ bounds
                 ];
+            EqCcs = ConsistentSwithingCosts /@ SC;
             EqCcs = Simplify[ConsistentSwithingCosts /@ SC];
+            (*Print[EqCcs];*)
             If[ AnyTrue[EqCcs,#===False&],
                 Print["DataToEquations: Triangle inequalities for switching costs: ", EqCcs];
                 Print["DataToEquations: The switching costs are ",Style["incompatible", Red],". \nStopping!"];
                 Return[]
             ]
         ];
-        
         
         (*Begin Internal functions for DataToEquations: *)
         IncomingEdges::usage =
@@ -114,6 +115,8 @@ D2E[Data_Association] :=
         jtvars = AssociationThread[AllTransitions, jts];
         us = Table[Symbol["u" <> ToString[k]], {k, 1, Length @ uargs}];
         uvars = AssociationThread[uargs, us];
+        costpluscurrents = Table[Symbol["cpc" <> ToString[k]], {k, 1, Length @ BEL}];
+        (*costpluscurrentsvars = AssociationThread[BEL, costpluscurrents];*)
         SignedCurrents =   AssociationThread[BEL, (jvars[AtHead[#]] - jvars[AtTail[#]] &) /@ BEL];
         Print["Variables are all set"];
         
@@ -122,6 +125,7 @@ D2E[Data_Association] :=
         AssociationThread associates the last association!*)
         SwitchingCosts = AssociationThread[Join[AllTransitions, triple2path[Take[#, 3], FG] & /@ SC], 
             Join[0&/@ AllTransitions, Last[#] & /@ SC]];
+        (*Print[SwitchingCosts];*)
         EqPosJs = And @@ ( #>=0& /@ Join[jvars]);(*Inequality*)
         EqPosCon = And @@ ( #>=0& /@ Join[jvars, jtvars]);(*Inequality*)
         EqCurrentCompCon = And @@ (CurrentCompCon /@ EL);(*Or*)
@@ -146,33 +150,60 @@ D2E[Data_Association] :=
         (*Not necessary!! InitRules = InitRules/.RuleExitValues;*)
         AssociateTo[InitRules, RuleExitValues];
         
+        (*Print[Transu/@TransitionsAt[FG, #] & /@ FVL];*)
+        
         (*Infinite switching costs here prevent the network from sucking agents from the exits.*)
         OutRules = Rule[#, Infinity] & /@ (Outer[Flatten[{AtTail[#1], #2}] &, OutEdges, EL] // Flatten[#, 1] &);
         InRules = Rule[#, Infinity] & /@ (Outer[{#2[[2]], #1, #2} &, IncidenceList[FG, #] & /@ EntranceVertices, InEdges] // Flatten[#, 2] &);
         AssociateTo[SwitchingCosts, Association[OutRules]];
+        (*Print[SwitchingCosts];*)
         AssociateTo[SwitchingCosts, Association[InRules]];
+        (*Print[SwitchingCosts];*)
         
         Print["Assembled most elements of the system"];
         (*Switching condition equations*)
         EqSwitchingByVertex = Transu/@TransitionsAt[FG, #] & /@ VL;
-        EqSwitchingByVertex = BooleanConvert[Reduce[#, Reals], "CNF"] & /@ EqSwitchingByVertex;
+        
+        
+        (*Print[EqSwitchingByVertex];
+        Print[Transu/@TransitionsAt[FG, #] & /@ FVL];*)
+        
+        EqSwitchingByVertex = BooleanConvert[Reduce[Reduce@#, Reals], "CNF"] & /@ EqSwitchingByVertex;
         EqSwitchingByVertex = DeleteCases[EqSwitchingByVertex, True];
         Print["CleanEqualities for the switching conditions on each vertex"];
         {EqSwitchingConditions, InitRules} = CleanEqualities[{EqSwitchingByVertex, InitRules}];
+        
+        
         (*Print[EqSwitchingConditions];*)
+        
+        
         EqCompCon = And @@ Compu /@ AllTransitions;(*Or*)
+        
+        
+        (*Print[EqCompCon];*)
+        
+        
         (*EqCompCon = EqCompCon/.InitRules;*)
+        
+        
         Print["CleanEqualities for the complementary conditions (given the rules)"];
         {EqCompCon, InitRules} = CleanEqualities[{EqCompCon, InitRules}];
+        
+        (*Print[EqCompCon];*)
+        
+        
+        
         EqValueAuxiliaryEdges = And @@ ((uvars[AtHead[#]] == uvars[AtTail[#]]) & /@ EdgeList[AuxiliaryGraph]);(*Equal*)
         Print["CleanEqualities for the values at the auxiliary edges"];
-        {EqValueAuxiliaryEdges, InitRules} = CleanEqualities[{EqValueAuxiliaryEdges, InitRules}];
+        {TrueEq, InitRules} = CleanEqualities[{EqValueAuxiliaryEdges, InitRules}];
         MinimalTimeRhs = Flatten[-a[SignedCurrents[#], #] + SignedCurrents[#] & /@ BEL];
         Nlhs = Flatten[uvars[AtHead[#]] - uvars[AtTail[#]] + SignedCurrents[#] & /@ BEL];
         EqMinimalTime = And @@ (MapThread[(#1 == #2) &, {Nlhs, MinimalTimeRhs}]);
-        Nrhs =  Flatten[IntM[SignedCurrents[#], #] + SignedCurrents[#] & /@ BEL];
+        Nrhs =  Flatten[Cost[SignedCurrents[#], #] + SignedCurrents[#] & /@ BEL];(*one possible cost is IntM*)
         Print["CleanEqualities for the balance conditions in terms of (mostly) transition currents"];
         {TrueEq, InitRules} = CleanEqualities[{EqBalanceSplittingCurrents, InitRules}];
+        (*Print[InitRules];Print[EqCompCon/.InitRules];*)
+        
         AllOr = EqCurrentCompCon && EqTransitionCompCon && EqCompCon;
         AllOr = AllOr/.InitRules;
         (*Print["Simplifying positivity conditions..."];
@@ -186,12 +217,27 @@ D2E[Data_Association] :=
         AllIneq = EqPosCon && EqSwitchingConditions;
         EqAllAll = AllOr && AllIneq;
         EqCriticalCase = And @@ ((# == 0) & /@ Nlhs);(*Equal*)
-        (*Print[Solve[EqCriticalCase, js]];*)
+        (*Print[EqCriticalCase];
+        Print[EqCriticalCase/.AssociationThread[us, us/.InitRules]];*)
+        
+        (*EqNonCritical = And @@ (MapThread[(Equal[#1,#2]) &, {Nlhs, costpluscurrents}])*)
+        EqNonCritical = And @@ (MapThread[ Equal[#1,#2] &, {Nlhs, costpluscurrents}])/.AssociationThread[us, us/.InitRules];
+        RuleNonCritical = Solve[EqNonCritical,Reals]//Quiet;
+        Print["CleanEqualities for the (non) critical case equations"];
+        {TrueEq, RuleNonCritical} = CleanEqualities[{EqNonCritical, InitRules }];
+        (*Print[Expand/@RuleNonCritical];*)
+        EqCriticalCase = EqNonCritical /. AssociationThread[costpluscurrents, 0&/@costpluscurrents];
+        (*Print[EqCriticalCase];*)
+        RulesCriticalCase = Expand/@(RuleNonCritical /. AssociationThread[costpluscurrents, 0&/@costpluscurrents]);
+        
+        (*Print[Solve[EqCriticalCase, js]]; 
         (*RulesCriticalCaseJs = Association@First[Solve[EqCriticalCase/.RuleEntryIn, js]];*)
         Print["CleanEqualities for the critical case equations"];
         {TrueEq, RulesCriticalCase} = CleanEqualities[{EqCriticalCase, InitRules}];
+        
         Print["Expanding critical rules..."];
         RulesCriticalCase = Expand/@RulesCriticalCase;
+        Print[RulesCriticalCase];*)
         Join[Data,Association[
         (*Graph structure*)
         "BG" -> BG, 
@@ -202,6 +248,7 @@ D2E[Data_Association] :=
         "jvars" -> jvars, 
         "jtvars" -> jtvars, 
         "uvars" -> uvars,
+        "costpluscurrents" -> costpluscurrents,
         "jays" -> SignedCurrents, 
         (*equations*)
         (*complementarity*)
@@ -220,7 +267,12 @@ D2E[Data_Association] :=
         "Nlhs" -> Nlhs,
         "MinimalTimeRhs" -> MinimalTimeRhs,
         "EqCriticalCase" -> EqCriticalCase,
+        "EqNonCritical" ->EqNonCritical,
+        "RuleNonCritical" -> RuleNonCritical,
         "EqSwitchingConditions" -> And @@ EqSwitchingByVertex,
+		"EqValueAuxiliaryEdges" -> EqValueAuxiliaryEdges,
+        "EqBalanceSplittingCurrents" -> EqBalanceSplittingCurrents, 
+ 		"EqBalanceGatheringCurrents" -> EqBalanceGatheringCurrents,
         "Nrhs" -> Nrhs
         ]
         ]
@@ -252,8 +304,6 @@ D2E[Data_Association] :=
          
         "EqCompCon" -> EqCompCon,*) 
         (*"EqPosCon" -> EqPosCon, 
-        "EqBalanceSplittingCurrents" -> EqBalanceSplittingCurrents, 
- 
         "EqEntryIn" -> EqEntryIn, 
         "EqExitValues" -> EqExitValues, 
         
