@@ -165,7 +165,7 @@ NewReduce[x_LessEqual] :=
 
 NewReduce[x_Inequality] :=
     x
-
+(*TODO NewReduce:is there a problem here?*)
 NewReduce[system_And] :=
     Module[ {result,
         groups = GroupBy[List @@ system, Head[#] === Or||Head[#]===Equal&],
@@ -232,6 +232,32 @@ EqEliminator[Eqs_][{system_, rules_Association}] :=
         newrules = Join[rules, Association @ newrules];
         {ON /. newrules, Expand/@(newrules /. newrules)}
     ]
+    
+FixedReduce2[Eqs_Association][rules_] :=
+    Module[ {nonlinear, auxsys, auxsol, error, TOL = 10^-10},
+        (*maybe we don't need this now...*)
+        nonlinear = And @@ (MapThread[(Equal[#1,#2]) &, {Eqs["Nlhs"], RoundValues[Eqs["Nrhs"]/. rules]}]);
+        (*Lets use "RuleNonCritical" instead.*)
+        auxsol = Eqs["RuleNonCritical"]/.{cpc-> current values + cost values};
+        auxsol = First[Solve[nonlinear]//Quiet];
+        auxsys = (Eqs["EqAllAll"] && nonlinear) /. auxsol;
+        {auxsys, auxsol} = CleanEqualitiesOperator[Eqs][{auxsys, auxsol}];
+        auxsys = NewReduce[auxsys];
+        {auxsys, auxsol} = CleanEqualitiesOperator[Eqs][{auxsys, auxsol}];
+        auxsol = Simplify @ auxsol;
+        If[ auxsys === False,
+            (*precision issues...?but it could be the case that the "real" solution is repulsive/unstable.*)
+            Print["FRX1: The last system in the iteration was inconsistent.\nReturning the last feasible solution.\nConsider that the solution may be unstable."];
+            Return[rules],
+            Print["The error (1-Norm of LHS-RHS) is ", Norm[(Eqs["Nlhs"] - Eqs["Nrhs"]) /. auxsol, 1]];
+        ];
+        error = Norm[(Eqs["Nlhs"] - Eqs["Nrhs"]) /. auxsol, 1];
+        If[ error<TOL,
+            Print["The error is ", error//ScientificForm, " which is less than " , TOL//N//ScientificForm];
+            Throw[auxsol]
+        ];
+        auxsol
+    ]
 
 CriticalCongestionSolver2[Eqs_Association] :=
     Module[ {system, 
@@ -271,7 +297,7 @@ CriticalCongestionSolver2[Eqs_Association] :=
             Print["Not finished with the us!"];
             Print["EliminateVarsSimplify for the js"];
             {{system, rules}, aux, newjs} = EliminateVars(*Simplify*)[Eqs][{{system, rules}, js, {}}];
-            Print[getEqual[system]];
+            (*Print[getEqual[system]];*)
             Print["Reducing further (NewReduce)...\n"(*, system*)];
             system = NewReduce[system];
             (*Print[system];*)

@@ -19,7 +19,8 @@ D2E[Data_Association] :=
     EqMinimalTime, EqCcs, EqBalanceSplittingCurrents, AllIneq, InitRules, 
     RuleBalanceGatheringCurrents, RuleEntryIn, RuleExitValues, 
     SC = Lookup[Data, "Switching Costs", {}], EqPosJs, TrueEq,
-    EqBalanceGatheringCurrents, costpluscurrents, EqNonCritical, RuleNonCritical
+    EqBalanceGatheringCurrents, costpluscurrents, EqNonCritical, RuleNonCritical,
+    RuleNonCritical1, RulesCriticalCase1, EqNonCritical1
     },
     (*Checking consistency on the swithing costs*)
         If[ SC =!= {},
@@ -222,13 +223,15 @@ D2E[Data_Association] :=
         
         (*EqNonCritical = And @@ (MapThread[(Equal[#1,#2]) &, {Nlhs, costpluscurrents}])*)
         EqNonCritical = And @@ (MapThread[ Equal[#1,#2] &, {Nlhs, costpluscurrents}])/.AssociationThread[us, us/.InitRules];
-        RuleNonCritical = Solve[EqNonCritical,Reals]//Quiet;
+        RuleNonCritical1 = Solve[EqNonCritical,Reals]//Quiet;
+        
         Print["CleanEqualities for the (non) critical case equations"];
-        {TrueEq, RuleNonCritical} = CleanEqualities[{EqNonCritical, InitRules }];
+        {TrueEq, RuleNonCritical} = CleanEqualities[{EqNonCritical1, InitRules }];
         (*Print[Expand/@RuleNonCritical];*)
         EqCriticalCase = EqNonCritical /. AssociationThread[costpluscurrents, 0&/@costpluscurrents];
         (*Print[EqCriticalCase];*)
-        RulesCriticalCase = Expand/@(RuleNonCritical /. AssociationThread[costpluscurrents, 0&/@costpluscurrents]);
+        RulesCriticalCase1 = Expand /@ (RuleNonCritical1 /. AssociationThread[costpluscurrents, 0&/@costpluscurrents]);
+        RulesCriticalCase = Expand /@ (RuleNonCritical /. AssociationThread[costpluscurrents, 0&/@costpluscurrents]);
         
         (*Print[Solve[EqCriticalCase, js]]; 
         (*RulesCriticalCaseJs = Association@First[Solve[EqCriticalCase/.RuleEntryIn, js]];*)
@@ -262,13 +265,16 @@ D2E[Data_Association] :=
         "BoundaryRules" -> InitRules,
         "InitRules" -> InitRules,
         "RulesCriticalCase" -> RulesCriticalCase,
+        "RulesCriticalCase1" -> RulesCriticalCase1,
         (*"RulesCriticalCaseJs" -> RulesCriticalCaseJs,*)
         "RuleEntryIn" -> RuleEntryIn,
         "Nlhs" -> Nlhs,
         "MinimalTimeRhs" -> MinimalTimeRhs,
         "EqCriticalCase" -> EqCriticalCase,
         "EqNonCritical" ->EqNonCritical,
+        "EqNonCritical1" -> EqNonCritical1,
         "RuleNonCritical" -> RuleNonCritical,
+        "RuleNonCritical1" -> RuleNonCritical1,
         "EqSwitchingConditions" -> And @@ EqSwitchingByVertex,
 		"EqValueAuxiliaryEdges" -> EqValueAuxiliaryEdges,
         "EqBalanceSplittingCurrents" -> EqBalanceSplittingCurrents, 
@@ -277,6 +283,8 @@ D2E[Data_Association] :=
         ]
         ]
     ]
+    
+      
         (*"EntranceVertices" -> EntranceVertices,*) 
         (*"InwardVertices" -> InwardVertices, *)
         (*"ExitVertices" -> ExitVertices,*) 
