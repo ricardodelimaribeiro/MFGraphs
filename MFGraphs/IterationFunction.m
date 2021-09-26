@@ -165,7 +165,7 @@ NewReduce[x_LessEqual] :=
 
 NewReduce[x_Inequality] :=
     x
-(*TODO NewReduce:is there a problem here?*)
+(*TODO NewReduce: is there a problem here?*)
 NewReduce[system_And] :=
     Module[ {result,
         groups = GroupBy[List @@ system, Head[#] === Or||Head[#]===Equal&],
