@@ -30,6 +30,9 @@ EliminateVarsSimplify::usage =
 EliminateVars::usage = 
 "EliminateVars[Eqs_][{{system, rules}, us, persistus}] reduces the subsystems with us"
 
+FixedReduce2::usage =
+"FixedReduce2[Eqs_Association][rules_] is the step for the non-linear solver"
+
 Begin["`Private`"]
 RemoveDuplicates::usage =
 "RemoveDuplicates[exp] Sort and DeleteDuplicates"
@@ -165,6 +168,7 @@ NewReduce[x_LessEqual] :=
 
 NewReduce[x_Inequality] :=
     x
+    
 (*TODO NewReduce: is there a problem here?*)
 NewReduce[system_And] :=
     Module[ {result,
@@ -238,7 +242,20 @@ FixedReduce2[Eqs_Association][rules_] :=
         (*maybe we don't need this now...*)
         nonlinear = And @@ (MapThread[(Equal[#1,#2]) &, {Eqs["Nlhs"], RoundValues[Eqs["Nrhs"]/. rules]}]);
         (*Lets use "RuleNonCritical" instead.*)
-        auxsol = Eqs["RuleNonCritical"]/.{cpc-> current values + cost values};
+        
+        Cost[current_, edge_]:= 0;
+        
+        
+        
+        auxsol = Eqs["RuleNonCritical"]/.Eqs["costpluscurrents"];
+        Print[auxsol];
+        
+        
+        
+        
+        
+        
+        
         auxsol = First[Solve[nonlinear]//Quiet];
         auxsys = (Eqs["EqAllAll"] && nonlinear) /. auxsol;
         {auxsys, auxsol} = CleanEqualitiesOperator[Eqs][{auxsys, auxsol}];
@@ -265,6 +282,7 @@ CriticalCongestionSolver2[Eqs_Association] :=
     AllOrs,
     rules,
     js = Values @ Lookup[Eqs, "jvars"],
+    (*jts = Values @ Lookup[Eqs, "jtvars"],*)
     aux,
     rvars,
     uvalues,
@@ -287,20 +305,30 @@ CriticalCongestionSolver2[Eqs_Association] :=
         (*try to simplify bit by bit:*)
         system = AllIneqs&&AllOrs;
         rvars = Variables[Join[us,js]/.rules];
-        newus = Intersection[us,rvars];
+        (*newus = Intersection[us,rvars];*)
         (*Print[newus];*)
         Print["EliminateVarsSimplify for the us"];
-        {{system, rules}, aux, newus} = EliminateVarsSimplify[Eqs][{{system, rules}, newus, {}}];
+        {{system, rules}, aux, newus} = EliminateVarsSimplify[Eqs][{{system, rules}, (*new*)us, {}}];
         rules = Expand/@rules;
         If[ Variables[us/.rules] === {},
             Print["Finished with the us!"],
             Print["Not finished with the us!"];
-            Print["EliminateVarsSimplify for the js"];
-            {{system, rules}, aux, newjs} = EliminateVars(*Simplify*)[Eqs][{{system, rules}, js, {}}];
-            (*Print[getEqual[system]];*)
+            Print["system\n", system];
+            (*Print["rules\n", rules];*)
+            {{system, rules}, aux, newus} = EliminateVars[Eqs][{{system, rules}, (*new*)us, {}}];
+            (*Print[Variables[us/.rules]];*)
+            Print["system\n", system];
+            (*Print["rules\n", rules];*)
+            
+            (*
+            Print["EliminateVarsSimplify for some stuff"];
+            {{system, rules}, aux, newjs} = EliminateVarsSimplify[Eqs][{{system, rules}, Complement[Variables[js/.rules],Variables[us/.rules]], {}}];
+            *)
+            
+            (*Print[Variables[js/.rules]];*)
             Print["Reducing further (NewReduce)...\n"(*, system*)];
             system = NewReduce[system];
-            (*Print[system];*)
+            Print[system];
             Print["Simplifying..."];
             system = Simplify @ system;
             (*Print[system];*)
@@ -339,8 +367,8 @@ EliminateVarsSimplifyStep[Eqs_][{{system_, rules_}, us_, persistus_}] :=
         newus = Drop[us, UpTo[1]];
         subsys = Select[system, Function[x, !(FreeQ[x, #])]]&/@us;
         (*Print[subsys];*)
-        subsys = Reduce[Reduce @ #, Reals]& /@ subsys;
-        (*Print[subsys];*)
+        subsys = BooleanConvert[Reduce[Reduce @ #, Reals],"CNF"]& /@ subsys;
+        Print[subsys];
         subsys = And @@ subsys;
         (*subsys = Reduce[Reduce @ subsys, Reals];*)
         
@@ -441,13 +469,20 @@ EliminateVarsStep[Eqs_][{{system_, rules_}, us_, persistus_}] :=
         (*othersubsys = Select[system, Function[exp, Free[exp,#]&/@us]];
         Print[othersubsys];*)
         (*Print[subsys];*)
-        subsys = NewReduce /@ subsys;
+        
+        (*subsys = NewReduce /@ subsys;
+        subsys = And @@ subsys;*)
+        
+        
+        subsys = And@@subsys;
+        subsys = BooleanConvert[Reduce[ Reduce@#, Reals]]&[subsys];
+        
         (*Print[subsys];*)
-        subsys = And @@ subsys;
+        
         (*subsys = Reduce[Reduce @ subsys, Reals];*)
         {subsys, newrules} = CleanEqualitiesOperator[Eqs][{subsys, rules}];
         (*Print[subsys];*)
-        newsys = system /. newrules;
+        newsys = (BooleanConvert[system && subsys,"CNF"]) /. newrules;
         (*TODO what is the best way to update newus?*)
         {{newsys, newrules}, us, Intersection[us, getVar[newsys]]}        
     ]
