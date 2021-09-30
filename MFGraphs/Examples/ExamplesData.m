@@ -310,7 +310,7 @@ test = Association[
         (*FinalCosts=*){{7, U1}/.U1->0},
         (*SwitchingCostsData=*){{1,2,4,S1},{4,6,7,S2}}/.{S1->10,S2->10}},
         
-        "New Braess" -> {(*TODO maybe we can delete the other versions of the braess paradox...*)
+        "New Braess" -> {
         (*VL=*){1,2,3,4,5,6},
         (*AM=*){
         {0,1,0,1,0,0},
