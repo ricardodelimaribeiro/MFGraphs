@@ -237,32 +237,108 @@ EqEliminator[Eqs_][{system_, rules_Association}] :=
         {ON /. newrules, Expand/@(newrules /. newrules)}
     ]
     
-FixedReduce2[Eqs_Association][rules_] :=
-    Module[ {nonlinear, auxsys, auxsol, error, TOL = 10^-10},
-        (*maybe we don't need this now...*)
-        nonlinear = And @@ (MapThread[(Equal[#1,#2]) &, {Eqs["Nlhs"], RoundValues[Eqs["Nrhs"]/. rules]}]);
+    
+FixedReduce2[Eqs_Association][<||>] := 
+	CriticalCongestionSolver2[Eqs]   
+
+FixedReduce2[Eqs_Association][approxrules_Association] :=
+Module[ {nonlinear, auxsys, auxsol, error, TOL = 10^-10, system, 
+    AllIneqs,
+    AllOrs,
+    rules,
+    js = Values @ Lookup[Eqs, "jvars"],
+    (*jts = Values @ Lookup[Eqs, "jtvars"],*)
+    aux,
+    rvars,
+    uvalues,
+    jsys,
+    jrules,
+    us = Values[Eqs["uvars"]],
+    newus,
+    newjs
+    },
+    
+    (*Print["FR2: ", rules];*)
+		(*maybe we don't need this now...*)
+        nonlinear = And @@ (MapThread[(Equal[#1,#2]) &, {Eqs["Nlhs"], RoundValues[Eqs["Nrhs"]/. approxrules]}]);
         (*Lets use "RuleNonCritical" instead.*)
-        
-        Cost[current_, edge_]:= 0;
-        
-        
-        
-        auxsol = Eqs["RuleNonCritical"]/.Eqs["costpluscurrents"];
-        Print[auxsol];
-        
-        
+    
+(*        Print[Eqs["Nrhs"]];
+        Print["nonlinear ewqs\n",nonlinear];
+        Print["replacement rules: \n", Eqs["costpluscurrents"]/.approxrules];*)
+		AllIneqs = Lookup[Eqs, "AllIneq", Print["No inequalities to solve."]; Return["a"]];
+        AllOrs = Lookup[Eqs, "AllOr", Print["No alternatives to solve. \n",AllOrs]; Return["b"]];
+        rules = Expand /@ Eqs["RuleNonCritical"]/.RoundValues[Eqs["costpluscurrents"]/.approxrules];
         
         
-        
-        
-        
-        auxsol = First[Solve[nonlinear]//Quiet];
-        auxsys = (Eqs["EqAllAll"] && nonlinear) /. auxsol;
-        {auxsys, auxsol} = CleanEqualitiesOperator[Eqs][{auxsys, auxsol}];
-        auxsys = NewReduce[auxsys];
-        {auxsys, auxsol} = CleanEqualitiesOperator[Eqs][{auxsys, auxsol}];
-        auxsol = Simplify @ auxsol;
-        If[ auxsys === False,
+
+
+
+
+ 
+
+        (*Replace critical congestion rules!*)
+        AllOrs = AllOrs /. rules;
+        AllIneqs = AllIneqs /. rules;
+        (*try to simplify bit by bit:*)
+        system = AllIneqs&&AllOrs;
+        rvars = Variables[Join[us,js]/.rules];
+        (*newus = Intersection[us,rvars];*)
+        (*Print[newus];*)
+        Print["EliminateVarsSimplify for the us"];
+        {{system, rules}, aux, newus} = EliminateVarsSimplify[Eqs][{{system, rules}, (*new*)us, {}}];
+        rules = Expand/@rules;
+        If[ Variables[us/.rules] === {},
+            Print["Finished with the us!"],
+            Print["Not finished with the us!"];
+            Print["system\n", system];
+            (*Print["rules\n", rules];*)
+            {{system, rules}, aux, newus} = EliminateVars[Eqs][{{system, rules}, (*new*)us, {}}];
+            (*Print[Variables[us/.rules]];*)
+            Print["system\n", system];
+            (*Print["rules\n", rules];*)
+            
+            (*
+            Print["EliminateVarsSimplify for some stuff"];
+            {{system, rules}, aux, newjs} = EliminateVarsSimplify[Eqs][{{system, rules}, Complement[Variables[js/.rules],Variables[us/.rules]], {}}];
+            *)
+            
+            (*Print[Variables[js/.rules]];*)
+            Print["Reducing further (NewReduce)...\n"(*, system*)];
+            system = NewReduce[system];
+            Print[system];
+            Print["Simplifying..."];
+            system = Simplify @ system;
+            (*Print[system];*)
+            {system, rules} = CleanEqualities[{system, rules}];
+            uvalues = AssociationThread[us, us /. rules];
+            jrules = AssociationThread[js, js /. rules];
+            AssociateTo[uvalues, jrules];
+            If[ Variables[us/.uvalues] =!= {},
+            	Print["(Maybe the) system is not feasible!\n
+            \tCheck the paper: The current method for stationary mean-field games on networks"]
+            ];
+        ];
+        If[ Variables[js/.rules] === {},
+            Print["Done!"];
+            Return[AssociationThread[Join[us, js], Join[us, js] /. rules]]
+            ,
+            Print["Finish with the js"];
+            uvalues = AssociationThread[us, us /. rules];
+            jsys = (Eqs["EqCriticalCase"] /. uvalues) && Eqs["EqPosJs"] && Eqs["EqCurrentCompCon"];
+            (**Retrieve js values already defined*)
+            (*Keeping the order for the js Association*)
+            jrules = AssociationThread[js, js/.Select[AssociationThread[js, js/.rules], NumericQ]];
+            {jsys, jrules} = CleanEqualities[{jsys, jrules}];
+            {{jsys, jrules}, aux, newjs} = EliminateVarsSimplify[Eqs][{{jsys, jrules}, js}];
+            {jsys, jrules} = CleanEqualities[{jsys,jrules}];
+            AssociateTo[uvalues, jrules];
+        ];
+        uvalues
+    ]
+ (*    Pause[30];   	
+
+       If[ auxsys === False,
             (*precision issues...?but it could be the case that the "real" solution is repulsive/unstable.*)
             Print["FRX1: The last system in the iteration was inconsistent.\nReturning the last feasible solution.\nConsider that the solution may be unstable."];
             Return[rules],
@@ -273,9 +349,11 @@ FixedReduce2[Eqs_Association][rules_] :=
             Print["The error is ", error//ScientificForm, " which is less than " , TOL//N//ScientificForm];
             Throw[auxsol]
         ];
-        auxsol
-    ]
-
+        (*auxsol*)
+ *)
+ 
+ 
+ 
 CriticalCongestionSolver2[Eqs_Association] :=
     Module[ {system, 
     AllIneqs,
