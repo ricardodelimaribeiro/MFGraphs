@@ -50,6 +50,9 @@ M::usage =
 U::usage = 
 "U[x, edge, MFGEquations] is the value function at the edge."
 
+Cost::usage =
+"Cost[j, edge] is defined here"
+
 IntM::usage = 
 "IntM[j, edge] Intg without the Parameters association";
 
@@ -402,6 +405,8 @@ U[x_?NumericQ , edge_, Eqs_Association] :=
         Eqs["uvars"][AtTail[edge]],
         Eqs["uvars"][AtTail[edge]] - Eqs["jays"][edge] NIntegrate[M[Eqs["jays"][edge], y, edge]^(alpha - 1), {y, 0, x}]
     ]
+     
+Cost[current_, edge_] :=  IntM[current,edge];
         
 IntM[j_?NumericQ, edge_] :=
     If[ j == 0.|| j == 0,
