@@ -241,6 +241,9 @@ EqEliminator[Eqs_][{system_, rules_Association}] :=
 FixedReduce2[Eqs_Association][<||>] := 
 	CriticalCongestionSolver2[Eqs]   
 
+FixedReduce2[Eqs_Association][{}] := 
+	CriticalCongestionSolver2[Eqs]   
+
 FixedReduce2[Eqs_Association][approxrules_Association] :=
 Module[ {nonlinear, auxsys, auxsol, error, TOL = 10^-10, system, 
     AllIneqs,
@@ -260,7 +263,7 @@ Module[ {nonlinear, auxsys, auxsol, error, TOL = 10^-10, system,
     
     (*Print["FR2: ", rules];*)
 		(*maybe we don't need this now...*)
-        nonlinear = And @@ (MapThread[(Equal[#1,#2]) &, {Eqs["Nlhs"], RoundValues[Eqs["Nrhs"]/. approxrules]}]);
+        (*nonlinear = And @@ (MapThread[(Equal[#1,#2]) &, {Eqs["Nlhs"], RoundValues[Eqs["Nrhs"]/. approxrules]}]);*)
         (*Lets use "RuleNonCritical" instead.*)
     
 (*        Print[Eqs["Nrhs"]];
@@ -291,11 +294,11 @@ Module[ {nonlinear, auxsys, auxsol, error, TOL = 10^-10, system,
         If[ Variables[us/.rules] === {},
             Print["Finished with the us!"],
             Print["Not finished with the us!"];
-            Print["system\n", system];
+            (*Print["system\n", system];*)
             (*Print["rules\n", rules];*)
             {{system, rules}, aux, newus} = EliminateVars[Eqs][{{system, rules}, (*new*)us, {}}];
             (*Print[Variables[us/.rules]];*)
-            Print["system\n", system];
+            (*Print["system\n", system];*)
             (*Print["rules\n", rules];*)
             
             (*
@@ -306,7 +309,7 @@ Module[ {nonlinear, auxsys, auxsol, error, TOL = 10^-10, system,
             (*Print[Variables[js/.rules]];*)
             Print["Reducing further (NewReduce)...\n"(*, system*)];
             system = NewReduce[system];
-            Print[system];
+            (*Print[system];*)
             Print["Simplifying..."];
             system = Simplify @ system;
             (*Print[system];*)
@@ -391,11 +394,11 @@ CriticalCongestionSolver2[Eqs_Association] :=
         If[ Variables[us/.rules] === {},
             Print["Finished with the us!"],
             Print["Not finished with the us!"];
-            Print["system\n", system];
+            (*Print["system\n", system];*)
             (*Print["rules\n", rules];*)
             {{system, rules}, aux, newus} = EliminateVars[Eqs][{{system, rules}, (*new*)us, {}}];
             (*Print[Variables[us/.rules]];*)
-            Print["system\n", system];
+            (*Print["system\n", system];*)
             (*Print["rules\n", rules];*)
             
             (*
@@ -406,7 +409,7 @@ CriticalCongestionSolver2[Eqs_Association] :=
             (*Print[Variables[js/.rules]];*)
             Print["Reducing further (NewReduce)...\n"(*, system*)];
             system = NewReduce[system];
-            Print[system];
+            (*Print[system];*)
             Print["Simplifying..."];
             system = Simplify @ system;
             (*Print[system];*)
@@ -446,7 +449,7 @@ EliminateVarsSimplifyStep[Eqs_][{{system_, rules_}, us_, persistus_}] :=
         subsys = Select[system, Function[x, !(FreeQ[x, #])]]&/@us;
         (*Print[subsys];*)
         subsys = BooleanConvert[Reduce[Reduce @ #, Reals],"CNF"]& /@ subsys;
-        Print[subsys];
+        (*Print[subsys];*)
         subsys = And @@ subsys;
         (*subsys = Reduce[Reduce @ subsys, Reals];*)
         
