@@ -307,7 +307,7 @@ Module[ {nonlinear, auxsys, auxsol, error, TOL = 10^-10, system,
             *)
             
             (*Print[Variables[js/.rules]];*)
-            Print["Reducing further (NewReduce)...\n"(*, system*)];
+            Print["Reducing further (NewReduce)..."(*, system*)];
             system = NewReduce[system];
             (*Print[system];*)
             Print["Simplifying..."];
@@ -323,7 +323,7 @@ Module[ {nonlinear, auxsys, auxsol, error, TOL = 10^-10, system,
             ];
         ];
         If[ Variables[js/.rules] === {},
-            Print["Done!"];
+            Print["Done!\n"];
             Return[AssociationThread[Join[us, js], Join[us, js] /. rules]]
             ,
             Print["Finish with the js"];
@@ -407,7 +407,7 @@ CriticalCongestionSolver2[Eqs_Association] :=
             *)
             
             (*Print[Variables[js/.rules]];*)
-            Print["Reducing further (NewReduce)...\n"(*, system*)];
+            Print["Reducing further (NewReduce)..."(*, system*)];
             system = NewReduce[system];
             (*Print[system];*)
             Print["Simplifying..."];
@@ -423,7 +423,7 @@ CriticalCongestionSolver2[Eqs_Association] :=
             ];
         ];
         If[ Variables[js/.rules] === {},
-            Print["Done!"];
+            Print["Done!\n"];
             Return[AssociationThread[Join[us, js], Join[us, js] /. rules]]
             ,
             Print["Finish with the js"];
