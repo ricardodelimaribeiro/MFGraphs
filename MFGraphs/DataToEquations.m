@@ -179,7 +179,7 @@ D2E[Data_Association] :=
         MinimalTimeRhs = Flatten[-a[SignedCurrents[#], #] + SignedCurrents[#] & /@ BEL];
         Nlhs = Flatten[uvars[AtHead[#]] - uvars[AtTail[#]] + SignedCurrents[#] & /@ BEL];
         EqMinimalTime = And @@ (MapThread[(#1 == #2) &, {Nlhs, MinimalTimeRhs}]);
-        Nrhs =  Flatten[Cost[SignedCurrents[#], #] + SignedCurrents[#] & /@ BEL];(*one possible cost is IntM*)
+        Nrhs =  Flatten[-Cost[SignedCurrents[#], #] + SignedCurrents[#] & /@ BEL];(*one possible cost is IntM*)
         Print["CleanEqualities for the balance conditions in terms of (mostly) transition currents"];
         {TrueEq, InitRules} = CleanEqualities[{EqBalanceSplittingCurrents, InitRules}];
         
@@ -192,7 +192,7 @@ D2E[Data_Association] :=
         EqCriticalCase = And @@ ((# == 0) & /@ Nlhs);(*Equal*)
         
         EqNonCritical = And @@ (MapThread[ Equal[#1,#2] &, {Nlhs, costpluscurrents}])/.AssociationThread[us, us/.InitRules];
-        RuleNonCritical1 = Solve[EqNonCritical,Reals]//Quiet;
+        RuleNonCritical1 = Solve[EqNonCritical, Reals]//Quiet;
         
         (*The operations below are commutative!
         Print[RuleNonCritical1/. AssociationThread[costpluscurrents, 0&/@costpluscurrents]];
