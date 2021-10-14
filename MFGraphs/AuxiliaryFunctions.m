@@ -92,32 +92,72 @@ getEqual::usage =
 getNo::usage =
 ""
 
-getEqual[system_And] := 
-	Select[system, Head[#] === Equal &]
+getEqual[system_And] :=
+    Select[system, Head[#] === Equal &]
 
-getEqual[system_Equal] := system
+getEqual[system_Equal] :=
+    system
 
-getEqual[system_] := True
+getEqual[system_] :=
+    True
 
 
 
 getNo[vars1_List, vars2_List] :=
-	getNo[Join[vars1, vars2]]
+    getNo[Join[vars1, vars2]]
 
-getNo[vars_List] := 
-	Select[#, Function[exp, And @@ (FreeQ[#][exp] & /@ vars)]] &;
+getNo[vars_List] :=
+    Select[#, Function[exp, And @@ (FreeQ[#][exp] & /@ vars)]] &;
 
 getVar::usage = "getVar[exp] returns the variables in exp"
+
+
+        (*Begin Internal functions for DataToEquations: *)
+        IncomingEdges::usage =
+            "IncomingEdges[FG][k] all edges \"oriented\" towards the vertex k in the graph FG";
+        
+        OutgoingEdges::usage =
+            "OutgoingEdges[FG][k] all edges \"oriented\" away from the vertex k in the graph FG";
+        
+        CurrentCompCon::usage =
+            "CurrentCompCon[jvars][DirectedEdge[a,b]] returns the system of alternatives for the jvars currents";
+        
+        CurrentSplitting::usage = 
+            "CurrentSplitting[AllTransitions][{c,DirectedEdge[a,b]] returns the equations for splitting currents";
+        
+        CurrentGathering::usage = 
+            "CurrentGathering[AllTransitions][{c,DirectedEdge[a,b]] returns the equations for gathering currents";
+        
+        TransitionCompCon::usage =
+            "TransitionCompCon[jtvars][{v,edge1,edge2}] returns the complementary conditions for the transition currents";
+        
+        ExitRules::usage =
+            "ExitRules[uvars,ExitCosts] returns the rule for the value of u at the end of the auxiliary (exit) edges";
+        
+        Transu::usage =
+            "Transu[uvars, SwitchingCosts][{v, edge1, edge2}] returns the inequalities satisfied by costs at vertices
+        (*Transu: u1<= u2+S(1,2) for agents going from edge 1 to 2 at some vertex*)
+        ";
+        
+        Compu::usage =
+            "Compu[jtvars,uvars,SwitchingCosts][{v_, edge1_, edge2_}] returns the complementary conditions for values and transition currents";
+        
+        (*End*)
+        
 
 Begin["`Private`"]
 (*getVar[a_<=b_<=c_]:= Variables /@ {a, b, c} // Flatten*)
 getVar[True] = {}
-getVar[xp_And] := getVar /@ List @@ xp // Flatten // DeleteDuplicates
-getVar[GreaterEqual[xp1_, xp2_]] := 
- Variables /@ {xp1, xp2} // Flatten
-getVar[Equal[xp1_, xp2_]] := Variables /@ {xp1, xp2} // Flatten
-getVar[LessEqual[xp1_, xp2_, xp3___]] := Variables /@ {xp1, xp2, xp3} // Flatten
-getVar[xp_Or] := getVar /@ List @@ xp // Flatten
+getVar[xp_And] :=
+    getVar /@ List @@ xp // Flatten // DeleteDuplicates
+getVar[GreaterEqual[xp1_, xp2_]] :=
+    Variables /@ {xp1, xp2} // Flatten
+getVar[Equal[xp1_, xp2_]] :=
+    Variables /@ {xp1, xp2} // Flatten
+getVar[LessEqual[xp1_, xp2_, xp3___]] :=
+    Variables /@ {xp1, xp2, xp3} // Flatten
+getVar[xp_Or] :=
+    getVar /@ List @@ xp // Flatten
 
 SetValuesStep[Eqs_][{system_, rules_}] :=
     Module[ {subsystem, newrules, rulesAss = Association @ rules},
@@ -137,7 +177,7 @@ SetUValuesStep[Eqs_][{system_, rules_}] :=
             {system,rules},
             subsystem = getNo[Values@Eqs["jtvars"], Values@Eqs["jvars"]][subsystem];
             newrules = First @ Solve[subsystem]//Quiet;
-            {Simplify/@ (system/. newrules), AssociateTo[ rulesAss, newrules]/. newrules} 
+            {Simplify/@ (system/. newrules), AssociateTo[ rulesAss, newrules]/. newrules}
         ]
     ]
 
@@ -148,8 +188,8 @@ SetJtValuesStep[Eqs_][{system_, rules_}] :=
             {system,rules},
             subsystem = getNo[Values@Eqs["uvars"], Values@Eqs["jvars"]][subsystem];
             newrules = First @ Solve[subsystem]//Quiet;
-            {Simplify/@ (system/. newrules), AssociateTo[ rulesAss, newrules]/. newrules} 
-            (*{system, AssociateTo[ rulesAss, newrules]} /. newrules*)
+            {Simplify/@ (system/. newrules), AssociateTo[ rulesAss, newrules]/. newrules}
+        (*{system, AssociateTo[ rulesAss, newrules]} /. newrules*)
         ]
     ]
 
@@ -157,11 +197,11 @@ SetJUValuesStep[Eqs_][{system_, rules_}] :=
     Module[ {subsystem, newrules, rulesAss = Association @ rules},
         subsystem = getEqual[system];
         If[ subsystem === True,
-            {system,rules}, 
-        	subsystem = getNo[Values@Eqs["jtvars"]][subsystem];
-        	newrules = First @ Solve[subsystem]//Quiet;
-        	{Simplify/@ (system/. newrules), AssociateTo[ rulesAss, newrules]/. newrules} 
-        	(*{system, AssociateTo[ rulesAss, newrules]} /. newrules*)
+            {system,rules},
+            subsystem = getNo[Values@Eqs["jtvars"]][subsystem];
+            newrules = First @ Solve[subsystem]//Quiet;
+            {Simplify/@ (system/. newrules), AssociateTo[ rulesAss, newrules]/. newrules}
+        (*{system, AssociateTo[ rulesAss, newrules]} /. newrules*)
         ]
     ]
 
@@ -169,11 +209,11 @@ SetJtUValuesStep[Eqs_][{system_, rules_}] :=
     Module[ {subsystem, newrules, rulesAss = Association @ rules},
         subsystem = getEqual[system];
         If[ subsystem === True,
-            {system,rules}, 
-        	subsystem = getNo[Values@Eqs["jvars"]][subsystem];
-        	newrules = First @ Solve[subsystem]//Quiet;
-        	{Simplify/@ (system/. newrules), AssociateTo[ rulesAss, newrules]/. newrules} 
-        	(*{system, AssociateTo[ rulesAss, newrules]} /. newrules*)
+            {system,rules},
+            subsystem = getNo[Values@Eqs["jvars"]][subsystem];
+            newrules = First @ Solve[subsystem]//Quiet;
+            {Simplify/@ (system/. newrules), AssociateTo[ rulesAss, newrules]/. newrules}
+        (*{system, AssociateTo[ rulesAss, newrules]} /. newrules*)
         ]
     ]
 
@@ -249,16 +289,16 @@ JOrder[d2e_] :=
 
 eStyle[colors_][pts_, DirectedEdge[x_, y_]] :=
     Line[pts, VertexColors -> {colors[[x]], colors[[y]]}]
-    	(*{colors[[y]], Arrow@ Line[pts, VertexColors -> {colors[[x]], colors[[y]]}]}*)
-    	
-eStyle[colors_][pts_, UndirectedEdge[x_, y_]] := 
- Line[pts, VertexColors -> {colors[[x]], colors[[y]]}] 
+        (*{colors[[y]], Arrow@ Line[pts, VertexColors -> {colors[[x]], colors[[y]]}]}*)
+        
+eStyle[colors_][pts_, UndirectedEdge[x_, y_]] :=
+    Line[pts, VertexColors -> {colors[[x]], colors[[y]]}] 
  
 ColorNetworkByValueFunctionOperator[d2e1_Association][rules_] :=
     Module[ {values, colors, vl, bg, uvars},
         bg = Lookup[d2e1,"BG", Print["There is no basic graph"];
                                Return[]];
-        (*bg = Graph[bg, DirectedEdges -> False];*)                       
+        (*bg = Graph[bg, DirectedEdges -> False];*)
         vl = VertexList[bg];
         uvars = Lookup[d2e1, "uvars", Print["There are no u variables"];
                                       Return[]];
@@ -406,7 +446,8 @@ U[x_?NumericQ , edge_, Eqs_Association] :=
         Eqs["uvars"][AtTail[edge]] - Eqs["jays"][edge] NIntegrate[M[Eqs["jays"][edge], y, edge]^(alpha - 1), {y, 0, x}]
     ]
      
-Cost[current_, edge_] :=  IntM[current,edge];
+Cost[current_, edge_] :=
+    IntM[current,edge];
 
 
 (*TODO check the sign here*)        
@@ -416,4 +457,30 @@ IntM[j_?NumericQ, edge_] :=
         j NIntegrate[ M[j, x, edge]^(alpha-1), {x, 0, 1}] // Quiet
     ]
 (*TODO : from previous guess, look at rhs, if m is negative, the corresponding j needs to be 0*)  
+
+        OutgoingEdges[FG_][k_] :=
+            OtherWay /@ ({k, #} & /@ IncidenceList[FG, k]);
+        IncomingEdges[FG_][k_] :=
+            {k, #1} & /@ IncidenceList[FG,k];
+        CurrentCompCon[jvars_][a_ \[DirectedEdge] b_] :=
+            jvars[{a, a \[DirectedEdge] b}] == 0 || jvars[{b, a \[DirectedEdge] b}] == 0;
+        CurrentSplitting[AllTransitions_][{c_, a_ \[DirectedEdge] b_}] :=
+            Select[AllTransitions, (Take[#, 2] == {c, a \[DirectedEdge] b}) &];
+        CurrentGathering[AllTransitions_][{c_, a_ \[DirectedEdge] b_}] :=
+            Select[AllTransitions, (Part[#, {1, 3}] == OtherWay[{c, a \[DirectedEdge] b}]) &];
+        TransitionCompCon[jtvars_][{v_, edge1_, edge2_}] :=
+            jtvars[{v, edge1, edge2}] == 0 || jtvars[{v, edge2, edge1}] == 0;
+        
+        (*ExitValues[uvars_,ExitCosts_][a_ \[DirectedEdge] b_] :=
+            Total[uvars /@ {{b, DirectedEdge[a, b]}}] == ExitCosts[b];*)
+        ExitRules[uvars_,ExitCosts_][a_ \[DirectedEdge] b_] :=
+            Total[uvars /@ {{b, DirectedEdge[a, b]}}] -> ExitCosts[b];
+Transu[uvars_,SwitchingCosts_][{v_, edge1_, edge2_}] :=
+    uvars[{v,edge1}] <= uvars[{v,edge2}] + SwitchingCosts[{v,edge1,edge2}];
+        (*TransuNoSwitch[{v_, edge1_, edge2_}] :=
+           uvars[{v,edge2}] -> uvars[{v,edge1}];*)
+        Compu[jtvars_,uvars_,SwitchingCosts_][{v_, edge1_, edge2_}] :=
+            (jtvars[{v, edge1, edge2}] == 0) || uvars[{v,edge2}]-uvars[{v,edge1}] + SwitchingCosts[{v,edge1,edge2}] == 0;
+        
+
 End[]
