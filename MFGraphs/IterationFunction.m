@@ -546,8 +546,8 @@ FixedReduce3[Eqs_Association][approxrules_Association] :=
                                           Return["a"]];
         AllOrs = Lookup[Eqs, "AllOr", Print["No alternatives to solve. \n",AllOrs];
                                       Return["b"]];
-        RuleNonCritical = Eqs["RuleNonCritical"]/.Eqs["InitRules"];       
-        rules = Expand /@ (RuleNonCritical/.RoundValues[Eqs["costpluscurrents"]/.approxrules]);
+        jrules = js/.approxrules;
+        Print[Eqs"[EqNonCritical"]/.Eqs["costpluscurrents"]/.jrules];
         Print["non critical rules with j values:\n",rules];
         (*Replace critical congestion rules!*)
         AllOrs = AllOrs /. rules;
