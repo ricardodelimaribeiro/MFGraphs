@@ -34,6 +34,10 @@ EliminateVars::usage =
 FixedReduce2::usage =
 "FixedReduce2[Eqs_Association][rules_] is the step for the non-linear solver"
 
+FixedReduce3::usage =
+"FixedReduce3[Eqs_Association][rules_] is the step for the non-linear solver.
+This one defines the u's from the approximating currents, then redefines the currents."
+
 Begin["`Private`"]
 RemoveDuplicates::usage =
 "RemoveDuplicates[exp] Sort and DeleteDuplicates"
@@ -242,7 +246,7 @@ FixedReduce2[Eqs_Association][<||>] :=
 
 FixedReduce2[Eqs_Association][{}] :=
     CriticalCongestionSolver2[Eqs]   
-
+	
 FixedReduce2[Eqs_Association][approxrules_Association] :=
     Module[ {nonlinear, (*auxsys, auxsol, error, TOL = 10^-10,*) system, 
         AllIneqs,
@@ -269,8 +273,8 @@ FixedReduce2[Eqs_Association][approxrules_Association] :=
         AllOrs = Lookup[Eqs, "AllOr", Print["No alternatives to solve. \n",AllOrs];
                                       Return["b"]];
         RuleNonCritical = Eqs["RuleNonCritical"]/.Eqs["InitRules"];       
-        rules = Expand /@ RuleNonCritical/.RoundValues[Eqs["costpluscurrents"]/.approxrules];
-        
+        rules = Expand /@ (RuleNonCritical/.RoundValues[Eqs["costpluscurrents"]/.approxrules]);
+        Print["non critical rules with j values:\n",rules];
         (*Replace critical congestion rules!*)
         AllOrs = AllOrs /. rules;
         AllIneqs = AllIneqs /. rules;
@@ -300,18 +304,22 @@ FixedReduce2[Eqs_Association][approxrules_Association] :=
         ];
         If[ Variables[js/.rules] === {},
             Print["Done!\n"];
-            Return[AssociationThread[Join[us, js], Join[us, js] /. rules]],
+            uvalues = AssociationThread[Join[us, js], Join[us, js] /. rules],
             Print["Finish with the js"];
             uvalues = AssociationThread[us, us /. rules];
-            jsys = (Eqs["EqCriticalCase"] /. uvalues) && Eqs["EqPosJs"] && Eqs["EqCurrentCompCon"];
+            (*TODO Fix this! Use rules or correct the equations! not the criticalcase!*)
+            jsys = (*(Eqs["EqCriticalCase"] /. uvalues) &&*) Eqs["EqPosJs"] && Eqs["EqCurrentCompCon"];
             (**Retrieve js values already defined*)
             (*Keeping the order for the js Association*)
             jrules = AssociationThread[js, js/.Select[AssociationThread[js, js/.rules], NumericQ]];
+            Print["jrules: \n", jrules];
+            
             {jsys, jrules} = CleanEqualities[{jsys, jrules}];
             {{jsys, jrules}, aux, newjs} = EliminateVarsSimplify[Eqs][{{jsys, jrules}, js}];
             {jsys, jrules} = CleanEqualities[{jsys,jrules}];
             AssociateTo[uvalues, jrules];
         ];
+        Print["returned uvalues: \n",Values@uvalues//N];
         uvalues
     ]
  (*    Pause[30];       
@@ -507,109 +515,90 @@ EliminateVars[Eqs_][{{system_, rules_}, us_}] :=
 EliminateVars[Eqs_][{{system_, rules_}, us_, persistus_}] :=
     FixedPoint[EliminateVarsStep[Eqs], {{system /. rules, rules}, us, persistus}]     
 
-End[]
-(**********************************************************************)
-(*
-CriticalCongestionSolverNewReduce::usage = 
-"CriticalCongestionSolverNewReduce[eq_Association] returns the critical congestion solution."
+FixedReduce3[Eqs_Association][<||>] :=
+    CriticalCongestionSolver2[Eqs]   
 
-EliminateVars::usage = 
-"EliminateVars[Eqs][{{system, rules}, us, persistus}]"
-
-EliminateVarsStep::usage = 
-""
-
-CriticalCongestionStep::usage =
-""
-
-Solver::usage =
-"Solver[Eqs_Association][alpha] solves the network problem with the given alpha."
-
-FixedReduceX1::usage = 
-"FixedReduceX1[MFGEquations][rules] gives the solution for the system when the RHS of the nonlinear equations have rules substituted in them.
-	MFGEquations should have the Keys EqAllAll, BoundaryRules, Nlhs, Nrhs, TOL";(*TODO review the keys when critical solver is done...*)
-
-
-
-EliminateVarsStep[Eqs_][{{system_, rules_}, {}, {}}] :=
-    {{system, rules}, {}, {}}
- 
-EliminateVarsStep[Eqs_][{{True, rules_}, us_, persistus_}] :=
-    {{True, rules}, us, persistus}
- 
-EliminateVars[Eqs_][{{system_, rules_}, us_}] :=
-    EliminateVars[Eqs][{{system/.rules, rules}, us, {}}]
- 
-EliminateVars[Eqs_][{{system_, rules_}, us_, persistus_}] :=
-    FixedPoint[EliminateVarsStep[Eqs], {{system /. rules, rules}, us, persistus}](*(Length[#1[[1,2]]] === Length[#2[[1,2]]]&)]*)
-
-    
-CriticalCongestionSolverNewReduce[Eqs_Association] :=
-    Module[ {system, 
-    AllIneqs,
-    AllOrs,
-    rules,
-    js = Values @ Lookup[Eqs, "jvars"],
-    aux,
-    rvars,
-    uvalues,
-    jsys,
-    jrules,
-    us = Values[Eqs["uvars"]],
-    newus,
-    newjs
-    },
+FixedReduce3[Eqs_Association][{}] :=
+    CriticalCongestionSolver2[Eqs]   
+	
+FixedReduce3[Eqs_Association][approxrules_Association] :=
+    Module[ {nonlinear, (*auxsys, auxsol, error, TOL = 10^-10,*) system, 
+        AllIneqs,
+        AllOrs,
+        rules,
+        js = Values @ Lookup[Eqs, "jvars"],
+        aux,
+        rvars,
+        uvalues,
+        jsys,
+        jrules,
+        us = Values[Eqs["uvars"]],
+        newus, RuleNonCritical,
+        newjs
+        },
+        (*nonlinear = And @@ (MapThread[(Equal[#1,#2]) &, {Eqs["Nlhs"], RoundValues[Eqs["Nrhs"]/. approxrules]}]);
+        nonlinear = nonlinear /. Eqs["InitRules"];*)
+        (*Lets use "RuleNonCritical" instead.*)
+(*        Print[Eqs["Nrhs"]];
+        Print["nonlinear ewqs\n",nonlinear];
+        Print["replacement rules: \n", Eqs["costpluscurrents"]/.approxrules];*)
         AllIneqs = Lookup[Eqs, "AllIneq", Print["No inequalities to solve."];
                                           Return["a"]];
         AllOrs = Lookup[Eqs, "AllOr", Print["No alternatives to solve. \n",AllOrs];
                                       Return["b"]];
-        rules = Lookup[Eqs,"RulesCriticalCase", Print["Critical case rules are missing."];
-                                                Return[]];
-        
+        RuleNonCritical = Eqs["RuleNonCritical"]/.Eqs["InitRules"];       
+        rules = Expand /@ (RuleNonCritical/.RoundValues[Eqs["costpluscurrents"]/.approxrules]);
+        Print["non critical rules with j values:\n",rules];
         (*Replace critical congestion rules!*)
         AllOrs = AllOrs /. rules;
         AllIneqs = AllIneqs /. rules;
+        
         (*try to simplify bit by bit:*)
         system = AllIneqs&&AllOrs;
         rvars = Variables[Join[us,js]/.rules];
-        newus = Intersection[us,rvars];
         Print["EliminateVarsSimplify for the us"];
-        {{system, rules}, aux, newus} = EliminateVars[Eqs][{{system, rules}, newus}];
+        {{system, rules}, aux, newus} = EliminateVarsSimplify[Eqs][{{system, rules}, (*new*)us, {}}];
         rules = Expand/@rules;
         If[ Variables[us/.rules] === {},
-            Print["Finished with the us!"];
+            Print["Finished with the us!"],
+            Print["Not finished with the us!"];
+            {{system, rules}, aux, newus} = EliminateVars[Eqs][{{system, rules}, (*new*)us, {}}];
+            Print["Reducing further (NewReduce)..."(*, system*)];
+            system = NewReduce[system];
+            Print["Simplifying..."];
+            system = Simplify @ system;
+            {system, rules} = CleanEqualities[{system, rules}];
+            uvalues = AssociationThread[us, us /. rules];
+            jrules = AssociationThread[js, js /. rules];
+            AssociateTo[uvalues, jrules];
+            If[ Variables[us/.uvalues] =!= {},
+                Print["(Maybe the) system is not feasible!\n
+            \tCheck the paper: The current method for stationary mean-field games on networks"]
+            ];
+        ];
         If[ Variables[js/.rules] === {},
-            Print["Done!"];
-            Return[AssociationThread[Join[us, js], Join[us, js] /. rules]],
+            Print["Done!\n"];
+            uvalues = AssociationThread[Join[us, js], Join[us, js] /. rules],
             Print["Finish with the js"];
             uvalues = AssociationThread[us, us /. rules];
-            jsys = (Eqs["EqCriticalCase"] /. uvalues) && Eqs["EqPosJs"] && Eqs["EqCurrentCompCon"];
+            (*TODO Fix this! Use rules or correct the equations! not the criticalcase!*)
+            jsys = (*(Eqs["EqCriticalCase"] /. uvalues) &&*) Eqs["EqPosJs"] && Eqs["EqCurrentCompCon"];
             (**Retrieve js values already defined*)
-            jrules = Select[AssociationThread[js,js/.rules], NumericQ];
-            {jsys, jrules} = CleanEqualities[{jsys,jrules}];
-            {{jsys, jrules}, aux, newjs} = EliminateVars[Eqs][{{jsys, jrules}, js, 1}];
+            (*Keeping the order for the js Association*)
+            jrules = AssociationThread[js, js/.Select[AssociationThread[js, js/.rules], NumericQ]];
+            Print["jrules: \n", jrules];
+            
+            {jsys, jrules} = CleanEqualities[{jsys, jrules}];
+            {{jsys, jrules}, aux, newjs} = EliminateVarsSimplify[Eqs][{{jsys, jrules}, js}];
             {jsys, jrules} = CleanEqualities[{jsys,jrules}];
             AssociateTo[uvalues, jrules];
-        ],
-        Print["Do what?"];
         ];
+        Print["returned uvalues: \n",Values@uvalues//N];
         uvalues
     ]
+ (*    Pause[30];       
 
-
-
-
-
-FixedReduceX1[Eqs_Association][rules_] :=
-    Module[ {nonlinear, auxsys, auxsol, error, TOL = 10^-10},
-        nonlinear = And @@ (MapThread[(Equal[#1,#2]) &, {Eqs["Nlhs"], RoundValues[Eqs["Nrhs"]/. rules]}]);
-        auxsol = First[Solve[nonlinear]//Quiet];
-        auxsys = (Eqs["EqAllAll"] && nonlinear) /. auxsol;
-        {auxsys, auxsol} = CleanEqualitiesOperator[Eqs][{auxsys, auxsol}];
-        auxsys = NewReduce[auxsys];
-        {auxsys, auxsol} = CleanEqualitiesOperator[Eqs][{auxsys, auxsol}];
-        auxsol = Simplify @ auxsol;
-        If[ auxsys === False,
+       If[ auxsys === False,
             (*precision issues...?but it could be the case that the "real" solution is repulsive/unstable.*)
             Print["FRX1: The last system in the iteration was inconsistent.\nReturning the last feasible solution.\nConsider that the solution may be unstable."];
             Return[rules],
@@ -620,115 +609,9 @@ FixedReduceX1[Eqs_Association][rules_] :=
             Print["The error is ", error//ScientificForm, " which is less than " , TOL//N//ScientificForm];
             Throw[auxsol]
         ];
-        auxsol
-    ]
+        (*auxsol*)
+ *)
+ 
+ 
 
-Solver[Eqs_Association][alpha_] :=
-    Module[ {rules0, FFR, timeFFR},
-        If[ alpha == 1 || alpha == 1.,
-            Module[ {js},
-                js = Values@Lookup[Eqs, "jvars", Print["hey hey hey"];
-                                                 Return[]];
-                rules0 = AssociationThread[js,0& /@ js];
-                {timeFFR, FFR} = AbsoluteTiming@Catch@FixedPoint[FixedReduceX1[Eqs], rules0, 1];
-                Print["It took ", timeFFR, " seconds to solve!\n\tThe system is ",Simplify[Eqs["EqAllAll"] && Eqs["EqCriticalCase"]/.FFR]];
-                FFR
-            ],
-            {timeFFR, FFR} = AbsoluteTiming[(*Catch@*)FixedPoint[FixedReduceX1[Eqs], CriticalCongestionSolver[Eqs][[2]], 5]];
-            Print["It took ", timeFFR, " seconds to solve!\n\tThe system is ",Simplify[Eqs["EqAllAll"] /.FFR]];
-            FFR
-        ]
-    ]
-
-
-*)
-(**********************************************************************)
-
-
-
-(*
-CriticalBundle[Data_Association] :=
-    Module[ {d2e},
-        d2e = D2E[Data];
-        {d2e,CriticalCongestionSolver[d2e]}
-    ]
-
-
-ZAndEqual::usage =
-"ZAndEqual[rules, xp] returns an association with the solution of the equalities"
-
-ZAndEqual[rules_Association, andxp_And] :=
-    With[ {fst = First[andxp], rst = Rest[andxp]},
-    	Module[ {fsol = First @ Solve @ fst // Quiet},
-    		(*Print[rules];*)
-    		(*Print[andxp];
-    		Print[fsol];*)
-    		ZAndEqual[Join[rules/.fsol,Association[fsol]], ReplaceSolution[rst, fsol]]
-    	]
-    ]
-
-ZAndEqual[rules_Association, xp_Equal] :=
-	Module[ {fsol1 = First @ Solve @ xp // Quiet},
-   		Join[rules/.fsol1, Association[fsol1]]
-   	]
-         
-NewCleanEqualities[{system_, rules_}] :=
-	Module[{groups = GroupBy[List@@system, Head[#]===Equal&],
-		newrules},
-		newrules = ZAndEqual[rules, And@@groups[True]];
-		{Simplify/@And@@(groups[False] /. newrules), newrules}
-	]
-	
-NewCleanEqualities2[{system_, rules_}] :=
-	Module[{groups = GroupBy[List@@system, Head[#]===Equal&],
-		newrules},
-		newrules = ZAndEqual2[And@@groups[False], Association@rules, And@@groups[True]];
-		{Simplify/@And@@(groups[False] /. newrules), newrules}
-	]
-
-ZAndEqual2[xpo_, rules_Association, andxp_And] :=
-    With[ {fst = First[andxp], rst = Rest[andxp]},
-    	Module[ {fsol = First @ Solve @ fst // Quiet, newxpo, groups},
-    		newxpo = ReplaceSolution[xpo, fsol];
-    		groups = GroupBy[List @@ newxpo, Head[#] === Equal&];
-    		(*Print[rules];*)
-    		(*Print[andxp];*)
-    		Print["head and ", fsol];
-    		ZAndEqual2[And@@groups[False],Join[rules/.fsol,Association[fsol]], ReplaceSolution[rst, fsol]&&And @@ groups[False]]
-    	]
-    ]
-
-ZAndEqual2[xpo_, rules_Association, xp_Equal] :=
-	Module[ {fsol1 = First @ Solve @ xp // Quiet, newxpo, groups},
-		newxpo = ReplaceSolution[xpo, fsol1];
-   		groups = GroupBy[List @@ newxpo, Head[#] === Equal&];
-   		Print["head equal ", groups[True]];
-   		Join[rules/.fsol1, Association[fsol1]]
-   	]
-   	
-NewCleanEqualities::usage =(*this strategy is too slow! maybe we can repair...*)
-"NewCleanEqualities[{system, rules}] returns the non-equalities and the solution to the complementary linear system."
-
-SimpleCrit::usage=
-"SimpleCrit[{{syscrit, rules}, critus}] solves the critical congestion equations for the us."
-
-SimpleCrit[{{True, rules_}, critus_}] := {{True, rules}, critus}
-SimpleCrit[{{syscrit_, rules_}, {}}] :=
- Module[{subsol, newcrit = Simplify /@ syscrit},
-  subsol = First@Solve[newcrit];
-  {{newcrit /. subsol, Join[rules, Association[subsol]] /. subsol}, {}}
-  ]
-
-SimpleCrit[{{syscrit_, rules_}, critus_}] :=
- Module[{var, subsys, subsol, newcrit = Simplify /@ syscrit},
-  var = First[critus];
-  subsys = Select[newcrit, Function[xp, ! FreeQ[xp, var]]];
-  If[subsys === True,
-   Return[{{newcrit, rules}, Rest[critus]}]
-   ];
-  subsol = First@Solve[subsys[[1]], var];
-  {{syscrit /. subsol, Join[rules, Association[subsol]] /. subsol}, 
-   Rest[critus]}
-  ]
-
-*)         
+End[]
