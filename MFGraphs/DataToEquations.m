@@ -113,6 +113,10 @@ D2E[Data_Association] :=
         (*Not necessary to replace RuleExitValues in InitRules*)
         AssociateTo[InitRules, RuleExitValues];
         
+        EqValueAuxiliaryEdges = And @@ ((uvars[AtHead[#]] == uvars[AtTail[#]]) & /@ EdgeList[AuxiliaryGraph]);(*Equal*)
+        Print["CleanEqualities for the values at the auxiliary edges"];
+        {TrueEq, InitRules} = CleanEqualities[{EqValueAuxiliaryEdges, InitRules}];
+        
         (*Infinite switching costs here prevent the network from sucking agents from the exits.*)
         OutRules = Rule[#, Infinity] & /@ (Outer[Flatten[{AtTail[#1], #2}] &, OutEdges, EL] // Flatten[#, 1] &);
         InRules = Rule[#, Infinity] & /@ (Outer[{#2[[2]], #1, #2} &, IncidenceList[FG, #] & /@ EntranceVertices, InEdges] // Flatten[#, 2] &);
@@ -135,10 +139,6 @@ D2E[Data_Association] :=
         Print["CleanEqualities for the complementary conditions (given the rules)"];
         {EqCompCon, InitRules} = CleanEqualities[{EqCompCon, InitRules}];
         
-        EqValueAuxiliaryEdges = And @@ ((uvars[AtHead[#]] == uvars[AtTail[#]]) & /@ EdgeList[AuxiliaryGraph]);(*Equal*)
-        Print["CleanEqualities for the values at the auxiliary edges"];
-        {TrueEq, InitRules} = CleanEqualities[{EqValueAuxiliaryEdges, InitRules}];
-        
         (*Default in a, function, corresponds to the classic critical congestion case*)
         a (*[SignedCurrents[edge], edge]:*) =
         Lookup[Data, "a" , Function[{j, edge}, j]];
@@ -150,18 +150,23 @@ D2E[Data_Association] :=
         Nrhs =  Flatten[-Cost[SignedCurrents[#], #] + SignedCurrents[#] & /@ BEL];(*one possible cost is IntM*)
         Print["CleanEqualities for the balance conditions in terms of (mostly) transition currents"];
         {TrueEq, InitRules} = CleanEqualities[{EqBalanceSplittingCurrents, InitRules}];
-        
+        Print[TrueEq];
         AllOr = EqCurrentCompCon && EqTransitionCompCon && EqCompCon;
         AllOr = AllOr/.InitRules;
+        AllOr = BooleanConvert[Simplify /@ AllOr, "CNF"];
+        Print[InitRules];
+        {AllOr, InitRules} = CleanEqualities[{AllOr, InitRules}];
+        Print[InitRules];
         EqPosCon = EqPosCon /. InitRules;
         EqSwitchingConditions = EqSwitchingConditions/.InitRules;
+        
         AllIneq = EqPosCon && EqSwitchingConditions;
+        AllIneq = DeleteDuplicates @ AllIneq;
         EqAllAll = AllOr && AllIneq;
         EqCriticalCase = And @@ ((# == 0) & /@ Nlhs);(*Equal*)
         
-        EqNonCritical = And @@ (MapThread[ Equal[#1,#2] &, {Nlhs, costpluscurrents}])/.AssociationThread[us, us/.InitRules];
+        EqNonCritical = And @@ (MapThread[ Equal[#1,#2] &, {Nlhs, costpluscurrents/.InitRules}])/.AssociationThread[us, us/.InitRules];
         RuleNonCritical1 = Solve[EqNonCritical, Reals]//Quiet;
-        
         (*The operations below are commutative!
         Print[RuleNonCritical1/. AssociationThread[costpluscurrents, 0&/@costpluscurrents]];
         Print[Solve[EqNonCritical/. AssociationThread[costpluscurrents, 0&/@costpluscurrents],Reals]//Quiet];*)

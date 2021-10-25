@@ -475,10 +475,10 @@ IntM[j_?NumericQ, edge_] :=
             Total[uvars /@ {{b, DirectedEdge[a, b]}}] == ExitCosts[b];*)
         ExitRules[uvars_,ExitCosts_][a_ \[DirectedEdge] b_] :=
             Total[uvars /@ {{b, DirectedEdge[a, b]}}] -> ExitCosts[b];
-Transu[uvars_,SwitchingCosts_][{v_, edge1_, edge2_}] :=
-    uvars[{v,edge1}] <= uvars[{v,edge2}] + SwitchingCosts[{v,edge1,edge2}];
+		Transu[uvars_,SwitchingCosts_][{v_, edge1_, edge2_}] :=
+    		uvars[{v,edge1}] <= uvars[{v,edge2}] + SwitchingCosts[{v,edge1,edge2}];
         (*TransuNoSwitch[{v_, edge1_, edge2_}] :=
-           uvars[{v,edge2}] -> uvars[{v,edge1}];*)
+           	uvars[{v,edge2}] -> uvars[{v,edge1}];*)
         Compu[jtvars_,uvars_,SwitchingCosts_][{v_, edge1_, edge2_}] :=
             (jtvars[{v, edge1, edge2}] == 0) || uvars[{v,edge2}]-uvars[{v,edge1}] + SwitchingCosts[{v,edge1,edge2}] == 0;
         

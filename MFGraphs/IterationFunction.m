@@ -282,30 +282,36 @@ FixedReduce2[Eqs_Association][approxrules_Association] :=
         (*try to simplify bit by bit:*)
         system = AllIneqs&&AllOrs;
         rvars = Variables[Join[us,js]/.rules];
-        Print["EliminateVarsSimplify for the us"];
+        Print["FR2: EliminateVarsSimplify for the us"];
         {{system, rules}, aux, newus} = EliminateVarsSimplify[Eqs][{{system, rules}, (*new*)us, {}}];
         rules = Expand/@rules;
         If[ Variables[us/.rules] === {},
-            Print["Finished with the us!"],
-            Print["Not finished with the us!"];
+            Print["FR2: Finished with the us!"],
+            Print["FR2: Not finished with the us!"];
             {{system, rules}, aux, newus} = EliminateVars[Eqs][{{system, rules}, (*new*)us, {}}];
-            Print["Reducing further (NewReduce)..."(*, system*)];
+            Print["FR2: Reducing further (NewReduce)..."(*, system*)];
             system = NewReduce[system];
-            Print["Simplifying..."];
+            Print["FR2: Simplifying..."];
             system = Simplify @ system;
             {system, rules} = CleanEqualities[{system, rules}];
             uvalues = AssociationThread[us, us /. rules];
             jrules = AssociationThread[js, js /. rules];
             AssociateTo[uvalues, jrules];
             If[ Variables[us/.uvalues] =!= {},
-                Print["(Maybe the) system is not feasible!\n
+                Print["FR2: (Maybe the) system is not feasible!\n
             \tCheck the paper: The current method for stationary mean-field games on networks"]
             ];
         ];
         If[ Variables[js/.rules] === {},
+<<<<<<< Updated upstream
             Print["Done!\n"];
             uvalues = AssociationThread[Join[us, js], Join[us, js] /. rules],
             Print["Finish with the js"];
+=======
+            Print["FR2: Done!\n"];
+            Return[AssociationThread[Join[us, js], Join[us, js] /. rules]],
+            Print["FR2: Finish with the js"];
+>>>>>>> Stashed changes
             uvalues = AssociationThread[us, us /. rules];
             (*TODO Fix this! Use rules or correct the equations! not the criticalcase!*)
             jsys = (*(Eqs["EqCriticalCase"] /. uvalues) &&*) Eqs["EqPosJs"] && Eqs["EqCurrentCompCon"];
@@ -347,11 +353,11 @@ CriticalCongestionSolver2[Eqs_Association] :=
     jsys, jrules, us = Values[Eqs["uvars"]],
     newus, newjs
     },
-        AllIneqs = Lookup[Eqs, "AllIneq", Print["No inequalities to solve."];
+        AllIneqs = Lookup[Eqs, "AllIneq", Print["CCS2: No inequalities to solve."];
                                           Return["a"]];
-        AllOrs = Lookup[Eqs, "AllOr", Print["No alternatives to solve. \n",AllOrs];
-                                      Return["b"]];
-        rules = Lookup[Eqs,"RulesCriticalCase", Print["Critical case rules are missing."];
+        AllOrs = Lookup[Eqs, "AllOr", Print["CCS2: No alternatives to solve. \n",AllOrs];
+                                      Return["CCS2: b"]];
+        rules = Lookup[Eqs,"RulesCriticalCase", Print["CCS2: Critical case rules are missing."];
                                                 Return[]];
             
         (*Replace critical congestion rules!*)
@@ -360,30 +366,30 @@ CriticalCongestionSolver2[Eqs_Association] :=
         (*try to simplify bit by bit:*)
         system = AllIneqs&&AllOrs;
         rvars = Variables[Join[us,js]/.rules];
-        Print["EliminateVarsSimplify for the us"];
+        Print["CCS2: EliminateVarsSimplify for the us"];
         {{system, rules}, aux, newus} = EliminateVarsSimplify[Eqs][{{system, rules}, (*new*)us, {}}];
         rules = Expand/@rules;
         If[ Variables[us/.rules] === {},
-            Print["Finished with the us!"],
-            Print["Not finished with the us!"];
+            Print["CCS2: Finished with the us!"],
+            Print["CCS2: Not finished with the us!"];
             {{system, rules}, aux, newus} = EliminateVars[Eqs][{{system, rules}, (*new*)us, {}}];
-            Print["Reducing further (NewReduce)..."(*, system*)];
+            Print["CCS2: Reducing further (NewReduce)...\n", system];
             system = NewReduce[system];
-            Print["Simplifying..."];
+            Print["CCS2: Simplifying..."];
             system = Simplify @ system;
             {system, rules} = CleanEqualities[{system, rules}];
             uvalues = AssociationThread[us, us /. rules];
             jrules = AssociationThread[js, js /. rules];
             AssociateTo[uvalues, jrules];
             If[ Variables[us/.uvalues] =!= {},
-                Print["(Maybe the) system is not feasible!\n
+                Print["CCS2: (Maybe the) system is not feasible!\n
             \tCheck the paper: The current method for stationary mean-field games on networks"]
             ];
         ];
         If[ Variables[js/.rules] === {},
-            Print["Done!\n"];
+            Print["CCS2: Done!\n"];
             Return[AssociationThread[Join[us, js], Join[us, js] /. rules]],
-            Print["Finish with the js"];
+            Print["CCS2: Finish with the js"];
             uvalues = AssociationThread[us, us /. rules];
             jsys = (Eqs["EqCriticalCase"] /. uvalues) && Eqs["EqPosJs"] && Eqs["EqCurrentCompCon"];
             (**Retrieve js values already defined*)

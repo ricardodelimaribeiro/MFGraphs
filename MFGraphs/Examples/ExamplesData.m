@@ -76,7 +76,8 @@ test = Association[
         (*AM=*){{0, 1, 0, 0}, {0, 0, 1, 1}, {0, 0, 0, 0}, {0, 0, 0, 0}},
         (*DataIn=*){{1, I1}},
         (*FinalCosts=*){{3, U1}, {4, U2}},
-        (*SwitchingCostsData=*){{1, 2, 3, S1}, {1, 2, 4, S2}, {3, 2, 1, S3}, {3, 2, 4, S4}, {4, 2, 1, S5}, {4, 2, 3, S6}}},
+        (*SwitchingCostsData=*){{1, 2, 3, S1}, {1, 2, 4, S2}, {3, 2, 1, S3}, {3, 2, 4, S4}, {4, 2, 1, S5}, {4, 2, 3, S6}}
+        },
         
     (*Y 2-in 1-out 4 vertices no swithing*)
     9 -> {
@@ -92,7 +93,8 @@ test = Association[
         (*AM=*){{0, 1, 0, 0}, {0, 0, 0, 1}, {0, 1, 0, 0}, {0, 0, 0, 0}},
         (*DataIn=*){{1, I1}, {3, I2}},
         (*FinalCosts=*){{4, U1}},
-        (*SwitchingCostsData=*){{1, 2, 4, S1}, {1, 2, 3, S2}, {3, 2, 1, S3}, {3, 2, 4, S4}, {4, 2, 1, S5}, {4, 2, 3, S6}}},
+        (*SwitchingCostsData=*){{1, 2, 4, S1}, {1, 2, 3, S2}, {3, 2, 1, S3}, {3, 2, 4, S4}, {4, 2, 1, S5}, {4, 2, 3, S6}}
+        },
    
    (********)
    
@@ -119,7 +121,8 @@ test = Association[
             {2, 3, 4, S13}, 
             {4, 3, 2, S14}, 
             {3, 1, 2, S15}, 
-            {2, 1, 3, S16}}},
+            {2, 1, 3, S16}}
+        },
    
    (* Attraction without switching*)
     12 -> {
@@ -145,7 +148,17 @@ test = Association[
         (*AM=*){{0, 1, 0}, {0, 0, 1}, {1, 0, 0}},
         (*DataIn=*){{1, I1}},
         (*FinalCosts=*){{3, U1}},
-        (*SwitchingCostsData=*){{1, 2, 3, S1}, {3, 2, 1, S2}}},
+        (*SwitchingCostsData=*){{1, 2, 3, S1}, {3, 2, 1, S2}}
+        },
+            
+	(*triangle*)
+    "triangle with two exits" -> {
+        (*VL=*){1, 2, 3},
+        (*AM=*){{0, 1, 0}, {0, 0, 1}, {1, 0, 0}},
+        (*DataIn=*){{1, I1}},
+        (*FinalCosts=*){{2, U1},{3, U2}},
+        (*SwitchingCostsData=*){}
+        },
             
         
     (*Y 2-in 1-out 3 vertices with switching*)
@@ -154,7 +167,8 @@ test = Association[
         (*AM=*){{0, 0, 0}, {1, 0, 0}, {1, 0, 0}},
         (*DataIn=*){{2, I1}, {3, I2}},
         (*FinalCosts=*){{1, U1}},
-        (*SwitchingCostsData=*){{2, 1, 3, S1}, {3, 1, 2,S2}}},
+        (*SwitchingCostsData=*){{2, 1, 3, S1}, {3, 1, 2,S2}}
+        },
         
               
     (*Error in the switching costs*)
@@ -163,7 +177,8 @@ test = Association[
         (*AM*){{0, 1, 0}, {0, 0, 1}, {0, 0, 0}}, 
         (*DataIn*){{1, I1}}, 
         (*FinalCosts*){{3, U1}}, 
-        (*SwiotchingCostsData*){{1, 3, 2, S1}}},
+        (*SwiotchingCostsData*){{1, 3, 2, S1}}
+        },
         
 
   
@@ -174,7 +189,8 @@ test = Association[
         (*AM*) {{0, 1, 0}, {0, 0, 1}, {0, 0, 0}}, 
         (*DataIn*) {{2, I1}}, 
         (*FinalCost*) {{1, U1}, {3,U2}},
-        (*SwitchingCostsData=*){{1, 2, 3, S1}, {3, 2, 1, S2}}},
+        (*SwitchingCostsData=*){{1, 2, 3, S1}, {3, 2, 1, S2}}
+        },
     
      (*2 edges*)
     18 -> {
@@ -182,7 +198,8 @@ test = Association[
         (*AM=*){{0, 1, 0}, {0, 0, 1}, {0, 0, 0}},
         (*DataIn=*){{1, I1}},
         (*FinalCosts=*){{3, U1}},
-        (*SwitchingCostsData=*){ {1, 2, 3, S1}, {3, 2, 1, S2}}},
+        (*SwitchingCostsData=*){ {1, 2, 3, S1}, {3, 2, 1, S2}}
+        },
      
          20 -> {
         (*VL=*){1,2,3,4,5,6,7,8,9},
@@ -273,7 +290,8 @@ test = Association[
         (*AM=*){{0, 1, 0, 0}, {0, 0, 1, 1}, {0, 0, 0, 0}, {0, 0, 0, 0}},
         (*DataIn=*){{1, I1},{4, I2}},
         (*FinalCosts=*){{3, U1}},
-        (*SwitchingCostsData=*){{1, 2, 3, S1}, {1, 2, 4, S2}, {3, 2, 1, S3}, {3, 2, 4, S4}, {4, 2, 1, S5}, {4, 2, 3, S6}}},
+        (*SwitchingCostsData=*){{1, 2, 3, S1}, {1, 2, 4, S2}, {3, 2, 1, S3}, {3, 2, 4, S4}, {4, 2, 1, S5}, {4, 2, 3, S6}}
+        },
         27 -> {
         (*VL=*){1, 2},
         (*AM=*){{0, 1}, {1, 0}},
