@@ -106,22 +106,19 @@ D2E[Data_Association] :=
         (*First rules: these have some j in terms of jts*)
         InitRules = Association[RuleBalanceGatheringCurrents];
         
+        ExitNeighbors = IncidenceList[AuxiliaryGraph, OutwardVertices /@ ExitVertices];
+        RuleExitCurrentsIn = ExitCurrents[jvars]/@ ExitNeighbors;(*Rule*)
+        AssociateTo[InitRules, RuleExitCurrentsIn];
+        Print[InitRules];
+        
         RuleEntryIn = (jvars[#] -> EntryDataAssociation[#]) & /@ (AtHead /@ InEdges);(*Rule*)
         RuleEntryOut= (jvars[#] -> 0) & /@ (AtTail /@ InEdges);(*Rule*)
         RuleEntryIn = Join[RuleEntryIn, RuleEntryOut];
         (* Not necessary to replace RuleEntryIn in InitRules*)
         AssociateTo[InitRules, RuleEntryIn];
-        ExitNeighbors = IncidenceList[AuxiliaryGraph, OutwardVertices /@ ExitVertices];
         RuleExitValues = ExitRules[uvars,ExitCosts] /@ ExitNeighbors;(*Rule*)
-        RuleExitCurrentsIn = ExitCurrents[jvars]/@ ExitNeighbors;(*Rule*)
-        Print[RuleExitCurrentsIn];
-        Print[InitRules];
         (*Not necessary to replace RuleExitValues in InitRules*)
         AssociateTo[InitRules, RuleExitValues];
-        Print[InitRules];
-        
-        AssociateTo[InitRules, RuleExitCurrentsIn];
-        Print[InitRules];
         
         EqValueAuxiliaryEdges = And @@ ((uvars[AtHead[#]] == uvars[AtTail[#]]) & /@ EdgeList[AuxiliaryGraph]);(*Equal*)
         Print["CleanEqualities for the values at the auxiliary edges"];

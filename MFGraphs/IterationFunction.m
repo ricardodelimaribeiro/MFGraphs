@@ -554,7 +554,7 @@ FixedReduce3[Eqs_Association][approxrules_Association] :=
         AllIneqs = AllIneqs /. rules;
         
         (*try to simplify bit by bit:*)
-        system = AllIneqs&&AllOrs;
+        system = AllIneqs && AllOrs;
         rvars = Variables[Join[us,js]/.rules];
         Print["EliminateVarsSimplify for the us"];
         {{system, rules}, aux, newus} = EliminateVarsSimplify[Eqs][{{system, rules}, (*new*)us, {}}];
