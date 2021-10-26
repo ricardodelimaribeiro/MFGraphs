@@ -134,6 +134,9 @@ getVar::usage = "getVar[exp] returns the variables in exp"
         ExitRules::usage =
             "ExitRules[uvars,ExitCosts] returns the rule for the value of u at the end of the auxiliary (exit) edges";
         
+        ExitCurrents::usage =
+        "ExitCurrents[jvars][DirectedEdge[a,b]] returns 0 for the currents at exit auxiliary edges at interior vertices";
+        
         Transu::usage =
             "Transu[uvars, SwitchingCosts][{v, edge1, edge2}] returns the inequalities satisfied by costs at vertices
         (*Transu: u1<= u2+S(1,2) for agents going from edge 1 to 2 at some vertex*)
@@ -475,6 +478,8 @@ IntM[j_?NumericQ, edge_] :=
             Total[uvars /@ {{b, DirectedEdge[a, b]}}] == ExitCosts[b];*)
         ExitRules[uvars_,ExitCosts_][a_ \[DirectedEdge] b_] :=
             Total[uvars /@ {{b, DirectedEdge[a, b]}}] -> ExitCosts[b];
+		ExitCurrents[jvars_][a_ \[DirectedEdge] b_] :=
+		    jvars @ {a, DirectedEdge[a, b]} -> 0;
 		Transu[uvars_,SwitchingCosts_][{v_, edge1_, edge2_}] :=
     		uvars[{v,edge1}] <= uvars[{v,edge2}] + SwitchingCosts[{v,edge1,edge2}];
         (*TransuNoSwitch[{v_, edge1_, edge2_}] :=

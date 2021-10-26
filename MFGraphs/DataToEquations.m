@@ -10,7 +10,7 @@ Begin["`Private`"]
 D2E[Data_Association] :=
     Module[ {BG, FG, AuxiliaryGraph, 
     	VL, FVL, EntranceVertices, InwardVertices, ExitVertices, OutwardVertices, 
-     	EL, BEL, OutEdges, InEdges, 
+     	EL, BEL, OutEdges, InEdges, ExitNeighbors,
      	AllTransitions, 
      	EqCcs, SC = Lookup[Data, "Switching Costs", {}],
      	jargs, js, jvars, jts, jtvars, uargs, us, uvars, SignedCurrents, EntryArgs,
@@ -21,7 +21,7 @@ D2E[Data_Association] :=
     	Nrhs, Nlhs, MinimalTimeRhs, 
     	AllOr, EqAllAll, AllIneq,
 		EqCriticalCase, EqMinimalTime,  EqNonCritical, EqPosJs, TrueEq, costpluscurrents, 
-		RuleBalanceGatheringCurrents, RuleEntryIn, RuleEntryOut, RuleExitValues, InitRules, OutRules, 
+		RuleBalanceGatheringCurrents, RuleEntryIn, RuleEntryOut, RuleExitValues, RuleExitCurrentsIn, InitRules, OutRules, 
 		InRules, RuleNonCritical, RuleNonCritical1, RulesCriticalCase, RulesCriticalCase1(*, EqNonCritical1*)
     	},
     	(*Checking consistency on the swithing costs*)
@@ -111,9 +111,17 @@ D2E[Data_Association] :=
         RuleEntryIn = Join[RuleEntryIn, RuleEntryOut];
         (* Not necessary to replace RuleEntryIn in InitRules*)
         AssociateTo[InitRules, RuleEntryIn];
-        RuleExitValues = ExitRules[uvars,ExitCosts] /@ IncidenceList[AuxiliaryGraph, OutwardVertices /@ ExitVertices];(*Rule*)
+        ExitNeighbors = IncidenceList[AuxiliaryGraph, OutwardVertices /@ ExitVertices];
+        RuleExitValues = ExitRules[uvars,ExitCosts] /@ ExitNeighbors;(*Rule*)
+        RuleExitCurrentsIn = ExitCurrents[jvars]/@ ExitNeighbors;(*Rule*)
+        Print[RuleExitCurrentsIn];
+        Print[InitRules];
         (*Not necessary to replace RuleExitValues in InitRules*)
         AssociateTo[InitRules, RuleExitValues];
+        Print[InitRules];
+        
+        AssociateTo[InitRules, RuleExitCurrentsIn];
+        Print[InitRules];
         
         EqValueAuxiliaryEdges = And @@ ((uvars[AtHead[#]] == uvars[AtTail[#]]) & /@ EdgeList[AuxiliaryGraph]);(*Equal*)
         Print["CleanEqualities for the values at the auxiliary edges"];
