@@ -303,15 +303,9 @@ FixedReduce2[Eqs_Association][approxrules_Association] :=
             ];
         ];
         If[ Variables[js/.rules] === {},
-<<<<<<< Updated upstream
-            Print["Done!\n"];
-            uvalues = AssociationThread[Join[us, js], Join[us, js] /. rules],
-            Print["Finish with the js"];
-=======
             Print["FR2: Done!\n"];
             Return[AssociationThread[Join[us, js], Join[us, js] /. rules]],
             Print["FR2: Finish with the js"];
->>>>>>> Stashed changes
             uvalues = AssociationThread[us, us /. rules];
             (*TODO Fix this! Use rules or correct the equations! not the criticalcase!*)
             jsys = (*(Eqs["EqCriticalCase"] /. uvalues) &&*) Eqs["EqPosJs"] && Eqs["EqCurrentCompCon"];
@@ -553,7 +547,7 @@ FixedReduce3[Eqs_Association][approxrules_Association] :=
         AllOrs = Lookup[Eqs, "AllOr", Print["No alternatives to solve. \n",AllOrs];
                                       Return["b"]];
         jrules = js/.approxrules;
-        Print[Eqs"[EqNonCritical"]/.Eqs["costpluscurrents"]/.jrules];
+        Print[Eqs["EqNonCritical"]/.Eqs["costpluscurrents"]/.jrules];
         Print["non critical rules with j values:\n",rules];
         (*Replace critical congestion rules!*)
         AllOrs = AllOrs /. rules;

@@ -21,7 +21,7 @@ D2E[Data_Association] :=
     	Nrhs, Nlhs, MinimalTimeRhs, 
     	AllOr, EqAllAll, AllIneq,
 		EqCriticalCase, EqMinimalTime,  EqNonCritical, EqPosJs, TrueEq, costpluscurrents, 
-		RuleBalanceGatheringCurrents, RuleEntryIn, RuleExitValues, InitRules, OutRules, 
+		RuleBalanceGatheringCurrents, RuleEntryIn, RuleEntryOut, RuleExitValues, InitRules, OutRules, 
 		InRules, RuleNonCritical, RuleNonCritical1, RulesCriticalCase, RulesCriticalCase1(*, EqNonCritical1*)
     	},
     	(*Checking consistency on the swithing costs*)
@@ -107,6 +107,8 @@ D2E[Data_Association] :=
         InitRules = Association[RuleBalanceGatheringCurrents];
         
         RuleEntryIn = (jvars[#] -> EntryDataAssociation[#]) & /@ (AtHead /@ InEdges);(*Rule*)
+        RuleEntryOut= (jvars[#] -> 0) & /@ (AtTail /@ InEdges);(*Rule*)
+        RuleEntryIn = Join[RuleEntryIn, RuleEntryOut];
         (* Not necessary to replace RuleEntryIn in InitRules*)
         AssociateTo[InitRules, RuleEntryIn];
         RuleExitValues = ExitRules[uvars,ExitCosts] /@ IncidenceList[AuxiliaryGraph, OutwardVertices /@ ExitVertices];(*Rule*)
@@ -150,13 +152,13 @@ D2E[Data_Association] :=
         Nrhs =  Flatten[-Cost[SignedCurrents[#], #] + SignedCurrents[#] & /@ BEL];(*one possible cost is IntM*)
         Print["CleanEqualities for the balance conditions in terms of (mostly) transition currents"];
         {TrueEq, InitRules} = CleanEqualities[{EqBalanceSplittingCurrents, InitRules}];
-        Print[TrueEq];
+        (*Print[TrueEq];*)
         AllOr = EqCurrentCompCon && EqTransitionCompCon && EqCompCon;
         AllOr = AllOr/.InitRules;
         AllOr = BooleanConvert[Simplify /@ AllOr, "CNF"];
-        Print[InitRules];
+        (*Print[InitRules];*)
         {AllOr, InitRules} = CleanEqualities[{AllOr, InitRules}];
-        Print[InitRules];
+        (*Print[InitRules];*)
         EqPosCon = EqPosCon /. InitRules;
         EqSwitchingConditions = EqSwitchingConditions/.InitRules;
         
