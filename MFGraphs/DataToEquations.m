@@ -87,37 +87,48 @@ D2E[Data_Association] :=
         Print["Variables are all set"];
         
         (*Elements of the system*)
-        (*Swithing cost is initialized with 0. 
-        AssociationThread associates the last association!*)
+        (*Swithing cost is initialized with 0. AssociationThread associates the last association!*)
         SwitchingCosts = AssociationThread[Join[AllTransitions, triple2path[Take[#, 3], FG] & /@ SC], 
             Join[0&/@ AllTransitions, Last[#] & /@ SC]];
-        (*Print[SwitchingCosts];*)
         EqPosJs = And @@ ( #>=0& /@ Join[jvars]);(*Inequality*)
         EqPosCon = And @@ ( #>=0& /@ Join[jvars, jtvars]);(*Inequality*)
         EqCurrentCompCon = And @@ (CurrentCompCon[jvars] /@ EL);(*Or*)
         EqTransitionCompCon = And @@ ((Sort /@ TransitionCompCon[jtvars] /@ AllTransitions) // Union);(*Or*)
         
-        NoDeadEnds = IncomingEdges[FG] /@ VL // Flatten[#, 1] &;
+        (*Balance Splitting Currents in the full graph*)
+		NoDeadEnds = IncomingEdges[FG] /@ VL // Flatten[#, 1] &;
         EqBalanceSplittingCurrents = And @@ ((jvars[#] == Total[jtvars /@ CurrentSplitting[AllTransitions][#]]) & /@ NoDeadEnds);(*Equal*)
-        NoDeadStarts = OutgoingEdges[FG] /@ VL // Flatten[#, 1] &;
-        EqBalanceGatheringCurrents = And @@ ((jvars[#] == Total[jtvars /@ CurrentGathering[AllTransitions][#]]) & /@ NoDeadStarts);(*Equal*)
+		
+		(*Gathering currents in the inside of the basic graph*)
+        NoDeadStarts = OutgoingEdges[BG] /@ VL // Flatten[#, 1] &;
         RuleBalanceGatheringCurrents = (jvars[#] -> Total[jtvars /@ CurrentGathering[AllTransitions][#]]) & /@ NoDeadStarts;(*Rule*)
-        
         (*First rules: these have some j in terms of jts*)
         InitRules = Association[RuleBalanceGatheringCurrents];
         
-        ExitNeighbors = IncidenceList[AuxiliaryGraph, OutwardVertices /@ ExitVertices];
-        RuleExitCurrentsIn = ExitCurrents[jvars]/@ ExitNeighbors;(*Rule*)
-        AssociateTo[InitRules, RuleExitCurrentsIn];
-        Print[InitRules];
+        (*get equations for the exit currents at the entry vertices*)
+        NoDeadStarts = OutgoingEdges[FG] /@ VL // Flatten[#, 1] &;
+        EqBalanceGatheringCurrents = And @@ ((jvars[#] == Total[jtvars /@ CurrentGathering[AllTransitions][#]]) & /@ NoDeadStarts);(*Equal*)
         
-        RuleEntryIn = (jvars[#] -> EntryDataAssociation[#]) & /@ (AtHead /@ InEdges);(*Rule*)
+        (*Incoming currents*)
+		RuleEntryIn = (jvars[#] -> EntryDataAssociation[#]) & /@ (AtHead /@ InEdges);(*Rule*)
+        
+        (*Outgoing currents at entrances*)
         RuleEntryOut= (jvars[#] -> 0) & /@ (AtTail /@ InEdges);(*Rule*)
         RuleEntryIn = Join[RuleEntryIn, RuleEntryOut];
         (* Not necessary to replace RuleEntryIn in InitRules*)
         AssociateTo[InitRules, RuleEntryIn];
+
+        (*Include Gathering currents information in the rules*)
+		{TrueEq, InitRules} = CleanEqualities[{EqBalanceGatheringCurrents/.RuleBalanceGatheringCurrents, InitRules}];
+
+        ExitNeighbors = IncidenceList[AuxiliaryGraph, OutwardVertices /@ ExitVertices];
+
+        (*Incoming currents at the exits are zero*)
+        RuleExitCurrentsIn = ExitCurrents[jvars]/@ ExitNeighbors;(*Rule*)
+        AssociateTo[InitRules, RuleExitCurrentsIn];
+        (*Exit values at exit vertices*)
         RuleExitValues = ExitRules[uvars,ExitCosts] /@ ExitNeighbors;(*Rule*)
-        (*Not necessary to replace RuleExitValues in InitRules*)
+        (*Not necessary to replace RuleExitValues in InitRules, there are no us up to now.*)
         AssociateTo[InitRules, RuleExitValues];
         
         EqValueAuxiliaryEdges = And @@ ((uvars[AtHead[#]] == uvars[AtTail[#]]) & /@ EdgeList[AuxiliaryGraph]);(*Equal*)
@@ -222,6 +233,7 @@ D2E[Data_Association] :=
         "AllOr" -> AllOr, (*union of all complementarity conditions*)
         "AllIneq" -> AllIneq,
         "EqPosJs"->EqPosJs,
+        "EqPosCon" -> EqPosCon, 
         "EqCurrentCompCon" -> EqCurrentCompCon,
         "EqTransitionCompCon" -> EqTransitionCompCon,
         (*linear equations (and inequalities)*)

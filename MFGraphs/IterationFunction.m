@@ -360,6 +360,8 @@ CriticalCongestionSolver2[Eqs_Association] :=
         (*try to simplify bit by bit:*)
         system = AllIneqs&&AllOrs;
         rvars = Variables[Join[us,js]/.rules];
+        (*system = Simplify/@system;*)
+        Print[system];
         Print["CCS2: EliminateVarsSimplify for the us"];
         {{system, rules}, aux, newus} = EliminateVarsSimplify[Eqs][{{system, rules}, (*new*)us, {}}];
         rules = Expand/@rules;
@@ -404,7 +406,13 @@ EliminateVarsSimplifyStep[Eqs_][{{system_, rules_}, us_, persistus_}] :=
         allus = Values[Eqs["uvars"]];
         newus = Drop[us, UpTo[1]];
         subsys = Select[system, Function[x, !(FreeQ[x, #])]]&/@us;
-        subsys = BooleanConvert[Reduce[Reduce @ #, Reals],"CNF"]& /@ subsys;
+        subsys = DeleteDuplicates[subsys];
+        subsys = Reduce /@ subsys;
+        (*Print[Eqs["EqPosCon"]];*)
+        subsys = Simplify[subsys,Eqs["EqPosCon"]];
+        (*Print[subsys];*)
+        subsys= Reduce[ #, Reals] &/@ subsys;(*Imaginary numbers may artificially appear: I * Im[jt556] ...*)
+    	subsys = BooleanConvert[#,"CNF"]& /@ subsys;
         subsys = And @@ subsys;
         {subsys, newrules} = CleanEqualitiesOperator[Eqs][{subsys, rules}];
         newsys = system /. newrules;
