@@ -200,6 +200,7 @@ CleanEqualitiesOperator[Eqs_][{system_, rules_}] :=
 
 CleanEqualities[system_] :=
     CleanEqualities[{system,{}}]
+    
 CleanEqualities[{system_, rules_}] :=
     CleanEqualitiesOperator[<||>][{system, rules}]
 
@@ -246,9 +247,9 @@ FixedReduce2[Eqs_Association][<||>] :=
 
 FixedReduce2[Eqs_Association][{}] :=
     CriticalCongestionSolver2[Eqs]   
-	
+    
 FixedReduce2[Eqs_Association][approxrules_Association] :=
-    Module[ {nonlinear, (*auxsys, auxsol, error, TOL = 10^-10,*) system, 
+    Module[ {(*auxsys, auxsol, error, TOL = 10^-10,*) system, 
         AllIneqs,
         AllOrs,
         rules,
@@ -272,7 +273,7 @@ FixedReduce2[Eqs_Association][approxrules_Association] :=
                                           Return["a"]];
         AllOrs = Lookup[Eqs, "AllOr", Print["No alternatives to solve. \n",AllOrs];
                                       Return["b"]];
-        RuleNonCritical = Eqs["RuleNonCritical"]/.Eqs["InitRules"];       
+        RuleNonCritical = Eqs["RuleNonCritical"]/.Eqs["InitRules"];
         rules = Expand /@ (RuleNonCritical/.RoundValues[Eqs["costpluscurrents"]/.approxrules]);
         Print["non critical rules with j values:\n",rules];
         (*Replace critical congestion rules!*)
@@ -313,7 +314,6 @@ FixedReduce2[Eqs_Association][approxrules_Association] :=
             (*Keeping the order for the js Association*)
             jrules = AssociationThread[js, js/.Select[AssociationThread[js, js/.rules], NumericQ]];
             Print["jrules: \n", jrules];
-            
             {jsys, jrules} = CleanEqualities[{jsys, jrules}];
             {{jsys, jrules}, aux, newjs} = EliminateVarsSimplify[Eqs][{{jsys, jrules}, js}];
             {jsys, jrules} = CleanEqualities[{jsys,jrules}];
@@ -343,7 +343,7 @@ FixedReduce2[Eqs_Association][approxrules_Association] :=
 CriticalCongestionSolver2[Eqs_Association] :=
     Module[ {system, AllIneqs,AllOrs,
     rules, js = Values @ Lookup[Eqs, "jvars"],
-    aux, rvars, uvalues,
+    aux, uvalues,
     jsys, jrules, us = Values[Eqs["uvars"]],
     newus, newjs
     },
@@ -353,23 +353,21 @@ CriticalCongestionSolver2[Eqs_Association] :=
                                       Return["CCS2: b"]];
         rules = Lookup[Eqs,"RulesCriticalCase", Print["CCS2: Critical case rules are missing."];
                                                 Return[]];
-            
         (*Replace critical congestion rules!*)
         AllOrs = AllOrs /. rules;
         AllIneqs = AllIneqs /. rules;
-        (*try to simplify bit by bit:*)
         system = AllIneqs&&AllOrs;
-        rvars = Variables[Join[us,js]/.rules];
-        (*system = Simplify/@system;*)
-        Print[system];
         Print["CCS2: EliminateVarsSimplify for the us"];
-        {{system, rules}, aux, newus} = EliminateVarsSimplify[Eqs][{{system, rules}, (*new*)us, {}}];
+        Print[system];
+        {{system, rules}, aux, newus} = EliminateVarsSimplify[Eqs][{{system, rules}, us, {}}];
         rules = Expand/@rules;
         If[ Variables[us/.rules] === {},
             Print["CCS2: Finished with the us!"],
             Print["CCS2: Not finished with the us!"];
-            {{system, rules}, aux, newus} = EliminateVars[Eqs][{{system, rules}, (*new*)us, {}}];
-            Print["CCS2: Reducing further (NewReduce)...\n", system];
+            system = BooleanConvert[system, "CNF"];
+            {{system, rules}, aux, newus} = EliminateVars[Eqs][{{system, rules}, us, {}}];
+            system = Simplify[system];
+            Print["CCS2: Reducing further (NewReduce)..."];
             system = NewReduce[system];
             Print["CCS2: Simplifying..."];
             system = Simplify @ system;
@@ -379,13 +377,14 @@ CriticalCongestionSolver2[Eqs_Association] :=
             AssociateTo[uvalues, jrules];
             If[ Variables[us/.uvalues] =!= {},
                 Print["CCS2: (Maybe the) system is not feasible!\n
-            \tCheck the paper: The current method for stationary mean-field games on networks"]
+            \tCheck the paper: The current method for stationary mean-field games on networks"],
+                Print["CCS2: Finished with the us!"];
             ];
         ];
         If[ Variables[js/.rules] === {},
-            Print["CCS2: Done!\n"];
+            Print["CCS2: Finished with the js!"];
             Return[AssociationThread[Join[us, js], Join[us, js] /. rules]],
-            Print["CCS2: Finish with the js"];
+            Print["CCS2: Now, finish with the js"];
             uvalues = AssociationThread[us, us /. rules];
             jsys = (Eqs["EqCriticalCase"] /. uvalues) && Eqs["EqPosJs"] && Eqs["EqCurrentCompCon"];
             (**Retrieve js values already defined*)
@@ -406,16 +405,16 @@ EliminateVarsSimplifyStep[Eqs_][{{system_, rules_}, us_, persistus_}] :=
         allus = Values[Eqs["uvars"]];
         newus = Drop[us, UpTo[1]];
         subsys = Select[system, Function[x, !(FreeQ[x, #])]]&/@us;
-        subsys = DeleteDuplicates[subsys];
-        subsys = Reduce /@ subsys;
-        (*Print[Eqs["EqPosCon"]];*)
-        subsys = Simplify[subsys,Eqs["EqPosCon"]];
-        (*Print[subsys];*)
-        subsys= Reduce[ #, Reals] &/@ subsys;(*Imaginary numbers may artificially appear: I * Im[jt556] ...*)
-    	subsys = BooleanConvert[#,"CNF"]& /@ subsys;
+        subsys = RemoveDuplicates[DeleteCases[subsys,True]];
+        Print["subsys list no duplicates\n",subsys];
+        subsys = Reduce /@ subsys;(*Imaginary numbers may artificially appear: I * Im[jt556] ...*)
+        subsys = Simplify[#, Eqs["EqPosJts"] && Eqs["EqPosJs"]]& /@ subsys;
+        (*subsys = BooleanConvert[#,"CNF"]& /@ subsys;*)
         subsys = And @@ subsys;
         {subsys, newrules} = CleanEqualitiesOperator[Eqs][{subsys, rules}];
         newsys = system /. newrules;
+        newsys = Reduce[#, Reals]& /@ newsys;
+        (*newsys = FullSimplify /@ newsys;*)
         {{newsys, newrules}, us, Intersection[allus, getVar[newsys]]}
     ]
     
@@ -499,15 +498,17 @@ CriticalCongestionSolver[Eqs_Association] :=
 
 EliminateVarsStep[Eqs_][{{system_, rules_}, us_, persistus_}] :=
     Module[ {
-        subsys, 
-        newsys, 
+        subsys,
+        newsys,
         newrules
         },
-        subsys = Select[system, Function[x, !(FreeQ[x, #])]]&/@us;        
-        subsys = And@@subsys;
-        subsys = BooleanConvert[Reduce[ Reduce@#, Reals]]&[subsys];
+        subsys = Select[system, Function[x, !(FreeQ[x, #])]]& /@ us;
+        subsys = And @@ subsys;
+        subsys = BooleanConvert[Reduce[ Reduce @ #, Reals]]&[subsys];
         {subsys, newrules} = CleanEqualitiesOperator[Eqs][{subsys, rules}];
-        newsys = (BooleanConvert[system && subsys,"CNF"]) /. newrules;
+        newsys = (system && subsys) /. newrules;
+        (*newsys = Reduce[#, Reals]& /@ newsys;*)
+        newsys = (BooleanConvert[newsys, "CNF"]);
         {{newsys, newrules}, us, Intersection[us, getVar[newsys]]}
     ]
     
@@ -528,9 +529,9 @@ FixedReduce3[Eqs_Association][<||>] :=
 
 FixedReduce3[Eqs_Association][{}] :=
     CriticalCongestionSolver2[Eqs]   
-	
+    
 FixedReduce3[Eqs_Association][approxrules_Association] :=
-    Module[ {nonlinear, (*auxsys, auxsol, error, TOL = 10^-10,*) system, 
+    Module[ {(*auxsys, auxsol, error, TOL = 10^-10,*) system, 
         AllIneqs,
         AllOrs,
         rules,
@@ -541,7 +542,7 @@ FixedReduce3[Eqs_Association][approxrules_Association] :=
         jsys,
         jrules,
         us = Values[Eqs["uvars"]],
-        newus, RuleNonCritical,
+        newus,
         newjs
         },
         (*nonlinear = And @@ (MapThread[(Equal[#1,#2]) &, {Eqs["Nlhs"], RoundValues[Eqs["Nrhs"]/. approxrules]}]);
@@ -595,7 +596,6 @@ FixedReduce3[Eqs_Association][approxrules_Association] :=
             (*Keeping the order for the js Association*)
             jrules = AssociationThread[js, js/.Select[AssociationThread[js, js/.rules], NumericQ]];
             Print["jrules: \n", jrules];
-            
             {jsys, jrules} = CleanEqualities[{jsys, jrules}];
             {{jsys, jrules}, aux, newjs} = EliminateVarsSimplify[Eqs][{{jsys, jrules}, js}];
             {jsys, jrules} = CleanEqualities[{jsys,jrules}];
