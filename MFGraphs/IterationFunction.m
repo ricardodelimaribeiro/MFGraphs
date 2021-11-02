@@ -358,15 +358,19 @@ CriticalCongestionSolver2[Eqs_Association] :=
         AllIneqs = AllIneqs /. rules;
         system = AllIneqs&&AllOrs;
         Print["CCS2: EliminateVarsSimplify for the us"];
-        Print[system];
+        system = FullSimplify/@system;
         {{system, rules}, aux, newus} = EliminateVarsSimplify[Eqs][{{system, rules}, us, {}}];
-        rules = Expand/@rules;
-        If[ Variables[us/.rules] === {},
+        rules = Expand /@ rules;
+        If[ Variables[us /. rules] === {},
             Print["CCS2: Finished with the us!"],
             Print["CCS2: Not finished with the us!"];
             system = BooleanConvert[system, "CNF"];
+            
+        	system = BooleanConvert[#, "CNF"]& /@ system;
+	        Print[system];
             {{system, rules}, aux, newus} = EliminateVars[Eqs][{{system, rules}, us, {}}];
-            system = Simplify[system];
+            Print[system];
+            system = Simplify /@ system;
             Print["CCS2: Reducing further (NewReduce)..."];
             system = NewReduce[system];
             Print["CCS2: Simplifying..."];
