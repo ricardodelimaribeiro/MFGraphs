@@ -91,7 +91,8 @@ D2E[Data_Association] :=
         SwitchingCosts = AssociationThread[Join[AllTransitions, triple2path[Take[#, 3], FG] & /@ SC], 
             Join[0&/@ AllTransitions, Last[#] & /@ SC]];
         EqPosJs = And @@ ( #>=0& /@ Join[jvars]);(*Inequality*)
-        EqPosCon = And @@ ( #>=0& /@ Join[jvars, jtvars]);(*Inequality*)
+        EqPosJts = And @@ ( #>=0& /@ Join[jtvars]);(*Inequality*)
+        EqPosCon = EqPosJs && EqPosJts;(*Inequality*)
         EqCurrentCompCon = And @@ (CurrentCompCon[jvars] /@ EL);(*Or*)
         EqTransitionCompCon = And @@ ((Sort /@ TransitionCompCon[jtvars] /@ AllTransitions) // Union);(*Or*)
         
@@ -131,7 +132,9 @@ D2E[Data_Association] :=
         (*Not necessary to replace RuleExitValues in InitRules, there are no us up to now.*)
         AssociateTo[InitRules, RuleExitValues];
         
+        (*The value function on the auxiliary edges is constant and equal to the exit cost.*)
         EqValueAuxiliaryEdges = And @@ ((uvars[AtHead[#]] == uvars[AtTail[#]]) & /@ EdgeList[AuxiliaryGraph]);(*Equal*)
+        RuleValueAuxiliaryEdges = (uvars[AtTail[#]]->uvars[AtHead[#]]) & /@ EdgeList[AuxiliaryGraph];(*Equal*)
         Print["CleanEqualities for the values at the auxiliary edges"];
         {TrueEq, InitRules} = CleanEqualities[{EqValueAuxiliaryEdges, InitRules}];
         
@@ -174,12 +177,13 @@ D2E[Data_Association] :=
         AllOr = BooleanConvert[Simplify /@ AllOr, "CNF"];
         (*Print[InitRules];*)
         {AllOr, InitRules} = CleanEqualities[{AllOr, InitRules}];
+        
         (*Print[InitRules];*)
         EqPosCon = EqPosCon /. InitRules;
         EqSwitchingConditions = EqSwitchingConditions/.InitRules;
         
         AllIneq = EqPosCon && EqSwitchingConditions;
-        AllIneq = DeleteDuplicates @ AllIneq;
+        AllIneq = If[AllIneq === True, True, DeleteDuplicates @ AllIneq];
         EqAllAll = AllOr && AllIneq;
         EqCriticalCase = And @@ ((# == 0) & /@ Nlhs);(*Equal*)
         
@@ -233,6 +237,7 @@ D2E[Data_Association] :=
         "AllOr" -> AllOr, (*union of all complementarity conditions*)
         "AllIneq" -> AllIneq,
         "EqPosJs"->EqPosJs,
+        "EqPosJts"->EqPosJts,
         "EqPosCon" -> EqPosCon, 
         "EqCurrentCompCon" -> EqCurrentCompCon,
         "EqTransitionCompCon" -> EqTransitionCompCon,
@@ -241,7 +246,7 @@ D2E[Data_Association] :=
         "BoundaryRules" -> InitRules,
         "InitRules" -> InitRules,
         "RulesCriticalCase" -> RulesCriticalCase,
-        "RulesCriticalCase1" -> RulesCriticalCase1,
+        "RulesCriticalCase1" -> RulesCriticalCase1, 
         (*"RulesCriticalCaseJs" -> RulesCriticalCaseJs,*)
         "RuleEntryIn" -> RuleEntryIn,
         "Nlhs" -> Nlhs,
