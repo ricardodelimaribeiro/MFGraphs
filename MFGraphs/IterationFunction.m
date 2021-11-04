@@ -367,9 +367,9 @@ CriticalCongestionSolver2[Eqs_Association] :=
             system = BooleanConvert[system, "CNF"];
             
         	system = BooleanConvert[#, "CNF"]& /@ system;
-	        Print[system];
+	        (*Print[system];*)
             {{system, rules}, aux, newus} = EliminateVars[Eqs][{{system, rules}, us, {}}];
-            Print[system];
+            (*Print[system];*)
             system = Simplify /@ system;
             Print["CCS2: Reducing further (NewReduce)..."];
             system = NewReduce[system];
@@ -410,7 +410,7 @@ EliminateVarsSimplifyStep[Eqs_][{{system_, rules_}, us_, persistus_}] :=
         newus = Drop[us, UpTo[1]];
         subsys = Select[system, Function[x, !(FreeQ[x, #])]]&/@us;
         subsys = RemoveDuplicates[DeleteCases[subsys,True]];
-        Print["subsys list no duplicates\n",subsys];
+        (*Print["subsys list no duplicates\n",subsys];*)
         subsys = Reduce /@ subsys;(*Imaginary numbers may artificially appear: I * Im[jt556] ...*)
         subsys = Simplify[#, Eqs["EqPosJts"] && Eqs["EqPosJs"]]& /@ subsys;
         (*subsys = BooleanConvert[#,"CNF"]& /@ subsys;*)
