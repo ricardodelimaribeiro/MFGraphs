@@ -345,7 +345,7 @@ CriticalCongestionSolver2[Eqs_Association] :=
     rules, js = Values @ Lookup[Eqs, "jvars"],
     aux, uvalues,
     jsys, jrules, us = Values[Eqs["uvars"]],
-    newus, newjs
+    newus, newjs, orineqs
     },
         AllIneqs = Lookup[Eqs, "AllIneq", Print["CCS2: No inequalities to solve."];
                                           Return["a"]];
@@ -355,18 +355,39 @@ CriticalCongestionSolver2[Eqs_Association] :=
                                                 Return[]];
         (*Replace critical congestion rules!*)
         AllOrs = AllOrs /. rules;
-        AllIneqs = AllIneqs /. rules;
-        system = AllIneqs&&AllOrs;
+        AllIneqs = Simplify[AllIneqs /. rules];
+        (*AllIneqs = AllIneqs /. rules;*)
+        (*Print[Simplify[#, AllIneqs]& /@ AllOrs];*)
+        (*AllOrs = Reduce[#, Reals]& /@ AllOrs;*)(*should remove non-equalities: !=*)
+        Print[AllIneqs];
+        AllOrs = Simplify[#, AllIneqs]& /@ AllOrs;
+        Print[AllOrs];
+        {system, rules} = CleanEqualities[{AllIneqs && AllOrs, rules}];
+        Print[system];
+        (*orineqs = GroupBy[List @@ AllOrs, Head[#]===Or&];
+        Print[orineqs];
+        AllOrs = And @@ Lookup[orineqs, True, True];
+        AllIneqs = AllIneqs && And @@ Lookup[orineqs, False, True];
+        AllIneqs = Simplify[AllIneqs];
+        AllOrs = Simplify[#, AllIneqs]& /@ AllOrs;
+        Print[AllOrs];
+        AllOrs = BooleanConvert[AllOrs, "CNF"];
+        (*Print["2\n",AllIneqs];
+        Print["3\n",AllOrs];*)
+        system = AllIneqs&&AllOrs;*)
+        (*system = FullSimplify/@system;*)
+        
         Print["CCS2: EliminateVarsSimplify for the us"];
-        system = FullSimplify/@system;
         {{system, rules}, aux, newus} = EliminateVarsSimplify[Eqs][{{system, rules}, us, {}}];
         rules = Expand /@ rules;
+        (*Print[system];
+        Print[rules];*)
         If[ Variables[us /. rules] === {},
             Print["CCS2: Finished with the us!"],
             Print["CCS2: Not finished with the us!"];
             system = BooleanConvert[system, "CNF"];
-            
-        	system = BooleanConvert[#, "CNF"]& /@ system;
+            (*Print[system];*)
+            system = BooleanConvert[#, "CNF"]& /@ system;
 	        (*Print[system];*)
             {{system, rules}, aux, newus} = EliminateVars[Eqs][{{system, rules}, us, {}}];
             (*Print[system];*)
