@@ -38,7 +38,7 @@ D2E[Data_Association] :=
             EqCcs = Simplify[ConsistentSwithingCosts /@ SC];
             (*Print[EqCcs];*)
             If[ AnyTrue[EqCcs,#===False&],
-                Print["DataToEquations: Triangle inequalities for switching costs: ", EqCcs];
+                Print["DataToEquations: Triangle inequalities for switching costs: \n", Select[AssociationThread[SC,EqCcs], Function[exp, !TrueQ[exp]]]];
                 Print["DataToEquations: The switching costs are ",Style["incompatible", Red],". \nStopping!"];
                 Return[]
             ]
@@ -84,12 +84,33 @@ D2E[Data_Association] :=
         costpluscurrents = Table[Symbol["cpc" <> ToString[k]], {k, 1, Length @ BEL}];
         (*costpluscurrentsvars = AssociationThread[BEL, costpluscurrents];*)
         SignedCurrents =   AssociationThread[BEL, (jvars[AtHead[#]] - jvars[AtTail[#]] &) /@ BEL];
-        Print["Variables are all set"];
+        Print["D2E: Variables are all set"];
         
         (*Elements of the system*)
         (*Swithing cost is initialized with 0. AssociationThread associates the last association!*)
         SwitchingCosts = AssociationThread[Join[AllTransitions, triple2path[Take[#, 3], FG] & /@ SC], 
             Join[0&/@ AllTransitions, Last[#] & /@ SC]];
+        
+   			SC=path2triple/@ Normal[SwitchingCosts];
+         If[ SC =!= {},
+         	Print["Second check:"];
+            (*ConsistentSwithingCosts[{a_, b_, c_, S_}] :=
+                Module[ {sc = SC, or, de, bounds},
+                    or = Cases[sc, {a, b, _, _}];
+                    de = Cases[sc, {_, b, c, _}];
+		            bounds = Outer[Plus, Last /@ or, Last /@ de] // Flatten;
+                    (*And @@ (NonNegative[#-S] &) /@ bounds*)
+                    And @@ (#>=S &) /@ bounds
+                ];*)
+            EqCcs = ConsistentSwithingCosts /@ SC;
+            EqCcs = Simplify[ConsistentSwithingCosts /@ SC];
+            (*Print[EqCcs];*)
+            If[ AnyTrue[EqCcs,#===False&],
+                Print["DataToEquations: Triangle inequalities for switching costs: ", Select[AssociationThread[SC,EqCcs], Function[exp, !TrueQ[exp]]]];
+                Print["DataToEquations: The switching costs are ",Style["incompatible", Red],". \nStopping!"];
+                Return[]
+            ]
+        ];   
         EqPosJs = And @@ ( #>=0& /@ Join[jvars]);(*Inequality*)
         EqPosJts = And @@ ( #>=0& /@ Join[jtvars]);(*Inequality*)
         EqPosCon = EqPosJs && EqPosJts;(*Inequality*)
@@ -135,7 +156,7 @@ D2E[Data_Association] :=
         (*The value function on the auxiliary edges is constant and equal to the exit cost.*)
         EqValueAuxiliaryEdges = And @@ ((uvars[AtHead[#]] == uvars[AtTail[#]]) & /@ EdgeList[AuxiliaryGraph]);(*Equal*)
         RuleValueAuxiliaryEdges = (uvars[AtTail[#]]->uvars[AtHead[#]]) & /@ EdgeList[AuxiliaryGraph];(*Equal*)
-        Print["CleanEqualities for the values at the auxiliary edges"];
+        Print["D2E: CleanEqualities for the values at the auxiliary edges"];
         {TrueEq, InitRules} = CleanEqualities[{EqValueAuxiliaryEdges, InitRules}];
         
         (*Infinite switching costs here prevent the network from sucking agents from the exits.*)
@@ -144,7 +165,7 @@ D2E[Data_Association] :=
         AssociateTo[SwitchingCosts, Association[OutRules]];
         AssociateTo[SwitchingCosts, Association[InRules]];
         
-        Print["Assembled most elements of the system"];
+        Print["D2E: Assembled most elements of the system"];
         (*Switching condition equations*)
         EqSwitchingByVertex = Transu[uvars,SwitchingCosts]/@TransitionsAt[FG, #] & /@ VL;
        
@@ -153,11 +174,11 @@ D2E[Data_Association] :=
         
         EqSwitchingByVertex = DeleteCases[EqSwitchingByVertex, True];
         
-        Print["CleanEqualities for the switching conditions on each vertex"];
+        Print["D2E: CleanEqualities for the switching conditions on each vertex"];
         {EqSwitchingConditions, InitRules} = CleanEqualities[{EqSwitchingByVertex, InitRules}];
         
         EqCompCon = And @@ Compu[jtvars,uvars,SwitchingCosts] /@ AllTransitions;(*Or*)
-        Print["CleanEqualities for the complementary conditions (given the rules)"];
+        Print["D2E: CleanEqualities for the complementary conditions (given the rules)"];
         {EqCompCon, InitRules} = CleanEqualities[{EqCompCon, InitRules}];
         
         (*Default in a, function, corresponds to the classic critical congestion case*)
@@ -169,7 +190,7 @@ D2E[Data_Association] :=
         EqMinimalTime = And @@ (MapThread[(#1 == #2) &, {Nlhs, MinimalTimeRhs}]);
         
         Nrhs =  Flatten[-Cost[SignedCurrents[#], #] + SignedCurrents[#] & /@ BEL];(*one possible cost is IntM*)
-        Print["CleanEqualities for the balance conditions in terms of (mostly) transition currents"];
+        Print["D2E: CleanEqualities for the balance conditions in terms of (mostly) transition currents"];
         {TrueEq, InitRules} = CleanEqualities[{EqBalanceSplittingCurrents, InitRules}];
         (*Print[TrueEq];*)
         AllOr = EqCurrentCompCon && EqTransitionCompCon && EqCompCon;
@@ -180,11 +201,15 @@ D2E[Data_Association] :=
         
         (*Print[InitRules];*)
         EqPosCon = EqPosCon /. InitRules;
+        (*Print[EqSwitchingConditions];*)
         EqSwitchingConditions = EqSwitchingConditions/.InitRules;
-        
-        AllIneq = EqPosCon && EqSwitchingConditions;
-        AllIneq = If[AllIneq === True, True, DeleteDuplicates @ AllIneq];
-        EqAllAll = AllOr && AllIneq;
+        EqSwitchingConditions = Simplify[EqSwitchingConditions];
+        AllOr = AllOr && Select[EqSwitchingConditions,Head[#] === Or &];
+        AllOr = BooleanConvert[AllOr,"CNF"];
+        AllIneq = EqPosCon && Select[EqSwitchingConditions,Head[#] =!= Or &];
+        AllIneq = Simplify[AllIneq];
+(*        AllOr = BooleanConvert[Simplify[#, AllIneq]& /@ AllOr,"CNF"];
+        {EqAllAll, InitRules} = CleanEqualities[{AllOr && AllIneq, InitRules}];*)
         EqCriticalCase = And @@ ((# == 0) & /@ Nlhs);(*Equal*)
         
         EqNonCritical = And @@ (MapThread[ Equal[#1,#2] &, {Nlhs, costpluscurrents/.InitRules}])/.AssociationThread[us, us/.InitRules];
@@ -202,7 +227,7 @@ D2E[Data_Association] :=
         
         
         
-        Print["CleanEqualities for the (non) critical case equations"];
+        Print["D2E: CleanEqualities for the (non) critical case equations"];
         {TrueEq, RuleNonCritical} = CleanEqualities[{EqNonCritical, InitRules }];
         (*Print[Expand/@RuleNonCritical];*)
         EqCriticalCase = EqNonCritical /. AssociationThread[costpluscurrents, 0&/@costpluscurrents];
@@ -220,6 +245,7 @@ D2E[Data_Association] :=
         Print["Expanding critical rules..."];
         RulesCriticalCase = Expand/@RulesCriticalCase;
         Print[RulesCriticalCase];*)
+        Print["D2E: D2E is finished!"];
         Join[Data,Association[
         (*Graph structure*)
         "BG" -> BG, 
