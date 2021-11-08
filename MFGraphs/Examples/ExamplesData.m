@@ -104,7 +104,7 @@ test = Association[
         (*VL=*){1, 2, 3, 4},
         (*AM=*){{0, 1, 1, 0}, {0, 0, 1, 1}, {0, 0, 0, 1}, {0, 0, 0, 0}},
         (*DataIn=*){{1, I1}},
-        (*FinalCosts=*){{4, U2}}, 
+        (*FinalCosts=*){{4, U1}}, 
         (*SwitchingCostsData=*){
             {1, 2, 4, S1}, 
             {1, 2, 3, S2}, 
