@@ -3,10 +3,13 @@ SortAnds::usage =
 "SortAnds[system, variables] Sorts equations (and inequalities) according to an orderd list of variables."
 
 OtherWay::usage =
-"OtherWay[{a,a\[DirectedEdge]b}] returns {b,a\[DirectedEdge]b}";
+"OtherWay[{a,DirectedEdge[a,b]}] returns {b,DirectedEdge[a,b]}";
 
 triple2path::usage =
 "triple2path[{a, b, c}, G] takes 3 ordered vertices and gives the pair of edges conecting the first two and the last two. If this is not feasible, error message with {a, b, c}!";
+
+path2triple::usage = 
+"path2triple[Rule[{a, DirectedEdge[b, c], DirectedEdge[d,e]},S]] returns {g, a, h, S}, where g belongs to the complement of a in {b,c}, and h belongs to the complement of a in {d, e}"
 
 TransitionsAt::usage = 
 "TransitionsAt[G, k]";
@@ -422,7 +425,10 @@ triple2path[{a_, b_, c_}, G_] :=
             StringJoin["\nThere is no path from ", ToString[a], " to ", ToString[b], " to ", ToString[c]]
         ]
     ]
-    
+  
+path2triple[{a_, b_ \[DirectedEdge] c_, d_ \[DirectedEdge] e_} -> S_] :=
+ {Select[{b, c}, # =!= a &], a, Select[{d, e}, # =!= a &], S} // Flatten;
+       
 F[j_?NumericQ, x_?NumericQ] :=
     First @ Values @ FindRoot[Parameters["H[x,p,m]"][x, -j/(m^(1 - Parameters["alpha"])),m], {m, 1}];
 (*we are solving the h-j equation, H[x,u_x,m] == 0, for m, given that u_x = -j*m^(alpha-1) 
