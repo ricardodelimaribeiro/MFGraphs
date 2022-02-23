@@ -22,7 +22,8 @@ D2E[Data_Association] :=
     	AllOr, EqAllAll, AllIneq,
 		EqCriticalCase, EqMinimalTime,  EqNonCritical, EqPosJs, TrueEq, costpluscurrents, 
 		RuleBalanceGatheringCurrents, RuleEntryIn, RuleEntryOut, RuleExitValues, RuleExitCurrentsIn, InitRules, OutRules, 
-		InRules, RuleNonCritical, RuleNonCritical1, RulesCriticalCase, RulesCriticalCase1(*, EqNonCritical1*)
+		InRules, RuleNonCritical, RuleNonCritical1, RulesCriticalCase, RulesCriticalCase1,(*, EqNonCritical1*)
+		EqPosJts, BalanceSplittingCurrents, BalanceGatheringCurrents, EqEntryIn, Kirchhoff, RuleValueAuxiliaryEdges
     	},
     	(*Checking consistency on the swithing costs*)
         If[ SC =!= {},
@@ -36,7 +37,7 @@ D2E[Data_Association] :=
                 ];
             EqCcs = ConsistentSwithingCosts /@ SC;
             EqCcs = Simplify[ConsistentSwithingCosts /@ SC];
-            (*Print[EqCcs];*)
+            
             If[ AnyTrue[EqCcs,#===False&],
                 Print["DataToEquations: Triangle inequalities for switching costs: \n", Select[AssociationThread[SC,EqCcs], Function[exp, !TrueQ[exp]]]];
                 Print["DataToEquations: The switching costs are ",Style["incompatible", Red],". \nStopping!"];
@@ -72,8 +73,7 @@ D2E[Data_Association] :=
         EntryArgs = AtHead /@ ((EdgeList[AuxiliaryGraph, _ \[DirectedEdge] #] & /@ (First /@ Data["Entrance Vertices and Currents"])) // Flatten[#, 1] &);
         EntryDataAssociation = RoundValues @ AssociationThread[EntryArgs, Last /@ Data["Entrance Vertices and Currents"]];
         ExitCosts = AssociationThread[OutwardVertices /@ (First /@ Data["Exit Vertices and Terminal Costs"]), Last /@ Data["Exit Vertices and Terminal Costs"]];
-
-
+		
         (*variables*)
         js = Table[Symbol["j" <> ToString[k]], {k, 1, Length @ jargs}];
         jvars = AssociationThread[jargs, js];
@@ -91,7 +91,7 @@ D2E[Data_Association] :=
         SwitchingCosts = AssociationThread[Join[AllTransitions, triple2path[Take[#, 3], FG] & /@ SC], 
             Join[0&/@ AllTransitions, Last[#] & /@ SC]];
         
-   			SC=path2triple/@ Normal[SwitchingCosts];
+   			SC = path2triple/@ Normal[SwitchingCosts];
          If[ SC =!= {},
          	Print["Second check:"];
             (*ConsistentSwithingCosts[{a_, b_, c_, S_}] :=
@@ -105,9 +105,9 @@ D2E[Data_Association] :=
             EqCcs = ConsistentSwithingCosts /@ SC;
             EqCcs = Simplify[ConsistentSwithingCosts /@ SC];
             (*Print[EqCcs];*)
-            If[ AnyTrue[EqCcs,#===False&],
+            If[ AnyTrue[EqCcs, # === False&],
                 Print["DataToEquations: Triangle inequalities for switching costs: ", Select[AssociationThread[SC,EqCcs], Function[exp, !TrueQ[exp]]]];
-                Print["DataToEquations: The switching costs are ",Style["incompatible", Red],". \nStopping!"];
+                Print["DataToEquations: The switching costs are ", Style["incompatible", Red],". \nStopping!"];
                 Return[]
             ]
         ];   
@@ -120,9 +120,11 @@ D2E[Data_Association] :=
         (*Balance Splitting Currents in the full graph*)
 		NoDeadEnds = IncomingEdges[FG] /@ VL // Flatten[#, 1] &;
         EqBalanceSplittingCurrents = And @@ ((jvars[#] == Total[jtvars /@ CurrentSplitting[AllTransitions][#]]) & /@ NoDeadEnds);(*Equal*)
+		BalanceSplittingCurrents = ((jvars[#] - Total[jtvars /@ CurrentSplitting[AllTransitions][#]]) & /@ NoDeadEnds);
 		
 		(*Gathering currents in the inside of the basic graph*)
         NoDeadStarts = OutgoingEdges[BG] /@ VL // Flatten[#, 1] &;
+        
         RuleBalanceGatheringCurrents = (jvars[#] -> Total[jtvars /@ CurrentGathering[AllTransitions][#]]) & /@ NoDeadStarts;(*Rule*)
         (*First rules: these have some j in terms of jts*)
         InitRules = Association[RuleBalanceGatheringCurrents];
@@ -130,10 +132,17 @@ D2E[Data_Association] :=
         (*get equations for the exit currents at the entry vertices*)
         NoDeadStarts = OutgoingEdges[FG] /@ VL // Flatten[#, 1] &;
         EqBalanceGatheringCurrents = And @@ ((jvars[#] == Total[jtvars /@ CurrentGathering[AllTransitions][#]]) & /@ NoDeadStarts);(*Equal*)
+        BalanceGatheringCurrents = ((-jvars[#] + Total[jtvars /@ CurrentGathering[AllTransitions][#]]) & /@ NoDeadStarts);
         
         (*Incoming currents*)
-		RuleEntryIn = (jvars[#] -> EntryDataAssociation[#]) & /@ (AtHead /@ InEdges);(*Rule*)
+		EqEntryIn = (jvars[#] == EntryDataAssociation[#]) & /@ (AtHead /@ InEdges);(*Equal*)
+		RuleEntryIn = ToRules/@EqEntryIn;(*Rule*)
         
+        (*TODO get kirchhoff's law*)
+        
+		Kirchhoff = Join[EqEntryIn, (# == 0 & /@ (BalanceGatheringCurrents + BalanceSplittingCurrents))];
+        Print["The matrices B and K are: \n",MatrixForm/@CoefficientArrays[Kirchhoff, vars = RandomSample@Join[js, jts]],"\nThe order of the variables is \n", vars];
+        Print["The matrices B and K are: \n",MatrixForm/@CoefficientArrays[Kirchhoff, vars = Join[js, jts],"\nThe order of the variables is \n", vars];
         (*Outgoing currents at entrances*)
         RuleEntryOut= (jvars[#] -> 0) & /@ (AtTail /@ InEdges);(*Rule*)
         RuleEntryIn = Join[RuleEntryIn, RuleEntryOut];
@@ -182,8 +191,7 @@ D2E[Data_Association] :=
         {EqCompCon, InitRules} = CleanEqualities[{EqCompCon, InitRules}];
         
         (*Default in a, function, corresponds to the classic critical congestion case*)
-        a (*[SignedCurrents[edge], edge]:*) =
-        Lookup[Data, "a" , Function[{j, edge}, j]];
+        a (*[SignedCurrents[edge], edge]:*) = Lookup[Data, "a" , Function[{j, edge}, j]];
         
         MinimalTimeRhs = Flatten[-a[SignedCurrents[#], #] + SignedCurrents[#] & /@ BEL];
         Nlhs = Flatten[uvars[AtHead[#]] - uvars[AtTail[#]] + SignedCurrents[#] & /@ BEL];
@@ -192,16 +200,15 @@ D2E[Data_Association] :=
         Nrhs =  Flatten[-Cost[SignedCurrents[#], #] + SignedCurrents[#] & /@ BEL];(*one possible cost is IntM*)
         Print["D2E: CleanEqualities for the balance conditions in terms of (mostly) transition currents"];
         {TrueEq, InitRules} = CleanEqualities[{EqBalanceSplittingCurrents, InitRules}];
-        (*Print[TrueEq];*)
+        
         AllOr = EqCurrentCompCon && EqTransitionCompCon && EqCompCon;
         AllOr = AllOr/.InitRules;
         AllOr = BooleanConvert[Simplify /@ AllOr, "CNF"];
-        (*Print[InitRules];*)
+        
         {AllOr, InitRules} = CleanEqualities[{AllOr, InitRules}];
         
-        (*Print[InitRules];*)
         EqPosCon = EqPosCon /. InitRules;
-        (*Print[EqSwitchingConditions];*)
+        
         EqSwitchingConditions = EqSwitchingConditions/.InitRules;
         EqSwitchingConditions = Simplify[EqSwitchingConditions];
         AllOr = AllOr && Select[EqSwitchingConditions,Head[#] === Or &];
