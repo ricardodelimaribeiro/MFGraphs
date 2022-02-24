@@ -142,7 +142,7 @@ D2E[Data_Association] :=
         
 		Kirchhoff = Join[EqEntryIn, (# == 0 & /@ (BalanceGatheringCurrents + BalanceSplittingCurrents))];
         Print["The matrices B and K are: \n",MatrixForm/@CoefficientArrays[Kirchhoff, vars = RandomSample@Join[js, jts]],"\nThe order of the variables is \n", vars];
-        Print["The matrices B and K are: \n",MatrixForm/@CoefficientArrays[Kirchhoff, vars = Join[js, jts],"\nThe order of the variables is \n", vars];
+        Print["The matrices B and K are: \n",MatrixForm/@CoefficientArrays[Kirchhoff, vars = Join[js, jts]],"\nThe order of the variables is \n", vars];
         (*Outgoing currents at entrances*)
         RuleEntryOut= (jvars[#] -> 0) & /@ (AtTail /@ InEdges);(*Rule*)
         RuleEntryIn = Join[RuleEntryIn, RuleEntryOut];
