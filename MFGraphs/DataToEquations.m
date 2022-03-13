@@ -23,7 +23,8 @@ D2E[Data_Association] :=
 		EqCriticalCase, EqMinimalTime,  EqNonCritical, EqPosJs, TrueEq, costpluscurrents, 
 		RuleBalanceGatheringCurrents, RuleEntryIn, RuleEntryOut, RuleExitValues, RuleExitCurrentsIn, InitRules, OutRules, 
 		InRules, RuleNonCritical, RuleNonCritical1, RulesCriticalCase, RulesCriticalCase1,(*, EqNonCritical1*)
-		EqPosJts, BalanceSplittingCurrents, BalanceGatheringCurrents, EqEntryIn, Kirchhoff, RuleValueAuxiliaryEdges
+		EqPosJts, BalanceSplittingCurrents, BalanceGatheringCurrents, EqEntryIn, Kirchhoff, RuleValueAuxiliaryEdges,
+		BM, KM, vars
     	},
     	(*Checking consistency on the swithing costs*)
         If[ SC =!= {},
@@ -123,43 +124,49 @@ D2E[Data_Association] :=
 		BalanceSplittingCurrents = ((jvars[#] - Total[jtvars /@ CurrentSplitting[AllTransitions][#]]) & /@ NoDeadEnds);
 		
 		(*Gathering currents in the inside of the basic graph*)
-        NoDeadStarts = OutgoingEdges[BG] /@ VL // Flatten[#, 1] &;
+        NoDeadStarts = OutgoingEdges[FG] /@ VL // Flatten[#, 1] &;
         
         RuleBalanceGatheringCurrents = (jvars[#] -> Total[jtvars /@ CurrentGathering[AllTransitions][#]]) & /@ NoDeadStarts;(*Rule*)
         (*First rules: these have some j in terms of jts*)
         InitRules = Association[RuleBalanceGatheringCurrents];
         
         (*get equations for the exit currents at the entry vertices*)
-        NoDeadStarts = OutgoingEdges[FG] /@ VL // Flatten[#, 1] &;
+        (*Only need this if the previous definition is in BG instead of FG: NoDeadStarts = OutgoingEdges[FG] /@ VL // Flatten[#, 1] &;*)
         EqBalanceGatheringCurrents = And @@ ((jvars[#] == Total[jtvars /@ CurrentGathering[AllTransitions][#]]) & /@ NoDeadStarts);(*Equal*)
         BalanceGatheringCurrents = ((-jvars[#] + Total[jtvars /@ CurrentGathering[AllTransitions][#]]) & /@ NoDeadStarts);
         
         (*Incoming currents*)
-		EqEntryIn = (jvars[#] == EntryDataAssociation[#]) & /@ (AtHead /@ InEdges);(*Equal*)
-		RuleEntryIn = ToRules/@EqEntryIn;(*Rule*)
+		EqEntryIn = (jvars[#] == EntryDataAssociation[#]) & /@ (AtHead /@ InEdges);(*List of Equals*)
+		RuleEntryIn = Flatten[ToRules/@EqEntryIn];(*List of Rules*)
         
-        (*TODO get kirchhoff's law*)
         
 		Kirchhoff = Join[EqEntryIn, (# == 0 & /@ (BalanceGatheringCurrents + BalanceSplittingCurrents))];
-        Print["The matrices B and K are: \n",MatrixForm/@CoefficientArrays[Kirchhoff, vars = RandomSample@Join[js, jts]],"\nThe order of the variables is \n", vars];
-        Print["The matrices B and K are: \n",MatrixForm/@CoefficientArrays[Kirchhoff, vars = Join[js, jts]],"\nThe order of the variables is \n", vars];
+        (*Print["The matrices B and K are: \n",MatrixForm/@CoefficientArrays[Kirchhoff, vars = RandomSample@Join[js, jts]],"\nThe order of the variables is \n", vars];*)
+
         (*Outgoing currents at entrances*)
         RuleEntryOut= (jvars[#] -> 0) & /@ (AtTail /@ InEdges);(*Rule*)
         RuleEntryIn = Join[RuleEntryIn, RuleEntryOut];
         (* Not necessary to replace RuleEntryIn in InitRules*)
         AssociateTo[InitRules, RuleEntryIn];
-
         (*Include Gathering currents information in the rules*)
-		{TrueEq, InitRules} = CleanEqualities[{EqBalanceGatheringCurrents/.RuleBalanceGatheringCurrents, InitRules}];
+		{TrueEq, InitRules} = CleanEqualities[{EqBalanceGatheringCurrents /. RuleBalanceGatheringCurrents, InitRules}];
 
         ExitNeighbors = IncidenceList[AuxiliaryGraph, OutwardVertices /@ ExitVertices];
 
         (*Incoming currents at the exits are zero*)
         RuleExitCurrentsIn = ExitCurrents[jvars]/@ ExitNeighbors;(*Rule*)
+        
+        Kirchhoff = Kirchhoff /. Join[RuleExitCurrentsIn,RuleEntryOut];
+        
+        {BM,KM} = CoefficientArrays[Kirchhoff, vars = Variables[Kirchhoff /. Equal -> Plus]];
+        Print["The matrices B and K are: \n",MatrixForm/@{-BM,KM},"\nThe order of the variables is \n", vars];
+                
         AssociateTo[InitRules, RuleExitCurrentsIn];
+        
         (*Exit values at exit vertices*)
         RuleExitValues = ExitRules[uvars,ExitCosts] /@ ExitNeighbors;(*Rule*)
         (*Not necessary to replace RuleExitValues in InitRules, there are no us up to now.*)
+        Print[RuleExitValues];
         AssociateTo[InitRules, RuleExitValues];
         
         (*The value function on the auxiliary edges is constant and equal to the exit cost.*)
@@ -167,7 +174,7 @@ D2E[Data_Association] :=
         RuleValueAuxiliaryEdges = (uvars[AtTail[#]]->uvars[AtHead[#]]) & /@ EdgeList[AuxiliaryGraph];(*Equal*)
         Print["D2E: CleanEqualities for the values at the auxiliary edges"];
         {TrueEq, InitRules} = CleanEqualities[{EqValueAuxiliaryEdges, InitRules}];
-        
+        (*Print[RuleValueAuxiliaryEdges];*)
         (*Infinite switching costs here prevent the network from sucking agents from the exits.*)
         OutRules = Rule[#, Infinity] & /@ (Outer[Flatten[{AtTail[#1], #2}] &, OutEdges, EL] // Flatten[#, 1] &);
         InRules = Rule[#, Infinity] & /@ (Outer[{#2[[2]], #1, #2} &, IncidenceList[FG, #] & /@ EntranceVertices, InEdges] // Flatten[#, 2] &);
@@ -183,7 +190,7 @@ D2E[Data_Association] :=
         
         EqSwitchingByVertex = DeleteCases[EqSwitchingByVertex, True];
         
-        Print["D2E: CleanEqualities for the switching conditions on each vertex"];
+        Print["D2E: CleanEqualities for the switching conditions on each vertex: \n", Reduce @ EqSwitchingByVertex];
         {EqSwitchingConditions, InitRules} = CleanEqualities[{EqSwitchingByVertex, InitRules}];
         
         EqCompCon = And @@ Compu[jtvars,uvars,SwitchingCosts] /@ AllTransitions;(*Or*)
@@ -281,6 +288,7 @@ D2E[Data_Association] :=
         "RulesCriticalCase" -> RulesCriticalCase,
         "RulesCriticalCase1" -> RulesCriticalCase1, 
         (*"RulesCriticalCaseJs" -> RulesCriticalCaseJs,*)
+        "RuleExitValues"-> RuleExitValues,
         "RuleEntryIn" -> RuleEntryIn,
         "Nlhs" -> Nlhs,
         "MinimalTimeRhs" -> MinimalTimeRhs,
@@ -293,7 +301,13 @@ D2E[Data_Association] :=
 		"EqValueAuxiliaryEdges" -> EqValueAuxiliaryEdges,
         "EqBalanceSplittingCurrents" -> EqBalanceSplittingCurrents, 
  		"EqBalanceGatheringCurrents" -> EqBalanceGatheringCurrents,
-        "Nrhs" -> Nrhs
+        "Nrhs" -> Nrhs,
+        "B" ->BM,
+        "K" -> KM,
+        "NoDeadEnds" -> NoDeadEnds,
+        "NoDeadStarts" -> NoDeadStarts,
+        "EqEntryIn" -> EqEntryIn,
+        "vars" -> vars
         ]
         ]
     ]

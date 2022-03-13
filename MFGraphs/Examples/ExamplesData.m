@@ -382,6 +382,17 @@ test = Association[
         (*FinalCosts=*){{9, U1}/.U1->0},
         (*SwitchingCostsData=*){{1,3,5,S1},{5,7,9,S2}}/.{S1->10,S2->10}},
         
+        "Paper example" -> {
+        (*VL=*){1,2,3,4},
+        (*AM=*){
+        {0,1,0,0},
+        {0,0,1,0},
+        {0,0,0,1},
+        {0,0,0,0}},
+        (*DataIn=*){{1, I1},{3, I2}},
+        (*FinalCosts=*){{2, U1},{4,U2}}/.{U1->0,U2->0},
+        (*SwitchingCostsData=*){{1,2,3,S1},{3,2,1,S2},{2,3,4,S3},{4,3,2,S4}}},
+        
         "Grid1020" -> {
         	(*VL=*)VertexList[GridGraph[{10,20}]],
         (*AM=*)AdjacencyMatrix[GridGraph[{10,20},DirectedEdges->True]],

@@ -306,10 +306,11 @@ FixedReduce2[Eqs_Association][approxrules_Association] :=
         If[ Variables[js/.rules] === {},
             Print["FR2: Done!\n"];
             Return[AssociationThread[Join[us, js], Join[us, js] /. rules]],
-            Print["FR2: Finish with the js"];
+            Print["FR2: Now the currents..."];
             uvalues = AssociationThread[us, us /. rules];
             (*TODO Fix this! Use rules or correct the equations! not the criticalcase!*)
             jsys = (*(Eqs["EqCriticalCase"] /. uvalues) &&*) Eqs["EqPosJs"] && Eqs["EqCurrentCompCon"];
+            jsys = jsys && Eqs["EqNonCritical"]/.uvalues /. RoundValues[Eqs["costpluscurrents"]/.approxrules];
             (**Retrieve js values already defined*)
             (*Keeping the order for the js Association*)
             jrules = AssociationThread[js, js/.Select[AssociationThread[js, js/.rules], NumericQ]];
@@ -326,7 +327,8 @@ FixedReduce2[Eqs_Association][approxrules_Association] :=
 
        If[ auxsys === False,
             (*precision issues...?but it could be the case that the "real" solution is repulsive/unstable.*)
-            Print["FRX1: The last system in the iteration was inconsistent.\nReturning the last feasible solution.\nConsider that the solution may be unstable."];
+            Print["FRX1: The last system in the iteration was inconsistent.\nReturning the last feasible 
+            solution.\nConsider that the solution may be unstable."];
             Return[rules],
             Print["The error (1-Norm of LHS-RHS) is ", Norm[(Eqs["Nlhs"] - Eqs["Nrhs"]) /. auxsol, 1]];
         ];
@@ -345,7 +347,7 @@ CriticalCongestionSolver2[Eqs_Association] :=
     rules, js = Values @ Lookup[Eqs, "jvars"],
     aux, uvalues,
     jsys, jrules, us = Values[Eqs["uvars"]],
-    newus, newjs, orineqs
+    newus, newjs
     },
         AllIneqs = Lookup[Eqs, "AllIneq", Print["CCS2: No inequalities to solve."];
                                           Return["a"]];
@@ -356,41 +358,18 @@ CriticalCongestionSolver2[Eqs_Association] :=
         (*Replace critical congestion rules!*)
         AllOrs = AllOrs /. rules;
         AllIneqs = Simplify[AllIneqs /. rules];
-        (*AllIneqs = AllIneqs /. rules;*)
-        (*Print[Simplify[#, AllIneqs]& /@ AllOrs];*)
-        (*AllOrs = Reduce[#, Reals]& /@ AllOrs;*)(*should remove non-equalities: !=*)
-        Print[AllIneqs];
         AllOrs = Simplify[#, AllIneqs]& /@ AllOrs;
         Print[AllOrs];
         {system, rules} = CleanEqualities[{AllIneqs && AllOrs, rules}];
-        Print[system];
-        (*orineqs = GroupBy[List @@ AllOrs, Head[#]===Or&];
-        Print[orineqs];
-        AllOrs = And @@ Lookup[orineqs, True, True];
-        AllIneqs = AllIneqs && And @@ Lookup[orineqs, False, True];
-        AllIneqs = Simplify[AllIneqs];
-        AllOrs = Simplify[#, AllIneqs]& /@ AllOrs;
-        Print[AllOrs];
-        AllOrs = BooleanConvert[AllOrs, "CNF"];
-        (*Print["2\n",AllIneqs];
-        Print["3\n",AllOrs];*)
-        system = AllIneqs&&AllOrs;*)
-        (*system = FullSimplify/@system;*)
-        
         Print["CCS2: EliminateVarsSimplify for the us"];
         {{system, rules}, aux, newus} = EliminateVarsSimplify[Eqs][{{system, rules}, us, {}}];
         rules = Expand /@ rules;
-        (*Print[system];
-        Print[rules];*)
         If[ Variables[us /. rules] === {},
             Print["CCS2: Finished with the us!"],
             Print["CCS2: Not finished with the us!"];
             system = BooleanConvert[system, "CNF"];
-            (*Print[system];*)
             system = BooleanConvert[#, "CNF"]& /@ system;
-	        (*Print[system];*)
-            {{system, rules}, aux, newus} = EliminateVars[Eqs][{{system, rules}, us, {}}];
-            (*Print[system];*)
+	        {{system, rules}, aux, newus} = EliminateVars[Eqs][{{system, rules}, us, {}}];
             system = Simplify /@ system;
             Print["CCS2: Reducing further (NewReduce)..."];
             system = NewReduce[system];
