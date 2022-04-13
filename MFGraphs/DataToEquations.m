@@ -28,16 +28,16 @@ D2E[Data_Association] :=
     	},
     	(*Checking consistency on the swithing costs*)
         If[ SC =!= {},
-            ConsistentSwithingCosts[{a_, b_, c_, S_}] :=
-                Module[ {sc = SC, or, de, bounds},
+            ConsistentSwithingCosts[sc_][{a_, b_, c_, S_}] :=
+                Module[ {or, de, bounds},
                     or = Cases[sc, {a, b, _, _}];
                     de = Cases[sc, {_, b, c, _}];
 		            bounds = Outer[Plus, Last /@ or, Last /@ de] // Flatten;
                     (*And @@ (NonNegative[#-S] &) /@ bounds*)
                     And @@ (#>=S &) /@ bounds
                 ];
-            EqCcs = ConsistentSwithingCosts /@ SC;
-            EqCcs = Simplify[ConsistentSwithingCosts /@ SC];
+            EqCcs = ConsistentSwithingCosts[SC] /@ SC;
+            EqCcs = Simplify[EqCcs];
             
             If[ AnyTrue[EqCcs,#===False&],
                 Print["DataToEquations: Triangle inequalities for switching costs: \n", Select[AssociationThread[SC,EqCcs], Function[exp, !TrueQ[exp]]]];
@@ -103,8 +103,8 @@ D2E[Data_Association] :=
                     (*And @@ (NonNegative[#-S] &) /@ bounds*)
                     And @@ (#>=S &) /@ bounds
                 ];*)
-            EqCcs = ConsistentSwithingCosts /@ SC;
-            EqCcs = Simplify[ConsistentSwithingCosts /@ SC];
+            EqCcs = ConsistentSwithingCosts[SC] /@ SC;
+            EqCcs = Simplify[EqCcs];
             (*Print[EqCcs];*)
             If[ AnyTrue[EqCcs, # === False&],
                 Print["DataToEquations: Triangle inequalities for switching costs: ", Select[AssociationThread[SC,EqCcs], Function[exp, !TrueQ[exp]]]];
@@ -131,9 +131,8 @@ D2E[Data_Association] :=
         InitRules = Association[RuleBalanceGatheringCurrents];
         
         (*get equations for the exit currents at the entry vertices*)
-        (*Only need this if the previous definition is in BG instead of FG: NoDeadStarts = OutgoingEdges[FG] /@ VL // Flatten[#, 1] &;*)
-        EqBalanceGatheringCurrents = And @@ ((jvars[#] == Total[jtvars /@ CurrentGathering[AllTransitions][#]]) & /@ NoDeadStarts);(*Equal*)
         BalanceGatheringCurrents = ((-jvars[#] + Total[jtvars /@ CurrentGathering[AllTransitions][#]]) & /@ NoDeadStarts);
+        EqBalanceGatheringCurrents = Simplify/@(And @@ (#==0&/@ BalanceGatheringCurrents));
         
         (*Incoming currents*)
 		EqEntryIn = (jvars[#] == EntryDataAssociation[#]) & /@ (AtHead /@ InEdges);(*List of Equals*)
@@ -152,7 +151,9 @@ D2E[Data_Association] :=
 		{TrueEq, InitRules} = CleanEqualities[{EqBalanceGatheringCurrents /. RuleBalanceGatheringCurrents, InitRules}];
 
         ExitNeighbors = IncidenceList[AuxiliaryGraph, OutwardVertices /@ ExitVertices];
-
+        Print[ExitNeighbors];
+        Print[OutEdges];
+		(*TODO this seems to be defined already: OutEdges*)
         (*Incoming currents at the exits are zero*)
         RuleExitCurrentsIn = ExitCurrents[jvars]/@ ExitNeighbors;(*Rule*)
         
@@ -171,6 +172,7 @@ D2E[Data_Association] :=
         
         (*The value function on the auxiliary edges is constant and equal to the exit cost.*)
         EqValueAuxiliaryEdges = And @@ ((uvars[AtHead[#]] == uvars[AtTail[#]]) & /@ EdgeList[AuxiliaryGraph]);(*Equal*)
+        (*TODO Use the edges InEdges and OutEdges*)
         RuleValueAuxiliaryEdges = (uvars[AtTail[#]]->uvars[AtHead[#]]) & /@ EdgeList[AuxiliaryGraph];(*Equal*)
         Print["D2E: CleanEqualities for the values at the auxiliary edges"];
         {TrueEq, InitRules} = CleanEqualities[{EqValueAuxiliaryEdges, InitRules}];
@@ -260,6 +262,8 @@ D2E[Data_Association] :=
         RulesCriticalCase = Expand/@RulesCriticalCase;
         Print[RulesCriticalCase];*)
         Print["D2E: D2E is finished!"];
+        Print[$Context];
+        Print[Names[Global`"*"];
         Join[Data,Association[
         (*Graph structure*)
         "BG" -> BG, 
@@ -286,7 +290,7 @@ D2E[Data_Association] :=
         "BoundaryRules" -> InitRules,
         "InitRules" -> InitRules,
         "RulesCriticalCase" -> RulesCriticalCase,
-        "RulesCriticalCase1" -> RulesCriticalCase1, 
+        "RulesCriticalCase1" -> RulesCriticalCase1,
         (*"RulesCriticalCaseJs" -> RulesCriticalCaseJs,*)
         "RuleExitValues"-> RuleExitValues,
         "RuleEntryIn" -> RuleEntryIn,
