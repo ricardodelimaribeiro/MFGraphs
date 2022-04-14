@@ -333,6 +333,7 @@ MFGPreprocessing[Eqs_] :=
         , TrueEq
         , EqBalanceGatheringCurrents = Lookup[Eqs, "EqBalanceGatheringCurrents", True]
         , RuleExitCurrentsIn = Lookup[Eqs, "RuleExitCurrentsIn", True]
+        , RuleExitValues = Lookup[Eqs, "RuleExitValues", True]
         , EqValueAuxiliaryEdges = Lookup[Eqs, "EqValueAuxiliaryEdges", True]
         , EqSwitchingConditions
         , EqSwitchingByVertex = Lookup[Eqs, "EqSwitchingByVertex", True]
@@ -354,6 +355,7 @@ MFGPreprocessing[Eqs_] :=
         Include Gathering currents information in the rules*)
         {TrueEq, InitRules} = CleanEqualities[{EqBalanceGatheringCurrents, InitRules}];
         AssociateTo[InitRules, RuleExitCurrentsIn];
+        AssociateTo[InitRules, RuleExitValues];
         {TrueEq, InitRules} = CleanEqualities[{EqValueAuxiliaryEdges, InitRules}];
     (**)
     		
