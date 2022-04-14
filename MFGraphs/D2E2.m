@@ -8,13 +8,14 @@ ConsistentSwithingCosts[sc_][{a_, b_, c_, S_}] :=
         origin = Cases[sc, {a, b, _, _}];
         destination = Cases[sc, {_, b, c, _}];
         bounds = Outer[Plus, Last /@ origin, Last /@ destination] // Flatten;
+        Print[bounds];
         And @@ (#>=S &) /@ bounds
     ];
     
 IsSwitchingCostConsistent::usage = 
 "IsSwitchingCostConsistent[list of switching costs] is True if all switching costs satisfy the triangle inequality"
 IsSwitchingCostConsistent[SC_] :=
-    Simplify[ConsistentSwithingCosts[SC] /@ SC]
+    And @@ Simplify[ConsistentSwithingCosts[SC] /@ SC]
     
 AtHead[DirectedEdge[a_, b_]] :=
     {b, DirectedEdge[a, b]}
@@ -83,14 +84,26 @@ OtherWay[{c_, DirectedEdge[a_, b_]}] :=
 OutgoingEdges[FG_][k_] :=
     OtherWay /@ ({k, #} & /@ IncidenceList[FG, k]);
 
+ExitRules[uvars_,ExitCosts_][a_ \[DirectedEdge] b_] :=
+    Total[uvars /@ {{b, DirectedEdge[a, b]}}] -> ExitCosts[b];
+
+ExitCurrents[jvars_][a_ \[DirectedEdge] b_] :=
+    jvars @ {a, DirectedEdge[a, b]} -> 0;
+
+Transu[uvars_,SwitchingCosts_][{v_, edge1_, edge2_}] :=
+    uvars[{v,edge1}] <= uvars[{v,edge2}] + SwitchingCosts[{v,edge1,edge2}];
+     
+Compu[jtvars_,uvars_,SwitchingCosts_][{v_, edge1_, edge2_}] :=
+    (jtvars[{v, edge1, edge2}] == 0) || uvars[{v,edge2}]-uvars[{v,edge1}] + SwitchingCosts[{v,edge1,edge2}] == 0;
+        
 Data2Equations::usage =
 "Data2Equations[Data] returns the equations, inequalities, and alternatives associated to the Data"
 Data2Equations[Data_Association] :=
-    Module[ { VL = Lookup[Data, "Vertices List", {}]
-        , AM = Lookup[Data, "Adjacency Matrix", {}]
-        , EVC = Lookup[Data, "Entrance Vertices and Currents", {}]
-        , EVTC = Lookup[Data, "Exit Vertices and Terminal Costs", {}]
-        , SC = Lookup[Data, "Switching Costs", {}]
+    Module[ { VL
+        , AM
+        , EVC
+        , EVTC
+        , SC
         , BG
         , EntranceVertices
         , InwardVertices
@@ -115,7 +128,6 @@ Data2Equations[Data_Association] :=
         , uvars
         , jts
         , jtvars
-        , costpluscurrents
         , SignedCurrents
         , SwitchingCosts
         , EqPosJs
@@ -130,8 +142,23 @@ Data2Equations[Data_Association] :=
         , BalanceGatheringCurrents
         , EqBalanceGatheringCurrents
         , EqEntryIn
-        
+        , RuleEntryOut
+            , RuleExitCurrentsIn
+            , RuleExitValues
+            , EqValueAuxiliaryEdges
+            , OutRules
+            , InRules
+            , EqSwitchingByVertex
+            , EqCompCon
+            , Nlhs
+            , ModuleVars
+            , ModuleVarsNames
         },
+        VL = Lookup[Data, "Vertices List", {}];
+        AM = Lookup[Data, "Adjacency Matrix", {}];
+        EVC = Lookup[Data, "Entrance Vertices and Currents", {}];
+        EVTC = Lookup[Data, "Exit Vertices and Terminal Costs", {}];
+        SC = Lookup[Data, "Switching Costs", {}];
             (****Graph stuff****)
         BG = AdjacencyGraph[VL,AM, VertexLabels -> "Name", DirectedEdges -> True];
         EntranceVertices = First /@ EVC;
@@ -166,7 +193,6 @@ Data2Equations[Data_Association] :=
         jtvars = AssociationThread[AllTransitions, jts];
         us = Table[Symbol["u" <> ToString[k]], {k, 1, Length @ uargs}];
         uvars = AssociationThread[uargs, us];
-        costpluscurrents = Table[Symbol["cpc" <> ToString[k]], {k, 1, Length @ BEL}];
         SignedCurrents =   AssociationThread[BEL, (jvars[AtHead[#]] - jvars[AtTail[#]] &) /@ BEL];
         Print["D2E: Variables are all set"];
         
@@ -198,9 +224,87 @@ Data2Equations[Data_Association] :=
         RuleEntryOut = (jvars[#] -> 0) & /@ (AtTail /@ InEdges);(*Rule*)
         RuleExitCurrentsIn = ExitCurrents[jvars]/@ OutEdges;(*Rule*)
         
+        (*Exit values at exit vertices*)
+        RuleExitValues = ExitRules[uvars,ExitCosts] /@ OutEdges;(*Rule*)
         
-        ModuleVars = (*list of all module variables, except for ModuleVars*)ModuleVars;
-        Join[Data, AssociationThread[ToString /@ ModuleVars, ModuleVars]]
+        (*The value function on the auxiliary edges is constant and equal to the exit cost.*)
+        EqValueAuxiliaryEdges = And @@ ((uvars[AtTail[#]] == uvars[AtHead[#]]) & /@ Join[InEdges, OutEdges]);(*Equal*)(*use ToRules to get the rules*)
+        OutRules = Rule[#, Infinity] & /@ (Outer[Flatten[{AtTail[#1], #2}] &, OutEdges, EL] // Flatten[#, 1] &);
+        InRules = Rule[#, Infinity] & /@ (Outer[{#2[[2]], #1, #2} &, IncidenceList[FG, #] & /@ EntranceVertices, InEdges] // Flatten[#, 2] &);
+        
+        (*Switching condition equations*)
+        EqSwitchingByVertex = Transu[uvars,SwitchingCosts]/@TransitionsAt[FG, #] & /@ VL;
+        EqCompCon = And @@ Compu[jtvars,uvars,SwitchingCosts] /@ AllTransitions;(*Or*)
+        Nlhs = Flatten[uvars[AtHead[#]] - uvars[AtTail[#]] + SignedCurrents[#] & /@ BEL];
+        ModuleVars = (*list of all module variables, except for ModuleVars*)
+        { VL
+        , AM
+        , EVC
+        , EVTC
+        , SC
+        , BG
+        , EntranceVertices
+        , InwardVertices
+        , ExitVertices
+        , OutwardVertices
+        , InEdges
+        , OutEdges
+        , AuxiliaryGraph
+        , FG
+        , EL
+        , BEL
+        , FVL
+        , jargs    
+        , uargs
+        , AllTransitions
+        , EntryArgs
+        , EntryDataAssociation
+        , ExitCosts
+        , js
+        , jvars
+        , us
+        , uvars
+        , jts
+        , jtvars
+        , SignedCurrents
+        , SwitchingCosts
+        , EqPosJs
+        , EqPosJts
+        , EqCurrentCompCon
+        , EqTransitionCompCon
+        , NoDeadEnds
+        , EqBalanceSplittingCurrents
+        , BalanceSplittingCurrents
+        , NoDeadStarts
+        , RuleBalanceGatheringCurrents
+        , BalanceGatheringCurrents
+        , EqBalanceGatheringCurrents
+        , EqEntryIn
+        , RuleEntryOut
+            , RuleExitCurrentsIn
+            , RuleExitValues
+            , EqValueAuxiliaryEdges
+            , OutRules
+            , InRules
+            , EqSwitchingByVertex
+            , EqCompCon
+            , Nlhs
+            };
+        ModuleVarsNames = {"VL", "AM", "EVC", "EVTC", "SC", "BG", "EntranceVertices", \
+"InwardVertices", "ExitVertices", "OutwardVertices", "InEdges", \
+"OutEdges", "AuxiliaryGraph", "FG", "EL", "BEL", "FVL", "jargs", \
+"uargs", "AllTransitions", "EntryArgs", "EntryDataAssociation", \
+"ExitCosts", "js", "jvars", "us", "uvars", "jts", "jtvars", \
+        "SignedCurrents", "SwitchingCosts", "EqPosJs", \
+"EqPosJts", "EqCurrentCompCon", "EqTransitionCompCon", "NoDeadEnds", \
+"EqBalanceSplittingCurrents", "BalanceSplittingCurrents", \
+"NoDeadStarts", "RuleBalanceGatheringCurrents", \
+"BalanceGatheringCurrents", "EqBalanceGatheringCurrents", \
+"EqEntryIn", "RuleEntryOut", "RuleExitCurrentsIn", "RuleExitValues", \
+"EqValueAuxiliaryEdges", "OutRules", "InRules", \
+"EqSwitchingByVertex", "EqCompCon", "Nlhs"};
+        Print[ModuleVarsNames];
+        Join[Data, AssociationThread[ModuleVarsNames, ModuleVars]]
     ];
     
 GetKirchhoffMatrix[Eqs_] :=
@@ -208,7 +312,119 @@ GetKirchhoffMatrix[Eqs_] :=
         , EqEntryIn = Lookup[Eqs, "EqEntryIn", True]
         , BalanceGatheringCurrents = Lookup[Eqs, "BalanceGatheringCurrents", {}]
         , BalanceSplittingCurrents = Lookup[Eqs, "BalanceSplittingCurrents", {}]
+        , RuleExitCurrentsIn = Lookup[Eqs, "RuleExitCurrentsIn", {}]
+        , RuleEntryOut = Lookup[Eqs, "RuleEntryOut", {}]
+        , BM
+        , KM
+        , vars
         },
         Kirchhoff = Join[EqEntryIn, (# == 0 & /@ (BalanceGatheringCurrents + BalanceSplittingCurrents))];
+        Kirchhoff = Kirchhoff /. Join[RuleExitCurrentsIn,RuleEntryOut];
+        {BM,KM} = CoefficientArrays[Kirchhoff, vars = Variables[Kirchhoff /. Equal -> Plus]];
+        Print["The matrices B and K are: \n",MatrixForm/@{-BM,KM},"\nThe order of the variables is \n", vars];
+        {-BM,KM}
     ];    
-		
+    
+MFGPreprocessing[Eqs_] :=
+    Module[ {InitRules
+        , RuleBalanceGatheringCurrents = Lookup[Eqs, "RuleBalanceGatheringCurrents", {}]
+        , RuleEntryIn = Lookup[Eqs, "RuleEntryIn", True]
+        , RuleEntryOut = Lookup[Eqs, "RuleEntryOut", True]
+        , TrueEq
+        , EqBalanceGatheringCurrents = Lookup[Eqs, "EqBalanceGatheringCurrents", True]
+        , RuleExitCurrentsIn = Lookup[Eqs, "RuleExitCurrentsIn", True]
+        , EqValueAuxiliaryEdges = Lookup[Eqs, "EqValueAuxiliaryEdges", True]
+        , EqSwitchingConditions
+        , EqSwitchingByVertex = Lookup[Eqs, "EqSwitchingByVertex", True]
+        , EqCompCon = Lookup[Eqs, "EqCompCon", True]
+        , EqBalanceSplittingCurrents = Lookup[Eqs, "EqBalanceSplittingCurrents", True]
+        , AllOr
+        , EqCurrentCompCon = Lookup[Eqs, "EqCurrentCompCon", True]
+        , EqTransitionCompCon = Lookup[Eqs, "EqTransitionCompCon", True]
+        , EqPosCon = Lookup[Eqs, "EqPosCon", True]
+        , AllIneq
+        , newStuff
+    },
+    (*Check switching costs for consistency*)
+    
+    (*First rules: these have some j in terms of jts*)
+        InitRules = Association[RuleBalanceGatheringCurrents];
+        AssociateTo[InitRules, Join[RuleEntryIn, RuleEntryOut]];
+        (*I think this does nothing!!!
+        Include Gathering currents information in the rules*)
+        {TrueEq, InitRules} = CleanEqualities[{EqBalanceGatheringCurrents, InitRules}];
+        AssociateTo[InitRules, RuleExitCurrentsIn];
+        {TrueEq, InitRules} = CleanEqualities[{EqValueAuxiliaryEdges, InitRules}];
+    (**)
+    		
+    		{EqSwitchingConditions, InitRules} = CleanEqualities[{EqSwitchingByVertex, InitRules}];
+    		{EqCompCon, InitRules} = CleanEqualities[{EqCompCon, InitRules}];
+    		{TrueEq, InitRules} = CleanEqualities[{EqBalanceSplittingCurrents, InitRules}];
+    		
+    		AllOr = EqCurrentCompCon && EqTransitionCompCon && EqCompCon;
+        AllOr = AllOr/.InitRules;
+        AllOr = BooleanConvert[Simplify /@ AllOr, "CNF"];
+        
+        {AllOr, InitRules} = CleanEqualities[{AllOr, InitRules}];
+        
+        EqPosCon = EqPosCon /. InitRules;
+        
+        EqSwitchingConditions = EqSwitchingConditions/.InitRules;
+        EqSwitchingConditions = Simplify[EqSwitchingConditions];
+        AllOr = AllOr && Select[EqSwitchingConditions,Head[#] === Or &];
+        AllOr = BooleanConvert[AllOr,"CNF"];
+        AllIneq = EqPosCon && Select[EqSwitchingConditions,Head[#] =!= Or &];
+        AllIneq = Simplify[AllIneq];
+    
+    (*return something!!!*)
+    Join[Eqs, newStuff]
+    
+        ];
+CriticalCongestionSolver[Eqs_] :=
+    Module[ {PreEqs
+    },
+        PreEqs = MFGPreprocessing[Eqs];
+        (*Solve the updated (with rules from preprocessing) edge equations*)
+        (*Replace in preprocessed system and rules and possibly use cleanequalities or newreduce...*)
+        Solve[PreEqs[""]]
+    ];
+    
+(*EqEliminator[system_, rules_List] :=
+    EqEliminator[system, Association[rules]]
+*)
+EqEliminator[{sys_, rules_List}] :=
+	EqEliminator[{sys, Association @ rules}]
+	
+EqEliminator[{sys_, rules_Association}] :=
+    Module[ {EE = True, ON = True, newrules,groups, system = sys /. rules},
+        Which[
+        Head[system] === And,    
+        		(*separate equalities from the rest*)
+        		groups = GroupBy[List@@system, Head[#]===Equal&];
+        		EE = And@@Lookup[groups, True, Return[{system, rules},Module]];
+        		ON = And@@Lookup[groups, False, True],
+        Head[system] === Equal,
+        		EE = system,
+        True,(*Or or Inequality*)
+        		ON = Simplify @ system
+        ];
+        newrules = First @ Solve[EE] // Quiet; (*The reason we use Quiet is:  Solve::svars: Equations may not give solutions for all "solve" variables.*)
+        newrules = Join[rules /. newrules, Association @ newrules];
+        {ON , Expand /@ newrules}
+    ]
+
+CleanEqualities[system_, rules_] :=
+    FixedPoint[EqEliminator, {system, rules}]
+
+CleanEqualities[system_List, rules_] :=
+    Module[ {systems, ruless, aux},
+        aux = CleanEqualities[#, rules] &/@ system;
+        systems = First /@ aux;
+        systems = And @@ systems;
+        ruless = Last /@ aux;
+        ruless = Join @@ ruless;
+        systems = systems /. ruless;
+        ruless = ruless /. ruless;
+        {systems, ruless}
+    ]
+	

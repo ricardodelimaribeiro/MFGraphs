@@ -171,9 +171,10 @@ D2E[Data_Association] :=
         AssociateTo[InitRules, RuleExitValues];
         
         (*The value function on the auxiliary edges is constant and equal to the exit cost.*)
-        EqValueAuxiliaryEdges = And @@ ((uvars[AtHead[#]] == uvars[AtTail[#]]) & /@ EdgeList[AuxiliaryGraph]);(*Equal*)
-        (*TODO Use the edges InEdges and OutEdges*)
-        RuleValueAuxiliaryEdges = (uvars[AtTail[#]]->uvars[AtHead[#]]) & /@ EdgeList[AuxiliaryGraph];(*Equal*)
+        EqValueAuxiliaryEdges = And @@ ((uvars[AtHead[#]] == uvars[AtTail[#]]) & /@ Join[InEdges, OutEdges]);(*Equal*)
+        
+        
+        RuleValueAuxiliaryEdges = (uvars[AtTail[#]]->uvars[AtHead[#]]) & /@ Join[InEdges, OutEdges];(*Equal*)
         Print["D2E: CleanEqualities for the values at the auxiliary edges"];
         {TrueEq, InitRules} = CleanEqualities[{EqValueAuxiliaryEdges, InitRules}];
         (*Print[RuleValueAuxiliaryEdges];*)
@@ -263,7 +264,9 @@ D2E[Data_Association] :=
         Print[RulesCriticalCase];*)
         Print["D2E: D2E is finished!"];
         Print[$Context];
-        Print[Names[Global`"*"];
+        Print[Names[$Context<>"*"]];
+        ttt=1;
+        Print[Names[$Context<>"*"]];
         Join[Data,Association[
         (*Graph structure*)
         "BG" -> BG, 
