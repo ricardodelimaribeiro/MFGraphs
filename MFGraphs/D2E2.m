@@ -351,37 +351,31 @@ MFGPreprocessing[Eqs_] :=
     (*First rules: these have some j in terms of jts*)
         InitRules = Association[RuleBalanceGatheringCurrents];
         AssociateTo[InitRules, Join[RuleEntryIn, RuleEntryOut]];
-        (*I think this does nothing!!!
-        Include Gathering currents information in the rules*)
+    (*I think this does nothing!!!
+    Include Gathering currents information in the rules*)
         {TrueEq, InitRules} = CleanEqualities[{EqBalanceGatheringCurrents, InitRules}];
         AssociateTo[InitRules, RuleExitCurrentsIn];
         AssociateTo[InitRules, RuleExitValues];
         {TrueEq, InitRules} = CleanEqualities[{EqValueAuxiliaryEdges, InitRules}];
     (**)
-    		
-    		{EqSwitchingConditions, InitRules} = CleanEqualities[{EqSwitchingByVertex, InitRules}];
-    		{EqCompCon, InitRules} = CleanEqualities[{EqCompCon, InitRules}];
-    		{TrueEq, InitRules} = CleanEqualities[{EqBalanceSplittingCurrents, InitRules}];
-    		
-    		AllOr = EqCurrentCompCon && EqTransitionCompCon && EqCompCon;
+        {EqSwitchingConditions, InitRules} = CleanEqualities[{EqSwitchingByVertex, InitRules}];
+        {EqCompCon, InitRules} = CleanEqualities[{EqCompCon, InitRules}];
+        {TrueEq, InitRules} = CleanEqualities[{EqBalanceSplittingCurrents, InitRules}];
+        AllOr = EqCurrentCompCon && EqTransitionCompCon && EqCompCon;
         AllOr = AllOr/.InitRules;
         AllOr = BooleanConvert[Simplify /@ AllOr, "CNF"];
-        
         {AllOr, InitRules} = CleanEqualities[{AllOr, InitRules}];
-        
         EqPosCon = EqPosCon /. InitRules;
-        
         EqSwitchingConditions = EqSwitchingConditions/.InitRules;
         EqSwitchingConditions = Simplify[EqSwitchingConditions];
         AllOr = AllOr && Select[EqSwitchingConditions,Head[#] === Or &];
         AllOr = BooleanConvert[AllOr,"CNF"];
         AllIneq = EqPosCon && Select[EqSwitchingConditions,Head[#] =!= Or &];
         AllIneq = Simplify[AllIneq];
-    
+        
     (*return something!!!*)
-    Join[Eqs, newStuff]
-    
-        ];
+        Join[Eqs, newStuff]
+    ];
 CriticalCongestionSolver[Eqs_] :=
     Module[ {PreEqs
     },
@@ -391,24 +385,21 @@ CriticalCongestionSolver[Eqs_] :=
         Solve[PreEqs[""]]
     ];
     
-(*EqEliminator[system_, rules_List] :=
-    EqEliminator[system, Association[rules]]
-*)
-EqEliminator[{sys_, rules_List}] :=
-	EqEliminator[{sys, Association @ rules}]
-	
-EqEliminator[{sys_, rules_Association}] :=
+CleanEqualitiesStep[{sys_, rules_List}] :=
+    CleanEqualitiesStep[{sys, Association @ rules}]
+    
+CleanEqualitiesStep[{sys_, rules_Association}] :=
     Module[ {EE = True, ON = True, newrules,groups, system = sys /. rules},
         Which[
         Head[system] === And,    
-        		(*separate equalities from the rest*)
-        		groups = GroupBy[List@@system, Head[#]===Equal&];
-        		EE = And@@Lookup[groups, True, Return[{system, rules},Module]];
-        		ON = And@@Lookup[groups, False, True],
+                (*separate equalities from the rest*)
+                groups = GroupBy[List@@system, Head[#]===Equal&];
+                EE = And@@Lookup[groups, True, Return[{system, rules},Module]];
+                ON = And@@Lookup[groups, False, True],
         Head[system] === Equal,
-        		EE = system,
+                EE = system,
         True,(*Or or Inequality*)
-        		ON = Simplify @ system
+                ON = Simplify @ system
         ];
         newrules = First @ Solve[EE] // Quiet; (*The reason we use Quiet is:  Solve::svars: Equations may not give solutions for all "solve" variables.*)
         newrules = Join[rules /. newrules, Association @ newrules];
@@ -416,7 +407,7 @@ EqEliminator[{sys_, rules_Association}] :=
     ]
 
 CleanEqualities[system_, rules_] :=
-    FixedPoint[EqEliminator, {system, rules}]
+    FixedPoint[CleanEqualitiesStep, {system, rules}]
 
 CleanEqualities[system_List, rules_] :=
     Module[ {systems, ruless, aux},
