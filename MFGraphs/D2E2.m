@@ -181,7 +181,8 @@ Data2Equations[Data_Association] :=
         (*arguments*)
         jargs = Flatten[#, 1] & @ ({AtTail@#, AtHead@#} & /@ EL);
         uargs = jargs;
-        AllTransitions = TransitionsAt[FG, #] & /@ FVL // Catenate(*at vertex from first edge to second edge*);
+        AllTransitions = TransitionsAt[BG, #] & /@ VL // Catenate(*at vertex from first edge to second edge*);
+        (*AllTransitions = TransitionsAt[FG, #] & /@ FVL // Catenate(*at vertex from first edge to second edge*);*)
         EntryArgs = AtHead /@ ((EdgeList[AuxiliaryGraph, DirectedEdge[_,#] ] & /@ (First /@ EVC)) // Flatten[#, 1] &);
         EntryDataAssociation = RoundValues @ AssociationThread[EntryArgs, Last /@ EVC];
         ExitCosts = AssociationThread[OutwardVertices /@ (First /@ EVTC), Last /@ EVTC];
@@ -194,23 +195,26 @@ Data2Equations[Data_Association] :=
         us = Table[Symbol["u" <> ToString[k]], {k, 1, Length @ uargs}];
         uvars = AssociationThread[uargs, us];
         SignedCurrents =   AssociationThread[BEL, (jvars[AtHead[#]] - jvars[AtTail[#]] &) /@ BEL];
-        Print["D2E: Variables are all set"];
+        (*Print["D2E: Variables are all set"];*)
         
         (*Elements of the system*)
         (*Swithing cost is initialized with 0. AssociationThread associates the last association!*)
-        SwitchingCosts = AssociationThread[Join[AllTransitions, triple2path[Take[#, 3], FG] & /@ SC], Join[0&/@ AllTransitions, Last[#] & /@ SC]];
+        SwitchingCosts = AssociationThread[Join[AllTransitions, triple2path[Take[#, 3], BG] & /@ SC], Join[0&/@ AllTransitions, Last[#] & /@ SC]];
+        (*SwitchingCosts = AssociationThread[Join[AllTransitions, triple2path[Take[#, 3], FG] & /@ SC], Join[0&/@ AllTransitions, Last[#] & /@ SC]];*)
         EqPosJs = And @@ ( #>=0& /@ Join[jvars]);(*Inequality*)
         EqPosJts = And @@ ( #>=0& /@ Join[jtvars]);(*Inequality*)
         EqCurrentCompCon = And @@ (CurrentCompCon[jvars] /@ EL);(*Or*)
         EqTransitionCompCon = And @@ ((Sort /@ TransitionCompCon[jtvars] /@ AllTransitions) // Union);(*Or*)
         
         (*Balance Splitting Currents in the full graph*)
-        NoDeadEnds = IncomingEdges[FG] /@ VL // Flatten[#, 1] &;
+        NoDeadEnds = IncomingEdges[BG] /@ VL // Flatten[#, 1] &;
+        (*NoDeadEnds = IncomingEdges[FG] /@ VL // Flatten[#, 1] &;*)
         BalanceSplittingCurrents = ((jvars[#] - Total[jtvars /@ CurrentSplitting[AllTransitions][#]]) & /@ NoDeadEnds);
         EqBalanceSplittingCurrents = Simplify /@ (And @@ ((#==0)& /@ BalanceSplittingCurrents));(*Equal*)
         
         (*Gathering currents in the inside of the basic graph*)
-        NoDeadStarts = OutgoingEdges[FG] /@ VL // Flatten[#, 1] &;
+        NoDeadStarts = OutgoingEdges[BG] /@ VL // Flatten[#, 1] &;
+        (*NoDeadStarts = OutgoingEdges[FG] /@ VL // Flatten[#, 1] &;*)
         RuleBalanceGatheringCurrents = (jvars[#] -> Total[jtvars /@ CurrentGathering[AllTransitions][#]]) & /@ NoDeadStarts;(*Rule*)
         
         (*get equations for the exit currents at the entry vertices*)
@@ -233,7 +237,8 @@ Data2Equations[Data_Association] :=
         InRules = Rule[#, Infinity] & /@ (Outer[{#2[[2]], #1, #2} &, IncidenceList[FG, #] & /@ EntranceVertices, InEdges] // Flatten[#, 2] &);
         
         (*Switching condition equations*)
-        EqSwitchingByVertex = Transu[uvars,SwitchingCosts]/@TransitionsAt[FG, #] & /@ VL;
+        EqSwitchingByVertex = Transu[uvars,SwitchingCosts]/@TransitionsAt[BG, #] & /@ VL;
+        (*EqSwitchingByVertex = Transu[uvars,SwitchingCosts]/@TransitionsAt[FG, #] & /@ VL;*)
         EqCompCon = And @@ Compu[jtvars,uvars,SwitchingCosts] /@ AllTransitions;(*Or*)
         Nlhs = Flatten[uvars[AtHead[#]] - uvars[AtTail[#]] + SignedCurrents[#] & /@ BEL];
         ModuleVars = (*list of all module variables, except for ModuleVars*)
@@ -303,7 +308,6 @@ Data2Equations[Data_Association] :=
 "EqEntryIn", "RuleEntryOut", "RuleExitCurrentsIn", "RuleExitValues", \
 "EqValueAuxiliaryEdges", "OutRules", "InRules", \
 "EqSwitchingByVertex", "EqCompCon", "Nlhs"};
-        Print[ModuleVarsNames];
         Join[Data, AssociationThread[ModuleVarsNames, ModuleVars]]
     ];
     
@@ -319,70 +323,185 @@ GetKirchhoffMatrix[Eqs_] :=
         , vars
         },
         Kirchhoff = Join[EqEntryIn, (# == 0 & /@ (BalanceGatheringCurrents + BalanceSplittingCurrents))];
-        Kirchhoff = Kirchhoff /. Join[RuleExitCurrentsIn,RuleEntryOut];
+        Kirchhoff = Kirchhoff /. Join[RuleExitCurrentsIn, RuleEntryOut];
         {BM,KM} = CoefficientArrays[Kirchhoff, vars = Variables[Kirchhoff /. Equal -> Plus]];
         Print["The matrices B and K are: \n",MatrixForm/@{-BM,KM},"\nThe order of the variables is \n", vars];
-        {-BM,KM}
+        {-BM, KM, vars}
     ];    
     
 MFGPreprocessing[Eqs_] :=
     Module[ {InitRules
-        , RuleBalanceGatheringCurrents = Lookup[Eqs, "RuleBalanceGatheringCurrents", {}]
-        , RuleEntryIn = Lookup[Eqs, "RuleEntryIn", True]
-        , RuleEntryOut = Lookup[Eqs, "RuleEntryOut", True]
+        , RuleBalanceGatheringCurrents
+        , EqEntryIn
+        , RuleEntryOut
         , TrueEq
-        , EqBalanceGatheringCurrents = Lookup[Eqs, "EqBalanceGatheringCurrents", True]
-        , RuleExitCurrentsIn = Lookup[Eqs, "RuleExitCurrentsIn", True]
-        , RuleExitValues = Lookup[Eqs, "RuleExitValues", True]
-        , EqValueAuxiliaryEdges = Lookup[Eqs, "EqValueAuxiliaryEdges", True]
-        , EqSwitchingConditions
-        , EqSwitchingByVertex = Lookup[Eqs, "EqSwitchingByVertex", True]
-        , EqCompCon = Lookup[Eqs, "EqCompCon", True]
-        , EqBalanceSplittingCurrents = Lookup[Eqs, "EqBalanceSplittingCurrents", True]
-        , AllOr
-        , EqCurrentCompCon = Lookup[Eqs, "EqCurrentCompCon", True]
-        , EqTransitionCompCon = Lookup[Eqs, "EqTransitionCompCon", True]
-        , EqPosCon = Lookup[Eqs, "EqPosCon", True]
-        , AllIneq
-        , newStuff
+        , RuleExitCurrentsIn
+        , RuleExitValues
+        , EqValueAuxiliaryEdges
+        , EqSwitchingByVertex
+        , RuleSwitchingByVertex
+        , EqCompCon
+        , EqBalanceSplittingCurrents
+        , EqCurrentCompCon
+        , EqTransitionCompCon
+        , EqPosJs
+        , EqPosJts
+        , ModuleVarsNames
+        , ModulesVars
     },
-    (*Check switching costs for consistency*)
-    
-    (*First rules: these have some j in terms of jts*)
-        InitRules = Association[RuleBalanceGatheringCurrents];
-        AssociateTo[InitRules, Join[RuleEntryIn, RuleEntryOut]];
-    (*I think this does nothing!!!
-    Include Gathering currents information in the rules*)
-        {TrueEq, InitRules} = CleanEqualities[{EqBalanceGatheringCurrents, InitRules}];
-        AssociateTo[InitRules, RuleExitCurrentsIn];
-        AssociateTo[InitRules, RuleExitValues];
-        {TrueEq, InitRules} = CleanEqualities[{EqValueAuxiliaryEdges, InitRules}];
-    (**)
-        {EqSwitchingConditions, InitRules} = CleanEqualities[{EqSwitchingByVertex, InitRules}];
-        {EqCompCon, InitRules} = CleanEqualities[{EqCompCon, InitRules}];
-        {TrueEq, InitRules} = CleanEqualities[{EqBalanceSplittingCurrents, InitRules}];
-        AllOr = EqCurrentCompCon && EqTransitionCompCon && EqCompCon;
-        AllOr = AllOr/.InitRules;
-        AllOr = BooleanConvert[Simplify /@ AllOr, "CNF"];
-        {AllOr, InitRules} = CleanEqualities[{AllOr, InitRules}];
-        EqPosCon = EqPosCon /. InitRules;
-        EqSwitchingConditions = EqSwitchingConditions/.InitRules;
-        EqSwitchingConditions = Simplify[EqSwitchingConditions];
-        AllOr = AllOr && Select[EqSwitchingConditions,Head[#] === Or &];
-        AllOr = BooleanConvert[AllOr,"CNF"];
-        AllIneq = EqPosCon && Select[EqSwitchingConditions,Head[#] =!= Or &];
-        AllIneq = Simplify[AllIneq];
+        RuleBalanceGatheringCurrents = Lookup[Eqs, "RuleBalanceGatheringCurrents", $Failed];
+        EqEntryIn = Lookup[Eqs, "EqEntryIn", $Failed];
+        RuleEntryOut = Lookup[Eqs, "RuleEntryOut", $Failed];
+        RuleExitCurrentsIn = Lookup[Eqs, "RuleExitCurrentsIn", $Failed];
+        RuleExitValues = Lookup[Eqs, "RuleExitValues", $Failed];
+        EqValueAuxiliaryEdges = Lookup[Eqs, "EqValueAuxiliaryEdges", $Failed];
+        EqSwitchingByVertex = Lookup[Eqs, "EqSwitchingByVertex", $Failed];
+        EqCompCon = Lookup[Eqs, "EqCompCon", $Failed];
+        EqBalanceSplittingCurrents = Lookup[Eqs, "EqBalanceSplittingCurrents", $Failed];
+        EqCurrentCompCon = Lookup[Eqs, "EqCurrentCompCon", $Failed];
+        EqTransitionCompCon = Lookup[Eqs, "EqTransitionCompCon", $Failed];
+        EqPosJs = Lookup[Eqs, "EqPosJs", $Failed];
+        EqPosJts = Lookup[Eqs, "EqPosJts", $Failed];
+        (*TODO Check switching costs for consistency*)
+            
+        (*First rules: entry currents*)
+        InitRules = Association[Flatten[ToRules /@ EqEntryIn]];
         
-    (*return something!!!*)
-        Join[Eqs, newStuff]
+        (*no exit at the entrances*)
+        AssociateTo[InitRules, RuleEntryOut];
+        
+        (*no entrance at the exits*)
+        AssociateTo[InitRules, RuleExitCurrentsIn];
+        
+        (*currents gathered from transition currents*)
+        AssociateTo[InitRules, RuleBalanceGatheringCurrents];
+        
+        (*solve splitting currents into transition currents with the info above*)
+        Print["EqBalanceSplittingCurrents: ", EqBalanceSplittingCurrents];
+        {TrueEq, InitRules} = CleanEqualities[EqBalanceSplittingCurrents, InitRules];
+        
+        (*just one current can be non-negative in the edge*)
+        Print["EqCurrentCompCon: ", EqCurrentCompCon];
+        {EqCurrentCompCon, InitRules} = CleanEqualities[EqCurrentCompCon, InitRules];
+        Print[EqCurrentCompCon, InitRules];
+        
+        (*just one transition current can be non-negative in the virtual edge*)
+        Print["EqTransitionCompCon: ", EqTransitionCompCon];
+        {EqTransitionCompCon, InitRules} = CleanEqualities[EqTransitionCompCon, InitRules];
+        Print[EqTransitionCompCon, InitRules];
+        
+        (*replace rules in non-negative currents*)
+        Print["EqPosJs: ", EqPosJs];
+        {EqPosJs, InitRules} = CleanEqualities[EqPosJs, InitRules];
+        Print[EqPosJs, InitRules];
+        
+        (*replace rules in non-negative transition currents*)
+        Print["EqPosJts: ", EqPosJts];
+        {EqPosJts, InitRules} = CleanEqualities[EqPosJts, InitRules];
+        Print[EqPosJts, InitRules];
+        
+        (*value function: exit costs*)
+        AssociateTo[InitRules, RuleExitValues];
+        
+        (*set value function in the exit edges*)
+        Print["EqValueAuxiliaryEdges: ", EqValueAuxiliaryEdges];
+        {TrueEq, InitRules} = CleanEqualities[EqValueAuxiliaryEdges, InitRules];
+        Print[TrueEq, InitRules];
+        
+        (*set value function at basic edges, when switching costs are zero, otherwise just "simplify"*)
+        Print["EqSwitchingByVertex: ", EqSwitchingByVertex];
+        EqSwitchingByVertex = EqSwitchingByVertex/.InitRules;
+        RuleSwitchingByVertex = (Solve[#, Reals] // Quiet)& /@ EqSwitchingByVertex//Flatten;
+        AssociateTo[InitRules, RuleSwitchingByVertex];
+        {EqSwitchingByVertex, InitRules} = CleanEqualities[EqSwitchingByVertex, InitRules];
+        Print[EqSwitchingByVertex, InitRules];
+        
+        (*process *)
+        Print["EqCompCon: ", EqCompCon];
+        {EqCompCon, InitRules} = CleanEqualities[EqCompCon, InitRules];
+        Print[EqCompCon, InitRules];
+        Print[CleanEqualities[{EqCurrentCompCon,EqTransitionCompCon,EqPosJs,EqPosJts,EqValueAuxiliaryEdges,EqSwitchingByVertex},InitRules]];
+        (*return something!!!*)
+        ModuleVarsNames = {"InitRules", "RuleBalanceGatheringCurrents", "EqEntryIn", \
+"RuleEntryOut", "TrueEq", "RuleExitCurrentsIn", "RuleExitValues", \
+"EqValueAuxiliaryEdges", "EqSwitchingByVertex", "RuleSwitchingByVertex", "EqCompCon", \
+"EqBalanceSplittingCurrents", "EqCurrentCompCon", \
+"EqTransitionCompCon", "EqPosJs", "EqPosJts"};
+        ModulesVars = {InitRules
+        , RuleBalanceGatheringCurrents
+        , EqEntryIn
+        , RuleEntryOut
+        , TrueEq
+        , RuleExitCurrentsIn
+        , RuleExitValues
+        , EqValueAuxiliaryEdges
+        , EqSwitchingByVertex
+        , RuleSwitchingByVertex
+        , EqCompCon
+        , EqBalanceSplittingCurrents
+        , EqCurrentCompCon
+        , EqTransitionCompCon
+        , EqPosJs
+        , EqPosJts};
+        Join[Eqs, AssociationThread[ModuleVarsNames, ModulesVars]]
     ];
+    
 CriticalCongestionSolver[Eqs_] :=
     Module[ {PreEqs
+        , Nlhs
+        , EqCritical
+        , InitRules
+        , TrueEq
+        , EqCurrentCompCon
+        , EqTransitionCompCon
+        , EqPosJs
+        , EqPosJts
+        , EqSwitchingByVertex
+        , EqCompCon
     },
         PreEqs = MFGPreprocessing[Eqs];
+        Print["Preprocessing done!"];
+        Nlhs = Lookup[PreEqs, "Nlhs", $Failed];
+        InitRules = Lookup[PreEqs, "InitRules", $Failed];
+        
+        EqCurrentCompCon = Lookup[PreEqs, "EqCurrentCompCon", $Failed];
+        EqTransitionCompCon = Lookup[PreEqs, "EqTransitionCompCon", $Failed];
+        EqPosJs = Lookup[PreEqs, "EqPosJs", $Failed];
+        EqPosJts = Lookup[PreEqs, "EqPosJts", $Failed];
+        EqSwitchingByVertex = Lookup[PreEqs, "EqSwitchingByVertex", $Failed];
+        EqCompCon = Lookup[PreEqs, "EqCompCon", $Failed];
         (*Solve the updated (with rules from preprocessing) edge equations*)
+        EqCritical = (# == 0)& /@ Nlhs;
+        (*Print[EqCritical, EqCritical/.InitRules];*)
+        
+        
+        
         (*Replace in preprocessed system and rules and possibly use cleanequalities or newreduce...*)
-        Solve[PreEqs[""]]
+        {TrueEq, InitRules} = CleanEqualities[EqCritical, InitRules];
+        {EqPosJts, InitRules} = CleanEqualities[BooleanConvert[Reduce[EqPosJts, Reals], "CNF"], InitRules];
+        {EqCurrentCompCon, InitRules} = CleanEqualities[Simplify @ EqCurrentCompCon, InitRules];
+		{EqPosJs, InitRules} = CleanEqualities[Simplify @ EqPosJs, InitRules];
+        {EqTransitionCompCon, InitRules} = CleanEqualities[Reduce[EqTransitionCompCon, Reals], InitRules];
+		{EqSwitchingByVertex, InitRules} = CleanEqualities[Reduce[EqSwitchingByVertex, Reals], InitRules];
+        {EqCompCon, InitRules} = CleanEqualities[EqCompCon, InitRules];
+        {TrueEq, InitRules} = CleanEqualities[EqCritical, InitRules];
+        {EqPosJts, InitRules} = CleanEqualities[Simplify @ EqPosJts, InitRules];
+        {EqCurrentCompCon, InitRules} = CleanEqualities[Simplify @ EqCurrentCompCon, InitRules];
+		{EqPosJs, InitRules} = CleanEqualities[Simplify @ EqPosJs, InitRules];
+        {EqTransitionCompCon, InitRules} = CleanEqualities[Simplify @ EqTransitionCompCon, InitRules];
+		
+
+
+
+        Print["1: ",EqCurrentCompCon, Simplify @ EqCurrentCompCon/.InitRules];
+        Print["2: ",EqTransitionCompCon, Simplify @ EqTransitionCompCon/.InitRules];
+        Print["3: ",EqPosJs, Simplify @ EqPosJs/.InitRules];
+        Print["4: ",EqPosJts, Simplify @ EqPosJts/.InitRules];
+        Print["5: ",EqSwitchingByVertex, Simplify @ EqSwitchingByVertex/.InitRules];
+        Print["6: ",EqCompCon, Simplify@EqCompCon/.InitRules];
+        
+        Print[InitRules];
+        
     ];
     
 CleanEqualitiesStep[{sys_, rules_List}] :=
