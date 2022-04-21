@@ -148,12 +148,12 @@ vertices*)
     AtHead /@ ((EdgeList[AuxiliaryGraph, 
            DirectedEdge[_, #]] & /@ (First /@ EVC)) // 
        Flatten[#, 1] &);
-       Print["inedges: ",InEdges];
+  (*     Print["inedges: ",InEdges];
    Print["entry: ", EntryArgs];
-   Print[AtHead/@InEdges, AtTail/@InEdges];
-   ZeroRun = AtHead/@Join[InEdges, OutEdges];
+   Print[AtHead/@InEdges, AtTail/@InEdges];*)
+   ZeroRun = AssociationMap[(0&) &][AtHead/@Join[InEdges, OutEdges]];
    (*TODO use largerun to set large costs on the ficticious *)
-   Print["zerorun: ", ZeroRun];
+   (*Print["zerorun: ", ZeroRun];*)
    EntryDataAssociation = 
     RoundValues@AssociationThread[EntryArgs, Last /@ EVC];
    ExitCosts = 
@@ -171,6 +171,7 @@ vertices*)
    SignedCurrents = 
     AssociationMap[
      jvars[AtHead[#]] - jvars[AtTail[#]] &, BEL];
+   
    (*Print[
    "D2E: Variables are all set"];*)(*Elements of the \
 system*)(*Swithing cost is initialized with 0. AssociationThread \
@@ -188,8 +189,14 @@ associates the last association!*)(*SwitchingCosts=AssociationThread[
    LargeSwitchingTransitions = Cases[AllTransitions, #] & /@ LargeCases // 
  Flatten[#, 1] &;
  
-   AssociateTo[SwitchingCosts,AssociationMap[10^10&,LargeSwitchingTransitions]];
+   
    Print[SwitchingCosts];
+   CostArgs = Join[
+   	AssociationMap[Identity & , Normal@jargs], ZeroRun, 
+	SwitchingCosts,
+	AssociationMap[(10^10&) &, 
+	LargeSwitchingTransitions]];
+   Print["costArgs: ", CostArgs];
    EqPosJs = And @@ (# >= 0 & /@ Join[jvars]);(*Inequality*)
    EqPosJts = And @@ (# >= 0 & /@ Join[jtvars]);(*Inequality*)
    EqCurrentCompCon = And @@ (CurrentCompCon[jvars] /@ EL);(*Or*)
@@ -267,7 +274,7 @@ is constant and equal to the exit cost.*)
      RuleBalanceGatheringCurrents, BalanceGatheringCurrents, 
      EqBalanceGatheringCurrents, EqEntryIn, RuleEntryOut, 
      RuleExitCurrentsIn, RuleExitValues, EqValueAuxiliaryEdges, 
-     OutRules, InRules, EqSwitchingByVertex, EqCompCon, Nlhs};
+     OutRules, InRules, EqSwitchingByVertex, EqCompCon, Nlhs, CostArgs};
    ModuleVarsNames = {"VL", "AM", "EVC", "EVTC", "SC", "BG", 
      "EntranceVertices", "InwardVertices", "ExitVertices", 
      "OutwardVertices", "InEdges", "OutEdges", "AuxiliaryGraph", "FG",
@@ -281,9 +288,10 @@ is constant and equal to the exit cost.*)
      "BalanceGatheringCurrents", "EqBalanceGatheringCurrents", 
      "EqEntryIn", "RuleEntryOut", "RuleExitCurrentsIn", 
      "RuleExitValues", "EqValueAuxiliaryEdges", "OutRules", "InRules",
-      "EqSwitchingByVertex", "EqCompCon", "Nlhs"};
+      "EqSwitchingByVertex", "EqCompCon", "Nlhs", "CostArgs"};
    Join[Data, AssociationThread[ModuleVarsNames, ModuleVars]]];
-
+GetKirchhoffMatrix::usage =
+"GetKirchhoffMatrix[d2e] returns the Kirchhoff matrix, entry current vector, (critical congestion) cost function, and the variables order."
 GetKirchhoffMatrix[Eqs_] := 
   Module[{Kirchhoff, EqEntryIn = Lookup[Eqs, "EqEntryIn", True], 
     BalanceGatheringCurrents = 
@@ -291,7 +299,11 @@ GetKirchhoffMatrix[Eqs_] :=
     BalanceSplittingCurrents = 
      Lookup[Eqs, "BalanceSplittingCurrents", {}], 
     RuleExitCurrentsIn = Lookup[Eqs, "RuleExitCurrentsIn", {}], 
-    RuleEntryOut = Lookup[Eqs, "RuleEntryOut", {}], BM, KM, vars}, 
+    RuleEntryOut = Lookup[Eqs, "RuleEntryOut", {}], BM, KM, vars,
+    CostArgs = Lookup[Eqs, "CostArgs", <||>],
+    jvars = Lookup[Eqs, "jvars", {}],
+    jtvars = Lookup[Eqs, "jtvars", {}]
+    }, 
    Kirchhoff = 
     Join[
      EqEntryIn, (# == 0 & /@ (BalanceGatheringCurrents + 
@@ -302,7 +314,7 @@ GetKirchhoffMatrix[Eqs_] :=
      vars = Variables[Kirchhoff /. Equal -> Plus]];
    Print["The matrices B and K are: \n", MatrixForm /@ {-BM, KM}, 
     "\nThe order of the variables is \n", vars];
-   {-BM, KM, vars}];
+   {-BM, KM, KeyMap[Join[jvars, jtvars]][CostArgs], vars}];
 
 MFGPreprocessing[Eqs_] := 
   Module[{InitRules, RuleBalanceGatheringCurrents, EqEntryIn, 
