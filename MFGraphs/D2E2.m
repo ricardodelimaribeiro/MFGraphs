@@ -102,7 +102,9 @@ Data2Equations[Data_Association] :=
     BalanceGatheringCurrents, EqBalanceGatheringCurrents, EqEntryIn, 
     RuleEntryOut, RuleExitCurrentsIn, RuleExitValues, 
     EqValueAuxiliaryEdges, OutRules, InRules, EqSwitchingByVertex, 
-    EqCompCon, Nlhs, ModuleVars, ModuleVarsNames}, 
+    EqCompCon, Nlhs, ModuleVars, ModuleVarsNames,
+    LargeCases, LargeSwitchingTransitions, ZeroRun,
+    CostArgs, Nrhs}, 
    VL = Lookup[Data, "Vertices List", {}];
    AM = Lookup[Data, "Adjacency Matrix", {}];
    EVC = Lookup[Data, "Entrance Vertices and Currents", {}];
@@ -188,15 +190,12 @@ associates the last association!*)(*SwitchingCosts=AssociationThread[
    	{First[#], #, __} & /@ OutEdges];
    LargeSwitchingTransitions = Cases[AllTransitions, #] & /@ LargeCases // 
  Flatten[#, 1] &;
- 
-   
-   Print[SwitchingCosts];
+
    CostArgs = Join[
    	AssociationMap[Identity & , Normal@jargs], ZeroRun, 
-	SwitchingCosts,
+	AssociationMap[(10^(-10)&)&, Normal@Keys@SwitchingCosts],
 	AssociationMap[(10^10&) &, 
 	LargeSwitchingTransitions]];
-   Print["costArgs: ", CostArgs];
    EqPosJs = And @@ (# >= 0 & /@ Join[jvars]);(*Inequality*)
    EqPosJts = And @@ (# >= 0 & /@ Join[jtvars]);(*Inequality*)
    EqCurrentCompCon = And @@ (CurrentCompCon[jvars] /@ EL);(*Or*)
@@ -262,6 +261,7 @@ is constant and equal to the exit cost.*)
    Nlhs = 
     Flatten[
      uvars[AtHead[#]] - uvars[AtTail[#]] + SignedCurrents[#] & /@ BEL];
+   Nrhs = Flatten[SignedCurrents[#]-IntM[SignedCurrents[#],#]& /@ BEL];
    ModuleVars =(*list of all module variables,
     except for ModuleVars*){VL, AM, EVC, EVTC, SC, BG, 
      EntranceVertices, InwardVertices, ExitVertices, OutwardVertices, 
@@ -274,7 +274,7 @@ is constant and equal to the exit cost.*)
      RuleBalanceGatheringCurrents, BalanceGatheringCurrents, 
      EqBalanceGatheringCurrents, EqEntryIn, RuleEntryOut, 
      RuleExitCurrentsIn, RuleExitValues, EqValueAuxiliaryEdges, 
-     OutRules, InRules, EqSwitchingByVertex, EqCompCon, Nlhs, CostArgs};
+     OutRules, InRules, EqSwitchingByVertex, EqCompCon, Nlhs, CostArgs, Nrhs};
    ModuleVarsNames = {"VL", "AM", "EVC", "EVTC", "SC", "BG", 
      "EntranceVertices", "InwardVertices", "ExitVertices", 
      "OutwardVertices", "InEdges", "OutEdges", "AuxiliaryGraph", "FG",
@@ -288,7 +288,7 @@ is constant and equal to the exit cost.*)
      "BalanceGatheringCurrents", "EqBalanceGatheringCurrents", 
      "EqEntryIn", "RuleEntryOut", "RuleExitCurrentsIn", 
      "RuleExitValues", "EqValueAuxiliaryEdges", "OutRules", "InRules",
-      "EqSwitchingByVertex", "EqCompCon", "Nlhs", "CostArgs"};
+      "EqSwitchingByVertex", "EqCompCon", "Nlhs", "CostArgs", "Nrhs"};
    Join[Data, AssociationThread[ModuleVarsNames, ModuleVars]]];
 GetKirchhoffMatrix::usage =
 "GetKirchhoffMatrix[d2e] returns the Kirchhoff matrix, entry current vector, (critical congestion) cost function, and the variables order."
@@ -304,6 +304,7 @@ GetKirchhoffMatrix[Eqs_] :=
     jvars = Lookup[Eqs, "jvars", {}],
     jtvars = Lookup[Eqs, "jtvars", {}]
     }, 
+    NumberVectorQ[j_] := And @@ (NumberQ /@ j);
    Kirchhoff = 
     Join[
      EqEntryIn, (# == 0 & /@ (BalanceGatheringCurrents + 
@@ -312,9 +313,13 @@ GetKirchhoffMatrix[Eqs_] :=
    {BM, KM} = 
     CoefficientArrays[Kirchhoff, 
      vars = Variables[Kirchhoff /. Equal -> Plus]];
-   Print["The matrices B and K are: \n", MatrixForm /@ {-BM, KM}, 
-    "\nThe order of the variables is \n", vars];
-   {-BM, KM, KeyMap[Join[jvars, jtvars]][CostArgs], vars}];
+   (*Print["The matrices B and K are: \n", MatrixForm /@ {-BM, KM}, 
+    "\nThe order of the variables is \n", vars];*)
+    cost = Function[currents,  MapThread[#1[#2]&, 
+   	{KeyMap[Join[jvars, jtvars]][CostArgs] /@ vars, currents}]];
+   	
+   {-BM, KM, cost, vars}
+   ];
 
 MFGPreprocessing[Eqs_] := 
   Module[{InitRules, RuleBalanceGatheringCurrents, EqEntryIn, 
@@ -360,7 +365,7 @@ MFGPreprocessing[Eqs_] :=
       Sys2Triple[EqSwitchingByVertex]}];
    {NewSystem, InitRules} = 
     TripleClean[{NewSystem, InitRules}];
-   Print["tripleclean done!"];
+   (*Print["tripleclean done!"];*)
    (*return something!!!*)
    ModuleVarsNames = {"InitRules", "RuleBalanceGatheringCurrents", 
      "EqEntryIn", "RuleEntryOut", "RuleExitCurrentsIn", 
@@ -378,7 +383,7 @@ MFGPreprocessing[Eqs_] :=
 CriticalCongestionSolver[Eqs_] := 
   Module[{PreEqs, Nlhs, EqCritical, InitRules, NewSystem}, 
    PreEqs = MFGPreprocessing[Eqs];
-   Print["Preprocessing done!"];
+   (*Print["Preprocessing done!"];*)
    Nlhs = Lookup[PreEqs, "Nlhs", $Failed];
    InitRules = Lookup[PreEqs, "InitRules", $Failed];
    NewSystem = Lookup[PreEqs, "NewSystem", $Failed];
@@ -416,8 +421,8 @@ Sys2Triple[system_] :=
 TripleStep[{{EEs_, NNs_, ORs_}, rules_List}] := 
  TripleStep[{{EEs, NNs, ORs}, Association@rules}]
 
-TripleStep[{{EE_?TrueQ, NN_?TrueQ, OR_?TrueQ}, rules_}] := {Table[
-   True, 3], rules}
+TripleStep[{{EE_?BooleanQ, NN_?BooleanQ, OR_?BooleanQ}, rules_}] := 
+	{{EE, NN, OR}, rules}
 
 TripleStep[{{EE_, NN_?TrueQ, OR_?TrueQ}, rules_Association}] := 
   Module[{newrules = {}}, newrules = First@Solve[EE] // Quiet;
@@ -427,7 +432,7 @@ TripleStep[{{EE_, NN_?TrueQ, OR_?TrueQ}, rules_Association}] :=
 TripleStep[{{EEs_, NNs_, ORs_}, rules_Association}] := 
   Module[{EE = EEs /. rules, NN = NNs /. rules, OR = ORs /. rules, 
     NNE, NNO, ORE, ORN, bool, newrules = {}}, bool = EE && NN && OR;
-   If[BooleanQ[bool], Return[{Table[bool, 3], rules}, Module]];
+   (*If[BooleanQ[bool], Return[{Table[bool, 3], rules}, Module]];*)
    (*Print["nn: ",NN];*)NN = Simplify[NN];
    (*Print["nn: ",NN];*){NNE, NN, NNO} = Sys2Triple[NN];
    (*Print["nn: ",NN];*)(*Print["or: ",
