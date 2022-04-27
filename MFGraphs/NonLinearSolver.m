@@ -1,14 +1,15 @@
 (* Wolfram Language package *)
 Get["/Users/ribeirrd/eclipse-workspace/MFGraphs/MFGraphs/D2E2.m"];
-NonLinear[Eqs_] := 
+NonLinear[Eqs_][j_] := 
   Module[{PreEqs, Nlhs, Nrhs, EqCritical, InitRules, NewSystem}, 
    PreEqs = MFGPreprocessing[Eqs];
    Print["Preprocessing done!"];
-   Nlhs = Lookup[PreEqs, "Nlhs", $Failed];
+   Nlhs = Lookup[PreEqs, "Nlhs", $Failed];	
    Nrhs = Lookup[PreEqs, "Nrhs", $Failed];
-   Print[Nrhs];
+   Print["raw: ", Nrhs];
    InitRules = Lookup[PreEqs, "InitRules", $Failed];
-   Print[Nrhs/.InitRules];
+   Print["with initrules: ",Nrhs /. InitRules];
+   Print["with j: ", Nrhs/.j];
    NewSystem = Lookup[PreEqs, "NewSystem", $Failed];
    (*Updated (with rules from preprocessing) edge equations*)
    EqCritical = (And @@ ((# == 0) & /@ Nlhs)) /. InitRules;
