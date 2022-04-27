@@ -180,7 +180,7 @@ system*)(*Swithing cost is initialized with 0. AssociationThread \
 associates the last association!*)(*SwitchingCosts=AssociationThread[
    Join[AllTransitions,triple2path[Take[#,3],BG]&/@SC],Join[0&/@
    AllTransitions,Last[#]&/@SC]];*)
-   SwitchingCosts = AssociationMap[0&, AllTransitions];
+   SwitchingCosts = AssociationMap[1/1000&, AllTransitions];
    
    AssociateTo[SwitchingCosts, AssociationThread[
      triple2path[Take[#, 3], FG] & /@ SC, 
@@ -193,8 +193,8 @@ associates the last association!*)(*SwitchingCosts=AssociationThread[
 
    CostArgs = Join[
    	AssociationMap[Identity & , Normal@jargs], ZeroRun, 
-	AssociationMap[(10^(-10)&)&, Normal@Keys@SwitchingCosts],
-	AssociationMap[(10^10&) &, 
+	AssociationMap[(10^(-2)&)&, Normal@Keys@SwitchingCosts],
+	AssociationMap[(10^2&) &, 
 	LargeSwitchingTransitions]];
    EqPosJs = And @@ (# >= 0 & /@ Join[jvars]);(*Inequality*)
    EqPosJts = And @@ (# >= 0 & /@ Join[jtvars]);(*Inequality*)
@@ -252,8 +252,14 @@ is constant and equal to the exit cost.*)
        Flatten[#, 2] &);
    (*Switching condition equations*)(*EqSwitchingByVertex=Transu[
    uvars,SwitchingCosts]/@TransitionsAt[BG,#]&/@VL;*)
+  (* Print["b4: ",SwitchingCosts];
+   SwitchingCosts =
+    SwitchingCosts /. 0 -> 10^(-10);
+   Print["aftr: ",SwitchingCosts];*)
+   
    EqSwitchingByVertex = 
     Transu[uvars, SwitchingCosts] /@ TransitionsAt[FG, #] & /@ VL;
+    Print[EqSwitchingByVertex];
    EqSwitchingByVertex = (And @@ #) & /@ EqSwitchingByVertex;
    EqCompCon = 
     And @@ 
@@ -391,15 +397,20 @@ CriticalCongestionSolver[Eqs_] :=
    EqCritical = (And @@ ((# == 0) & /@ Nlhs)) /. InitRules;
    (*Print["22: ",
    EqCritical];*){NewSystem, InitRules} = 
-    TripleClean[{Join[{EqCritical}, Take[NewSystem, {2, 3}]], 
-      InitRules}];
-   (*Print["33: ",NewSystem];*)NewSystem = NewReduce[And @@ NewSystem];
+   TripleClean[{Join[{EqCritical}, Take[NewSystem, {2, 3}]], 
+     InitRules}];
+   Print["33: ",NewSystem];
+   NewSystem = NewReduce[And @@ NewSystem];
    NewSystem = BooleanConvert[NewSystem, "CNF"];
-   (*Print["44: ",NewSystem];*)
+   Print["44: ",NewSystem];
    NewSystem = 
     Sys2Triple[BooleanConvert[Reduce[NewSystem, Reals], "CNF"]];
+   Print["55: ",NewSystem];
    {NewSystem, InitRules} = TripleClean[{NewSystem, InitRules}];
+   Print["66: ",NewSystem];
+   {NewSystem, InitRules} = TripleClean[{Sys2Triple[Reduce[NewSystem,Reals]],InitRules}];
    If[And @@ NewSystem === False, Print["There is no solution"]];
+   Print["77: ",NewSystem];
    InitRules];
 
 Sys2Triple[True] = Table[True, 3]
