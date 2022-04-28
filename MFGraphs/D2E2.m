@@ -180,7 +180,7 @@ system*)(*Swithing cost is initialized with 0. AssociationThread \
 associates the last association!*)(*SwitchingCosts=AssociationThread[
    Join[AllTransitions,triple2path[Take[#,3],BG]&/@SC],Join[0&/@
    AllTransitions,Last[#]&/@SC]];*)
-   SwitchingCosts = AssociationMap[1/1000&, AllTransitions];
+   SwitchingCosts = AssociationMap[0&, AllTransitions];
    
    AssociateTo[SwitchingCosts, AssociationThread[
      triple2path[Take[#, 3], FG] & /@ SC, 
@@ -322,7 +322,7 @@ GetKirchhoffMatrix[Eqs_] :=
    (*Print["The matrices B and K are: \n", MatrixForm /@ {-BM, KM}, 
     "\nThe order of the variables is \n", vars];*)
     cost = Function[currents,  MapThread[#1[#2]&, 
-   	{KeyMap[Join[jvars, jtvars]][CostArgs] /@ vars, currents}]];
+   	{KeyMap[Join[jvars, jtvars]][CostArgs] /@ vars, currents, }]];
    	
    {-BM, KM, cost, vars}
    ];
@@ -399,8 +399,9 @@ CriticalCongestionSolver[Eqs_] :=
    EqCritical];*){NewSystem, InitRules} = 
    TripleClean[{Join[{EqCritical}, Take[NewSystem, {2, 3}]], 
      InitRules}];
-   Print["33: ",NewSystem];
+   Print["33: ", {NewSystem, InitRules}];
    NewSystem = NewReduce[And @@ NewSystem];
+   Print["34: ", NewSystem];
    NewSystem = BooleanConvert[NewSystem, "CNF"];
    Print["44: ",NewSystem];
    NewSystem = 
@@ -454,7 +455,11 @@ TripleStep[{{EEs_, NNs_, ORs_}, rules_Association}] :=
     newrules = First@Solve[EE] // Quiet];
    newrules = Join[rules /. newrules, Association@newrules];
    (*Print[{{EE,NN,OR},Expand/@
-   newrules}];*){{EE, NN, OR}, Expand /@ newrules}];
+   newrules}];*)
+   Print["Checking..."];
+   (*If[ Reduce[Equivalent[Simplify[And[EEs,NNs,ORs]&& (And @@ Equal @@@ Normal@rules)],
+   	Simplify[And[EE,NN,OR]&& (And @@ Equal @@@ Normal@newrules)]],Reals]==True,	Print["OK"], Print["Not OK"]];*)
+   		{{EE, NN, OR}, Expand /@ newrules}];
 
 TripleClean[{{EE_, NN_, OR_}, rules_}] := 
  FixedPoint[TripleStep, {{EE, NN, OR}, rules}]
@@ -464,21 +469,21 @@ TripleClean[{{EE_, NN_, OR_}, rules_}] :=
 
 NewReduce[s_Or] := Reduce[s, Reals]
 
-NewReduce[True] := True
+(*NewReduce[True] := True
 
-NewReduce[False] := False
+NewReduce[False] := False*)
 
-NewReduce[x_Equal] := (Print["here"];
-  Reduce[x, Reals])
+NewReduce[x_] := (Print["here"];
+  x)
 
-NewReduce[s_Inequality] := s
+(*NewReduce[s_Inequality] := s
 
 NewReduce[x_GreaterEqual] := x
 
 NewReduce[x_LessEqual] := x
 
 NewReduce[x_Inequality] := x
-
+*)
 (*TODO NewReduce:is there a problem here?*)
 
 NewReduce[system_And] := 
