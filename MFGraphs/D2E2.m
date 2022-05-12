@@ -259,7 +259,7 @@ is constant and equal to the exit cost.*)
    
    EqSwitchingByVertex = 
     Transu[uvars, SwitchingCosts] /@ TransitionsAt[FG, #] & /@ VL;
-    Print[EqSwitchingByVertex];
+    (*Print[EqSwitchingByVertex];*)
    EqSwitchingByVertex = (And @@ #) & /@ EqSwitchingByVertex;
    EqCompCon = 
     And @@ 
@@ -322,8 +322,7 @@ GetKirchhoffMatrix[Eqs_] :=
    (*Print["The matrices B and K are: \n", MatrixForm /@ {-BM, KM}, 
     "\nThe order of the variables is \n", vars];*)
     cost = Function[currents,  MapThread[#1[#2]&, 
-   	{KeyMap[Join[jvars, jtvars]][CostArgs] /@ vars, currents, }]];
-   	
+   	{KeyMap[Join[jvars, jtvars]][CostArgs] /@ vars, currents}]];
    {-BM, KM, cost, vars}
    ];
 
@@ -347,7 +346,8 @@ MFGPreprocessing[Eqs_] :=
    (*TODO Check switching costs for consistency*)(*First rules:
    entry currents*)
    InitRules = Association[Flatten[ToRules /@ EqEntryIn]];
-   (*no exit at the entrances*)AssociateTo[InitRules, RuleEntryOut];
+   (*no exit at the entrances*)
+   AssociateTo[InitRules, RuleEntryOut];
    (*no entrance at the exits*)
    AssociateTo[InitRules, RuleExitCurrentsIn];
    (*currents gathered from transition currents*)
@@ -361,8 +361,9 @@ MFGPreprocessing[Eqs_] :=
     Lookup[Eqs, "EqBalanceSplittingCurrents", $Failed] /. InitRules;
    EqValueAuxiliaryEdges = 
     Lookup[Eqs, "EqValueAuxiliaryEdges", $Failed] /. InitRules;
-   AssociateTo[InitRules, First @ Solve[EqBalanceSplittingCurrents
-    && EqValueAuxiliaryEdges]//Quiet];
+    Rules = First @ Solve[EqBalanceSplittingCurrents
+    && EqValueAuxiliaryEdges]//Quiet;
+   InitRules = Join[InitRules/.Rules, Association@Rules];
    NewSystem = 
     MapThread[
      And, {{True, 
@@ -371,8 +372,6 @@ MFGPreprocessing[Eqs_] :=
       Sys2Triple[EqSwitchingByVertex]}];
    {NewSystem, InitRules} = 
     TripleClean[{NewSystem, InitRules}];
-   (*Print["tripleclean done!"];*)
-   (*return something!!!*)
    ModuleVarsNames = {"InitRules", "RuleBalanceGatheringCurrents", 
      "EqEntryIn", "RuleEntryOut", "RuleExitCurrentsIn", 
      "RuleExitValues", "EqValueAuxiliaryEdges", "EqSwitchingByVertex",
@@ -384,35 +383,67 @@ MFGPreprocessing[Eqs_] :=
       EqBalanceSplittingCurrents, EqCurrentCompCon, 
       EqTransitionCompCon, EqPosJs, EqPosJts, NewSystem} /. 
      InitRules;
-   Join[Eqs, AssociationThread[ModuleVarsNames, ModulesVars]]];
+       Join[Eqs, AssociationThread[ModuleVarsNames, ModulesVars]]];
 
 CriticalCongestionSolver[Eqs_] := 
-  Module[{PreEqs, Nlhs, EqCritical, InitRules, NewSystem}, 
+  Module[{PreEqs, Nlhs, EqCritical, InitRules, NewSystem,
+  	vars, pickOne}, 
    PreEqs = MFGPreprocessing[Eqs];
-   (*Print["Preprocessing done!"];*)
    Nlhs = Lookup[PreEqs, "Nlhs", $Failed];
    InitRules = Lookup[PreEqs, "InitRules", $Failed];
    NewSystem = Lookup[PreEqs, "NewSystem", $Failed];
    (*Updated (with rules from preprocessing) edge equations*)
    EqCritical = (And @@ ((# == 0) & /@ Nlhs)) /. InitRules;
-   (*Print["22: ",
-   EqCritical];*){NewSystem, InitRules} = 
-   TripleClean[{Join[{EqCritical}, Take[NewSystem, {2, 3}]], 
+   Print[And[And@@NewSystem,EqCritical]];
+   Print["FinalClean..."];
+   {NewSystem, InitRules} = 
+   FinalClean[{Join[{EqCritical}, Take[NewSystem, {2, 3}]], 
      InitRules}];
-   Print["33: ", {NewSystem, InitRules}];
-   NewSystem = NewReduce[And @@ NewSystem];
+   (*Print["33: ", {NewSystem, InitRules}];*)
+   (*NewSystem = NewReduce[And @@ NewSystem];
    Print["34: ", NewSystem];
    NewSystem = BooleanConvert[NewSystem, "CNF"];
-   Print["44: ",NewSystem];
+   
    NewSystem = 
     Sys2Triple[BooleanConvert[Reduce[NewSystem, Reals], "CNF"]];
    Print["55: ",NewSystem];
    {NewSystem, InitRules} = TripleClean[{NewSystem, InitRules}];
    Print["66: ",NewSystem];
-   {NewSystem, InitRules} = TripleClean[{Sys2Triple[Reduce[NewSystem,Reals]],InitRules}];
-   If[And @@ NewSystem === False, Print["There is no solution"]];
-   Print["77: ",NewSystem];
+   {NewSystem, InitRules} = TripleClean[{Sys2Triple[Reduce[NewSystem,Reals]],InitRules}];*)
+   NewSystem = And @@ NewSystem;
+   Which[NewSystem === False, Print["There is no solution"],
+   	NewSystem =!= True, 
+   	NewSystem = Reduce[NewSystem, Reals];
+   	{NewSystem, InitRules} = 
+   FinalClean[{Sys2Triple[NewSystem], 
+     InitRules}];
+     NewSystem= And@@NewSystem;
+   	Print["Multiple solutions: ", {NewSystem, InitRules}];
+   	Print["\tPicking one..."];
+	vars = Select[Join[Eqs["us"],Eqs["js"],Eqs["jts"]], Not[FreeQ[NewSystem, #]] &];
+	(*Print[vars];*)
+	(*Have to pick one so that all the currents have numerical values*)
+	pickOne = Association@First@FindInstance[NewSystem && And @@ (# > 0 & /@vars), vars, Reals];
+	InitRules = Expand/@Join[InitRules/.pickOne, pickOne];
+   ];
    InitRules];
+
+FinalStep[{{EE_?BooleanQ, NN_?BooleanQ, OR_?BooleanQ}, rules_}] := 
+	{{EE, NN, OR}, rules}
+
+FinalStep[{{EE_,NN_,OO_}, rules_}]:=
+	Module[{NewSystem,newrules},
+	{NewSystem,newrules} = TripleClean[{{EE,NN,OO}, rules}];
+	Print["\tNewReduce...", {NewSystem}];
+	NewSystem = NewReduce[And @@ NewSystem];
+	Print["\tBooleanConvert...",NewSystem];
+	NewSystem = BooleanConvert[NewSystem, "CNF"];
+	NewSystem = Sys2Triple[NewSystem];
+	{NewSystem, newrules}
+	];
+
+FinalClean[{{EE_, NN_, OR_}, rules_}] := 
+ FixedPoint[FinalStep, {{EE, NN, OR}, rules}]
 
 Sys2Triple[True] = Table[True, 3]
 
@@ -442,24 +473,39 @@ TripleStep[{{EE_, NN_?TrueQ, OR_?TrueQ}, rules_Association}] :=
    {{True, NN, OR}, Expand /@ newrules}];
 
 TripleStep[{{EEs_, NNs_, ORs_}, rules_Association}] := 
-  Module[{EE = EEs /. rules, NN = NNs /. rules, OR = ORs /. rules, 
-    NNE, NNO, ORE, ORN, bool, newrules = {}}, bool = EE && NN && OR;
-   (*If[BooleanQ[bool], Return[{Table[bool, 3], rules}, Module]];*)
-   (*Print["nn: ",NN];*)NN = Simplify[NN];
-   (*Print["nn: ",NN];*){NNE, NN, NNO} = Sys2Triple[NN];
-   (*Print["nn: ",NN];*)(*Print["or: ",
-   OR];*){ORE, ORN, OR} = Sys2Triple[OR];
+  Module[{EE = EEs /. rules, 
+  	NN = Simplify/@(NNs /. rules), 
+  	OR = Simplify/@(ORs /. rules), 
+    NNE, NNO, ORE, ORN, bool, newrules = {}, in, out}, 
+    bool = EE && NN && OR;
+   NN = Simplify[NN];
+   {NNE, NN, NNO} = Sys2Triple[NN];
+   {ORE, ORN, OR} = Sys2Triple[OR];
    EE = EE && NNE && ORE;
-   (*Print["56: ",EE];*)
    If[EE =!= True && EE =!= False, 
     newrules = First@Solve[EE] // Quiet];
-   newrules = Join[rules /. newrules, Association@newrules];
-   (*Print[{{EE,NN,OR},Expand/@
-   newrules}];*)
-   Print["Checking..."];
-   (*If[ Reduce[Equivalent[Simplify[And[EEs,NNs,ORs]&& (And @@ Equal @@@ Normal@rules)],
-   	Simplify[And[EE,NN,OR]&& (And @@ Equal @@@ Normal@newrules)]],Reals]==True,	Print["OK"], Print["Not OK"]];*)
+   newrules = Expand /@ Join[rules /. newrules, Association@newrules];
+(*   in = Simplify/@((And[EEs,NNs,ORs]/.rules)&& (And @@ Equal @@@ Normal@rules));
+   out = Simplify/@((And[EE,NN,OR]/.newrules)&& (And @@ Equal @@@ Normal@newrules));
+  Print["Checking..."];
+   Print[in];
+  Print[out];
+   *)
+   
+  (* in = Simplify/@(And[EEs,NNs,ORs]/.newrules);
+   out = Simplify/@(And[EE,NN,OR]/.newrules);
+   Print[in];
+  Print[out];
+  
+   Print["Checking (replacing updated rules in both systems)..."];(**)   
+    If[
+   	Reduce[Implies[in, out],Reals]===True,
+   	Print["Ok!"],
+   	Print["Not Ok..."]
+   ];	*)
+   		
    		{{EE, NN, OR}, Expand /@ newrules}];
+
 
 TripleClean[{{EE_, NN_, OR_}, rules_}] := 
  FixedPoint[TripleStep, {{EE, NN, OR}, rules}]
@@ -469,21 +515,9 @@ TripleClean[{{EE_, NN_, OR_}, rules_}] :=
 
 NewReduce[s_Or] := Reduce[s, Reals]
 
-(*NewReduce[True] := True
-
-NewReduce[False] := False*)
-
-NewReduce[x_] := (Print["here"];
+NewReduce[x_] := (Print["NewReduce[",x,"] = ", x];
   x)
 
-(*NewReduce[s_Inequality] := s
-
-NewReduce[x_GreaterEqual] := x
-
-NewReduce[x_LessEqual] := x
-
-NewReduce[x_Inequality] := x
-*)
 (*TODO NewReduce:is there a problem here?*)
 
 NewReduce[system_And] := 
@@ -534,9 +568,11 @@ ZAnd[xp_,
 
 ZAnd[xp_, andxp_And] := 
  With[{fst = First[andxp], rst = Rest[andxp]}, 
-  Which[Head[fst] === Or, ReZAnd[xp, rst] /@ fst //RemoveDuplicates,
-    Head[fst] === And, ReZAnd[xp, rst, fst], True, 
-   ReZAnd[xp, rst, fst]]]
+  Which[
+  	Head[fst] === Or, 
+  	ReZAnd[xp, rst] /@ fst //RemoveDuplicates,
+   	True, 
+   	ReZAnd[xp, rst, fst]]]
 
 (*Operator form of ReZAnd*)
 ReZAnd[xp_, rst_] := ReZAnd[xp, rst, #] &
@@ -546,7 +582,7 @@ ReZAnd[xp_, rst_, fst_Equal] :=
   ZAnd[(xp /. fsol) && And @@ (fsol /. Rule -> Equal) // Simplify, 
    ReplaceSolution[rst, fsol]]]
 
-ReZAnd[xp_, rst_, fst_And] := ReZAnd[xp, rst] /@ fst
+ReZAnd[xp_, rst_, fst_And] := ReZAnd[xp, rst] /@ fst (*TODO never used???*)
 
 ReZAnd[xp_, rst_, fst_] := 
  ZAnd[xp && fst, rst]
