@@ -151,6 +151,15 @@ test = Association[
         (*SwitchingCostsData=*){{1, 2, 3, S1}, {3, 2, 1, S2}}
         },
             
+   (*triangle with 2 entrances and 3 exits*)
+    104 -> {
+        (*VL=*){1, 2, 3},
+        (*AM=*){{0, 1, 0}, {0, 0, 1}, {1, 0, 0}},
+        (*DataIn=*){{1, I1},{2,I2}},
+        (*FinalCosts=*){{1,0},{2,0},{3, 0}},
+        (*SwitchingCostsData=*){}
+        },
+            
 	(*triangle*)
     "triangle with two exits" -> {
         (*VL=*){1, 2, 3},
