@@ -2,16 +2,32 @@
 ConsistentSwithingCosts::usage = "ConsistentSwithingCosts[switching \
 costs][one switching cost]  returns the condition for this switching \
 cost to satisfy the triangle inequality"
-ConsistentSwithingCosts[sc_][{a_, b_, c_, S_}] := 
-  Module[{origin, destination, bounds}, 
-   origin = Cases[sc, {a, b, _, _}];
-   destination = Cases[sc, {_, b, c, _}];
-   bounds = 
-    Outer[Plus, Last /@ origin, Last /@ destination] // Flatten;
-   Print[bounds];
-   And @@ (# >= S &) /@ bounds];
+(*this version used the triples \
+ConsistentSwithingCosts[sc_][{a_,b_,c_,S_}]:=Module[{origin,\
+destination,bounds,d},origin=Cases[sc,{a,b,_,_}];
+origin=DeleteCases[origin,{a,b,c,_}];
+Print["origin: ",origin];
+destination=Cases[sc,{_,b,c,_}];
+Print["destination: ",destination];
+bounds=Outer[Plus,Last/@origin,Last/@destination]//Flatten;
+result=And@@(#>=S&)/@bounds;
+Print[result];
+result];*)
 
-IsSwitchingCostConsistent::usage = "IsSwitchingCostConsistent[list of \
+ConsistentSwithingCosts[sc_][{a_, b_, c_} -> S_] := 
+  Module[{origin, destination, bounds}, 
+   origin = Cases[sc, HoldPattern[{a, b, _} -> _]];
+   origin = DeleteCases[origin, {a, b, c} -> S];
+   If[origin =!= {},(*Print["\nargument: ",{a,b,c}->S];*)(*Print[
+    "origin: ",origin];*)
+    destination = {a, Part[First[#], 3], c} & /@ origin;
+    (*Print["destination: ",(#->Association[sc][#])&/@destination];*)
+    bounds = ((S <= 
+          Last[#] + Association[sc][{a, Part[First[#], 3], c}]) & /@ 
+       origin);
+    (*Print["triangle: ",And@@bounds];*)And @@ bounds, True]];
+
+IsSwitchingCostConsistent::usage = "IsSwitchingCostConsistent[List of \
 switching costs] is True if all switching costs satisfy the triangle \
 inequality"
 IsSwitchingCostConsistent[SC_] := 
@@ -102,10 +118,9 @@ Data2Equations[Data_Association] :=
     BalanceGatheringCurrents, EqBalanceGatheringCurrents, EqEntryIn, 
     RuleEntryOut, RuleExitCurrentsIn, RuleExitValues, 
     EqValueAuxiliaryEdges, OutRules, InRules, EqSwitchingByVertex, 
-    EqCompCon, Nlhs, ModuleVars, ModuleVarsNames,
-    LargeCases, LargeSwitchingTransitions, ZeroRun,
-    CostArgs, Nrhs}, 
-   VL = Lookup[Data, "Vertices List", {}];
+    EqCompCon, Nlhs, ModuleVars, ModuleVarsNames, LargeCases, 
+    LargeSwitchingTransitions, ZeroRun, CostArgs, Nrhs, 
+    consistentCosts}, VL = Lookup[Data, "Vertices List", {}];
    AM = Lookup[Data, "Adjacency Matrix", {}];
    EVC = Lookup[Data, "Entrance Vertices and Currents", {}];
    EVTC = Lookup[Data, "Exit Vertices and Terminal Costs", {}];
@@ -119,11 +134,9 @@ Data2Equations[Data_Association] :=
    (*InwardVertices defines auxiliary vertices for the entrance \
 vertices*)
    InwardVertices = 
-   AssociationMap[ 
-     Symbol["en" <> ToString[#]] &, EntranceVertices];
+    AssociationMap[Symbol["en" <> ToString[#]] &, EntranceVertices];
    OutwardVertices = 
-    AssociationMap[ 
-     Symbol["ex" <> ToString[#]] &, ExitVertices];
+    AssociationMap[Symbol["ex" <> ToString[#]] &, ExitVertices];
    (*InEdges defines auxiliary arguments for the entrance vertices*)
    InEdges = 
     MapThread[
@@ -139,7 +152,7 @@ vertices*)
    EL = EdgeList[FG];
    BEL = EdgeList[BG];
    FVL = VertexList[FG];
-   (*arguments*)jargs = Flatten[#, 1]& @ ({AtTail@#, AtHead@#} & /@ EL);
+   (*arguments*)jargs = Flatten[#, 1] &@({AtTail@#, AtHead@#} & /@ EL);
    uargs = jargs;
    (*AllTransitions=TransitionsAt[BG,#]&/@VL//
    Catenate(*at vertex from first edge to second edge*);*)
@@ -150,12 +163,8 @@ vertices*)
     AtHead /@ ((EdgeList[AuxiliaryGraph, 
            DirectedEdge[_, #]] & /@ (First /@ EVC)) // 
        Flatten[#, 1] &);
-  (*     Print["inedges: ",InEdges];
-   Print["entry: ", EntryArgs];
-   Print[AtHead/@InEdges, AtTail/@InEdges];*)
-   ZeroRun = AssociationMap[(0&) &][AtHead/@Join[InEdges, OutEdges]];
-   (*TODO use largerun to set large costs on the ficticious *)
-   (*Print["zerorun: ", ZeroRun];*)
+   ZeroRun = 
+    AssociationMap[(0 &) &][AtHead /@ Join[InEdges, OutEdges]];
    EntryDataAssociation = 
     RoundValues@AssociationThread[EntryArgs, Last /@ EVC];
    ExitCosts = 
@@ -171,38 +180,38 @@ vertices*)
    us = Table[Symbol["u" <> ToString[k]], {k, 1, Length@uargs}];
    uvars = AssociationThread[uargs, us];
    SignedCurrents = 
-    AssociationMap[
-     jvars[AtHead[#]] - jvars[AtTail[#]] &, BEL];
-   
-   (*Print[
-   "D2E: Variables are all set"];*)(*Elements of the \
-system*)(*Swithing cost is initialized with 0. AssociationThread \
-associates the last association!*)(*SwitchingCosts=AssociationThread[
-   Join[AllTransitions,triple2path[Take[#,3],BG]&/@SC],Join[0&/@
-   AllTransitions,Last[#]&/@SC]];*)
-   SwitchingCosts = AssociationMap[0&, AllTransitions];
-   
-   AssociateTo[SwitchingCosts, AssociationThread[
-     triple2path[Take[#, 3], FG] & /@ SC, 
+    AssociationMap[jvars[AtHead[#]] - jvars[AtTail[#]] &, BEL];
+   SwitchingCosts = AssociationMap[0 &, AllTransitions];
+   AssociateTo[SwitchingCosts, 
+    AssociationThread[triple2path[Take[#, 3], FG] & /@ SC, 
      Last[#] & /@ SC]];
-     
-   LargeCases = Join[{Last[#], __, #} & /@ InEdges, 
-   	{First[#], #, __} & /@ OutEdges];
-   LargeSwitchingTransitions = Cases[AllTransitions, #] & /@ LargeCases // 
- Flatten[#, 1] &;
-
-   CostArgs = Join[
-   	AssociationMap[Identity & , Normal@jargs], ZeroRun, 
-	AssociationMap[(10^(-2)&)&, Normal@Keys@SwitchingCosts],
-	AssociationMap[(10^2&) &, 
-	LargeSwitchingTransitions]];
+   LargeCases = 
+    Join[{Last[#], __, #} & /@ InEdges, {First[#], #, __} & /@ 
+      OutEdges];
+   LargeSwitchingTransitions = 
+    Cases[AllTransitions, #] & /@ LargeCases // Flatten[#, 1] &;
+   AssociateTo[SwitchingCosts, 
+    AssociationMap[1000 &, LargeSwitchingTransitions]];
+   (*csc=ConsistentSwithingCosts[Normal@SwitchingCosts]/@Normal@
+   SwitchingCosts;
+   Print[csc];*)
+   consistentCosts = 
+    IsSwitchingCostConsistent[Normal@SwitchingCosts];
+   Which[consistentCosts === False, 
+    Return[Print["Switching costs are inconsistent!"], Module], 
+    consistentCosts =!= True, 
+    Print["Switching costs conditions are ", consistentCosts], True, 
+    Print["Switching costs are consistent"]];
+   CostArgs = 
+    Join[AssociationMap[Identity &, Normal@jargs], ZeroRun, 
+     AssociationMap[(10^(-2) &) &, Normal@Keys@SwitchingCosts], 
+     AssociationMap[(10^2 &) &, LargeSwitchingTransitions]];
    EqPosJs = And @@ (# >= 0 & /@ Join[jvars]);(*Inequality*)
    EqPosJts = And @@ (# >= 0 & /@ Join[jtvars]);(*Inequality*)
    EqCurrentCompCon = And @@ (CurrentCompCon[jvars] /@ EL);(*Or*)
    EqTransitionCompCon = 
     And @@ ((Sort /@ TransitionCompCon[jtvars] /@ AllTransitions) // 
-       Union);(*Or*)(*Balance Splitting Currents in the full \
-graph*)(*NoDeadEnds=IncomingEdges[BG]/@VL//Flatten[#,1]&;*)
+       Union);(*Or*)(*Balance Splitting Currents in the full graph*)
    NoDeadEnds = IncomingEdges[FG] /@ VL // Flatten[#, 1] &;
    BalanceSplittingCurrents = ((jvars[#] - 
          Total[jtvars /@ CurrentSplitting[AllTransitions][#]]) & /@ 
@@ -210,8 +219,7 @@ graph*)(*NoDeadEnds=IncomingEdges[BG]/@VL//Flatten[#,1]&;*)
    EqBalanceSplittingCurrents = 
     Simplify /@ (And @@ ((# == 0) & /@ 
          BalanceSplittingCurrents));(*Equal*)(*Gathering currents in \
-the inside of the basic graph*)(*NoDeadStarts=OutgoingEdges[BG]/@VL//
-   Flatten[#,1]&;*)
+the inside of the basic graph*)
    NoDeadStarts = OutgoingEdges[FG] /@ VL // Flatten[#, 1] &;
    RuleBalanceGatheringCurrents = 
     Association[(jvars[#] -> 
@@ -250,16 +258,8 @@ is constant and equal to the exit cost.*)
        Infinity] & /@ (Outer[{#2[[2]], #1, #2} &, 
         IncidenceList[FG, #] & /@ EntranceVertices, InEdges] // 
        Flatten[#, 2] &);
-   (*Switching condition equations*)(*EqSwitchingByVertex=Transu[
-   uvars,SwitchingCosts]/@TransitionsAt[BG,#]&/@VL;*)
-  (* Print["b4: ",SwitchingCosts];
-   SwitchingCosts =
-    SwitchingCosts /. 0 -> 10^(-10);
-   Print["aftr: ",SwitchingCosts];*)
-   
    EqSwitchingByVertex = 
     Transu[uvars, SwitchingCosts] /@ TransitionsAt[FG, #] & /@ VL;
-    (*Print[EqSwitchingByVertex];*)
    EqSwitchingByVertex = (And @@ #) & /@ EqSwitchingByVertex;
    EqCompCon = 
     And @@ 
@@ -267,7 +267,8 @@ is constant and equal to the exit cost.*)
    Nlhs = 
     Flatten[
      uvars[AtHead[#]] - uvars[AtTail[#]] + SignedCurrents[#] & /@ BEL];
-   Nrhs = Flatten[SignedCurrents[#]-IntM[SignedCurrents[#],#]& /@ BEL];
+   Nrhs = 
+    Flatten[SignedCurrents[#] - IntM[SignedCurrents[#], #] & /@ BEL];
    ModuleVars =(*list of all module variables,
     except for ModuleVars*){VL, AM, EVC, EVTC, SC, BG, 
      EntranceVertices, InwardVertices, ExitVertices, OutwardVertices, 
@@ -280,7 +281,8 @@ is constant and equal to the exit cost.*)
      RuleBalanceGatheringCurrents, BalanceGatheringCurrents, 
      EqBalanceGatheringCurrents, EqEntryIn, RuleEntryOut, 
      RuleExitCurrentsIn, RuleExitValues, EqValueAuxiliaryEdges, 
-     OutRules, InRules, EqSwitchingByVertex, EqCompCon, Nlhs, CostArgs, Nrhs};
+     OutRules, InRules, EqSwitchingByVertex, EqCompCon, Nlhs, 
+     CostArgs, Nrhs};
    ModuleVarsNames = {"VL", "AM", "EVC", "EVTC", "SC", "BG", 
      "EntranceVertices", "InwardVertices", "ExitVertices", 
      "OutwardVertices", "InEdges", "OutEdges", "AuxiliaryGraph", "FG",
@@ -294,10 +296,15 @@ is constant and equal to the exit cost.*)
      "BalanceGatheringCurrents", "EqBalanceGatheringCurrents", 
      "EqEntryIn", "RuleEntryOut", "RuleExitCurrentsIn", 
      "RuleExitValues", "EqValueAuxiliaryEdges", "OutRules", "InRules",
-      "EqSwitchingByVertex", "EqCompCon", "Nlhs", "CostArgs", "Nrhs"};
+      "EqSwitchingByVertex", "EqCompCon", "Nlhs", "CostArgs", 
+     "Nrhs"};
    Join[Data, AssociationThread[ModuleVarsNames, ModuleVars]]];
-GetKirchhoffMatrix::usage =
-"GetKirchhoffMatrix[d2e] returns the Kirchhoff matrix, entry current vector, (critical congestion) cost function, and the variables order."
+
+NumberVectorQ[j_] := And @@ (NumberQ /@ j);
+
+GetKirchhoffMatrix::usage = "GetKirchhoffMatrix[d2e] returns the \
+Kirchhoff matrix, entry current vector, (critical congestion) cost \
+function, and the variables order."
 GetKirchhoffMatrix[Eqs_] := 
   Module[{Kirchhoff, EqEntryIn = Lookup[Eqs, "EqEntryIn", True], 
     BalanceGatheringCurrents = 
@@ -305,12 +312,10 @@ GetKirchhoffMatrix[Eqs_] :=
     BalanceSplittingCurrents = 
      Lookup[Eqs, "BalanceSplittingCurrents", {}], 
     RuleExitCurrentsIn = Lookup[Eqs, "RuleExitCurrentsIn", {}], 
-    RuleEntryOut = Lookup[Eqs, "RuleEntryOut", {}], BM, KM, vars,
-    CostArgs = Lookup[Eqs, "CostArgs", <||>],
-    jvars = Lookup[Eqs, "jvars", {}],
-    jtvars = Lookup[Eqs, "jtvars", {}]
-    }, 
-    NumberVectorQ[j_] := And @@ (NumberQ /@ j);
+    RuleEntryOut = Lookup[Eqs, "RuleEntryOut", {}], BM, KM, vars, 
+    CostArgs = Lookup[Eqs, "CostArgs", <||>], 
+    jvars = Lookup[Eqs, "jvars", {}], 
+    jtvars = Lookup[Eqs, "jtvars", {}], cost}, 
    Kirchhoff = 
     Join[
      EqEntryIn, (# == 0 & /@ (BalanceGatheringCurrents + 
@@ -319,19 +324,19 @@ GetKirchhoffMatrix[Eqs_] :=
    {BM, KM} = 
     CoefficientArrays[Kirchhoff, 
      vars = Variables[Kirchhoff /. Equal -> Plus]];
-   (*Print["The matrices B and K are: \n", MatrixForm /@ {-BM, KM}, 
-    "\nThe order of the variables is \n", vars];*)
-    cost = Function[currents,  MapThread[#1[#2]&, 
-   	{KeyMap[Join[jvars, jtvars]][CostArgs] /@ vars, currents}]];
-   {-BM, KM, cost, vars}
-   ];
+   cost = 
+    Function[currents, 
+     MapThread[#1[#2] &, {KeyMap[Join[jvars, jtvars]][CostArgs] /@ 
+        vars, currents}]];
+   {-BM, KM, cost, vars}];
 
 MFGPreprocessing[Eqs_] := 
   Module[{InitRules, RuleBalanceGatheringCurrents, EqEntryIn, 
     RuleEntryOut, RuleExitCurrentsIn, RuleExitValues, 
     EqValueAuxiliaryEdges, EqSwitchingByVertex, EqCompCon, 
     EqBalanceSplittingCurrents, EqCurrentCompCon, EqTransitionCompCon,
-     EqPosJs, EqPosJts, ModuleVarsNames, ModulesVars, NewSystem}, 
+     EqPosJs, EqPosJts, ModuleVarsNames, ModulesVars, NewSystem, 
+    Rules}, 
    RuleBalanceGatheringCurrents = 
     Lookup[Eqs, "RuleBalanceGatheringCurrents", $Failed];
    EqEntryIn = Lookup[Eqs, "EqEntryIn", $Failed];
@@ -343,35 +348,31 @@ MFGPreprocessing[Eqs_] :=
    EqTransitionCompCon = Lookup[Eqs, "EqTransitionCompCon", $Failed];
    EqPosJs = Lookup[Eqs, "EqPosJs", $Failed];
    EqPosJts = Lookup[Eqs, "EqPosJts", $Failed];
-   (*TODO Check switching costs for consistency*)(*First rules:
-   entry currents*)
+   (*First rules:entry currents*)
    InitRules = Association[Flatten[ToRules /@ EqEntryIn]];
-   (*no exit at the entrances*)
-   AssociateTo[InitRules, RuleEntryOut];
+   (*no exit at the entrances*)AssociateTo[InitRules, RuleEntryOut];
    (*no entrance at the exits*)
    AssociateTo[InitRules, RuleExitCurrentsIn];
    (*currents gathered from transition currents*)
    AssociateTo[InitRules, RuleBalanceGatheringCurrents];
-   (*value function: exit costs*)
-   AssociateTo[InitRules, RuleExitValues];
+   (*value function:exit costs*)AssociateTo[InitRules, RuleExitValues];
    EqSwitchingByVertex = 
-    And @@ (Simplify /@ (Lookup[Eqs, "EqSwitchingByVertex", $Failed]
-     /. InitRules));
+    And @@ (Simplify /@ (Lookup[Eqs, "EqSwitchingByVertex", $Failed] /. 
+         InitRules));
    EqBalanceSplittingCurrents = 
     Lookup[Eqs, "EqBalanceSplittingCurrents", $Failed] /. InitRules;
    EqValueAuxiliaryEdges = 
     Lookup[Eqs, "EqValueAuxiliaryEdges", $Failed] /. InitRules;
-    Rules = First @ Solve[EqBalanceSplittingCurrents
-    && EqValueAuxiliaryEdges]//Quiet;
-   InitRules = Join[InitRules/.Rules, Association@Rules];
+   Rules = 
+    First@Solve[EqBalanceSplittingCurrents && EqValueAuxiliaryEdges] //
+      Quiet;
+   InitRules = Join[InitRules /. Rules, Association@Rules];
    NewSystem = 
     MapThread[
-     And, {{True, 
-       EqPosJts && EqPosJs, 
+     And, {{True, EqPosJts && EqPosJs, 
        EqCurrentCompCon && EqTransitionCompCon && EqCompCon}, 
       Sys2Triple[EqSwitchingByVertex]}];
-   {NewSystem, InitRules} = 
-    TripleClean[{NewSystem, InitRules}];
+   {NewSystem, InitRules} = TripleClean[{NewSystem, InitRules}];
    ModuleVarsNames = {"InitRules", "RuleBalanceGatheringCurrents", 
      "EqEntryIn", "RuleEntryOut", "RuleExitCurrentsIn", 
      "RuleExitValues", "EqValueAuxiliaryEdges", "EqSwitchingByVertex",
@@ -383,67 +384,76 @@ MFGPreprocessing[Eqs_] :=
       EqBalanceSplittingCurrents, EqCurrentCompCon, 
       EqTransitionCompCon, EqPosJs, EqPosJts, NewSystem} /. 
      InitRules;
-       Join[Eqs, AssociationThread[ModuleVarsNames, ModulesVars]]];
+   Join[Eqs, AssociationThread[ModuleVarsNames, ModulesVars]]];
+
+CriticalCongestionSolver::usage = 
+  "CriticalCongestionSolver[Eqs] returns an association with rules to \
+the solution to the critical congestion case";
 
 CriticalCongestionSolver[Eqs_] := 
-  Module[{PreEqs, Nlhs, EqCritical, InitRules, NewSystem,
-  	vars, pickOne}, 
+  Module[{PreEqs, Nlhs, EqCritical, InitRules, NewSystem}, 
    PreEqs = MFGPreprocessing[Eqs];
    Nlhs = Lookup[PreEqs, "Nlhs", $Failed];
    InitRules = Lookup[PreEqs, "InitRules", $Failed];
    NewSystem = Lookup[PreEqs, "NewSystem", $Failed];
    (*Updated (with rules from preprocessing) edge equations*)
    EqCritical = (And @@ ((# == 0) & /@ Nlhs)) /. InitRules;
-   Print[And[And@@NewSystem,EqCritical]];
-   Print["FinalClean..."];
+   (*Print[And[EqCritical,And@@NewSystem]];*)(*Print[
+   "FinalClean..."];*)MFGSystemSolver[PreEqs][EqCritical]];
+
+MFGSystemSolver::usage = "MFGSystemSolver[Eqs][edgeEquations] returns \
+an association with rules to the solution"
+MFGSystemSolver[Eqs_][EqCritical_] := 
+  Module[{NewSystem, InitRules, pickOne, vars}, 
+   InitRules = Lookup[Eqs, "InitRules", $Failed];
+   NewSystem = Lookup[Eqs, "NewSystem", $Failed];
+   Print[Join[{EqCritical}, Take[NewSystem, {2, 3}]]];
    {NewSystem, InitRules} = 
-   FinalClean[{Join[{EqCritical}, Take[NewSystem, {2, 3}]], 
-     InitRules}];
-   (*Print["33: ", {NewSystem, InitRules}];*)
-   (*NewSystem = NewReduce[And @@ NewSystem];
-   Print["34: ", NewSystem];
-   NewSystem = BooleanConvert[NewSystem, "CNF"];
-   
-   NewSystem = 
-    Sys2Triple[BooleanConvert[Reduce[NewSystem, Reals], "CNF"]];
-   Print["55: ",NewSystem];
-   {NewSystem, InitRules} = TripleClean[{NewSystem, InitRules}];
-   Print["66: ",NewSystem];
-   {NewSystem, InitRules} = TripleClean[{Sys2Triple[Reduce[NewSystem,Reals]],InitRules}];*)
+    FinalClean[{Join[{EqCritical}, Take[NewSystem, {2, 3}]], 
+      InitRules}];
+   Print["33: ", {NewSystem, InitRules}];
    NewSystem = And @@ NewSystem;
-   Which[NewSystem === False, Print["There is no solution"],
-   	NewSystem =!= True, 
-   	NewSystem = Reduce[NewSystem, Reals];
-   	{NewSystem, InitRules} = 
-   FinalClean[{Sys2Triple[NewSystem], 
-     InitRules}];
-     NewSystem= And@@NewSystem;
-   	Print["Multiple solutions: ", {NewSystem, InitRules}];
-   	Print["\tPicking one..."];
-	vars = Select[Join[Eqs["us"],Eqs["js"],Eqs["jts"]], Not[FreeQ[NewSystem, #]] &];
-	(*Print[vars];*)
-	(*Have to pick one so that all the currents have numerical values*)
-	pickOne = Association@First@FindInstance[NewSystem && And @@ (# > 0 & /@vars), vars, Reals];
-	InitRules = Expand/@Join[InitRules/.pickOne, pickOne];
-   ];
-   InitRules];
+   Which[NewSystem === False, Print["There is no solution"], 
+    NewSystem =!= True, NewSystem = Reduce[NewSystem, Reals];
+    {NewSystem, InitRules} = 
+     FinalClean[{Sys2Triple[NewSystem], InitRules}];
+    NewSystem = And @@ NewSystem;
+    Print["Multiple solutions: ", {NewSystem, InitRules}];
+    Print["\tPicking one..."];
+    vars = 
+     Select[Join[Eqs["us"], Eqs["js"], Eqs["jts"]], 
+      Not[FreeQ[NewSystem, #]] &];
+    (*Have to pick one so that all the currents have numerical values*)
+    pickOne = 
+     Association@
+      First@
+       FindInstance[NewSystem && And @@ (# > 0 & /@ vars), vars, 
+        Reals];
+    InitRules = Expand /@ Join[InitRules /. pickOne, pickOne]];];
 
-FinalStep[{{EE_?BooleanQ, NN_?BooleanQ, OR_?BooleanQ}, rules_}] := 
-	{{EE, NN, OR}, rules}
+FinalStep[{{EE_?BooleanQ, NN_?BooleanQ, OR_?BooleanQ}, 
+   rules_}] := {{EE, NN, OR}, rules}
 
-FinalStep[{{EE_,NN_,OO_}, rules_}]:=
-	Module[{NewSystem,newrules},
-	{NewSystem,newrules} = TripleClean[{{EE,NN,OO}, rules}];
-	Print["\tNewReduce...", {NewSystem}];
-	NewSystem = NewReduce[And @@ NewSystem];
-	Print["\tBooleanConvert...",NewSystem];
-	NewSystem = BooleanConvert[NewSystem, "CNF"];
-	NewSystem = Sys2Triple[NewSystem];
-	{NewSystem, newrules}
-	];
+FinalStep[{{EE_, NN_, OO_}, rules_}] := 
+  Module[{NewSystem, newrules, sorted}, {NewSystem, newrules} = 
+    TripleClean[{{EE, NN, OO}, rules}];
+   (*Print["\tSimplify...",{NewSystem}];*)(*Print[
+   "\tNewReduce...",(*Simplify/@*){NewSystem}];*)(*NewSystem=
+   NewReduce[And@@NewSystem];*)
+   If[Part[NewSystem, 3] === True, sorted = True, 
+    sorted = SortBy[Part[NewSystem, 3], Simplify`SimplifyCount]];
+   Print[
+    "\tNewReduce...", {And @@ Take[#, {1, 2}], sorted} &[NewSystem]];
+   NewSystem = 
+    ZAnd[And @@ Take[#, {1, 2}], 
+       If[Part[NewSystem, 3] === True, True, sorted]] &[NewSystem];
+   Print["\tBooleanConvert...", NewSystem];
+   NewSystem = BooleanConvert[NewSystem, "CNF"];
+   NewSystem = Sys2Triple[NewSystem];
+   {NewSystem, newrules}];
 
-FinalClean[{{EE_, NN_, OR_}, rules_}] := 
- FixedPoint[FinalStep, {{EE, NN, OR}, rules}]
+FinalClean[{{EE_, NN_, OR_}, rules_}] := ((*Print["finalclean: ",{{EE,
+  NN,OR},rules}];*)FixedPoint[FinalStep, {{EE, NN, OR}, rules}])
 
 Sys2Triple[True] = Table[True, 3]
 
@@ -464,8 +474,8 @@ Sys2Triple[system_] :=
 TripleStep[{{EEs_, NNs_, ORs_}, rules_List}] := 
  TripleStep[{{EEs, NNs, ORs}, Association@rules}]
 
-TripleStep[{{EE_?BooleanQ, NN_?BooleanQ, OR_?BooleanQ}, rules_}] := 
-	{{EE, NN, OR}, rules}
+TripleStep[{{EE_?BooleanQ, NN_?BooleanQ, OR_?BooleanQ}, 
+   rules_}] := {{EE, NN, OR}, rules}
 
 TripleStep[{{EE_, NN_?TrueQ, OR_?TrueQ}, rules_Association}] := 
   Module[{newrules = {}}, newrules = First@Solve[EE] // Quiet;
@@ -473,49 +483,38 @@ TripleStep[{{EE_, NN_?TrueQ, OR_?TrueQ}, rules_Association}] :=
    {{True, NN, OR}, Expand /@ newrules}];
 
 TripleStep[{{EEs_, NNs_, ORs_}, rules_Association}] := 
-  Module[{EE = EEs /. rules, 
-  	NN = Simplify/@(NNs /. rules), 
-  	OR = Simplify/@(ORs /. rules), 
-    NNE, NNO, ORE, ORN, bool, newrules = {}, in, out}, 
-    bool = EE && NN && OR;
+  Module[{EE = EEs /. rules, NN = Simplify /@ (NNs /. rules), 
+    OR = Simplify /@ (ORs /. rules), NNE, NNO, ORE, ORN, bool, 
+    newrules = {}}, bool = EE && NN && OR;
    NN = Simplify[NN];
    {NNE, NN, NNO} = Sys2Triple[NN];
    {ORE, ORN, OR} = Sys2Triple[OR];
    EE = EE && NNE && ORE;
    If[EE =!= True && EE =!= False, 
     newrules = First@Solve[EE] // Quiet];
-   newrules = Expand /@ Join[rules /. newrules, Association@newrules];
-(*   in = Simplify/@((And[EEs,NNs,ORs]/.rules)&& (And @@ Equal @@@ Normal@rules));
-   out = Simplify/@((And[EE,NN,OR]/.newrules)&& (And @@ Equal @@@ Normal@newrules));
-  Print["Checking..."];
+   newrules = 
+    Expand /@ Join[rules /. newrules, Association@newrules];
+   (*in=Simplify/@((And[EEs,NNs,ORs]/.rules)&&(And@@Equal@@@Normal@
+   rules));
+   out=Simplify/@((And[EE,NN,OR]/.newrules)&&(And@@Equal@@@Normal@
+   newrules));
+   Print["Checking..."];
    Print[in];
-  Print[out];
-   *)
-   
-  (* in = Simplify/@(And[EEs,NNs,ORs]/.newrules);
-   out = Simplify/@(And[EE,NN,OR]/.newrules);
+   Print[out];*)(*in=Simplify/@(And[EEs,NNs,ORs]/.newrules);
+   out=Simplify/@(And[EE,NN,OR]/.newrules);
    Print[in];
-  Print[out];
-  
-   Print["Checking (replacing updated rules in both systems)..."];(**)   
-    If[
-   	Reduce[Implies[in, out],Reals]===True,
-   	Print["Ok!"],
-   	Print["Not Ok..."]
-   ];	*)
-   		
-   		{{EE, NN, OR}, Expand /@ newrules}];
+   Print[out];
+   Print["Checking (replacing updated rules in both systems)..."];(**)
+   If[Reduce[Implies[in,out],Reals]===True,Print["Ok!"],Print[
+   "Not Ok..."]];*){{EE, NN, OR}, Expand /@ newrules}];
 
 
 TripleClean[{{EE_, NN_, OR_}, rules_}] := 
  FixedPoint[TripleStep, {{EE, NN, OR}, rules}]
 
-
-(*TODO review NewReduce and maybe make it take triple-systems*)
-
 NewReduce[s_Or] := Reduce[s, Reals]
 
-NewReduce[x_] := (Print["NewReduce[",x,"] = ", x];
+NewReduce[x_] := (Print["NewReduce[", x, "] = ", x];
   x)
 
 (*TODO NewReduce:is there a problem here?*)
@@ -524,32 +523,18 @@ NewReduce[system_And] :=
  Module[{result, 
    groups = 
     GroupBy[List @@ system, Head[#] === Or || Head[#] === Equal &], 
-   subgroups, sorted}, 
+   subgroups, EE, NN, OO, sorted}, 
   subgroups = GroupBy[groups[True], Head[#] === Equal &];
-  If[Head[subgroups[False]] === Missing, 
-   result = 
-    ZAnd[And @@ Lookup[groups, False, True], 
-     And @@ Lookup[subgroups, True, True]], 
-   sorted = 
-    SortBy[And @@ Lookup[subgroups, False, True], 
-     Simplify`SimplifyCount];
-   result = 
-    ZAnd[
-     And @@ 
-      Lookup[groups, False, 
-       True], (And @@ Lookup[subgroups, True, True]) && sorted]];
-  (*result=ZAnd[Select[system,!((Head[#]===Or)||(Head[#]===Equal))&],
-  Select[system,((Head[#]===Or)||(Head[#]===Equal))&]];*)
+  NN = Lookup[groups, False, True];
+  EE = Lookup[subgroups, True, True];
+  OO = Lookup[subgroups, False, True];
+  If[OO === True, result = ZAnd[And @@ NN, And @@ EE], 
+   sorted = SortBy[And @@ OO, Simplify`SimplifyCount];
+   result = ZAnd[And @@ NN, (And @@ EE) && sorted]];
   If[result =!= False, result = result // DeleteDuplicates];
   result]
 
 ZAnd[_, False] := (False)
-
-ZAnd[xp_, leq_LessEqual] := Simplify[xp && leq]
-
-ZAnd[xp_, geq_GreaterEqual] := Simplify[xp && geq]
-
-ZAnd[xp_, ineq_Inequality] := Simplify[xp && ineq]
 
 ZAnd[False, _] := (False)
 
@@ -558,43 +543,40 @@ ZAnd[xp_, True] := xp
 ZAnd[xp_, eq_Equal] := 
  With[{sol = Solve[eq]}, 
   If[sol === {}, 
-   False, (xp /. First[sol]) && And @@ (First[sol] /. Rule -> Equal) //
-     Simplify]]
-
-ZAnd[xp_, 
-  orxp_Or] := ((*Print[
-   "Do we need removeduplicates?\n", (ZAnd[xp, #] & /@ orxp)];*)
-  (ZAnd[xp, #] & /@ orxp) //RemoveDuplicates)
+   False, (xp /. First@sol) && And @@ (First@sol /. Rule -> Equal) // 
+    Simplify]]
 
 ZAnd[xp_, andxp_And] := 
  With[{fst = First[andxp], rst = Rest[andxp]}, 
-  Which[
-  	Head[fst] === Or, 
-  	ReZAnd[xp, rst] /@ fst //RemoveDuplicates,
-   	True, 
-   	ReZAnd[xp, rst, fst]]]
+  Print["ZAnd: head is and: ", fst];
+  Which[Head[fst] === Or, ReZAnd[xp, rst] /@ fst // RemoveDuplicates, 
+   True, ReZAnd[xp, rst, fst]]]
+
+ZAnd[xp_, orxp_Or] := ((*Print["Do we need removeduplicates?\n",(ZAnd[
+  xp,#]&/@orxp)];*)(ZAnd[xp, #] & /@ orxp) // RemoveDuplicates)
+
+ZAnd[xp_, leq_] := Simplify[xp && leq]
+
+(*ZAnd[xp_,geq_GreaterEqual]:=Simplify[xp&&geq] \
+ZAnd[xp_,ineq_Inequality]:=Simplify[xp&&ineq]*)
+
 
 (*Operator form of ReZAnd*)
 ReZAnd[xp_, rst_] := ReZAnd[xp, rst, #] &
 
 ReZAnd[xp_, rst_, fst_Equal] := 
- Module[{fsol = First@Solve@fst // Quiet}, 
-  ZAnd[(xp /. fsol) && And @@ (fsol /. Rule -> Equal) // Simplify, 
-   ReplaceSolution[rst, fsol]]]
+ Module[{fsol = First@Solve@fst // Quiet, newrst, newxp}, 
+  newrst = ReplaceSolution[rst, fsol];
+  newxp = xp /. fsol;
+  Print["ReZAnd: ", fst, " ", newrst, " ", newxp];
+  ZAnd[newxp && fst, newrst]]
 
-ReZAnd[xp_, rst_, fst_And] := ReZAnd[xp, rst] /@ fst (*TODO never used???*)
+(*ReZAnd[xp_,rst_,fst_And]:=ReZAnd[xp,rst]/@fst (*TODO never used???*)*)
+\
 
-ReZAnd[xp_, rst_, fst_] := 
- ZAnd[xp && fst, rst]
+ReZAnd[xp_, rst_, fst_] := ZAnd[xp && fst, rst]
 
-(*Inequality]:=ZAnd[xp&&fst,rst] ReZAnd[xp_,
-  rst_,fst_LessEqual]:=ZAnd[xp&&fst,rst] ReZAnd[xp_,rst_,
-  fst_GreaterEqual]:=ZAnd[xp&&fst,rst] ReZAnd[xp_,rst_,fst_Less]:=
-  ZAnd[xp&&fst,rst] ReZAnd[xp_,rst_,fst_Greater*)
-  
 ReplaceSolution[rst_?BooleanQ, sol_] := rst
-
-(*ReplaceSolution[False,sol_]:=False*)
 
 ReplaceSolution[rst_, sol_] := Module[{newrst}, newrst = rst /. sol;
   If[Head[newrst] === And, Reduce[#, Reals] & /@ newrst, 
@@ -602,19 +584,20 @@ ReplaceSolution[rst_, sol_] := Module[{newrst}, newrst = rst /. sol;
 
 (*ReplaceSolution[rst_,sol_]:=Simplify[rst/. sol]*)
 
-RemoveDuplicates[xp_And]:=DeleteDuplicates[Sort[xp]];
-RemoveDuplicates[xp_Or]:=DeleteDuplicates[Sort[xp]];
-RemoveDuplicates[xp_]:=xp
+RemoveDuplicates[xp_And] := DeleteDuplicates[Sort[xp]];
+RemoveDuplicates[xp_Or] := DeleteDuplicates[Sort[xp]];
+RemoveDuplicates[xp_] := xp
 
 (****************************************************************)
 (****************************************************************)
+\
 (****************************************************************)
 (****************************************************************)
+\
 (****************************************************************)
 (****************************************************************)
+\
 (****************************************************************)
 (****************************************************************)
+\
 (****************************************************************)
-
-
-
