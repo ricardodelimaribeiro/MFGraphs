@@ -1,31 +1,18 @@
 (*Wolfram Language package*)
 ConsistentSwithingCosts::usage = "ConsistentSwithingCosts[switching \
 costs][one switching cost]  returns the condition for this switching \
-cost to satisfy the triangle inequality"
-(*this version used the triples \
-ConsistentSwithingCosts[sc_][{a_,b_,c_,S_}]:=Module[{origin,\
-destination,bounds,d},origin=Cases[sc,{a,b,_,_}];
-origin=DeleteCases[origin,{a,b,c,_}];
-Print["origin: ",origin];
-destination=Cases[sc,{_,b,c,_}];
-Print["destination: ",destination];
-bounds=Outer[Plus,Last/@origin,Last/@destination]//Flatten;
-result=And@@(#>=S&)/@bounds;
-Print[result];
-result];*)
+cost to satisfy the triangle inequality";
 
 ConsistentSwithingCosts[sc_][{a_, b_, c_} -> S_] := 
   Module[{origin, destination, bounds}, 
    origin = Cases[sc, HoldPattern[{a, b, _} -> _]];
    origin = DeleteCases[origin, {a, b, c} -> S];
-   If[origin =!= {},(*Print["\nargument: ",{a,b,c}->S];*)(*Print[
-    "origin: ",origin];*)
+   If[origin =!= {},
     destination = {a, Part[First[#], 3], c} & /@ origin;
-    (*Print["destination: ",(#->Association[sc][#])&/@destination];*)
     bounds = ((S <= 
           Last[#] + Association[sc][{a, Part[First[#], 3], c}]) & /@ 
        origin);
-    (*Print["triangle: ",And@@bounds];*)And @@ bounds, True]];
+    And @@ bounds, True]];
 
 IsSwitchingCostConsistent::usage = "IsSwitchingCostConsistent[List of \
 switching costs] is True if all switching costs satisfy the triangle \
@@ -191,21 +178,18 @@ vertices*)
    LargeSwitchingTransitions = 
     Cases[AllTransitions, #] & /@ LargeCases // Flatten[#, 1] &;
    AssociateTo[SwitchingCosts, 
-    AssociationMap[1000 &, LargeSwitchingTransitions]];
-   (*csc=ConsistentSwithingCosts[Normal@SwitchingCosts]/@Normal@
-   SwitchingCosts;
-   Print[csc];*)
+    AssociationMap[1000000 &, LargeSwitchingTransitions]];
    consistentCosts = 
     IsSwitchingCostConsistent[Normal@SwitchingCosts];
    Which[consistentCosts === False, 
     Return[Print["Switching costs are inconsistent!"], Module], 
     consistentCosts =!= True, 
-    Print["Switching costs conditions are ", consistentCosts], True, 
-    Print["Switching costs are consistent"]];
+    Print["Switching costs conditions are ", consistentCosts](*, True, 
+    Print["Switching costs are consistent"]*)];
    CostArgs = 
     Join[AssociationMap[Identity &, Normal@jargs], ZeroRun, 
-     AssociationMap[(10^(-2) &) &, Normal@Keys@SwitchingCosts], 
-     AssociationMap[(10^2 &) &, LargeSwitchingTransitions]];
+     AssociationMap[(10^(-4) &) &, Normal@Keys@SwitchingCosts], 
+     AssociationMap[(10^4 &) &, LargeSwitchingTransitions]];
    EqPosJs = And @@ (# >= 0 & /@ Join[jvars]);(*Inequality*)
    EqPosJts = And @@ (# >= 0 & /@ Join[jtvars]);(*Inequality*)
    EqCurrentCompCon = And @@ (CurrentCompCon[jvars] /@ EL);(*Or*)
@@ -350,7 +334,8 @@ MFGPreprocessing[Eqs_] :=
    EqPosJts = Lookup[Eqs, "EqPosJts", $Failed];
    (*First rules:entry currents*)
    InitRules = Association[Flatten[ToRules /@ EqEntryIn]];
-   (*no exit at the entrances*)AssociateTo[InitRules, RuleEntryOut];
+   (*no exit at the entrances*)
+   AssociateTo[InitRules, RuleEntryOut];
    (*no entrance at the exits*)
    AssociateTo[InitRules, RuleExitCurrentsIn];
    (*currents gathered from transition currents*)
@@ -392,32 +377,35 @@ the solution to the critical congestion case";
 
 CriticalCongestionSolver[Eqs_] := 
   Module[{PreEqs, Nlhs, EqCritical, InitRules, NewSystem}, 
+  	Print["pre preprocessing"];
    PreEqs = MFGPreprocessing[Eqs];
+   Print["post preprocessing"];
    Nlhs = Lookup[PreEqs, "Nlhs", $Failed];
    InitRules = Lookup[PreEqs, "InitRules", $Failed];
    NewSystem = Lookup[PreEqs, "NewSystem", $Failed];
    (*Updated (with rules from preprocessing) edge equations*)
    EqCritical = (And @@ ((# == 0) & /@ Nlhs)) /. InitRules;
-   (*Print[And[EqCritical,And@@NewSystem]];*)(*Print[
-   "FinalClean..."];*)MFGSystemSolver[PreEqs][EqCritical]];
+   MFGSystemSolver[PreEqs][EqCritical]
+   ];
 
 MFGSystemSolver::usage = "MFGSystemSolver[Eqs][edgeEquations] returns \
-an association with rules to the solution"
-MFGSystemSolver[Eqs_][EqCritical_] := 
-  Module[{NewSystem, InitRules, pickOne, vars}, 
+an association with rules to the solution";
+MFGSystemSolver[Eqs_][EqEdge_] := 
+  Module[{NewSystem, InitRules, pickOne, vars, System}, 
    InitRules = Lookup[Eqs, "InitRules", $Failed];
    NewSystem = Lookup[Eqs, "NewSystem", $Failed];
-   Print[Join[{EqCritical}, Take[NewSystem, {2, 3}]]];
-   {NewSystem, InitRules} = 
-    FinalClean[{Join[{EqCritical}, Take[NewSystem, {2, 3}]], 
-      InitRules}];
-   Print["33: ", {NewSystem, InitRules}];
-   NewSystem = And @@ NewSystem;
-   Which[NewSystem === False, Print["There is no solution"], 
-    NewSystem =!= True, NewSystem = Reduce[NewSystem, Reals];
-    {NewSystem, InitRules} = 
-     FinalClean[{Sys2Triple[NewSystem], InitRules}];
+   NewSystem[[1]]=EqEdge;
+   Print[NewSystem];
+   {NewSystem, InitRules} = FinalClean[{NewSystem, InitRules}];
+   System = And @@ NewSystem;
+   Print[System];
+   Which[System === False, Print["There is no solution"], 
+    System =!= True, 
+    Print["Using Reduce... ",System];
+    NewSystem = Reduce[System, Reals];
+    {NewSystem, InitRules} = FinalClean[{Sys2Triple[NewSystem], InitRules}];
     NewSystem = And @@ NewSystem;
+    (*not checking if NewSystem is not True...*)
     Print["Multiple solutions: ", {NewSystem, InitRules}];
     Print["\tPicking one..."];
     vars = 
@@ -429,25 +417,25 @@ MFGSystemSolver[Eqs_][EqCritical_] :=
       First@
        FindInstance[NewSystem && And @@ (# > 0 & /@ vars), vars, 
         Reals];
-    InitRules = Expand /@ Join[InitRules /. pickOne, pickOne]];];
+    InitRules = Expand /@ Join[InitRules /. pickOne, pickOne]
+    ]
+    ];
 
 FinalStep[{{EE_?BooleanQ, NN_?BooleanQ, OR_?BooleanQ}, 
    rules_}] := {{EE, NN, OR}, rules}
 
 FinalStep[{{EE_, NN_, OO_}, rules_}] := 
-  Module[{NewSystem, newrules, sorted}, {NewSystem, newrules} = 
-    TripleClean[{{EE, NN, OO}, rules}];
-   (*Print["\tSimplify...",{NewSystem}];*)(*Print[
-   "\tNewReduce...",(*Simplify/@*){NewSystem}];*)(*NewSystem=
-   NewReduce[And@@NewSystem];*)
+  Module[{NewSystem, newrules, sorted}, 
+  	{NewSystem, newrules} = TripleClean[{{EE, NN, OO}, rules}];
+  	Print["finished tripleclean"];
    If[Part[NewSystem, 3] === True, sorted = True, 
     sorted = SortBy[Part[NewSystem, 3], Simplify`SimplifyCount]];
-   Print[
-    "\tNewReduce...", {And @@ Take[#, {1, 2}], sorted} &[NewSystem]];
+    Print["Using ZAnd... "];
+    Print[List[And @@ Take[#, {1, 2}], 
+       If[Part[NewSystem, 3] === True, True, sorted]] &[NewSystem]];
    NewSystem = 
     ZAnd[And @@ Take[#, {1, 2}], 
        If[Part[NewSystem, 3] === True, True, sorted]] &[NewSystem];
-   Print["\tBooleanConvert...", NewSystem];
    NewSystem = BooleanConvert[NewSystem, "CNF"];
    NewSystem = Sys2Triple[NewSystem];
    {NewSystem, newrules}];
@@ -533,10 +521,12 @@ NewReduce[system_And] :=
    result = ZAnd[And @@ NN, (And @@ EE) && sorted]];
   If[result =!= False, result = result // DeleteDuplicates];
   result]
+ZAnd::usage =
+"ZAnd[processed, unprocessed] does something...";
 
-ZAnd[_, False] := (False)
+ZAnd[_, False] := False
 
-ZAnd[False, _] := (False)
+ZAnd[False, _] := False
 
 ZAnd[xp_, True] := xp
 
@@ -548,7 +538,6 @@ ZAnd[xp_, eq_Equal] :=
 
 ZAnd[xp_, andxp_And] := 
  With[{fst = First[andxp], rst = Rest[andxp]}, 
-  Print["ZAnd: head is and: ", fst];
   Which[Head[fst] === Or, ReZAnd[xp, rst] /@ fst // RemoveDuplicates, 
    True, ReZAnd[xp, rst, fst]]]
 
@@ -568,7 +557,6 @@ ReZAnd[xp_, rst_, fst_Equal] :=
  Module[{fsol = First@Solve@fst // Quiet, newrst, newxp}, 
   newrst = ReplaceSolution[rst, fsol];
   newxp = xp /. fsol;
-  Print["ReZAnd: ", fst, " ", newrst, " ", newxp];
   ZAnd[newxp && fst, newrst]]
 
 (*ReZAnd[xp_,rst_,fst_And]:=ReZAnd[xp,rst]/@fst (*TODO never used???*)*)
