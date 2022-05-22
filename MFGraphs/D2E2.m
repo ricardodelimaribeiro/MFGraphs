@@ -107,7 +107,8 @@ Data2Equations[Data_Association] :=
     EqValueAuxiliaryEdges, OutRules, InRules, EqSwitchingByVertex, 
     EqCompCon, Nlhs, ModuleVars, ModuleVarsNames, LargeCases, 
     LargeSwitchingTransitions, ZeroRun, CostArgs, Nrhs, 
-    consistentCosts}, VL = Lookup[Data, "Vertices List", {}];
+    consistentCosts, costpluscurrents, EqGeneral}, 
+   VL = Lookup[Data, "Vertices List", {}];
    AM = Lookup[Data, "Adjacency Matrix", {}];
    EVC = Lookup[Data, "Entrance Vertices and Currents", {}];
    EVTC = Lookup[Data, "Exit Vertices and Terminal Costs", {}];
@@ -182,7 +183,8 @@ vertices*)
    consistentCosts = 
     IsSwitchingCostConsistent[Normal@SwitchingCosts];
    Which[consistentCosts === False, 
-    Return[Print["Switching costs are inconsistent!"], Module], 
+   	Print["Switching costs are inconsistent!"];
+    Return[ $Failed, Module], 
     consistentCosts =!= True, 
     Print["Switching costs conditions are ", consistentCosts](*, True, 
     Print["Switching costs are consistent"]*)];
@@ -253,8 +255,16 @@ is constant and equal to the exit cost.*)
      uvars[AtHead[#]] - uvars[AtTail[#]] + SignedCurrents[#] & /@ BEL];
    Nrhs = 
     Flatten[SignedCurrents[#] - IntM[SignedCurrents[#], #] & /@ BEL];
-   ModuleVars =(*list of all module variables,
-    except for ModuleVars*){VL, AM, EVC, EVTC, SC, BG, 
+  (*stuff to solve the general case faster*)
+   costpluscurrents = 
+    Table[Symbol["cpc" <> ToString[k]], {k, 1, Length@BEL}];
+    (*Nrhs = costpluscurrents;*)
+   EqGeneral = 
+    And @@ (MapThread[Equal, {Nlhs, costpluscurrents}]);
+   costpluscurrents = AssociationThread[costpluscurrents, Nrhs];
+   (*stuff to solve the general case faster*)
+   (*list of all module variables, except for ModuleVars*)
+   ModuleVars = {VL, AM, EVC, EVTC, SC, BG, 
      EntranceVertices, InwardVertices, ExitVertices, OutwardVertices, 
      InEdges, OutEdges, AuxiliaryGraph, FG, EL, BEL, FVL, jargs, 
      uargs, AllTransitions, EntryArgs, EntryDataAssociation, 
@@ -266,7 +276,7 @@ is constant and equal to the exit cost.*)
      EqBalanceGatheringCurrents, EqEntryIn, RuleEntryOut, 
      RuleExitCurrentsIn, RuleExitValues, EqValueAuxiliaryEdges, 
      OutRules, InRules, EqSwitchingByVertex, EqCompCon, Nlhs, 
-     CostArgs, Nrhs};
+     CostArgs, Nrhs, costpluscurrents, EqGeneral};
    ModuleVarsNames = {"VL", "AM", "EVC", "EVTC", "SC", "BG", 
      "EntranceVertices", "InwardVertices", "ExitVertices", 
      "OutwardVertices", "InEdges", "OutEdges", "AuxiliaryGraph", "FG",
@@ -281,7 +291,7 @@ is constant and equal to the exit cost.*)
      "EqEntryIn", "RuleEntryOut", "RuleExitCurrentsIn", 
      "RuleExitValues", "EqValueAuxiliaryEdges", "OutRules", "InRules",
       "EqSwitchingByVertex", "EqCompCon", "Nlhs", "CostArgs", 
-     "Nrhs"};
+     "Nrhs", "costpluscurrents", "EqGeneral"};
    Join[Data, AssociationThread[ModuleVarsNames, ModuleVars]]];
 
 NumberVectorQ[j_] := And @@ (NumberQ /@ j);
@@ -332,6 +342,14 @@ MFGPreprocessing[Eqs_] :=
    EqTransitionCompCon = Lookup[Eqs, "EqTransitionCompCon", $Failed];
    EqPosJs = Lookup[Eqs, "EqPosJs", $Failed];
    EqPosJts = Lookup[Eqs, "EqPosJts", $Failed];
+   EqGeneral =Lookup[Eqs, "EqGeneral", $Failed];
+   Print[EqGeneral];
+   costpluscurrents = Lookup[Eqs, "costpluscurrents", $Failed];
+   Print[costpluscurrents];
+(*   Nrhs = Lookup[Eqs, "Nrhs", $Failed];
+   Nlhs = Lookup[Eqs, "Nlhs", $Failed];
+   Print[MapThread[Equal,{Nlhs,Nrhs}]];*)
+   
    (*First rules:entry currents*)
    InitRules = Association[Flatten[ToRules /@ EqEntryIn]];
    (*no exit at the entrances*)
@@ -349,7 +367,7 @@ MFGPreprocessing[Eqs_] :=
    EqValueAuxiliaryEdges = 
     Lookup[Eqs, "EqValueAuxiliaryEdges", $Failed] /. InitRules;
    Rules = 
-    First@Solve[EqBalanceSplittingCurrents && EqValueAuxiliaryEdges] //
+    First@Solve[EqGeneral&&EqBalanceSplittingCurrents && EqValueAuxiliaryEdges] //
       Quiet;
    InitRules = Join[InitRules /. Rules, Association@Rules];
    NewSystem = 
@@ -358,6 +376,8 @@ MFGPreprocessing[Eqs_] :=
        EqCurrentCompCon && EqTransitionCompCon && EqCompCon}, 
       Sys2Triple[EqSwitchingByVertex]}];
    {NewSystem, InitRules} = TripleClean[{NewSystem, InitRules}];
+   (*TODO: remove items from the association that are already there.
+   also, see if we need the replacement of Init'rules in the end.,*)
    ModuleVarsNames = {"InitRules", "RuleBalanceGatheringCurrents", 
      "EqEntryIn", "RuleEntryOut", "RuleExitCurrentsIn", 
      "RuleExitValues", "EqValueAuxiliaryEdges", "EqSwitchingByVertex",
@@ -374,28 +394,43 @@ MFGPreprocessing[Eqs_] :=
 CriticalCongestionSolver::usage = 
   "CriticalCongestionSolver[Eqs] returns an association with rules to \
 the solution to the critical congestion case";
-
+CriticalCongestionSolver[$Failed] := $Failed
 CriticalCongestionSolver[Eqs_] := 
-  Module[{PreEqs, Nlhs, EqCritical, InitRules, NewSystem}, 
-  	Print["pre preprocessing"];
+  Module[{PreEqs, Nlhs, EqCritical, InitRules, NewSystem,
+  	costpluscurrents, js, EqGeneral, Nrhs, RuleCritical,
+  	AssoCritical}, 
    PreEqs = MFGPreprocessing[Eqs];
-   Print["post preprocessing"];
    Nlhs = Lookup[PreEqs, "Nlhs", $Failed];
    InitRules = Lookup[PreEqs, "InitRules", $Failed];
+   Print[InitRules];
    NewSystem = Lookup[PreEqs, "NewSystem", $Failed];
+   costpluscurrents = Lookup[PreEqs, "costpluscurrents",$Failed];
+   
+   js = Lookup[PreEqs, "js",$Failed];
+   EqGeneral = Lookup[PreEqs, "EqGeneral", $Failed];
+   Print[EqGeneral];
+   Print[RoundValues[Expand/@(costpluscurrents/.AssociationThread[js, 0&/@js])]];
    (*Updated (with rules from preprocessing) edge equations*)
-   EqCritical = (And @@ ((# == 0) & /@ Nlhs)) /. InitRules;
-   MFGSystemSolver[PreEqs][EqCritical]
+   (*TODO new idea: instead of providing the equations, provide the numeric j's.
+   This way we won't have to solve the "Same" equation over and over again. 
+   Provide general rules through the Association.*)
+   RuleCritical = First @ Solve[EqCritical, Reals];
+   Print["critical rules?", RuleCritical];
+   AssoCritical = MFGSystemSolver[PreEqs][AssociationThread[js, 0&/@js]];
+   Join[PreEqs, Association["RuleCritical"-> AssoCritical]]
    ];
 
 MFGSystemSolver::usage = "MFGSystemSolver[Eqs][edgeEquations] returns \
 an association with rules to the solution";
-MFGSystemSolver[Eqs_][EqEdge_] := 
+MFGSystemSolver[Eqs_][approxJs_] := 
   Module[{NewSystem, InitRules, pickOne, vars, System}, 
    InitRules = Lookup[Eqs, "InitRules", $Failed];
    NewSystem = Lookup[Eqs, "NewSystem", $Failed];
-   NewSystem[[1]]=EqEdge;
-   Print[NewSystem];
+   RuleGeneral = Lookup[Eqs, "RuleGeneral", $Failed];
+   (*RuleCritical = Lookup["RuleCritical", $Failed];*)
+   (*Print["is this all correct?", Intersection[Keys[RuleEdge],Keys[InitRules]]];*)
+   
+   InitRules = Join[InitRules/.RuleEdge, Association@RuleEdge];
    {NewSystem, InitRules} = FinalClean[{NewSystem, InitRules}];
    System = And @@ NewSystem;
    Print[System];
@@ -418,7 +453,8 @@ MFGSystemSolver[Eqs_][EqEdge_] :=
        FindInstance[NewSystem && And @@ (# > 0 & /@ vars), vars, 
         Reals];
     InitRules = Expand /@ Join[InitRules /. pickOne, pickOne]
-    ]
+    ];
+    InitRules
     ];
 
 FinalStep[{{EE_?BooleanQ, NN_?BooleanQ, OR_?BooleanQ}, 
