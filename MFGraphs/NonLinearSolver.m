@@ -1,49 +1,47 @@
 (*Wolfram Language package*)
 Get["/Users/ribeirrd/eclipse-workspace/MFGraphs/MFGraphs/D2E2.m"];
-NonLinear[Eqs_] := 
-  Module[{PreEqs, Nlhs, Nrhs, EqApprox, InitRules, NewSystem, 
-    approxrules}, PreEqs = MFGPreprocessing[Eqs];
-   Print["Preprocessing done!"];
-   Nlhs = Lookup[PreEqs, "Nlhs", $Failed];
-   Nrhs = Lookup[PreEqs, "Nrhs", $Failed];
-   approxrules = CriticalCongestionSolver[PreEqs];
-   Print["raw: ", Nrhs];
-   InitRules = Lookup[PreEqs, "InitRules", $Failed];
-   Print["with initrules: ", Nrhs /. InitRules];
-   Print["with j: ", Nrhs /. approxrules];
-   EqApprox = And @@ MapThread[Equal, {Nlhs, Nrhs}];
-   Print[EqApprox];
-   EqApprox = And @@ MapThread[Equal, {Nlhs, Nrhs /. approxrules}];
-   Print[EqApprox];
-   NewSystem = Lookup[PreEqs, "NewSystem", $Failed];
-   (*Updated (with rules from preprocessing) edge equations*)(*Print[
-   "22: ",
-   EqCritical];*){NewSystem, InitRules} = 
-    TripleClean[{Join[{EqApprox}, Take[NewSystem, {2, 3}]], 
-      InitRules}];
-   (*Print["33: ",NewSystem];*)NewSystem = NewReduce[And @@ NewSystem];
-   NewSystem = BooleanConvert[NewSystem, "CNF"];
-   (*Print["44: ",NewSystem];*)
-   NewSystem = 
-    Sys2Triple[BooleanConvert[Reduce[NewSystem, Reals], "CNF"]];
-   {NewSystem, InitRules} = TripleClean[{NewSystem, InitRules}];
-   If[And @@ NewSystem === False, Print["There is no solution"]];
-   InitRules];
-
-NonLinearStep[Eqs_][approxrules_] := 
-  Module[{Nlhs, EqNonLinear, InitRules, NewSystem}, 
-   Nlhs = Lookup[Eqs, "Nlhs", $Failed];
+NonLinear[Eqs_] :=    
+  Module[{AssoCritical, PreEqs, AssoNonCritical, js}, 
+   PreEqs = If[KeyExistsQ[Eqs,"InitRules"], Eqs, MFGPreprocessing[Eqs]];
+   AssoCritical = Lookup[Eqs, "AssoCritical", CriticalCongestionSolver[Eqs]];
+   js = Lookup[Eqs, "js",$Failed];
+   AssoNonCritical = FixedPoint[NonLinearStep[PreEqs], KeyTake[AssoCritical,js], 4];
    InitRules = Lookup[Eqs, "InitRules", $Failed];
-   NewSystem = Lookup[Eqs, "NewSystem", $Failed];
-   InitRules/.approxrules...
-   (*Updated (with rules from preprocessing) edge equations*)
-   EqNonLinear = (And @@ ((# == 0) & /@ Nlhs)) /. InitRules;
-   (*Print["FinalClean..."];*)
-   MFGSystemSolver[Eqs][EqNonLinear]
+   costpluscurrents = Lookup[Eqs, "costpluscurrents",$Failed];
+   Print[InitRules];
+   Print[InitRules/.costpluscurrents/.AssoNonCritical];
+   Join[PreEqs, Association["AssoNonCritical" -> AssoNonCritical]]
    ];
-   
-   
 
+NonLinearStep[Eqs_][approxJs_] := 
+	Module[{approx, js},
+		Print[approxJs];
+		js = Lookup[Eqs, "js",$Failed];
+		approx = MFGSystemSolver[Eqs][approxJs];
+		approx = KeyTake[approx, js];
+		Print["step: ",approx];
+		approx
+	];
+	
+IsNonLinearSolution[Eqs_][assoc_]:=
+Module[{EqEntryIn, EqValueAuxiliaryEdges, EqSwitchingByVertex, EqCompCon, 
+    EqBalanceSplittingCurrents, EqCurrentCompCon, EqTransitionCompCon,
+    EqPosJs, EqPosJts}, 
+     EqEntryIn = Lookup[Eqs, "EqEntryIn", $Failed];
+     EqCompCon = Lookup[Eqs, "EqCompCon", $Failed];
+     EqCurrentCompCon = Lookup[Eqs, "EqCurrentCompCon", $Failed];
+     EqTransitionCompCon = Lookup[Eqs, "EqTransitionCompCon", $Failed];
+     EqPosJs = Lookup[Eqs, "EqPosJs", $Failed];
+     EqPosJts = Lookup[Eqs, "EqPosJts", $Failed];
+     EqSwitchingByVertex = Lookup[Eqs, "EqSwitchingByVertex", $Failed];
+     EqBalanceSplittingCurrents = Lookup[Eqs, "EqBalanceSplittingCurrents", $Failed];
+     EqValueAuxiliaryEdges = Lookup[Eqs, "EqValueAuxiliaryEdges", $Failed];
+	(Print[#/.assoc]&/@ {EqEntryIn, EqValueAuxiliaryEdges, EqSwitchingByVertex, EqCompCon, 
+    EqBalanceSplittingCurrents, EqCurrentCompCon, EqTransitionCompCon,
+    EqPosJs, EqPosJts});
+    assoc
+	];
+	
 RoundValues[x_?NumberQ] := Round[x, 10^-10]
 
 RoundValues[Rule[a_, b_]] := Rule[a, RoundValues[b]]

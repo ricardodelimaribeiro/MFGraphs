@@ -140,7 +140,8 @@ vertices*)
    EL = EdgeList[FG];
    BEL = EdgeList[BG];
    FVL = VertexList[FG];
-   (*arguments*)jargs = Flatten[#, 1] &@({AtTail@#, AtHead@#} & /@ EL);
+   (*arguments*)
+   jargs = Flatten[#, 1] &@({AtTail@#, AtHead@#} & /@ EL);
    uargs = jargs;
    (*AllTransitions=TransitionsAt[BG,#]&/@VL//
    Catenate(*at vertex from first edge to second edge*);*)
@@ -330,7 +331,7 @@ MFGPreprocessing[Eqs_] :=
     EqValueAuxiliaryEdges, EqSwitchingByVertex, EqCompCon, 
     EqBalanceSplittingCurrents, EqCurrentCompCon, EqTransitionCompCon,
      EqPosJs, EqPosJts, ModuleVarsNames, ModulesVars, NewSystem, 
-    Rules}, 
+    Rules, EqGeneral}, 
    RuleBalanceGatheringCurrents = 
     Lookup[Eqs, "RuleBalanceGatheringCurrents", $Failed];
    EqEntryIn = Lookup[Eqs, "EqEntryIn", $Failed];
@@ -343,12 +344,10 @@ MFGPreprocessing[Eqs_] :=
    EqPosJs = Lookup[Eqs, "EqPosJs", $Failed];
    EqPosJts = Lookup[Eqs, "EqPosJts", $Failed];
    EqGeneral =Lookup[Eqs, "EqGeneral", $Failed];
-   Print[EqGeneral];
-   costpluscurrents = Lookup[Eqs, "costpluscurrents", $Failed];
-   Print[costpluscurrents];
-(*   Nrhs = Lookup[Eqs, "Nrhs", $Failed];
-   Nlhs = Lookup[Eqs, "Nlhs", $Failed];
-   Print[MapThread[Equal,{Nlhs,Nrhs}]];*)
+   EqSwitchingByVertex = Lookup[Eqs, "EqSwitchingByVertex", $Failed];
+   EqBalanceSplittingCurrents = Lookup[Eqs, "EqBalanceSplittingCurrents", $Failed];
+   EqValueAuxiliaryEdges = Lookup[Eqs, "EqValueAuxiliaryEdges", $Failed];
+   (*Print[EqGeneral];*)
    
    (*First rules:entry currents*)
    InitRules = Association[Flatten[ToRules /@ EqEntryIn]];
@@ -360,12 +359,9 @@ MFGPreprocessing[Eqs_] :=
    AssociateTo[InitRules, RuleBalanceGatheringCurrents];
    (*value function:exit costs*)AssociateTo[InitRules, RuleExitValues];
    EqSwitchingByVertex = 
-    And @@ (Simplify /@ (Lookup[Eqs, "EqSwitchingByVertex", $Failed] /. 
-         InitRules));
-   EqBalanceSplittingCurrents = 
-    Lookup[Eqs, "EqBalanceSplittingCurrents", $Failed] /. InitRules;
-   EqValueAuxiliaryEdges = 
-    Lookup[Eqs, "EqValueAuxiliaryEdges", $Failed] /. InitRules;
+    And @@ (Simplify /@ ( EqSwitchingByVertex /. InitRules));
+   EqBalanceSplittingCurrents = EqBalanceSplittingCurrents /. InitRules;
+   EqValueAuxiliaryEdges = EqValueAuxiliaryEdges /. InitRules;
    Rules = 
     First@Solve[EqGeneral&&EqBalanceSplittingCurrents && EqValueAuxiliaryEdges] //
       Quiet;
@@ -378,59 +374,38 @@ MFGPreprocessing[Eqs_] :=
    {NewSystem, InitRules} = TripleClean[{NewSystem, InitRules}];
    (*TODO: remove items from the association that are already there.
    also, see if we need the replacement of Init'rules in the end.,*)
-   ModuleVarsNames = {"InitRules", "RuleBalanceGatheringCurrents", 
-     "EqEntryIn", "RuleEntryOut", "RuleExitCurrentsIn", 
-     "RuleExitValues", "EqValueAuxiliaryEdges", "EqSwitchingByVertex",
-      "EqCompCon", "EqBalanceSplittingCurrents", "EqCurrentCompCon", 
-     "EqTransitionCompCon", "EqPosJs", "EqPosJts", "NewSystem"};
-   ModulesVars = {InitRules, RuleBalanceGatheringCurrents, EqEntryIn, 
-      RuleEntryOut, RuleExitCurrentsIn, RuleExitValues, 
-      EqValueAuxiliaryEdges, EqSwitchingByVertex, EqCompCon, 
-      EqBalanceSplittingCurrents, EqCurrentCompCon, 
-      EqTransitionCompCon, EqPosJs, EqPosJts, NewSystem} /. 
-     InitRules;
-   Join[Eqs, AssociationThread[ModuleVarsNames, ModulesVars]]];
+   ModuleVarsNames = {"InitRules", "NewSystem"};
+   ModulesVars = {InitRules, NewSystem} ;
+   Join[Eqs, AssociationThread[ModuleVarsNames, ModulesVars]]
+   ];
 
 CriticalCongestionSolver::usage = 
   "CriticalCongestionSolver[Eqs] returns an association with rules to \
 the solution to the critical congestion case";
 CriticalCongestionSolver[$Failed] := $Failed
+
 CriticalCongestionSolver[Eqs_] := 
-  Module[{PreEqs, Nlhs, EqCritical, InitRules, NewSystem,
-  	costpluscurrents, js, EqGeneral, Nrhs, RuleCritical,
-  	AssoCritical}, 
+  Module[{PreEqs, js, AssoCritical}, 
    PreEqs = MFGPreprocessing[Eqs];
-   Nlhs = Lookup[PreEqs, "Nlhs", $Failed];
-   InitRules = Lookup[PreEqs, "InitRules", $Failed];
-   Print[InitRules];
-   NewSystem = Lookup[PreEqs, "NewSystem", $Failed];
-   costpluscurrents = Lookup[PreEqs, "costpluscurrents",$Failed];
-   
    js = Lookup[PreEqs, "js",$Failed];
-   EqGeneral = Lookup[PreEqs, "EqGeneral", $Failed];
-   Print[EqGeneral];
-   Print[RoundValues[Expand/@(costpluscurrents/.AssociationThread[js, 0&/@js])]];
-   (*Updated (with rules from preprocessing) edge equations*)
-   (*TODO new idea: instead of providing the equations, provide the numeric j's.
-   This way we won't have to solve the "Same" equation over and over again. 
-   Provide general rules through the Association.*)
-   RuleCritical = First @ Solve[EqCritical, Reals];
-   Print["critical rules?", RuleCritical];
    AssoCritical = MFGSystemSolver[PreEqs][AssociationThread[js, 0&/@js]];
-   Join[PreEqs, Association["RuleCritical"-> AssoCritical]]
+   Join[PreEqs, Association["AssoCritical"-> AssoCritical]]
    ];
 
 MFGSystemSolver::usage = "MFGSystemSolver[Eqs][edgeEquations] returns \
 an association with rules to the solution";
 MFGSystemSolver[Eqs_][approxJs_] := 
-  Module[{NewSystem, InitRules, pickOne, vars, System}, 
+  Module[{NewSystem, InitRules, pickOne, vars, System, Ncpc,
+  	costpluscurrents}, 
    InitRules = Lookup[Eqs, "InitRules", $Failed];
    NewSystem = Lookup[Eqs, "NewSystem", $Failed];
-   RuleGeneral = Lookup[Eqs, "RuleGeneral", $Failed];
-   (*RuleCritical = Lookup["RuleCritical", $Failed];*)
-   (*Print["is this all correct?", Intersection[Keys[RuleEdge],Keys[InitRules]]];*)
-   
-   InitRules = Join[InitRules/.RuleEdge, Association@RuleEdge];
+   costpluscurrents = Lookup[Eqs, "costpluscurrents",$Failed];
+   Ncpc = RoundValues[Expand/@(costpluscurrents/.approxJs)];
+   Print["Ncpc: ", Ncpc];
+   Print[{NewSystem,InitRules}];
+   InitRules = Expand/@(InitRules /. Ncpc);
+   NewSystem = NewSystem /. Ncpc;
+   Print[{NewSystem,InitRules}];
    {NewSystem, InitRules} = FinalClean[{NewSystem, InitRules}];
    System = And @@ NewSystem;
    Print[System];
@@ -467,13 +442,14 @@ FinalStep[{{EE_, NN_, OO_}, rules_}] :=
    If[Part[NewSystem, 3] === True, sorted = True, 
     sorted = SortBy[Part[NewSystem, 3], Simplify`SimplifyCount]];
     Print["Using ZAnd... "];
-    Print[List[And @@ Take[#, {1, 2}], 
-       If[Part[NewSystem, 3] === True, True, sorted]] &[NewSystem]];
-   NewSystem = 
-    ZAnd[And @@ Take[#, {1, 2}], 
-       If[Part[NewSystem, 3] === True, True, sorted]] &[NewSystem];
-   NewSystem = BooleanConvert[NewSystem, "CNF"];
-   NewSystem = Sys2Triple[NewSystem];
+    NewSystem = 
+    ZAnd[And @@ Take[NewSystem, {1, 2}], 
+       If[Part[NewSystem, 3] === True, True, sorted]];
+   (*Print[NewSystem];*)
+   (*NewSystem = BooleanConvert[NewSystem, "CNF"];
+   Print[NewSystem];
+   *)NewSystem = Sys2Triple[NewSystem];
+   (*Print[NewSystem];*)
    {NewSystem, newrules}];
 
 FinalClean[{{EE_, NN_, OR_}, rules_}] := ((*Print["finalclean: ",{{EE,
