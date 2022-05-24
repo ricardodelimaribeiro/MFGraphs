@@ -269,10 +269,10 @@ Solver[Eqs_Association][alpha_] :=
 CriticalBundle[Data_Association] :=
     Module[ {d2e},
         d2e = D2E[Data];
-        {d2e,CriticalCongestionSolver[d2e]}
+        {d2e,CriticalCongestionSolverOLD[d2e]}
     ]
 
-CriticalCongestionSolver[D2E_Association] :=
+CriticalCongestionSolverOLD[D2E_Association] :=
     Module[ {system, subsystem, rules, vars, sysclean, rulclean, originalsystem, originalrules,
     EqAllAll = Lookup[D2E, "EqAllAll", Print["No equations to solve."];
                                        Return[]], 

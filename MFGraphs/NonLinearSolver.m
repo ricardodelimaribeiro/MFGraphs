@@ -2,14 +2,16 @@
 Get["/Users/ribeirrd/eclipse-workspace/MFGraphs/MFGraphs/D2E2.m"];
 NonLinear[Eqs_] :=    
   Module[{AssoCritical, PreEqs, AssoNonCritical, js, InitRules, MaxIter = 50}, 
-   PreEqs = If[KeyExistsQ[Eqs,"InitRules"], Eqs, MFGPreprocessing[Eqs]];
-   AssoCritical = Lookup[Eqs, "AssoCritical", CriticalCongestionSolver[Eqs]];
-   js = Lookup[Eqs, "js",$Failed];
+   PreEqs = If[KeyExistsQ[Eqs,"InitRules"], Eqs, CriticalCongestionSolver[Eqs]];
+   Print[KeyExistsQ[PreEqs,"InitRules"]];
+   AssoCritical = Lookup[PreEqs, "AssoCritical", $Failed];
+   Print[AssoCritical];
+   js = Lookup[PreEqs, "js",$Failed];
    AssoNonCritical = FixedPointList[NonLinearStep[PreEqs], KeyTake[AssoCritical,js], MaxIter];
    Print["Iterated ", Length[AssoNonCritical], " times out of ", MaxIter];
    AssoNonCritical = AssoNonCritical//Last;
-   InitRules = Lookup[Eqs, "InitRules", $Failed];
-   AssoNonCritical = MFGSystemSolver[Eqs][AssoNonCritical];
+   InitRules = Lookup[PreEqs, "InitRules", $Failed];
+   AssoNonCritical = MFGSystemSolver[PreEqs][AssoNonCritical];
    (*Print[AssoNonCritical];*)
    (*costpluscurrents = Lookup[Eqs, "costpluscurrents",$Failed];
    Print[InitRules];
