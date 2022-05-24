@@ -363,7 +363,7 @@ MFGPreprocessing[Eqs_] :=
    EqBalanceSplittingCurrents = EqBalanceSplittingCurrents /. InitRules;
    EqValueAuxiliaryEdges = EqValueAuxiliaryEdges /. InitRules;
    Rules = 
-    First@Solve[EqGeneral&&EqBalanceSplittingCurrents && EqValueAuxiliaryEdges] //
+    First@Solve[EqBalanceSplittingCurrents && EqValueAuxiliaryEdges] //
       Quiet;
    InitRules = Join[InitRules /. Rules, Association@Rules];
    NewSystem = 
@@ -372,6 +372,11 @@ MFGPreprocessing[Eqs_] :=
        EqCurrentCompCon && EqTransitionCompCon && EqCompCon}, 
       Sys2Triple[EqSwitchingByVertex]}];
    {NewSystem, InitRules} = TripleClean[{NewSystem, InitRules}];
+   (*Print["1: ", {NewSystem, InitRules}];*)
+   NewSystem[[1]] = EqGeneral;
+   {NewSystem, InitRules} = TripleClean[{NewSystem, InitRules}];
+   (*Print["2: ", {NewSystem, InitRules}];*)
+   
    (*TODO: remove items from the association that are already there.
    also, see if we need the replacement of Init'rules in the end.,*)
    ModuleVarsNames = {"InitRules", "NewSystem"};
@@ -401,31 +406,36 @@ MFGSystemSolver[Eqs_][approxJs_] :=
    NewSystem = Lookup[Eqs, "NewSystem", $Failed];
    costpluscurrents = Lookup[Eqs, "costpluscurrents",$Failed];
    Ncpc = RoundValues[Expand/@(costpluscurrents/.approxJs)];
-   Print["Ncpc: ", Ncpc];
-   Print[{NewSystem,InitRules}];
+   (*Print["MFGSS: Ncpc = ", Ncpc];*)
+   (*Print[{NewSystem,InitRules}];*)
    InitRules = Expand/@(InitRules /. Ncpc);
    NewSystem = NewSystem /. Ncpc;
-   Print[{NewSystem,InitRules}];
+   (*Print[{NewSystem,InitRules}];*)
+   
    {NewSystem, InitRules} = FinalClean[{NewSystem, InitRules}];
+   (*Print[NewSystem];*)
    System = And @@ NewSystem;
-   Print[System];
-   Which[System === False, Print["There is no solution"], 
-    System =!= True, 
-    Print["Using Reduce... ",System];
+   (*Print[System, InitRules]*);
+   vars = Variables[Values[InitRules]];
+   (*Print["MFGSS: System = ", System,", vars = ", vars];*)
+   Which[System === False, Print["MFGSS: There is no solution"], 
+    System =!= True || vars =!= {}, 
+    Print["MFGSS: Using Reduce... "];
     NewSystem = Reduce[System, Reals];
+    Print["MFGSS: Used Reduce... ", NewSystem];
     {NewSystem, InitRules} = FinalClean[{Sys2Triple[NewSystem], InitRules}];
     NewSystem = And @@ NewSystem;
     (*not checking if NewSystem is not True...*)
-    Print["Multiple solutions: ", {NewSystem, InitRules}];
-    Print["\tPicking one..."];
-    vars = 
+    Print["MFGSS: Multiple solutions: ", {NewSystem, InitRules}];
+    Print["\tPicking one...", vars];
+    (*vars = 
      Select[Join[Eqs["us"], Eqs["js"], Eqs["jts"]], 
-      Not[FreeQ[NewSystem, #]] &];
+      Not[FreeQ[NewSystem, #]] &];*)
     (*Have to pick one so that all the currents have numerical values*)
     pickOne = 
      Association@
       First@
-       FindInstance[NewSystem && And @@ (# > 0 & /@ vars), vars, 
+       FindInstance[NewSystem && And @@ ((# >= 0 )& /@ vars), vars, 
         Reals];
     InitRules = Expand /@ Join[InitRules /. pickOne, pickOne]
     ];
@@ -438,17 +448,18 @@ FinalStep[{{EE_?BooleanQ, NN_?BooleanQ, OR_?BooleanQ},
 FinalStep[{{EE_, NN_, OO_}, rules_}] := 
   Module[{NewSystem, newrules, sorted}, 
   	{NewSystem, newrules} = TripleClean[{{EE, NN, OO}, rules}];
-  	Print["finished tripleclean"];
+  	(*Print["finished tripleclean"];*)
    If[Part[NewSystem, 3] === True, sorted = True, 
     sorted = SortBy[Part[NewSystem, 3], Simplify`SimplifyCount]];
-    Print["Using ZAnd... "];
+    (*Print["FinalStep: Using ZAnd... "];*)
     NewSystem = 
     ZAnd[And @@ Take[NewSystem, {1, 2}], 
        If[Part[NewSystem, 3] === True, True, sorted]];
+   If[Head[NewSystem] === Or, NewSystem = Sort/@ NewSystem(*, Print["head is not or: ", NewSystem]*)];
    (*Print[NewSystem];*)
    (*NewSystem = BooleanConvert[NewSystem, "CNF"];
-   Print[NewSystem];
-   *)NewSystem = Sys2Triple[NewSystem];
+   Print[NewSystem];*)
+   NewSystem = Sys2Triple[NewSystem];
    (*Print[NewSystem];*)
    {NewSystem, newrules}];
 
