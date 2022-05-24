@@ -1,30 +1,38 @@
 (*Wolfram Language package*)
 Get["/Users/ribeirrd/eclipse-workspace/MFGraphs/MFGraphs/D2E2.m"];
+(*NonLinear[Eqs_][initial_] :=
+	Module[{AssoNonCritical, MaxIter = 50},
+		AssoNonCritical = FixedPointList[NonLinearStep[Eqs], initial, MaxIter];
+		Print["Iterated ", Length[AssoNonCritical], " times out of ", MaxIter];
+		AssoNonCritical
+	];
+*)
 NonLinear[Eqs_] :=    
-  Module[{AssoCritical, PreEqs, AssoNonCritical, js, InitRules, MaxIter = 50}, 
-   PreEqs = If[KeyExistsQ[Eqs,"InitRules"], Eqs, CriticalCongestionSolver[Eqs]];
-   Print[KeyExistsQ[PreEqs,"InitRules"]];
-   AssoCritical = Lookup[PreEqs, "AssoCritical", $Failed];
-   Print[AssoCritical];
-   js = Lookup[PreEqs, "js",$Failed];
-   AssoNonCritical = FixedPointList[NonLinearStep[PreEqs], KeyTake[AssoCritical,js], MaxIter];
-   Print["Iterated ", Length[AssoNonCritical], " times out of ", MaxIter];
+  Module[{AssoCritical, PreEqs, AssoNonCritical, js, MaxIter = 15}, 
+   If[KeyExistsQ[Eqs,"AssoCritical"], 
+   	PreEqs = Eqs;
+   	AssoCritical = PreEqs["AssoCritical"],
+   	PreEqs = MFGPreprocessing[Eqs];
+   	js = Lookup[PreEqs, "js",$Failed];
+   	AssoCritical = AssociationThread[js, 0 js]
+   	];
+   AssoNonCritical = FixedPointList[NonLinearStep[PreEqs], AssoCritical, MaxIter];
+   Print["Iterated ", Length[AssoNonCritical]-1, " times out of ", MaxIter];
+   AssoCritical = AssoNonCritical[[2]];
    AssoNonCritical = AssoNonCritical//Last;
-   InitRules = Lookup[PreEqs, "InitRules", $Failed];
-   AssoNonCritical = MFGSystemSolver[PreEqs][AssoNonCritical];
-   (*Print[AssoNonCritical];*)
-   (*costpluscurrents = Lookup[Eqs, "costpluscurrents",$Failed];
-   Print[InitRules];
-   Print[InitRules/.costpluscurrents/.AssoNonCritical];*)
    Join[PreEqs, Association["AssoNonCritical" -> AssoNonCritical]]
    ];
 
-NonLinearStep[Eqs_][approxJs_] := 
+NonLinearStep[Eqs_][approxSol_] := 
 	Module[{approx, js},
 		(*Print[approxJs];*)
+		
+		(*Remember that I changed the order below so that step takes more keys in the association:
+		I might have to put initial values for us and jts also...*)
+		
 		js = Lookup[Eqs, "js",$Failed];
-		approx = MFGSystemSolver[Eqs][approxJs];
-		approx = KeyTake[approx, js];
+		approx = KeyTake[approxSol, js];
+		approx = MFGSystemSolver[Eqs][approx];
 		(*Print["step: ",approx];*)
 		approx
 	];
