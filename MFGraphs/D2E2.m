@@ -347,8 +347,6 @@ MFGPreprocessing[Eqs_] :=
    EqSwitchingByVertex = Lookup[Eqs, "EqSwitchingByVertex", $Failed];
    EqBalanceSplittingCurrents = Lookup[Eqs, "EqBalanceSplittingCurrents", $Failed];
    EqValueAuxiliaryEdges = Lookup[Eqs, "EqValueAuxiliaryEdges", $Failed];
-   (*Print[EqGeneral];*)
-   
    (*First rules:entry currents*)
    InitRules = Association[Flatten[ToRules /@ EqEntryIn]];
    (*no exit at the entrances*)
@@ -357,7 +355,8 @@ MFGPreprocessing[Eqs_] :=
    AssociateTo[InitRules, RuleExitCurrentsIn];
    (*currents gathered from transition currents*)
    AssociateTo[InitRules, RuleBalanceGatheringCurrents];
-   (*value function:exit costs*)AssociateTo[InitRules, RuleExitValues];
+   (*value function:exit costs*)
+   AssociateTo[InitRules, RuleExitValues];
    EqSwitchingByVertex = 
     And @@ (Simplify /@ ( EqSwitchingByVertex /. InitRules));
    EqBalanceSplittingCurrents = EqBalanceSplittingCurrents /. InitRules;
@@ -372,13 +371,10 @@ MFGPreprocessing[Eqs_] :=
        EqCurrentCompCon && EqTransitionCompCon && EqCompCon}, 
       Sys2Triple[EqSwitchingByVertex]}];
    {NewSystem, InitRules} = TripleClean[{NewSystem, InitRules}];
-   (*Print["1: ", {NewSystem, InitRules}];*)
    NewSystem[[1]] = EqGeneral;
    {NewSystem, InitRules} = TripleClean[{NewSystem, InitRules}];
-   (*Print["2: ", {NewSystem, InitRules}];*)
+   (*sometimes Reduce does not reduce, but if we simplify each term it does.*)
    NewSystem[[3]] = Simplify /@ NewSystem[[3]];
-   (*TODO: remove items from the association that are already there.
-   also, see if we need the replacement of Init'rules in the end.,*)
    ModuleVarsNames = {"InitRules", "NewSystem"};
    ModulesVars = {InitRules, NewSystem} ;
    Join[Eqs, AssociationThread[ModuleVarsNames, ModulesVars]]
@@ -406,26 +402,17 @@ MFGSystemSolver[Eqs_][approxJs_] :=
    NewSystem = Lookup[Eqs, "NewSystem", $Failed];
    costpluscurrents = Lookup[Eqs, "costpluscurrents", $Failed];
    Ncpc = RoundValues[Expand/@(costpluscurrents /. approxJs)];
-   (*Print["MFGSS: Ncpc = ", Ncpc];*)
-   (*Print[{NewSystem,InitRules}];*)
    InitRules = Expand/@(InitRules /. Ncpc);
    NewSystem = NewSystem /. Ncpc;
-   (*Print[{NewSystem,InitRules}];*)
    {NewSystem, InitRules} = FinalClean[{NewSystem, InitRules}];
-   (*Print[NewSystem];*)
    System = And @@ NewSystem;
-   (*Print[System, InitRules]*);
-   (*vars = Variables[Values[InitRules]];*)
-   (*Print["MFGSS: System = ", System,", vars = ", vars];*)
    Which[System === False, Print["MFGSS: There is no solution"], 
-    System =!= True (*|| vars =!= {}*), 
-    (*Print["MFGSS: Using Reduce... "];*)
+    System =!= True, 
     NewSystem = Reduce[System, Reals];
-    (*Print["MFGSS: Used Reduce... ", NewSystem];*)
     {NewSystem, InitRules} = FinalClean[{Sys2Triple[NewSystem], InitRules}];
-    NewSystem = And @@ NewSystem;
+    NewSystem = Reduce[And @@ NewSystem, Reals];
     (*not checking if NewSystem is not True...*)
-    Print["MFGSS: Multiple solutions: ", NewSystem (*{NewSystem, InitRules}*)];
+    Print["MFGSS: Multiple solutions: ", NewSystem];
     vars = 
      Select[Join[Eqs["us"], Eqs["js"], Eqs["jts"]], 
       Not[FreeQ[NewSystem, #]] &];
@@ -433,9 +420,9 @@ MFGSystemSolver[Eqs_][approxJs_] :=
     pickOne = 
      Association@
       First@
-       FindInstance[NewSystem && And @@ ((# >= 0 )& /@ vars), vars, 
+       FindInstance[NewSystem && And @@ ((# >(*=*) 0 )& /@ vars), vars, 
         Reals];
-    Print["\tPicked one for the variable(s) ", vars];
+    Print["\tPicked one value for the variable(s) ", vars];
     InitRules = Expand /@ Join[InitRules /. pickOne, pickOne]
     ];
     InitRules
@@ -445,22 +432,16 @@ FinalStep[{{EE_?BooleanQ, NN_?BooleanQ, OR_?BooleanQ},
    rules_}] := {{EE, NN, OR}, rules}
 
 FinalStep[{{EE_, NN_, OO_}, rules_}] := 
-  Module[{NewSystem, newrules, sorted}, 
+  Module[{NewSystem, newrules, sorted, time}, 
   	{NewSystem, newrules} = TripleClean[{{EE, NN, OO}, rules}];
-  	(*Print["finished tripleclean"];*)
    If[Part[NewSystem, 3] === True, sorted = True, 
     sorted = ReverseSortBy[Part[NewSystem, 3], Simplify`SimplifyCount]];
-    (*Print["FinalStep: Using ZAnd... "];*)
     {time, NewSystem} = 
     AbsoluteTiming[ZAnd[And @@ Take[NewSystem, {1, 2}], 
        If[Part[NewSystem, 3] === True, True, sorted]]];
    Print["Iterative boolean convert took ", time, " seconds to terminate"];
-   If[Head[NewSystem] === Or, NewSystem = Sort /@ NewSystem(*, Print["head is not or: ", NewSystem]*)];
-   (*Print[NewSystem];*)
-   (*NewSystem = BooleanConvert[NewSystem, "CNF"];
-   Print[NewSystem];*)
+   If[Head[NewSystem] === Or, NewSystem = Sort /@ NewSystem];
    NewSystem = Sys2Triple[NewSystem];
-   (*Print[NewSystem];*)
    {NewSystem, newrules}];
 
 FinalClean[{{EE_, NN_, OR_}, rules_}] := ((*Print["finalclean: ",{{EE,
