@@ -7,27 +7,34 @@ Get["/Users/ribeirrd/eclipse-workspace/MFGraphs/MFGraphs/D2E2.m"];
 		AssoNonCritical
 	];
 *)
+NonLinear::usage =
+	"NonLinear[Eqs] takes an association ";
+
 NonLinear[Eqs_] :=    
-  Module[{AssoCritical, PreEqs, AssoNonCritical, js = 1, MaxIter = 15}, 
+  Module[{AssoCritical, PreEqs, AssoNonCritical, NonCriticalList, js = 1, MaxIter = 15, us, jts}, 
    If[KeyExistsQ[Eqs, "AssoCritical"], 
    	PreEqs = Eqs;
-   	AssoCritical = PreEqs["AssoCritical"],
+   	(*if there is already an approximation for the non congestion case, use it!*)
+   	AssoCritical = Lookup[PreEqs, "AssoNonCritical", PreEqs["AssoCritical"]],
    	PreEqs = MFGPreprocessing[Eqs];
    	js = Lookup[PreEqs, "js", $Failed];
    	AssoCritical = AssociationThread[js, 0 js]
    ];
-   AssoNonCritical = FixedPointList[NonLinearStep[PreEqs], AssoCritical, MaxIter];
-   Print["Iterated ", Length[AssoNonCritical]-1, " times out of ", MaxIter];
-   If[js =!= 1, AssoCritical = AssoNonCritical[[2]]];
-   AssoNonCritical = AssoNonCritical // Last;
+   NonCriticalList = FixedPointList[NonLinearStep[PreEqs], AssoCritical, MaxIter];
+   Print["Iterated ", Length[NonCriticalList]-1, " times out of ", MaxIter];
+   If[js =!= 1, AssoCritical = NonCriticalList[[2]]];
+   AssoNonCritical = NonCriticalList // Last;
    Join[PreEqs, Association[{"AssoCritical" -> AssoCritical, "AssoNonCritical" -> AssoNonCritical}]]
    ];
 
 NonLinearStep[Eqs_][approxSol_] := 
-	Module[{approxJs, approx, js},
+	Module[{approxJs, approx, js, Nrhs, Nlhs},
 		js = Lookup[Eqs, "js", $Failed];
-		approxJs = KeyTake[approxSol, js];
+		Nrhs = Lookup[Eqs, "Nrhs", $Failed];
+     	Nlhs = Lookup[Eqs, "Nlhs", $Failed];
+     	approxJs = KeyTake[approxSol, js];
 		approx = MFGSystemSolver[Eqs][approxJs];
+		Print["Max error for non-linear solution: ", Norm[N[Nlhs/.approx]-(Nrhs/.approx),Infinity]];
 		approx
 	];
 	
@@ -35,7 +42,7 @@ NonLinearStep[Eqs_][approxSol_] :=
 IsNonLinearSolution[Eqs_][assoc_]:=
 Module[{EqEntryIn, EqValueAuxiliaryEdges, EqSwitchingByVertex, EqCompCon, 
     EqBalanceSplittingCurrents, EqCurrentCompCon, EqTransitionCompCon,
-    EqPosJs, EqPosJts}, 
+    EqPosJs, EqPosJts, Nrhs, Nlhs}, 
      EqEntryIn = And @@ Lookup[Eqs, "EqEntryIn", $Failed];
      EqCompCon = Lookup[Eqs, "EqCompCon", $Failed];
      EqCurrentCompCon = Lookup[Eqs, "EqCurrentCompCon", $Failed];
@@ -45,23 +52,22 @@ Module[{EqEntryIn, EqValueAuxiliaryEdges, EqSwitchingByVertex, EqCompCon,
      EqSwitchingByVertex = And @@ Lookup[Eqs, "EqSwitchingByVertex", $Failed];
      EqBalanceSplittingCurrents = Lookup[Eqs, "EqBalanceSplittingCurrents", $Failed];
      EqValueAuxiliaryEdges = Lookup[Eqs, "EqValueAuxiliaryEdges", $Failed];
-     EqGeneral = Lookup[Eqs, "EqGeneral", $Failed];
      Nrhs = Lookup[Eqs, "Nrhs", $Failed];
      Nlhs = Lookup[Eqs, "Nlhs", $Failed];
-     costpluscurrents = Lookup[Eqs, "costpluscurrents", $Failed];
-     js = Lookup[Eqs, "js", $Failed];
-     
-     Print["EqEntryIn: ", EqEntryIn, "\t", EqEntryIn/.assoc];
-     Print["EqValueAuxiliaryEdges: ", EqValueAuxiliaryEdges, "\t",EqValueAuxiliaryEdges/.assoc];
-     Print["EqCompCon: ", EqCompCon, "\t", EqCompCon/.assoc];
-     Print["EqBalanceSplittingCurrents: ", EqBalanceSplittingCurrents, "\t",EqBalanceSplittingCurrents/.assoc];
-     Print["EqCurrentCompCon: ", EqCurrentCompCon, "\t",EqCurrentCompCon/.assoc];
-     Print["EqTransitionCompCon: ", EqTransitionCompCon, "\t",EqTransitionCompCon/.assoc];
-     Print["EqPosJs: ", EqPosJs, "\t",EqPosJs/.assoc];
-     Print["EqPosJts: ", EqPosJts, "\t",EqPosJts/.assoc];
-     Print["EqSwitchingByVertex: ", EqSwitchingByVertex, "\t",Simplify/@(EqSwitchingByVertex/.assoc)];
-     Print["Nlhs: ", Nlhs, "\t", N[Nlhs/.assoc]];
-     Print["Nrhs: ", Nrhs, "\t", Nrhs/.assoc];
+     Print["All restrictions: ", (EqEntryIn&&EqValueAuxiliaryEdges&&EqCompCon&&
+     	EqBalanceSplittingCurrents&&EqCurrentCompCon&&EqTransitionCompCon&&
+     	EqPosJs&&EqPosJts&&EqSwitchingByVertex)/.assoc];
+     Print["EqEntryIn: ", EqEntryIn/.assoc, "\n", EqEntryIn];
+     Print["EqValueAuxiliaryEdges: ", EqValueAuxiliaryEdges/.assoc, "\n", EqValueAuxiliaryEdges];
+     Print["EqCompCon: ", EqCompCon/.assoc, "\n", EqCompCon];
+     Print["EqBalanceSplittingCurrents: ", EqBalanceSplittingCurrents/.assoc, "\n", EqBalanceSplittingCurrents];
+     Print["EqCurrentCompCon: ", EqCurrentCompCon/.assoc, "\n",EqCurrentCompCon];
+     Print["EqTransitionCompCon: ", EqTransitionCompCon/.assoc, "\n", EqTransitionCompCon];
+     Print["EqPosJs: ", EqPosJs/.assoc, "\n", EqPosJs];
+     Print["EqPosJts: ", EqPosJts/.assoc, "\n", EqPosJts];
+     Print["EqSwitchingByVertex: ", EqSwitchingByVertex/.assoc, "\n", EqSwitchingByVertex];
+     Print["Nlhs: ", Nlhs/.assoc, "\n", N[Nlhs]];
+     Print["Nrhs: ", Nrhs/.assoc, "\n", Nrhs];
      Print["Max error for non-linear solution: ", Norm[N[Nlhs/.assoc]-(Nrhs/.assoc),Infinity]];
      assoc
 	];
