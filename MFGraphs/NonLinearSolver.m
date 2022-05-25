@@ -66,7 +66,7 @@ Module[{EqEntryIn, EqValueAuxiliaryEdges, EqSwitchingByVertex, EqCompCon,
      assoc
 	];
 	
-RoundValues[x_?NumberQ] := Round[x, 10^-12]
+RoundValues[x_?NumberQ] := Round[x, 10^-15]
 
 RoundValues[Rule[a_, b_]] := Rule[a, RoundValues[b]]
 
