@@ -27,14 +27,6 @@ AtTail[DirectedEdge[a_, b_]] := {a, DirectedEdge[a, b]}
 TransitionsAt[G_, k_] := 
  Prepend[#, k] & /@ Permutations[IncidenceList[G, k], {2}]
 
-RoundValues[x_?NumberQ] := Round[x, 10^-10]
-
-RoundValues[Rule[a_, b_]] := Rule[a, RoundValues[b]]
-
-RoundValues[x_List] := RoundValues /@ x
-
-RoundValues[x_Association] := RoundValues /@ x
-
 triple2path[{a_, b_, c_}, G_] := 
  Module[{EL = EdgeList[G]}, 
   If[SubsetQ[AdjacencyList[G, b], {a, c}], 
@@ -397,11 +389,14 @@ MFGSystemSolver::usage = "MFGSystemSolver[Eqs][edgeEquations] returns \
 an association with rules to the solution";
 MFGSystemSolver[Eqs_][approxJs_] := 
   Module[{NewSystem, InitRules, pickOne, vars, System, Ncpc,
-  	costpluscurrents}, 
+  	costpluscurrents, us, js, jts}, 
+   us = Lookup[Eqs, "us", $Failed];
+   js = Lookup[Eqs, "js", $Failed];
+   jts = Lookup[Eqs, "jts", $Failed];
    InitRules = Lookup[Eqs, "InitRules", $Failed];
    NewSystem = Lookup[Eqs, "NewSystem", $Failed];
    costpluscurrents = Lookup[Eqs, "costpluscurrents", $Failed];
-   Ncpc = RoundValues[Expand/@(costpluscurrents /. approxJs)];
+   Ncpc = RoundValues @ (Expand/@(costpluscurrents /. approxJs));
    InitRules = Expand/@(InitRules /. Ncpc);
    NewSystem = NewSystem /. Ncpc;
    {NewSystem, InitRules} = FinalClean[{NewSystem, InitRules}];
@@ -414,7 +409,7 @@ MFGSystemSolver[Eqs_][approxJs_] :=
     (*not checking if NewSystem is not True...*)
     Print["MFGSS: Multiple solutions: ", {NewSystem, InitRules}];
     vars = 
-     Select[Join[Eqs["us"], Eqs["js"], Eqs["jts"]], 
+     Select[Join[us, js, jts], 
       Not[FreeQ[NewSystem, #]] &];
     (*Have to pick one so that all the currents have numerical values*)
     (*TODO: we want positive currents and transition currents. 
@@ -427,11 +422,13 @@ MFGSystemSolver[Eqs_][approxJs_] :=
     Print["\tPicked one value for the variable(s) ", vars];
     InitRules = Expand /@ Join[InitRules /. pickOne, pickOne]
     ];
+    Print[InitRules];
+    InitRules = Join[KeyTake[InitRules, us], KeyTake[InitRules, js], KeyTake[InitRules, jts]];
     InitRules
     ];
 
-FinalStep[{{EE_?BooleanQ, NN_?BooleanQ, OR_?BooleanQ}, 
-   rules_}] := {{EE, NN, OR}, rules}
+FinalStep[{{EE_?BooleanQ, NN_?BooleanQ, OR_?BooleanQ}, rules_}] := 
+   {{EE, NN, OR}, rules}
 
 FinalStep[{{EE_, NN_, OO_}, rules_}] := 
   Module[{NewSystem, newrules, sorted, time}, 
@@ -446,8 +443,8 @@ FinalStep[{{EE_, NN_, OO_}, rules_}] :=
    NewSystem = Sys2Triple[NewSystem];
    {NewSystem, newrules}];
 
-FinalClean[{{EE_, NN_, OR_}, rules_}] := ((*Print["finalclean: ",{{EE,
-  NN,OR},rules}];*)FixedPoint[FinalStep, {{EE, NN, OR}, rules}])
+FinalClean[{{EE_, NN_, OR_}, rules_}] := 
+	(FixedPoint[FinalStep, {{EE, NN, OR}, rules}])
 
 Sys2Triple[True] = Table[True, 3]
 
@@ -468,8 +465,8 @@ Sys2Triple[system_] :=
 TripleStep[{{EEs_, NNs_, ORs_}, rules_List}] := 
  TripleStep[{{EEs, NNs, ORs}, Association@rules}]
 
-TripleStep[{{EE_?BooleanQ, NN_?BooleanQ, OR_?BooleanQ}, 
-   rules_}] := {{EE, NN, OR}, rules}
+TripleStep[{{EE_?BooleanQ, NN_?BooleanQ, OR_?BooleanQ}, rules_}] := 
+	{{EE, NN, OR}, rules}
 
 TripleStep[{{EE_, NN_?TrueQ, OR_?TrueQ}, rules_Association}] := 
   Module[{newrules = {}}, 
@@ -502,33 +499,12 @@ TripleStep[{{EEs_, NNs_, ORs_}, rules_Association}] :=
    Print[out];
    Print["Checking (replacing updated rules in both systems)..."];(**)
    If[Reduce[Implies[in,out],Reals]===True,Print["Ok!"],Print[
-   "Not Ok..."]];*){{EE, NN, OR}, Expand /@ newrules}];
-
+   "Not Ok..."]];*)
+   {{EE, NN, OR}, Expand /@ newrules}];
 
 TripleClean[{{EE_, NN_, OR_}, rules_}] := 
  FixedPoint[TripleStep, {{EE, NN, OR}, rules}]
 
-NewReduce[s_Or] := Reduce[s, Reals]
-
-NewReduce[x_] := (Print["NewReduce[", x, "] = ", x];
-  x)
-
-(*TODO NewReduce:is there a problem here?*)
-
-NewReduce[system_And] := 
- Module[{result, 
-   groups = 
-    GroupBy[List @@ system, Head[#] === Or || Head[#] === Equal &], 
-   subgroups, EE, NN, OO, sorted}, 
-  subgroups = GroupBy[groups[True], Head[#] === Equal &];
-  NN = Lookup[groups, False, True];
-  EE = Lookup[subgroups, True, True];
-  OO = Lookup[subgroups, False, True];
-  If[OO === True, result = ZAnd[And @@ NN, And @@ EE], 
-   sorted = SortBy[And @@ OO, Simplify`SimplifyCount];
-   result = ZAnd[And @@ NN, (And @@ EE) && sorted]];
-  If[result =!= False, result = result // DeleteDuplicates];
-  result]
 ZAnd::usage =
 "ZAnd[processed, unprocessed] does something...";
 
@@ -549,14 +525,10 @@ ZAnd[xp_, andxp_And] :=
   Which[Head[fst] === Or, ReZAnd[xp, rst] /@ fst // RemoveDuplicates, 
    True, ReZAnd[xp, rst, fst]]]
 
-ZAnd[xp_, orxp_Or] := ((*Print["Do we need removeduplicates?\n",(ZAnd[
-  xp,#]&/@orxp)];*)(ZAnd[xp, #] & /@ orxp) // RemoveDuplicates)
+ZAnd[xp_, orxp_Or] := (
+  (ZAnd[xp, #] & /@ orxp) // RemoveDuplicates)
 
 ZAnd[xp_, leq_] := Simplify[xp && leq]
-
-(*ZAnd[xp_,geq_GreaterEqual]:=Simplify[xp&&geq] \
-ZAnd[xp_,ineq_Inequality]:=Simplify[xp&&ineq]*)
-
 
 (*Operator form of ReZAnd*)
 ReZAnd[xp_, rst_] := ReZAnd[xp, rst, #] &
@@ -567,9 +539,6 @@ ReZAnd[xp_, rst_, fst_Equal] :=
   newxp = xp /. fsol;
   ZAnd[newxp && fst, newrst]]
 
-(*ReZAnd[xp_,rst_,fst_And]:=ReZAnd[xp,rst]/@fst (*TODO never used???*)*)
-\
-
 ReZAnd[xp_, rst_, fst_] := ZAnd[xp && fst, rst]
 
 ReplaceSolution[rst_?BooleanQ, sol_] := rst
@@ -578,22 +547,8 @@ ReplaceSolution[rst_, sol_] := Module[{newrst}, newrst = rst /. sol;
   If[Head[newrst] === And, Reduce[#, Reals] & /@ newrst, 
    Reduce[newrst, Reals]]]
 
-(*ReplaceSolution[rst_,sol_]:=Simplify[rst/. sol]*)
-
 RemoveDuplicates[xp_And] := DeleteDuplicates[Sort[xp]];
-RemoveDuplicates[xp_Or] := DeleteDuplicates[Sort[xp]];
-RemoveDuplicates[xp_] := xp
 
-(****************************************************************)
-(****************************************************************)
-\
-(****************************************************************)
-(****************************************************************)
-\
-(****************************************************************)
-(****************************************************************)
-\
-(****************************************************************)
-(****************************************************************)
-\
-(****************************************************************)
+RemoveDuplicates[xp_Or] := DeleteDuplicates[Sort[xp]];
+
+RemoveDuplicates[xp_] := xp
