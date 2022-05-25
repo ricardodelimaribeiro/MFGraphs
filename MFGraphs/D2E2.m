@@ -187,8 +187,8 @@ vertices*)
    	Print["Switching costs are inconsistent!"];
     Return[ $Failed, Module], 
     consistentCosts =!= True, 
-    Print["Switching costs conditions are ", consistentCosts](*, True, 
-    Print["Switching costs are consistent"]*)];
+    Print["Switching costs conditions are ", consistentCosts]
+   ];
    CostArgs = 
     Join[AssociationMap[Identity &, Normal@jargs], ZeroRun, 
      AssociationMap[(10^(-4) &) &, Normal@Keys@SwitchingCosts], 
@@ -412,15 +412,17 @@ MFGSystemSolver[Eqs_][approxJs_] :=
     {NewSystem, InitRules} = FinalClean[{Sys2Triple[NewSystem], InitRules}];
     NewSystem = Reduce[And @@ NewSystem, Reals];
     (*not checking if NewSystem is not True...*)
-    Print["MFGSS: Multiple solutions: ", NewSystem];
+    Print["MFGSS: Multiple solutions: ", {NewSystem, InitRules}];
     vars = 
      Select[Join[Eqs["us"], Eqs["js"], Eqs["jts"]], 
       Not[FreeQ[NewSystem, #]] &];
     (*Have to pick one so that all the currents have numerical values*)
+    (*TODO: we want positive currents and transition currents. 
+    We may want to minimze if the remaining variable is u.*)
     pickOne = 
      Association@
       First@
-       FindInstance[NewSystem && And @@ ((# >(*=*) 0 )& /@ vars), vars, 
+       FindInstance[NewSystem && And @@ ((# >= 0 )& /@ vars), vars, 
         Reals];
     Print["\tPicked one value for the variable(s) ", vars];
     InitRules = Expand /@ Join[InitRules /. pickOne, pickOne]
@@ -470,9 +472,11 @@ TripleStep[{{EE_?BooleanQ, NN_?BooleanQ, OR_?BooleanQ},
    rules_}] := {{EE, NN, OR}, rules}
 
 TripleStep[{{EE_, NN_?TrueQ, OR_?TrueQ}, rules_Association}] := 
-  Module[{newrules = {}}, newrules = First@Solve[EE] // Quiet;
-   newrules = Join[rules /. newrules, Association@newrules];
-   {{True, NN, OR}, Expand /@ newrules}];
+  Module[{newrules = {}}, 
+  	newrules = First@Solve[EE /. rules] // Quiet;
+   	newrules = Join[rules /. newrules, Association@newrules];
+   	{{True, NN, OR}, Expand /@ newrules}
+  ];
 
 TripleStep[{{EEs_, NNs_, ORs_}, rules_Association}] := 
   Module[{EE = EEs /. rules, NN = Simplify /@ (NNs /. rules), 
