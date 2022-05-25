@@ -407,7 +407,7 @@ MFGSystemSolver[Eqs_][approxJs_] :=
     {NewSystem, InitRules} = FinalClean[{Sys2Triple[NewSystem], InitRules}];
     NewSystem = Reduce[And @@ NewSystem, Reals];
     (*not checking if NewSystem is not True...*)
-    Print["MFGSS: Multiple solutions: ", {NewSystem, InitRules}];
+    Print["MFGSS: Multiple solutions: ", NewSystem(*, InitRules}*)];
     vars = 
      Select[Join[us, js, jts], 
       Not[FreeQ[NewSystem, #]] &];
@@ -419,10 +419,10 @@ MFGSystemSolver[Eqs_][approxJs_] :=
       First@
        FindInstance[NewSystem && And @@ ((# >= 0 )& /@ vars), vars, 
         Reals];
-    Print["\tPicked one value for the variable(s) ", vars];
-    InitRules = Expand /@ Join[InitRules /. pickOne, pickOne]
+    InitRules = Expand /@ Join[InitRules /. pickOne, pickOne];
+    Print["\tPicked one value for the variable(s) ", vars, InitRules/@vars]
     ];
-    Print[InitRules];
+    (*Print[InitRules];*)
     InitRules = Join[KeyTake[InitRules, us], KeyTake[InitRules, js], KeyTake[InitRules, jts]];
     InitRules
     ];

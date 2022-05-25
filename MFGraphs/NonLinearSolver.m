@@ -11,12 +11,11 @@ NonLinear::usage =
 	"NonLinear[Eqs] takes an association ";
 
 NonLinear[Eqs_] :=    
-  Module[{AssoCritical, PreEqs, AssoNonCritical, NonCriticalList, js = 1, MaxIter = 15, us, jts}, 
-   If[KeyExistsQ[Eqs, "AssoCritical"], 
-   	PreEqs = Eqs;
+  Module[{AssoCritical, PreEqs = Eqs, AssoNonCritical, NonCriticalList, js = 1, MaxIter = 15}, 
+   If[KeyExistsQ[PreEqs, "AssoCritical"], 
    	(*if there is already an approximation for the non congestion case, use it!*)
    	AssoCritical = Lookup[PreEqs, "AssoNonCritical", PreEqs["AssoCritical"]],
-   	PreEqs = MFGPreprocessing[Eqs];
+   	PreEqs = MFGPreprocessing[PreEqs];
    	js = Lookup[PreEqs, "js", $Failed];
    	AssoCritical = AssociationThread[js, 0 js]
    ];
@@ -66,7 +65,7 @@ Module[{EqEntryIn, EqValueAuxiliaryEdges, EqSwitchingByVertex, EqCompCon,
      Print["EqPosJs: ", EqPosJs/.assoc, "\n", EqPosJs];
      Print["EqPosJts: ", EqPosJts/.assoc, "\n", EqPosJts];
      Print["EqSwitchingByVertex: ", EqSwitchingByVertex/.assoc, "\n", EqSwitchingByVertex];
-     Print["Nlhs: ", Nlhs/.assoc, "\n", N[Nlhs]];
+     Print["Nlhs: ", N[Nlhs/.assoc], "\n", Nlhs];
      Print["Nrhs: ", Nrhs/.assoc, "\n", Nrhs];
      Print["Max error for non-linear solution: ", Norm[N[Nlhs/.assoc]-(Nrhs/.assoc),Infinity]];
      assoc
