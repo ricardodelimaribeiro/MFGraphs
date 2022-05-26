@@ -417,8 +417,8 @@ MFGSystemSolver[Eqs_][approxJs_] :=
     pickOne = Association @ First @
        FindInstance[NewSystem && And @@ ((# > 0 )& /@ jjtsR), vars, 
         Reals];
-    Print["\tPicked one value for the variable(s) ", vars];
-    InitRules = Expand /@ Join[InitRules /. pickOne, pickOne]
+    InitRules = Expand /@ Join[InitRules /. pickOne, pickOne];
+    Print["\tPicked one value for the variable(s) ", vars, InitRules/@vars]
     ];
     (*Print[InitRules];*)
     InitRules = Join[KeyTake[InitRules, us], KeyTake[InitRules, js], KeyTake[InitRules, jts]];
