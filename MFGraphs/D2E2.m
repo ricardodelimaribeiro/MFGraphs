@@ -389,7 +389,7 @@ MFGSystemSolver::usage = "MFGSystemSolver[Eqs][edgeEquations] returns \
 an association with rules to the solution";
 MFGSystemSolver[Eqs_][approxJs_] := 
   Module[{NewSystem, InitRules, pickOne, vars, System, Ncpc,
-  	costpluscurrents, us, js, jts}, 
+  	costpluscurrents, us, js, jts, usR, jjtsR}, 
    us = Lookup[Eqs, "us", $Failed];
    js = Lookup[Eqs, "js", $Failed];
    jts = Lookup[Eqs, "jts", $Failed];
@@ -408,21 +408,19 @@ MFGSystemSolver[Eqs_][approxJs_] :=
     NewSystem = Reduce[And @@ NewSystem, Reals];
     (*not checking if NewSystem is not True...*)
     Print["MFGSS: Multiple solutions: ", {NewSystem, InitRules}];
-    vars = 
-     Select[Join[us, js, jts], 
-      Not[FreeQ[NewSystem, #]] &];
+    usR = Select[us, Not[FreeQ[NewSystem, #]] &];
+    jjtsR = Select[Join[js, jts], Not[FreeQ[NewSystem, #]] &];
+    vars = Join[usR, jjtsR];
     (*Have to pick one so that all the currents have numerical values*)
     (*TODO: we want positive currents and transition currents. 
     We may want to minimze if the remaining variable is u.*)
-    pickOne = 
-     Association@
-      First@
-       FindInstance[NewSystem && And @@ ((# >= 0 )& /@ vars), vars, 
+    pickOne = Association @ First @
+       FindInstance[NewSystem && And @@ ((# > 0 )& /@ jjtsR), vars, 
         Reals];
     Print["\tPicked one value for the variable(s) ", vars];
     InitRules = Expand /@ Join[InitRules /. pickOne, pickOne]
     ];
-    Print[InitRules];
+    (*Print[InitRules];*)
     InitRules = Join[KeyTake[InitRules, us], KeyTake[InitRules, js], KeyTake[InitRules, jts]];
     InitRules
     ];

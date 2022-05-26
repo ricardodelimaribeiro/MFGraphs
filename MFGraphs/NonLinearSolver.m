@@ -42,7 +42,10 @@ NonLinearStep[Eqs_][approxSol_] :=
 IsNonLinearSolution[Eqs_][assoc_]:=
 Module[{EqEntryIn, EqValueAuxiliaryEdges, EqSwitchingByVertex, EqCompCon, 
     EqBalanceSplittingCurrents, EqCurrentCompCon, EqTransitionCompCon,
-    EqPosJs, EqPosJts, Nrhs, Nlhs}, 
+    EqPosJs, EqPosJts, Nrhs, Nlhs, style, styler, styleg},
+   	 style = Style[#,Bold,Blue]&; 
+     styler = Style[#,Bold,Red]&; 
+     styleg = Style[#,Bold,Darker@Green]&; 
      EqEntryIn = And @@ Lookup[Eqs, "EqEntryIn", $Failed];
      EqCompCon = Lookup[Eqs, "EqCompCon", $Failed];
      EqCurrentCompCon = Lookup[Eqs, "EqCurrentCompCon", $Failed];
@@ -54,25 +57,27 @@ Module[{EqEntryIn, EqValueAuxiliaryEdges, EqSwitchingByVertex, EqCompCon,
      EqValueAuxiliaryEdges = Lookup[Eqs, "EqValueAuxiliaryEdges", $Failed];
      Nrhs = Lookup[Eqs, "Nrhs", $Failed];
      Nlhs = Lookup[Eqs, "Nlhs", $Failed];
-     Print["All restrictions: ", (EqEntryIn&&EqValueAuxiliaryEdges&&EqCompCon&&
+     bool = (EqEntryIn&&EqValueAuxiliaryEdges&&EqCompCon&&
      	EqBalanceSplittingCurrents&&EqCurrentCompCon&&EqTransitionCompCon&&
-     	EqPosJs&&EqPosJts&&EqSwitchingByVertex)/.assoc];
-     Print["EqEntryIn: ", EqEntryIn/.assoc, "\n", EqEntryIn];
-     Print["EqValueAuxiliaryEdges: ", EqValueAuxiliaryEdges/.assoc, "\n", EqValueAuxiliaryEdges];
-     Print["EqCompCon: ", EqCompCon/.assoc, "\n", EqCompCon];
-     Print["EqBalanceSplittingCurrents: ", EqBalanceSplittingCurrents/.assoc, "\n", EqBalanceSplittingCurrents];
-     Print["EqCurrentCompCon: ", EqCurrentCompCon/.assoc, "\n",EqCurrentCompCon];
-     Print["EqTransitionCompCon: ", EqTransitionCompCon/.assoc, "\n", EqTransitionCompCon];
-     Print["EqPosJs: ", EqPosJs/.assoc, "\n", EqPosJs];
-     Print["EqPosJts: ", EqPosJts/.assoc, "\n", EqPosJts];
-     Print["EqSwitchingByVertex: ", EqSwitchingByVertex/.assoc, "\n", EqSwitchingByVertex];
-     Print["Nlhs: ", Nlhs/.assoc, "\n", N[Nlhs]];
-     Print["Nrhs: ", Nrhs/.assoc, "\n", Nrhs];
-     Print["Max error for non-linear solution: ", Norm[N[Nlhs/.assoc]-(Nrhs/.assoc),Infinity]];
-     assoc
+     	EqPosJs&&EqPosJts&&EqSwitchingByVertex)/.assoc;
+     If[bool === True, Print["All restrictions are ", styleg@"True"],
+     Print["At least one of the restrictions is ", styler@"False"];
+     Print[style@"EqEntryIn: ", EqEntryIn/.assoc, "\n", EqEntryIn];
+     Print[style@"EqValueAuxiliaryEdges: ", EqValueAuxiliaryEdges/.assoc, "\n", EqValueAuxiliaryEdges];
+     Print[style@"EqCompCon: ", EqCompCon/.assoc, "\n", EqCompCon];
+     Print[style@"EqBalanceSplittingCurrents: ", EqBalanceSplittingCurrents/.assoc, "\n", EqBalanceSplittingCurrents];
+     Print[style@"EqCurrentCompCon: ", EqCurrentCompCon/.assoc, "\n",EqCurrentCompCon];
+     Print[style@"EqTransitionCompCon: ", EqTransitionCompCon/.assoc, "\n", EqTransitionCompCon];
+     Print[style@"EqPosJs: ", EqPosJs/.assoc, "\n", EqPosJs];
+     Print[style@"EqPosJts: ", EqPosJts/.assoc, "\n", EqPosJts];
+     Print[style@"EqSwitchingByVertex: ", EqSwitchingByVertex/.assoc, "\n", EqSwitchingByVertex]];
+     Print[style@"Nrhs: ", N[Nrhs/.assoc], "\n", Nrhs];
+     Print[style@"Nlhs: ", N[Nlhs/.assoc], "\n", Nlhs];
+     Print[style@"Max error for non-linear solution: ", Norm[N[Nlhs/.assoc]-(Nrhs/.assoc),Infinity]];
+     N@assoc
 	];
 	
-RoundValues[x_?NumberQ] := Round[x, 10^-15]
+RoundValues[x_?NumberQ] := Round[x, 10^-13]
 
 RoundValues[Rule[a_, b_]] := Rule[a, RoundValues[b]]
 
