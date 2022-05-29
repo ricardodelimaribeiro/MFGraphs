@@ -1,12 +1,6 @@
 (*Wolfram Language package*)
 Get["/Users/ribeirrd/eclipse-workspace/MFGraphs/MFGraphs/D2E2.m"];
-(*NonLinear[Eqs_][initial_] :=
-	Module[{AssoNonCritical, MaxIter = 50},
-		AssoNonCritical = FixedPointList[NonLinearStep[Eqs], initial, MaxIter];
-		Print["Iterated ", Length[AssoNonCritical], " times out of ", MaxIter];
-		AssoNonCritical
-	];
-*)
+Clear[H,Cost];
 NonLinear::usage =
 	"NonLinear[Eqs] takes an association ";
 
@@ -37,7 +31,6 @@ NonLinearStep[Eqs_][approxSol_] :=
 		approx
 	];
 	
-	(*TODO: assoc is given the right way? can we get it from the Eqs?*)
 IsNonLinearSolution[Eqs_][assoc_]:=
 Module[{EqEntryIn, EqValueAuxiliaryEdges, EqSwitchingByVertex, EqCompCon, 
     EqBalanceSplittingCurrents, EqCurrentCompCon, EqTransitionCompCon,
@@ -76,7 +69,7 @@ Module[{EqEntryIn, EqValueAuxiliaryEdges, EqSwitchingByVertex, EqCompCon,
      N@assoc
 	];
 	
-RoundValues[x_?NumberQ] := Round[x, 10^-13]
+RoundValues[x_?NumberQ] := Round[x, 10^-10]
 
 RoundValues[Rule[a_, b_]] := Rule[a, RoundValues[b]]
 
@@ -99,15 +92,19 @@ V::usage =
 V = Function[{x, edge}, W[x, A]];
 
 H::usage = (*TODO include the other parameter here, if we call it beta, change the the other beta!*)
-""
+"H[xi,p,m, edge] is the Hamiltonian function for the edges.
+edge is an edge from the graph, i.e. DirectedEdge[r,i]."
 (*H = Function[{xi,p,m, edge}, p^2/(2 m^alpha[edge]) + V[xi, edge] - g[m]];*)
 H = Function[{xi,p,m, edge}, p^2/(2 m^alpha[edge]) + V[xi, edge] - g[m, edge]];
 
+(*H[xi_,p_,m_, edge_]:= p^2/(2 m^alpha[edge]) + V[xi, edge] - g[m, edge];*)
 
 M[j_?NumericQ, x_?NumericQ, edge_] := 
  If[j == 0. || j == 0, 0., 
-  Values@First@FindRoot[H[x, -j/(m^(1 - alpha[edge])), m, edge], {m, 1}]]
+  Values@First@FindRoot[H[x, -j/(m^(1 - alpha[edge])), m, edge], {m, 1}]];
 
 IntM[j_?NumericQ, edge_] := 
  If[j == 0. || j == 0, 0., 
-  j NIntegrate[M[j, x, edge]^(alpha[edge] - 1), {x, 0, 1}] // Quiet]
+  j NIntegrate[M[j, x, edge]^(alpha[edge] - 1), {x, 0, 1}] // Quiet];
+
+Cost[j_, edge_] := -IntM[j, edge];

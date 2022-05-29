@@ -173,7 +173,7 @@ NewReduce[x_LessEqual] :=
 NewReduce[x_Inequality] :=
     x
     
-(*TODO NewReduce: is there a problem here?*)
+(*T ODO NewReduce: is there a problem here?*)
 NewReduce[system_And] :=
     Module[ {result,
         groups = GroupBy[List @@ system, Head[#] === Or||Head[#]===Equal&],
@@ -308,7 +308,7 @@ FixedReduce2[Eqs_Association][approxrules_Association] :=
             Return[AssociationThread[Join[us, js], Join[us, js] /. rules]],
             Print["FR2: Now the currents..."];
             uvalues = AssociationThread[us, us /. rules];
-            (*TODO Fix this! Use rules or correct the equations! not the criticalcase!*)
+            (*T ODO Fix this! Use rules or correct the equations! not the criticalcase!*)
             jsys = (*(Eqs["EqCriticalCase"] /. uvalues) &&*) Eqs["EqPosJs"] && Eqs["EqCurrentCompCon"];
             jsys = jsys && Eqs["EqNonCritical"]/.uvalues /. RoundValues[Eqs["costpluscurrents"]/.approxrules];
             (**Retrieve js values already defined*)
@@ -594,7 +594,7 @@ FixedReduce3[Eqs_Association][approxrules_Association] :=
             uvalues = AssociationThread[Join[us, js], Join[us, js] /. rules],
             Print["Finish with the js"];
             uvalues = AssociationThread[us, us /. rules];
-            (*TODO Fix this! Use rules or correct the equations! not the criticalcase!*)
+            (*T ODO Fix this! Use rules or correct the equations! not the criticalcase!*)
             jsys = (*(Eqs["EqCriticalCase"] /. uvalues) &&*) Eqs["EqPosJs"] && Eqs["EqCurrentCompCon"];
             (**Retrieve js values already defined*)
             (*Keeping the order for the js Association*)

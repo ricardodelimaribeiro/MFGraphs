@@ -183,7 +183,7 @@ AssociationThread associates the last association!*)
    IncidenceList[AuxiliaryGraph, OutwardVertices /@ ExitVertices];
   Print[ExitNeighbors];
   Print[OutEdges];
-  (*TODO this seems to be defined already:
+  (*T ODO this seems to be defined already:
   OutEdges*)(*Incoming currents at the exits are zero*)
   RuleExitCurrentsIn = ExitCurrents[jvars] /@ ExitNeighbors;(*Rule*)
   Kirchhoff = Kirchhoff /. Join[RuleExitCurrentsIn, RuleEntryOut];

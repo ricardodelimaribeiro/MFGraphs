@@ -464,7 +464,6 @@ IntM[j_?NumericQ, edge_] :=
         0.,
         j NIntegrate[ M[j, x, edge]^(alpha-1), {x, 0, 1}] // Quiet
     ]
-(*TODO : from previous guess, look at rhs, if m is negative, the corresponding j needs to be 0*)
 
         OutgoingEdges[FG_][k_] :=
             OtherWay /@ ({k, #} & /@ IncidenceList[FG, k]);

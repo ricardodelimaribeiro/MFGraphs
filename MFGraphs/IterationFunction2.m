@@ -13,7 +13,7 @@ Solver::usage =
 
 FixedReduceX1::usage = 
 "FixedReduceX1[MFGEquations][rules] gives the solution for the system when the RHS of the nonlinear equations have rules substituted in them.
-	MFGEquations should have the Keys EqAllAll, BoundaryRules, Nlhs, Nrhs, TOL";(*TODO review the keys...*)
+	MFGEquations should have the Keys EqAllAll, BoundaryRules, Nlhs, Nrhs, TOL";(*T ODO review the keys...*)
 
 CleanEqualitiesOperator::usage = 
 "CleanEqualitiesOperator[D2E][{system,rules}] returns an equivalent pair of system and rules without \"loose\" equalities. 
@@ -78,7 +78,6 @@ ZAnd[xp_, eq_Equal] :=
 ZAnd[xp_, orxp_Or] :=
     (ZAnd[xp, #] & /@ orxp) // RemoveDuplicates
     
-        (*TODO check that the structure is basically the same*)
 ZAnd[xp_, andxp_And] :=
     With[ {fst = First[andxp], rst = Rest[andxp]},
         Which[
@@ -101,7 +100,7 @@ ReZAnd[xp_,rst_,fst_Equal] :=
         ZAnd[(xp /. fsol) && And @@ (fsol /. Rule -> Equal) // Simplify, ReplaceSolution[rst, fsol]]
     ]
 
-(*TODO fix this if needed*)
+(*T ODO fix this if needed*)
 ReZAnd[xp_, rst_, fst_And] :=
     (
     Print["got And: ", fst];

@@ -246,8 +246,9 @@ is constant and equal to the exit cost.*)
    Nlhs = 
     Flatten[
      uvars[AtHead[#]] - uvars[AtTail[#]] + SignedCurrents[#] & /@ BEL];
+     (*TODO replace  - IntM for - Cost. if no Cost is given, use -IntM.*)
    Nrhs = 
-    Flatten[SignedCurrents[#] - IntM[SignedCurrents[#], #] & /@ BEL];
+    Flatten[SignedCurrents[#] - Cost[SignedCurrents[#], #] & /@ BEL];
   (*stuff to solve the general case faster*)
    costpluscurrents = 
     Table[Symbol["cpc" <> ToString[k]], {k, 1, Length@BEL}];
@@ -257,6 +258,7 @@ is constant and equal to the exit cost.*)
    costpluscurrents = AssociationThread[costpluscurrents, Nrhs];
    (*stuff to solve the general case faster*)
    (*list of all module variables, except for ModuleVars*)
+   (*TODO: write the cost function in this environment and see if it works outside*)
    ModuleVars = {VL, AM, EVC, EVTC, SC, BG, 
      EntranceVertices, InwardVertices, ExitVertices, OutwardVertices, 
      InEdges, OutEdges, AuxiliaryGraph, FG, EL, BEL, FVL, jargs, 
@@ -385,6 +387,14 @@ CriticalCongestionSolver[Eqs_] :=
    Join[PreEqs, Association["AssoCritical"-> AssoCritical]]
    ];
 
+CriticalCongestionReduce[Eqs_] := 
+  Module[{PreEqs, js, AssoCritical}, 
+   PreEqs = MFGPreprocessing[Eqs];
+   js = Lookup[PreEqs, "js",$Failed];
+   AssoCritical = MFGSystemReduce[PreEqs][AssociationThread[js, 0 js]];
+   Join[PreEqs, Association["AssoCritical"-> AssoCritical]]
+   ];
+
 MFGSystemSolver::usage = "MFGSystemSolver[Eqs][edgeEquations] returns \
 an association with rules to the solution";
 MFGSystemSolver[Eqs_][approxJs_] := 
@@ -407,18 +417,52 @@ MFGSystemSolver[Eqs_][approxJs_] :=
     {NewSystem, InitRules} = FinalClean[{Sys2Triple[NewSystem], InitRules}];
     NewSystem = Reduce[And @@ NewSystem, Reals];
     (*not checking if NewSystem is not True...*)
-    Print["MFGSS: Multiple solutions: ", {NewSystem, InitRules}];
+    Print["MFGSS: Multiple solutions: ", NewSystem (*{NewSystem, InitRules}*)];
     usR = Select[us, Not[FreeQ[NewSystem, #]] &];
     jjtsR = Select[Join[js, jts], Not[FreeQ[NewSystem, #]] &];
     vars = Join[usR, jjtsR];
     (*Have to pick one so that all the currents have numerical values*)
-    (*TODO: we want positive currents and transition currents. 
-    We may want to minimze if the remaining variable is u.*)
     pickOne = Association @ First @
        FindInstance[NewSystem && And @@ ((# > 0 )& /@ jjtsR), vars, 
         Reals];
     InitRules = Expand /@ Join[InitRules /. pickOne, pickOne];
-    Print["\tPicked one value for the variable(s) ", vars, InitRules/@vars]
+    Print["\tPicked one value for the variable(s) ", vars, " ", InitRules/@vars, " (respectively)"]
+    ];
+    (*Print[InitRules];*)
+    InitRules = Join[KeyTake[InitRules, us], KeyTake[InitRules, js], KeyTake[InitRules, jts]];
+    InitRules
+    ];
+
+MFGSystemReduce[Eqs_][approxJs_] := 
+  Module[{NewSystem, InitRules, pickOne, vars, System, Ncpc,
+  	costpluscurrents, us, js, jts, usR, jjtsR}, 
+   us = Lookup[Eqs, "us", $Failed];
+   js = Lookup[Eqs, "js", $Failed];
+   jts = Lookup[Eqs, "jts", $Failed];
+   InitRules = Lookup[Eqs, "InitRules", $Failed];
+   NewSystem = Lookup[Eqs, "NewSystem", $Failed];
+   costpluscurrents = Lookup[Eqs, "costpluscurrents", $Failed];
+   Ncpc = RoundValues @ (Expand/@(costpluscurrents /. approxJs));
+   InitRules = Expand/@(InitRules /. Ncpc);
+   NewSystem = NewSystem /. Ncpc;
+   {NewSystem, InitRules} = FinalReduce[{NewSystem, InitRules}];
+   System = And @@ NewSystem;
+   Which[System === False, Print["MFGSS: There is no solution"], 
+    System =!= True, 
+    NewSystem = Reduce[System, Reals];
+    {NewSystem, InitRules} = FinalReduce[{Sys2Triple[NewSystem], InitRules}];
+    NewSystem = Reduce[And @@ NewSystem, Reals];
+    (*not checking if NewSystem is not True...*)
+    Print["MFGSS: Multiple solutions: ", NewSystem (*{NewSystem, InitRules}*)];
+    usR = Select[us, Not[FreeQ[NewSystem, #]] &];
+    jjtsR = Select[Join[js, jts], Not[FreeQ[NewSystem, #]] &];
+    vars = Join[usR, jjtsR];
+    (*Have to pick one so that all the currents have numerical values*)
+    pickOne = Association @ First @
+       FindInstance[NewSystem && And @@ ((# > 0 )& /@ jjtsR), vars, 
+        Reals];
+    InitRules = Expand /@ Join[InitRules /. pickOne, pickOne];
+    Print["\tPicked one value for the variable(s) ", vars, " ", InitRules/@vars, " (respectively)"]
     ];
     (*Print[InitRules];*)
     InitRules = Join[KeyTake[InitRules, us], KeyTake[InitRules, js], KeyTake[InitRules, jts]];
@@ -440,6 +484,22 @@ FinalStep[{{EE_, NN_, OO_}, rules_}] :=
    If[Head[NewSystem] === Or, NewSystem = Sort /@ NewSystem];
    NewSystem = Sys2Triple[NewSystem];
    {NewSystem, newrules}];
+
+FinalReduceStep[{{EE_, NN_, OO_}, rules_}] := 
+  Module[{NewSystem, newrules, sorted, time}, 
+  	{NewSystem, newrules} = TripleClean[{{EE, NN, OO}, rules}];
+   If[Part[NewSystem, 3] === True, sorted = True, 
+    sorted = ReverseSortBy[Part[NewSystem, 3], Simplify`SimplifyCount]];
+    Print["Reducing ", And @@ Take[NewSystem, {1, 2}] && If[Part[NewSystem, 3] === True, True, sorted]," ..."];
+    {time, NewSystem} = AbsoluteTiming[Reduce[And @@ Take[NewSystem, {1, 2}] 
+      && If[Part[NewSystem, 3] === True, True, sorted], Reals]];
+   Print["Reduce took ", time, " seconds to terminate"];
+   If[Head[NewSystem] === Or, NewSystem = Sort /@ NewSystem];
+   NewSystem = Sys2Triple[NewSystem];
+   {NewSystem, newrules}];
+   
+FinalReduce[{{EE_, NN_, OR_}, rules_}] := 
+	(FixedPoint[FinalReduceStep, {{EE, NN, OR}, rules}])
 
 FinalClean[{{EE_, NN_, OR_}, rules_}] := 
 	(FixedPoint[FinalStep, {{EE, NN, OR}, rules}])
