@@ -480,7 +480,7 @@ FinalStep[{{EE_, NN_, OO_}, rules_}] :=
     {time, NewSystem} = 
     AbsoluteTiming[ZAnd[And @@ Take[NewSystem, {1, 2}], 
        If[Part[NewSystem, 3] === True, True, sorted]]];
-   Print["Iterative boolean convert took ", time, " seconds to terminate"];
+   Print["Iterative DNF convertion took ", time, " seconds to terminate"];
    If[Head[NewSystem] === Or, NewSystem = Sort /@ NewSystem];
    NewSystem = Sys2Triple[NewSystem];
    {NewSystem, newrules}];
@@ -509,16 +509,22 @@ Sys2Triple[True] = Table[True, 3]
 Sys2Triple[False] = Table[False, 3]
 
 Sys2Triple[system_] := 
-  Which[Head[system] === And, 
-   Module[{groups, EE, OR, NN}, 
-    groups = GroupBy[List @@ system, Head[#] === Equal &];
-    EE = And @@ Lookup[groups, True, {}];
-    groups = GroupBy[Lookup[groups, False, {}], Head[#] === Or &];
-    OR = And @@ Lookup[groups, True, True];
-    NN = And @@ Lookup[groups, False, True];
-    {EE, NN, OR}], Head[system] === Equal, {system, True, True}, 
-   Head[system] === Or, {True, True, system}, 
-   True, {True, system, True}];
+  Which[
+   Head[system] === And, 
+    Module[{groups, EE, OR, NN}, 
+     groups = GroupBy[List @@ system, Head[#] === Equal &];
+     EE = And @@ Lookup[groups, True, {}];
+     groups = GroupBy[Lookup[groups, False, {}], Head[#] === Or &];
+     OR = And @@ Lookup[groups, True, True];
+     NN = And @@ Lookup[groups, False, True];
+     {EE, NN, OR}
+     ], 
+   Head[system] === Equal, 
+    {system, True, True}, 
+   Head[system] === Or, 
+   	{True, True, system}, 
+   True, 
+   	{True, system, True}];
 
 TripleStep[{{EEs_, NNs_, ORs_}, rules_List}] := 
  TripleStep[{{EEs, NNs, ORs}, Association@rules}]
