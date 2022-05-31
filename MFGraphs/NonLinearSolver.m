@@ -77,7 +77,7 @@ RoundValues[x_List] := RoundValues /@ x
 
 RoundValues[x_Association] := RoundValues /@ x
 
-alpha[edge_]:= 1.2
+alpha[edge_]:= 0.8
 
 g[m_, edge_]:= m
 
@@ -107,4 +107,4 @@ IntM[j_?NumericQ, edge_] :=
  If[j == 0. || j == 0, 0., 
   j NIntegrate[M[j, x, edge]^(alpha[edge] - 1), {x, 0, 1}] // Quiet];
 
-Cost[j_, edge_] := -IntM[j, edge];
+Cost[j_, edge_] := IntM[j, edge];

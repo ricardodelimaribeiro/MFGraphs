@@ -248,7 +248,7 @@ is constant and equal to the exit cost.*)
      uvars[AtHead[#]] - uvars[AtTail[#]] + SignedCurrents[#] & /@ BEL];
      (*TODO replace  - IntM for - Cost. if no Cost is given, use -IntM.*)
    Nrhs = 
-    Flatten[SignedCurrents[#] - Cost[SignedCurrents[#], #] & /@ BEL];
+    Flatten[SignedCurrents[#] + (*Sign[SignedCurrents[#]]**)Cost[SignedCurrents[#], #] & /@ BEL];
   (*stuff to solve the general case faster*)
    costpluscurrents = 
     Table[Symbol["cpc" <> ToString[k]], {k, 1, Length@BEL}];
