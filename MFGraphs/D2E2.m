@@ -183,8 +183,8 @@ vertices*)
    ];
    CostArgs = 
     Join[AssociationMap[Identity &, Normal@jargs], ZeroRun, 
-     AssociationMap[(10^(-4) &) &, Normal@Keys@SwitchingCosts], 
-     AssociationMap[(10^4 &) &, LargeSwitchingTransitions]];
+     AssociationMap[(10^(-6) &) &, Normal@Keys@SwitchingCosts], 
+     AssociationMap[(10^6 &) &, LargeSwitchingTransitions]];
    EqPosJs = And @@ (# >= 0 & /@ Join[jvars]);(*Inequality*)
    EqPosJts = And @@ (# >= 0 & /@ Join[jtvars]);(*Inequality*)
    EqCurrentCompCon = And @@ (CurrentCompCon[jvars] /@ EL);(*Or*)
@@ -247,8 +247,9 @@ is constant and equal to the exit cost.*)
     Flatten[
      uvars[AtHead[#]] - uvars[AtTail[#]] + SignedCurrents[#] & /@ BEL];
      (*TODO replace  - IntM for - Cost. if no Cost is given, use -IntM.*)
+   (*SignedCurrents[#] = jvars[AtHead[#]] - jvars[AtTail[#]*)
    Nrhs = 
-    Flatten[SignedCurrents[#] + (*Sign[SignedCurrents[#]]**)Cost[SignedCurrents[#], #] & /@ BEL];
+    Flatten[SignedCurrents[#] - Sign[SignedCurrents[#]] Cost[SignedCurrents[#], #] & /@ BEL];
   (*stuff to solve the general case faster*)
    costpluscurrents = 
     Table[Symbol["cpc" <> ToString[k]], {k, 1, Length@BEL}];
@@ -476,10 +477,10 @@ FinalStep[{{EE_, NN_, OO_}, rules_}] :=
   Module[{NewSystem, newrules, sorted, time}, 
   	{NewSystem, newrules} = TripleClean[{{EE, NN, OO}, rules}];
    If[Part[NewSystem, 3] === True, sorted = True, 
-    sorted = ReverseSortBy[Part[NewSystem, 3], Simplify`SimplifyCount]];
-    {time, NewSystem} = 
-    AbsoluteTiming[ZAnd[And @@ Take[NewSystem, {1, 2}], 
-       If[Part[NewSystem, 3] === True, True, sorted]]];
+    sorted = DeleteDuplicates[ReverseSortBy[Part[NewSystem, 3], Simplify`SimplifyCount]]];
+    (*Print["Simplifying :\n", {Take[NewSystem,{1,2}],sorted}];*)
+    	{time, NewSystem} = 
+    AbsoluteTiming[ZAnd[And @@ Take[NewSystem, {1, 2}], sorted]];
    Print["Iterative DNF convertion took ", time, " seconds to terminate"];
    If[Head[NewSystem] === Or, NewSystem = Sort /@ NewSystem];
    NewSystem = Sys2Triple[NewSystem];

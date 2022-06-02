@@ -27,7 +27,8 @@ NonLinearStep[Eqs_][approxSol_] :=
      	Nlhs = Lookup[Eqs, "Nlhs", $Failed];
      	approxJs = KeyTake[approxSol, js];
 		approx = MFGSystemSolver[Eqs][approxJs];
-		Print["Max error for non-linear solution: ", Norm[N[Nlhs/.approx]-(Nrhs/.approx),Infinity]];
+		(*Print["Max error for non-linear solution: ", Norm[N[Nlhs/.approx]-(Nrhs/.approx),Infinity]];*)
+		Print[N[Nlhs/.approx],"\n",(Nrhs/.approx)];
 		approx
 	];
 	
@@ -52,8 +53,8 @@ Module[{EqEntryIn, EqValueAuxiliaryEdges, EqSwitchingByVertex, EqCompCon,
      bool = (EqEntryIn&&EqValueAuxiliaryEdges&&EqCompCon&&
      	EqBalanceSplittingCurrents&&EqCurrentCompCon&&EqTransitionCompCon&&
      	EqPosJs&&EqPosJts&&EqSwitchingByVertex)/.assoc;
-     If[False, Print["All restrictions are ", styleg@"True"],
-     (*Print["At least one of the restrictions is ", styler@bool];*)
+     If[bool, Print["All restrictions are ", styleg@"True"],
+     Print["At least one of the restrictions is ", styler@bool];
      Print[style@"EqEntryIn: ", EqEntryIn/.assoc, "\n", EqEntryIn];
      Print[style@"EqValueAuxiliaryEdges: ", EqValueAuxiliaryEdges/.assoc, "\n", EqValueAuxiliaryEdges];
      Print[style@"EqCompCon: ", EqCompCon/.assoc, "\n", EqCompCon];
@@ -77,7 +78,7 @@ RoundValues[x_List] := RoundValues /@ x
 
 RoundValues[x_Association] := RoundValues /@ x
 
-alpha[edge_]:= 0.8
+alpha[edge_]:= 1
 
 g[m_, edge_]:= m
 
@@ -98,13 +99,42 @@ edge is an edge from the graph, i.e. DirectedEdge[r,i]."
 H = Function[{xi,p,m, edge}, p^2/(2 m^alpha[edge]) + V[xi, edge] - g[m, edge]];
 
 (*H[xi_,p_,m_, edge_]:= p^2/(2 m^alpha[edge]) + V[xi, edge] - g[m, edge];*)
+U::usage =
+"U[x, edge, Eqs, sol]"
+U[x_?NumericQ , edge_, Eqs_Association, sol_] :=
+	Module[{jay, uT},
+		jay = Eqs["SignedCurrents"][edge]/.sol;
+		uT = Eqs["uvars"][AtTail[edge]]/.sol;
+    If[ jay == 0.|| jay == 0,
+        uT,
+        uT - jay NIntegrate[M[jay, y, edge]^(alpha[edge] - 1), {y, 0, x}]
+    ]
+	]
 
 M[j_?NumericQ, x_?NumericQ, edge_] := 
  If[j == 0. || j == 0, 0., 
-  Values@First@FindRoot[H[x, -j/(m^(1 - alpha[edge])), m, edge], {m, 1}]];
+  Values@First@FindRoot[H[x, -j m^(alpha[edge] - 1), m, edge], {m, 1}]];
 
 IntM[j_?NumericQ, edge_] := 
- If[j == 0. || j == 0, 0., 
+ If[j == 0. || j == 0, 0, 
   j NIntegrate[M[j, x, edge]^(alpha[edge] - 1), {x, 0, 1}] // Quiet];
 
-Cost[j_, edge_] := IntM[j, edge];
+Cost[j_, edge_] := Abs[IntM[j, edge]];
+
+plotM[Eqs_, string_, edge_] := Module[{jays, sol},
+  sol = Eqs[string];
+  jays = Eqs["SignedCurrents"][edge] /. sol;
+  sol = Eqs[string];
+  Plot[M[jays /. sol, x, edge], {x, 0, 1}, 
+   PlotLabel -> edge,(*PlotRange\[Rule]{-0.1,2.4},*)
+   GridLines -> Automatic]]
+   
+plotMs[Eqs_, string_] := plotM[Eqs, string, #] & /@ crit["BEL"];
+    
+plotU[Eqs_, string_, edge_] := Module[{sol},
+   sol = Eqs[string];
+   Plot[U[x, edge, Eqs, sol], {x, 0, 1}, PlotLabel -> edge(*,
+    PlotRange\[Rule]{1-0.1,4.7}*), GridLines -> Automatic]
+   ];
+
+plotUs[Eqs_, string_] := plotU[Eqs, string, #] & /@ Eqs["BEL"]

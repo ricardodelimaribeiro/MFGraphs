@@ -456,7 +456,7 @@ U[x_?NumericQ , edge_, Eqs_Association] :=
     ]
      
 Cost[current_, edge_] :=
-    IntM[current,edge];
+    Abs[IntM[current,edge]];
 
    
 IntM[j_?NumericQ, edge_] :=
