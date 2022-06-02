@@ -172,7 +172,7 @@ vertices*)
    LargeSwitchingTransitions = 
     Cases[AllTransitions, #] & /@ LargeCases // Flatten[#, 1] &;
    AssociateTo[SwitchingCosts, 
-    AssociationMap[1000000 &, LargeSwitchingTransitions]];
+    AssociationMap[Infinity &, LargeSwitchingTransitions]];
    consistentCosts = 
     IsSwitchingCostConsistent[Normal@SwitchingCosts];
    Which[consistentCosts === False, 
