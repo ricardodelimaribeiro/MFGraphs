@@ -240,6 +240,7 @@ is constant and equal to the exit cost.*)
    EqSwitchingByVertex = 
     Transu[uvars, SwitchingCosts] /@ TransitionsAt[FG, #] & /@ VL;
    EqSwitchingByVertex = (And @@ #) & /@ EqSwitchingByVertex;
+   EqSwitchingByVertex = Select[#,FreeQ[Infinity]]&/@EqSwitchingByVertex;
    EqCompCon = 
     And @@ 
      Compu[jtvars, uvars, SwitchingCosts] /@ AllTransitions;(*Or*)
@@ -478,7 +479,7 @@ FinalStep[{{EE_, NN_, OO_}, rules_}] :=
   	{NewSystem, newrules} = TripleClean[{{EE, NN, OO}, rules}];
    If[Part[NewSystem, 3] === True, sorted = True, 
     sorted = DeleteDuplicates[ReverseSortBy[Part[NewSystem, 3], Simplify`SimplifyCount]]];
-    (*Print["Simplifying :\n", {Take[NewSystem,{1,2}],sorted}];*)
+    (*Print["Simplifying :\n", Join[Take[NewSystem,{1,2}],{sorted}]];*)
     	{time, NewSystem} = 
     AbsoluteTiming[ZAnd[And @@ Take[NewSystem, {1, 2}], sorted]];
    Print["Iterative DNF convertion took ", time, " seconds to terminate"];
