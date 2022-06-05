@@ -478,7 +478,10 @@ FinalStep[{{EE_, NN_, OO_}, rules_}] :=
   Module[{NewSystem, newrules, sorted, time}, 
   	{NewSystem, newrules} = TripleClean[{{EE, NN, OO}, rules}];
    If[Part[NewSystem, 3] === True, sorted = True, 
-    sorted = DeleteDuplicates[ReverseSortBy[Part[NewSystem, 3], Simplify`SimplifyCount]]];
+    (*sorted = DeleteDuplicates[ReverseSortBy[Part[NewSystem, 3], Simplify`SimplifyCount]]];*)
+    (*sorted = DeleteDuplicates[SortBy[Part[NewSystem, 3], Simplify`SimplifyCount]]];*)
+    (*sorted = DeleteDuplicates[Part[NewSystem, 3]]];*)
+    sorted = DeleteDuplicates[Sort[Part[NewSystem, 3]]]];
     (*Print["Simplifying :\n", Join[Take[NewSystem,{1,2}],{sorted}]];*)
     	{time, NewSystem} = 
     AbsoluteTiming[ZAnd[And @@ Take[NewSystem, {1, 2}], sorted]];
