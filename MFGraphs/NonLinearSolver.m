@@ -21,14 +21,16 @@ NonLinear[Eqs_] :=
    ];
 
 NonLinearStep[Eqs_][approxSol_] := 
-	Module[{approxJs, approx, js, Nrhs, Nlhs},
+	Module[{approxJs, approx, js, Nrhs, Nlhs, Newlhs, Newrhs},
 		js = Lookup[Eqs, "js", $Failed];
 		Nrhs = Lookup[Eqs, "Nrhs", $Failed];
      	Nlhs = Lookup[Eqs, "Nlhs", $Failed];
      	approxJs = KeyTake[approxSol, js];
 		approx = MFGSystemSolver[Eqs][approxJs];
-		(*Print["Max error for non-linear solution: ", Norm[N[Nlhs/.approx]-(Nrhs/.approx),Infinity]];*)
-		Print[N[Nlhs/.approx],"\n",(Nrhs/.approx)];
+		Newlhs = N[Nlhs/.approx];
+		Newrhs = Nrhs/.approx;
+		Print[Newlhs,"\n",Newrhs];
+		Print["Max error for non-linear solution: ", Norm[Newlhs-Newrhs,Infinity]];
 		approx
 	];
 	
