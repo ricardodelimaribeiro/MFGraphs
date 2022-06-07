@@ -447,12 +447,12 @@ MFGSystemReduce[Eqs_][approxJs_] :=
    Ncpc = RoundValues @ (Expand/@(costpluscurrents /. approxJs));
    InitRules = Expand/@(InitRules /. Ncpc);
    NewSystem = NewSystem /. Ncpc;
-   {NewSystem, InitRules} = FinalReduce[{NewSystem, InitRules}];
+   {NewSystem, InitRules} = FinalClean[{NewSystem, InitRules}];
    System = And @@ NewSystem;
    Which[System === False, Print["MFGSS: There is no solution"], 
     System =!= True, 
     NewSystem = Reduce[System, Reals];
-    {NewSystem, InitRules} = FinalReduce[{Sys2Triple[NewSystem], InitRules}];
+    {NewSystem, InitRules} = FinalClean[{Sys2Triple[NewSystem], InitRules}];
     NewSystem = Reduce[And @@ NewSystem, Reals];
     (*not checking if NewSystem is not True...*)
     Print["MFGSS: Multiple solutions: ", NewSystem (*{NewSystem, InitRules}*)];
@@ -481,22 +481,26 @@ FinalStep[{{EE_, NN_, OO_}, rules_}] :=
     (*sorted = DeleteDuplicates[ReverseSortBy[Part[NewSystem, 3], Simplify`SimplifyCount]]];*)
     (*sorted = DeleteDuplicates[SortBy[Part[NewSystem, 3], Simplify`SimplifyCount]]];*)
     (*sorted = DeleteDuplicates[Part[NewSystem, 3]]];*)
-    sorted = DeleteDuplicates[Sort[Part[NewSystem, 3]]]];
-    (*Print["Simplifying :\n", Join[Take[NewSystem,{1,2}],{sorted}]];*)
+    sorted = RemoveDuplicates[Part[NewSystem, 3]]
+    ];
+    Print["Simplifying :\n", Join[Take[NewSystem,{1,2}],{sorted}]];
     	{time, NewSystem} = 
     AbsoluteTiming[ZAnd[And @@ Take[NewSystem, {1, 2}], sorted]];
    Print["Iterative DNF convertion took ", time, " seconds to terminate"];
-   If[Head[NewSystem] === Or, NewSystem = Sort /@ NewSystem];
+   If[Head[NewSystem] === Or, NewSystem = SortOp /@ NewSystem];
    NewSystem = Sys2Triple[NewSystem];
    {NewSystem, newrules}];
 
 FinalReduceStep[{{EE_, NN_, OO_}, rules_}] := 
   Module[{NewSystem, newrules, sorted, time}, 
   	{NewSystem, newrules} = TripleClean[{{EE, NN, OO}, rules}];
-   If[Part[NewSystem, 3] === True, sorted = True, 
-    sorted = ReverseSortBy[Part[NewSystem, 3], Simplify`SimplifyCount]];
-    Print["Reducing ", And @@ Take[NewSystem, {1, 2}] && If[Part[NewSystem, 3] === True, True, sorted]," ..."];
-    {time, NewSystem} = AbsoluteTiming[Reduce[And @@ Take[NewSystem, {1, 2}] 
+  	oo=Part[NewSystem, 3];
+   If[oo === True, sorted = True, 
+    sorted = SortOp[Part[NewSystem, 3], Simplify`SimplifyCount]];
+    fst=And @@ Take[NewSystem, {1, 2}];
+    
+    Print["Reducing ", fst && If[oo === True, True, sorted]," ..."];
+    	{time, NewSystem} = AbsoluteTiming[Reduce[fst 
       && If[Part[NewSystem, 3] === True, True, sorted], Reals]];
    Print["Reduce took ", time, " seconds to terminate"];
    If[Head[NewSystem] === Or, NewSystem = Sort /@ NewSystem];
@@ -589,13 +593,13 @@ ZAnd[xp_, eq_Equal] :=
    False, (xp /. First@sol) && And @@ (First@sol /. Rule -> Equal) // 
     Simplify]]
 
-ZAnd[xp_, andxp_And] := 
- With[{fst = First[andxp], rst = Rest[andxp]}, 
-  Which[Head[fst] === Or, ReZAnd[xp, rst] /@ fst // RemoveDuplicates, 
+ZAnd[xp_, And[fst_,rst_]] := 
+ With[{head=Head[fst]}, 
+  Which[head === Or, ReZAnd[xp, rst] /@ fst // RemoveDuplicates, 
    True, ReZAnd[xp, rst, fst]]]
 
 ZAnd[xp_, orxp_Or] := (
-  (ZAnd[xp, #] & /@ orxp) // RemoveDuplicates)
+  (ZAnd[xp// RemoveDuplicates, #] & /@ orxp// RemoveDuplicates) // RemoveDuplicates)
 
 ZAnd[xp_, leq_] := Simplify[xp && leq]
 
@@ -612,12 +616,18 @@ ReZAnd[xp_, rst_, fst_] := ZAnd[xp && fst, rst]
 
 ReplaceSolution[rst_?BooleanQ, sol_] := rst
 
-ReplaceSolution[rst_, sol_] := Module[{newrst}, newrst = rst /. sol;
+(*ReplaceSolution[rst_, sol_] := Module[{newrst}, newrst = rst /. sol;
   If[Head[newrst] === And, Reduce[#, Reals] & /@ newrst, 
-   Reduce[newrst, Reals]]]
+   Reduce[newrst, Reals]]]*)
 
-RemoveDuplicates[xp_And] := DeleteDuplicates[Sort[xp]];
+ReplaceSolution[rst_, sol_] := Module[{newrst}, newrst = rst /. sol;
+  If[Head[newrst] === And, Simplify /@ newrst, 
+   Simplify[newrst]]]
 
-RemoveDuplicates[xp_Or] := DeleteDuplicates[Sort[xp]];
+SortOp = ReverseSortBy[Simplify`SimplifyCount]
+
+RemoveDuplicates[xp_And] := DeleteDuplicates[SortOp[xp]];
+
+RemoveDuplicates[xp_Or] := DeleteDuplicates[SortOp[xp]];
 
 RemoveDuplicates[xp_] := xp

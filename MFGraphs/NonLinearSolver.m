@@ -84,15 +84,15 @@ alpha[edge_]:= 1
 
 g[m_, edge_]:= m
 
-A = 0;
-
-W::usage =
-""
-W = Function[{y, a}, a Sin[2 Pi (y + 1/4)]^2];
+A = 0.5;
 
 V::usage = 
 ""
 V = Function[{x, edge}, W[x, A]];
+
+W::usage =
+""
+W = Function[{y, a}, a Sin[2 Pi (y + 1/4)]^2];
 
 H::usage = (*TODO include the other parameter here, if we call it beta, change the the other beta!*)
 "H[xi,p,m, edge] is the Hamiltonian function for the edges.
