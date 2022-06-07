@@ -72,7 +72,7 @@ Module[{EqEntryIn, EqValueAuxiliaryEdges, EqSwitchingByVertex, EqCompCon,
      N@assoc
 	];
 	
-RoundValues[x_?NumberQ] := Round[x, 10^-10]
+RoundValues[x_?NumberQ] := Round[x, 10^-12]
 
 RoundValues[Rule[a_, b_]] := Rule[a, RoundValues[b]]
 
@@ -80,6 +80,7 @@ RoundValues[x_List] := RoundValues /@ x
 
 RoundValues[x_Association] := RoundValues /@ x
 
+Clear[alpha];
 alpha[edge_]:= 1
 
 g[m_, edge_]:= m

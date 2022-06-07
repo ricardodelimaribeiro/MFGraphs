@@ -145,7 +145,7 @@ vertices*)
            DirectedEdge[_, #]] & /@ (First /@ EVC)) // 
        Flatten[#, 1] &);
    ZeroRun = 
-    AssociationMap[(0 &) &][AtHead /@ Join[InEdges, OutEdges]];
+    AssociationMap[0 &][AtHead /@ Join[InEdges, OutEdges]];
    EntryDataAssociation = 
     RoundValues@AssociationThread[EntryArgs, Last /@ EVC];
    ExitCosts = 
@@ -182,15 +182,17 @@ vertices*)
     Print["Switching costs conditions are ", consistentCosts]
    ];
    CostArgs = 
-    Join[AssociationMap[Identity &, Normal@jargs], ZeroRun, 
-     AssociationMap[(10^(-6) &) &, Normal@Keys@SwitchingCosts], 
-     AssociationMap[(10^6 &) &, LargeSwitchingTransitions]];
+    Join[
+   	AssociationMap[Function[x,Abs[SignedCurrents[Last[x]]] + jvars[x]jvars[OtherWay[x]]], jargs], ZeroRun, 
+     SwitchingCosts/.{0->10^-6,Infinity->10^6}, 
+     AssociationMap[10^6 &, LargeSwitchingTransitions]];
    EqPosJs = And @@ (# >= 0 & /@ Join[jvars]);(*Inequality*)
    EqPosJts = And @@ (# >= 0 & /@ Join[jtvars]);(*Inequality*)
    EqCurrentCompCon = And @@ (CurrentCompCon[jvars] /@ EL);(*Or*)
    EqTransitionCompCon = 
     And @@ ((Sort /@ TransitionCompCon[jtvars] /@ AllTransitions) // 
-       Union);(*Or*)(*Balance Splitting Currents in the full graph*)
+       Union);(*Or*)
+       (*Balance Splitting Currents in the full graph*)
    NoDeadEnds = IncomingEdges[FG] /@ VL // Flatten[#, 1] &;
    BalanceSplittingCurrents = ((jvars[#] - 
          Total[jtvars /@ CurrentSplitting[AllTransitions][#]]) & /@ 
@@ -222,12 +224,14 @@ the entry vertices*)
    RuleExitValues = 
     Association[
      ExitRules[uvars, ExitCosts] /@ 
-      OutEdges];(*Rule*)(*The value function on the auxiliary edges \
+      OutEdges];(*Rule*)
+      (*The value function on the auxiliary edges \
 is constant and equal to the exit cost.*)
    EqValueAuxiliaryEdges = 
     And @@ ((uvars[AtTail[#]] == uvars[AtHead[#]]) & /@ 
        Join[InEdges, 
-        OutEdges]);(*Equal*)(*use ToRules to get the rules*)
+        OutEdges]);(*Equal*)
+        (*use ToRules to get the rules*)
    OutRules = 
     Rule[#, 
        Infinity] & /@ (Outer[Flatten[{AtTail[#1], #2}] &, OutEdges, 
@@ -247,7 +251,6 @@ is constant and equal to the exit cost.*)
    Nlhs = 
     Flatten[
      uvars[AtHead[#]] - uvars[AtTail[#]] + SignedCurrents[#] & /@ BEL];
-     (*TODO replace  - IntM for - Cost. if no Cost is given, use -IntM.*)
    (*SignedCurrents[#] = jvars[AtHead[#]] - jvars[AtTail[#]*)
    Nrhs = 
     Flatten[SignedCurrents[#] - Sign[SignedCurrents[#]] Cost[SignedCurrents[#], #] & /@ BEL];
@@ -260,7 +263,6 @@ is constant and equal to the exit cost.*)
    costpluscurrents = AssociationThread[costpluscurrents, Nrhs];
    (*stuff to solve the general case faster*)
    (*list of all module variables, except for ModuleVars*)
-   (*TODO: write the cost function in this environment and see if it works outside*)
    ModuleVars = {VL, AM, EVC, EVTC, SC, BG, 
      EntranceVertices, InwardVertices, ExitVertices, OutwardVertices, 
      InEdges, OutEdges, AuxiliaryGraph, FG, EL, BEL, FVL, jargs, 
@@ -306,20 +308,23 @@ GetKirchhoffMatrix[Eqs_] :=
     RuleEntryOut = Lookup[Eqs, "RuleEntryOut", {}], BM, KM, vars, 
     CostArgs = Lookup[Eqs, "CostArgs", <||>], 
     jvars = Lookup[Eqs, "jvars", {}], 
-    jtvars = Lookup[Eqs, "jtvars", {}], cost}, 
+    jtvars = Lookup[Eqs, "jtvars", {}], cost, CCost}, 
    Kirchhoff = 
     Join[
      EqEntryIn, (# == 0 & /@ (BalanceGatheringCurrents + 
          BalanceSplittingCurrents))];
    Kirchhoff = Kirchhoff /. Join[RuleExitCurrentsIn, RuleEntryOut];
+   vars = Select[Values@Join[jvars,jtvars],
+   	MemberQ[Variables[Kirchhoff /. Equal -> List],#]&];
    {BM, KM} = 
     CoefficientArrays[Kirchhoff, 
-     vars = Variables[Kirchhoff /. Equal -> Plus]];
+     vars];
    cost = 
-    Function[currents, 
-     MapThread[#1[#2] &, {KeyMap[Join[jvars, jtvars]][CostArgs] /@ 
-        vars, currents}]];
-   {-BM, KM, cost, vars}];
+    AssociationThread[vars,  KeyMap[Join[jvars, jtvars]][CostArgs] /@ 
+        vars];
+   CCost = cost /@ vars /. MapThread[Rule, {vars, #}] &;
+   (*cost=Function[currents,cost/@currents];*)
+   {-BM, KM, CCost, vars}];
 
 MFGPreprocessing[Eqs_] := 
   Module[{InitRules, RuleBalanceGatheringCurrents, EqEntryIn, 
@@ -478,15 +483,12 @@ FinalStep[{{EE_, NN_, OO_}, rules_}] :=
   Module[{NewSystem, newrules, sorted, time}, 
   	{NewSystem, newrules} = TripleClean[{{EE, NN, OO}, rules}];
    If[Part[NewSystem, 3] === True, sorted = True, 
-    (*sorted = DeleteDuplicates[ReverseSortBy[Part[NewSystem, 3], Simplify`SimplifyCount]]];*)
-    (*sorted = DeleteDuplicates[SortBy[Part[NewSystem, 3], Simplify`SimplifyCount]]];*)
-    (*sorted = DeleteDuplicates[Part[NewSystem, 3]]];*)
-    sorted = DeleteDuplicates[Sort[Part[NewSystem, 3]]]];
-    (*Print["Simplifying :\n", Join[Take[NewSystem,{1,2}],{sorted}]];*)
+    sorted = RemoveDuplicates[Part[NewSystem, 3]]];
+    Print["Simplifying :\n", Join[Take[NewSystem,{1,2}],{sorted}]];
     	{time, NewSystem} = 
     AbsoluteTiming[ZAnd[And @@ Take[NewSystem, {1, 2}], sorted]];
    Print["Iterative DNF convertion took ", time, " seconds to terminate"];
-   If[Head[NewSystem] === Or, NewSystem = Sort /@ NewSystem];
+   If[Head[NewSystem] === Or, NewSystem = SortOp /@ NewSystem];
    NewSystem = Sys2Triple[NewSystem];
    {NewSystem, newrules}];
 
@@ -494,12 +496,12 @@ FinalReduceStep[{{EE_, NN_, OO_}, rules_}] :=
   Module[{NewSystem, newrules, sorted, time}, 
   	{NewSystem, newrules} = TripleClean[{{EE, NN, OO}, rules}];
    If[Part[NewSystem, 3] === True, sorted = True, 
-    sorted = ReverseSortBy[Part[NewSystem, 3], Simplify`SimplifyCount]];
+    sorted = SortBy[Part[NewSystem, 3], Simplify`SimplifyCount]];
     Print["Reducing ", And @@ Take[NewSystem, {1, 2}] && If[Part[NewSystem, 3] === True, True, sorted]," ..."];
     {time, NewSystem} = AbsoluteTiming[Reduce[And @@ Take[NewSystem, {1, 2}] 
       && If[Part[NewSystem, 3] === True, True, sorted], Reals]];
    Print["Reduce took ", time, " seconds to terminate"];
-   If[Head[NewSystem] === Or, NewSystem = Sort /@ NewSystem];
+   If[Head[NewSystem] === Or, NewSystem = SortOp (*/*)@ NewSystem];
    NewSystem = Sys2Triple[NewSystem];
    {NewSystem, newrules}];
    
@@ -586,38 +588,63 @@ ZAnd[xp_, True] := xp
 ZAnd[xp_, eq_Equal] := 
  With[{sol = Solve[eq]}, 
   If[sol === {}, 
-   False, (xp /. First@sol) && And @@ (First@sol /. Rule -> Equal) // 
-    Simplify]]
+   False, (xp /. First@sol) && And @@ (First@sol /. Rule -> Equal) (*// 
+    Simplify*)]]
 
-ZAnd[xp_, andxp_And] := 
- With[{fst = First[andxp], rst = Rest[andxp]}, 
-  Which[Head[fst] === Or, ReZAnd[xp, rst] /@ fst // RemoveDuplicates, 
+ZAnd[xp_, And[fst_,rst_]] := 
+ With[{head=Head[fst]}, 
+  Which[head === Or, ReZAnd[xp, rst] /@ fst // RemoveDuplicates, 
    True, ReZAnd[xp, rst, fst]]]
 
 ZAnd[xp_, orxp_Or] := (
-  (ZAnd[xp, #] & /@ orxp) // RemoveDuplicates)
+  (ZAnd[xp, #] & /@ orxp) (*// RemoveDuplicates*))
 
-ZAnd[xp_, leq_] := Simplify[xp && leq]
+ZAnd[xp_, leq_] := (
+Print["Simplifying last term inequality(?)..."];
+Simplify[xp && leq])
 
 (*Operator form of ReZAnd*)
 ReZAnd[xp_, rst_] := ReZAnd[xp, rst, #] &
 
 ReZAnd[xp_, rst_, fst_Equal] := 
- Module[{fsol = First@Solve@fst // Quiet, newrst, newxp}, 
-  newrst = ReplaceSolution[rst, fsol];
+ Module[{sol = Solve[fst, Reals], fsol, newrst = False, newxp = False}, 
+  If[sol == {},
+  	False,
+  fsol = First@sol;
+  newrst= ReplaceSolution[rst , fsol];
   newxp = xp /. fsol;
-  ZAnd[newxp && fst, newrst]]
+  (*Print[fsol];*)
+  ZAnd[newxp && And @@ fsol /. {Rule -> Equal}, newrst]
+  ]
+  (*newrst = ReplaceSolution[rst, fsol];*)
+  
+  (*If[Head[newrst]===And, 
+  	Print["Simplifying rst..."];
+  	newrst=Simplify/@newrst,
+  	Simplify[newrst]];*)
+  
+  (*If[Head[newxp]===And, 
+  	Print["Simlifying xp..."];
+  	newxp=Simplify/@newxp,
+  	Simplify[newxp]];*)
+  	(*Print[fst,": ",rst];*)
+  ]
 
 ReZAnd[xp_, rst_, fst_] := ZAnd[xp && fst, rst]
 
 ReplaceSolution[rst_?BooleanQ, sol_] := rst
 
-ReplaceSolution[rst_, sol_] := Module[{newrst}, newrst = rst /. sol;
+(*ReplaceSolution[rst_, sol_] := Module[{newrst}, newrst = rst /. sol;
   If[Head[newrst] === And, Reduce[#, Reals] & /@ newrst, 
-   Reduce[newrst, Reals]]]
+   Reduce[newrst, Reals]]]*)
+ReplaceSolution[rst_, sol_] := Module[{newrst}, newrst = rst /. sol;
+  If[Head[newrst] === And, Simplify /@ newrst, 
+   Simplify[newrst]]]
 
-RemoveDuplicates[xp_And] := DeleteDuplicates[Sort[xp]];
+SortOp = SortBy[Simplify`SimplifyCount]
 
-RemoveDuplicates[xp_Or] := DeleteDuplicates[Sort[xp]];
+RemoveDuplicates[xp_And] := DeleteDuplicates[SortOp[xp]];
+
+RemoveDuplicates[xp_Or] := DeleteDuplicates[SortOp[xp]];
 
 RemoveDuplicates[xp_] := xp
