@@ -145,7 +145,7 @@ vertices*)
            DirectedEdge[_, #]] & /@ (First /@ EVC)) // 
        Flatten[#, 1] &);
    ZeroRun = 
-    AssociationMap[(0 &) &][AtHead /@ Join[InEdges, OutEdges]];
+    AssociationMap[0 &][AtHead /@ Join[InEdges, OutEdges]];
    EntryDataAssociation = 
     RoundValues@AssociationThread[EntryArgs, Last /@ EVC];
    ExitCosts = 
@@ -182,9 +182,10 @@ vertices*)
     Print["Switching costs conditions are ", consistentCosts]
    ];
    CostArgs = 
-    Join[AssociationMap[Identity &, Normal@jargs], ZeroRun, 
-     AssociationMap[(10^(-6) &) &, Normal@Keys@SwitchingCosts], 
-     AssociationMap[(10^6 &) &, LargeSwitchingTransitions]];
+    Join[
+    	AssociationMap[Function[x,Abs[SignedCurrents[Last[x]]] + jvars[x]jvars[OtherWay[x]]], jargs], ZeroRun, 
+     SwitchingCosts/.{0->10^(-6), Infinity-> 10^6}, 
+     AssociationMap[10^6 &, LargeSwitchingTransitions]];
    EqPosJs = And @@ (# >= 0 & /@ Join[jvars]);(*Inequality*)
    EqPosJts = And @@ (# >= 0 & /@ Join[jtvars]);(*Inequality*)
    EqCurrentCompCon = And @@ (CurrentCompCon[jvars] /@ EL);(*Or*)
@@ -247,7 +248,7 @@ is constant and equal to the exit cost.*)
    Nlhs = 
     Flatten[
      uvars[AtHead[#]] - uvars[AtTail[#]] + SignedCurrents[#] & /@ BEL];
-     (*TODO replace  - IntM for - Cost. if no Cost is given, use -IntM.*)
+   
    (*SignedCurrents[#] = jvars[AtHead[#]] - jvars[AtTail[#]*)
    Nrhs = 
     Flatten[SignedCurrents[#] - Sign[SignedCurrents[#]] Cost[SignedCurrents[#], #] & /@ BEL];
@@ -306,20 +307,19 @@ GetKirchhoffMatrix[Eqs_] :=
     RuleEntryOut = Lookup[Eqs, "RuleEntryOut", {}], BM, KM, vars, 
     CostArgs = Lookup[Eqs, "CostArgs", <||>], 
     jvars = Lookup[Eqs, "jvars", {}], 
-    jtvars = Lookup[Eqs, "jtvars", {}], cost}, 
+    jtvars = Lookup[Eqs, "jtvars", {}], cost, CCost}, 
    Kirchhoff = 
     Join[
      EqEntryIn, (# == 0 & /@ (BalanceGatheringCurrents + 
          BalanceSplittingCurrents))];
    Kirchhoff = Kirchhoff /. Join[RuleExitCurrentsIn, RuleEntryOut];
+   vars = Select[Values@Join[jvars,jtvars],MemberQ[Variables[Kirchhoff /. Equal -> List],#]&];
    {BM, KM} = 
     CoefficientArrays[Kirchhoff, 
-     vars = Variables[Kirchhoff /. Equal -> Plus]];
-   cost = 
-    Function[currents, 
-     MapThread[#1[#2] &, {KeyMap[Join[jvars, jtvars]][CostArgs] /@ 
-        vars, currents}]];
-   {-BM, KM, cost, vars}];
+     vars];
+   cost = AssociationThread[vars, KeyMap[Join[jvars,jtvars]][CostArgs]/@vars];
+   CCost = cost /@ vars /. MapThread[Rule, {vars, #}] &;
+   	{-BM, KM, CCost, vars}];
 
 MFGPreprocessing[Eqs_] := 
   Module[{InitRules, RuleBalanceGatheringCurrents, EqEntryIn, 
@@ -483,7 +483,7 @@ FinalStep[{{EE_, NN_, OO_}, rules_}] :=
     (*sorted = DeleteDuplicates[Part[NewSystem, 3]]];*)
     sorted = RemoveDuplicates[Part[NewSystem, 3]]
     ];
-    Print["Simplifying :\n", Join[Take[NewSystem,{1,2}],{sorted}]];
+    (*Print["Simplifying :\n", Join[Take[NewSystem,{1,2}],{sorted}]];*)
     	{time, NewSystem} = 
     AbsoluteTiming[ZAnd[And @@ Take[NewSystem, {1, 2}], sorted]];
    Print["Iterative DNF convertion took ", time, " seconds to terminate"];
