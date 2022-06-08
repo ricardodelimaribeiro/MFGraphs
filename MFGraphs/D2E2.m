@@ -68,6 +68,8 @@ OtherWay[{c_, DirectedEdge[a_, b_]}] := {If[c === a, b, a],
 OutgoingEdges[FG_][k_] := 
   OtherWay /@ ({k, #} & /@ IncidenceList[FG, k]);
 
+BackTransition[{k_, edge1_, edge2_}] := {k, edge2, edge1}
+
 ExitRules[uvars_, ExitCosts_][a_ \[DirectedEdge] b_] := 
   Total[uvars /@ {{b, DirectedEdge[a, b]}}] -> ExitCosts[b];
 
@@ -183,9 +185,11 @@ vertices*)
    ];
    CostArgs = 
     Join[
-    	AssociationMap[Function[x,Abs[SignedCurrents[Last[x]]] + jvars[x]jvars[OtherWay[x]]], jargs], ZeroRun, 
-     SwitchingCosts/.{0->10^(-6), Infinity-> 10^6}, 
-     AssociationMap[10^6 &, LargeSwitchingTransitions]];
+    	AssociationMap[Function[x,Abs[SignedCurrents[Last[x]]] + jvars[x]jvars[OtherWay[x]]], jargs], 
+    	ZeroRun, 
+     (*SwitchingCosts/.{0->10^(-6), Infinity-> 10^6}*)
+     AssociationMap[jtvars[#] jtvars[BackTransition[#]] &, 
+  Keys@SwitchingCosts] + (SwitchingCosts /. {Infinity -> 10^6})];
    EqPosJs = And @@ (# >= 0 & /@ Join[jvars]);(*Inequality*)
    EqPosJts = And @@ (# >= 0 & /@ Join[jtvars]);(*Inequality*)
    EqCurrentCompCon = And @@ (CurrentCompCon[jvars] /@ EL);(*Or*)
@@ -419,7 +423,7 @@ MFGSystemSolver[Eqs_][approxJs_] :=
     {NewSystem, InitRules} = FinalClean[{Sys2Triple[NewSystem], InitRules}];
     NewSystem = Reduce[And @@ NewSystem, Reals];
     (*not checking if NewSystem is not True...*)
-    Print["MFGSS: Multiple solutions: ", NewSystem (*{NewSystem, InitRules}*)];
+    Print["MFGSS: Multiple solutions: ", NewSystem//N (*{NewSystem, InitRules}*)];
     usR = Select[us, Not[FreeQ[NewSystem, #]] &];
     jjtsR = Select[Join[js, jts], Not[FreeQ[NewSystem, #]] &];
     vars = Join[usR, jjtsR];
@@ -428,7 +432,7 @@ MFGSystemSolver[Eqs_][approxJs_] :=
        FindInstance[NewSystem && And @@ ((# > 0 )& /@ jjtsR), vars, 
         Reals];
     InitRules = Expand /@ Join[InitRules /. pickOne, pickOne];
-    Print["\tPicked one value for the variable(s) ", vars, " ", InitRules/@vars, " (respectively)"]
+    Print["\tPicked one value for the variable(s) ", vars, " ", InitRules/@vars//N, " (respectively)"]
     ];
     (*Print[InitRules];*)
     InitRules = Join[KeyTake[InitRules, us], KeyTake[InitRules, js], KeyTake[InitRules, jts]];
