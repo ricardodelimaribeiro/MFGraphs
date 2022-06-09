@@ -488,7 +488,7 @@ FinalStep[{{EE_, NN_, OO_}, rules_}] :=
     	{time, NewSystem} = 
     AbsoluteTiming[ZAnd[And @@ Take[NewSystem, {1, 2}], sorted]];
    Print["Iterative DNF convertion took ", time, " seconds to terminate"];
-   If[Head[NewSystem] === Or, NewSystem = SortOp /@ NewSystem];
+   If[Head[NewSystem] === Or, NewSystem = SortOp @ NewSystem];
    NewSystem = Sys2Triple[NewSystem];
    {NewSystem, newrules}];
 
@@ -591,8 +591,9 @@ ZAnd[xp_, eq_Equal] :=
    False, (xp /. First@sol) && And @@ (First@sol /. Rule -> Equal) (*// 
     Simplify*)]]
 
+
 ZAnd[xp_, And[fst_,rst_]] := 
- With[{head=Head[fst]}, 
+ With[{head = Head[fst]}, 
   Which[head === Or, ReZAnd[xp, rst] /@ fst // RemoveDuplicates, 
    True, ReZAnd[xp, rst, fst]]]
 
@@ -613,21 +614,8 @@ ReZAnd[xp_, rst_, fst_Equal] :=
   fsol = First@sol;
   newrst= ReplaceSolution[rst , fsol];
   newxp = xp /. fsol;
-  (*Print[fsol];*)
   ZAnd[newxp && And @@ fsol /. {Rule -> Equal}, newrst]
   ]
-  (*newrst = ReplaceSolution[rst, fsol];*)
-  
-  (*If[Head[newrst]===And, 
-  	Print["Simplifying rst..."];
-  	newrst=Simplify/@newrst,
-  	Simplify[newrst]];*)
-  
-  (*If[Head[newxp]===And, 
-  	Print["Simlifying xp..."];
-  	newxp=Simplify/@newxp,
-  	Simplify[newxp]];*)
-  	(*Print[fst,": ",rst];*)
   ]
 
 ReZAnd[xp_, rst_, fst_] := ZAnd[xp && fst, rst]
@@ -637,9 +625,12 @@ ReplaceSolution[rst_?BooleanQ, sol_] := rst
 (*ReplaceSolution[rst_, sol_] := Module[{newrst}, newrst = rst /. sol;
   If[Head[newrst] === And, Reduce[#, Reals] & /@ newrst, 
    Reduce[newrst, Reals]]]*)
+
+
 ReplaceSolution[rst_, sol_] := Module[{newrst}, newrst = rst /. sol;
   If[Head[newrst] === And, Simplify /@ newrst, 
    Simplify[newrst]]]
+
 
 SortOp = SortBy[Simplify`SimplifyCount]
 
