@@ -394,8 +394,9 @@ CriticalCongestionSolver[Eqs_] :=
    ];
 
 CriticalCongestionReduce[Eqs_] := 
-  Module[{PreEqs, js, AssoCritical}, 
-   PreEqs = MFGPreprocessing[Eqs];
+  Module[{PreEqs, js, AssoCritical, time}, 
+   {time, PreEqs} = AbsoluteTiming@MFGPreprocessing[Eqs];
+   Print["It took ", time, " seconds to preprocess."];
    js = Lookup[PreEqs, "js",$Failed];
    AssoCritical = MFGSystemReduce[PreEqs][AssociationThread[js, 0 js]];
    Join[PreEqs, Association["AssoCritical"-> AssoCritical]]
@@ -415,24 +416,24 @@ MFGSystemSolver[Eqs_][approxJs_] :=
    Ncpc = RoundValues @ (Expand/@(costpluscurrents /. approxJs));
    InitRules = Expand/@(InitRules /. Ncpc);
    NewSystem = NewSystem /. Ncpc;
+   Print["MFGSS: ", NewSystem];
    {NewSystem, InitRules} = FinalClean[{NewSystem, InitRules}];
    System = And @@ NewSystem;
-   Which[System === False, Print["MFGSS: There is no solution"], 
-    System =!= True, 
-    NewSystem = Reduce[System, Reals];
-    {NewSystem, InitRules} = FinalClean[{Sys2Triple[NewSystem], InitRules}];
-    NewSystem = Reduce[And @@ NewSystem, Reals];
-    (*not checking if NewSystem is not True...*)
-    Print["MFGSS: Multiple solutions: ", NewSystem//N (*{NewSystem, InitRules}*)];
+   Which[System === False, 
+   	Print["MFGSS: There is no solution"], 
+   	NewSystem[[1]]&&NewSystem[[3]] === True && NewSystem[[2]] =!= True,
+   	Print["MFGSS: Multiple solutions: ", NewSystem[[2]]//N];
     usR = Select[us, Not[FreeQ[NewSystem, #]] &];
-    jjtsR = Select[Join[js, jts], Not[FreeQ[NewSystem, #]] &];
+    jjtsR = Select[Join[js, jts], Not[FreeQ[NewSystem[[2]], #]] &];
     vars = Join[usR, jjtsR];
     (*Have to pick one so that all the currents have numerical values*)
     pickOne = Association @ First @
-       FindInstance[NewSystem && And @@ ((# > 0 )& /@ jjtsR), vars, 
+       FindInstance[System && And @@ ((# > 0 )& /@ jjtsR), vars, 
         Reals];
     InitRules = Expand /@ Join[InitRules /. pickOne, pickOne];
-    Print["\tPicked one value for the variable(s) ", vars, " ", InitRules/@vars//N, " (respectively)"]
+    Print["\tPicked one value for the variable(s) ", vars, " ", InitRules/@vars//N, " (respectively)"],
+    System =!= True, 
+    Print["This is (should be) an interesting example!!"]
     ];
     (*Print[InitRules];*)
     InitRules = Join[KeyTake[InitRules, us], KeyTake[InitRules, js], KeyTake[InitRules, jts]];
@@ -479,30 +480,37 @@ FinalStep[{{EE_?BooleanQ, NN_?BooleanQ, OR_?BooleanQ}, rules_}] :=
    {{EE, NN, OR}, rules}
 
 FinalStep[{{EE_, NN_, OO_}, rules_}] := 
-  Module[{NewSystem, newrules, sorted, time}, 
+  Module[{NewSystem, newrules, sorted = True, time, temp}, 
   	{NewSystem, newrules} = TripleClean[{{EE, NN, OO}, rules}];
-   If[Part[NewSystem, 3] === True, sorted = True, 
-    (*sorted = DeleteDuplicates[ReverseSortBy[Part[NewSystem, 3], Simplify`SimplifyCount]]];*)
-    (*sorted = DeleteDuplicates[SortBy[Part[NewSystem, 3], Simplify`SimplifyCount]]];*)
-    (*sorted = DeleteDuplicates[Part[NewSystem, 3]]];*)
-    sorted = RemoveDuplicates[Part[NewSystem, 3]]
+(*  	Print["FS: ", NewSystem];*)
+   (*Which*)If[NewSystem[[1]] && NewSystem[[3]] === True, 
+   	Return[{NewSystem, newrules}, Module], 
+   	(*True,*)
+    sorted = RemoveDuplicates[NewSystem[[3]]]
     ];
-    (*Print["Simplifying :\n", Join[Take[NewSystem,{1,2}],{sorted}]];*)
+(*  	Print["FS2: ", NewSystem];*)
+(*    Print["FS3: ", sorted];*)
+    temp = PrintTemporary["Iterative DNF convertion..."]; 
     	{time, NewSystem} = 
     AbsoluteTiming[ZAnd[And @@ Take[NewSystem, {1, 2}], sorted]];
-   Print["Iterative DNF convertion took ", time, " seconds to terminate"];
-   If[Head[NewSystem] === Or, NewSystem = SortOp /@ NewSystem];
+     NotebookDelete[temp]; 
+    Print["Iterative DNF convertion took ", time, " seconds to terminate."];
+    temp = PrintTemporary["Reducing..."];
+ {time,NewSystem} = AbsoluteTiming@Reduce[NewSystem, Reals];
+ NotebookDelete[temp];
+ Print["Reducing took ", time, " seconds to terminate."];
+(*   Print[NewSystem];*)
    NewSystem = Sys2Triple[NewSystem];
-   {NewSystem, newrules}];
+   {NewSystem, newrules}
+   ];
 
 FinalReduceStep[{{EE_, NN_, OO_}, rules_}] := 
-  Module[{NewSystem, newrules, sorted, time}, 
+  Module[{NewSystem, newrules, sorted, time, oo, fst}, 
   	{NewSystem, newrules} = TripleClean[{{EE, NN, OO}, rules}];
   	oo=Part[NewSystem, 3];
    If[oo === True, sorted = True, 
-    sorted = SortOp[Part[NewSystem, 3], Simplify`SimplifyCount]];
+    sorted = SortOp[Part[NewSystem, 3]]];
     fst=And @@ Take[NewSystem, {1, 2}];
-    
     Print["Reducing ", fst && If[oo === True, True, sorted]," ..."];
     	{time, NewSystem} = AbsoluteTiming[Reduce[fst 
       && If[Part[NewSystem, 3] === True, True, sorted], Reals]];
@@ -581,7 +589,7 @@ TripleStep[{{EEs_, NNs_, ORs_}, rules_Association}] :=
 
 TripleClean[{{EE_, NN_, OR_}, rules_}] := 
  FixedPoint[TripleStep, {{EE, NN, OR}, rules}]
-
+Clear[ZAnd];
 ZAnd::usage =
 "ZAnd[processed, unprocessed] does something...";
 
@@ -594,39 +602,53 @@ ZAnd[xp_, True] := xp
 ZAnd[xp_, eq_Equal] := 
  With[{sol = Solve[eq]}, 
   If[sol === {}, 
-   False, (xp /. First@sol) && And @@ (First@sol /. Rule -> Equal) // 
-    Simplify]]
+   False, 
+   With[{fsol = First@sol},
+   Simplify[(xp /. fsol)] && And @@ (fsol /. Rule -> Equal)
+   ]
+  ]
+ ]
 
 ZAnd[xp_, And[fst_,rst_]] := 
- With[{head=Head[fst]}, 
-  Which[head === Or, ReZAnd[xp, rst] /@ fst // RemoveDuplicates, 
-   True, ReZAnd[xp, rst, fst]]]
+  If[Head[fst] === Or, 
+  	RemoveDuplicates@(ReZAnd[Simplify@xp, rst] /@ fst), 
+  	ReZAnd[Simplify@xp, rst, fst]
+  ]
 
-ZAnd[xp_, orxp_Or] := (
-  (ZAnd[xp// RemoveDuplicates, #] & /@ orxp// RemoveDuplicates) // RemoveDuplicates)
+ZAnd[xp_, orxp_Or] := 
+  RemoveDuplicates@(ZAnd[Simplify@xp, #] & /@ orxp)
 
-ZAnd[xp_, leq_] := Simplify[xp && leq]
+ZAnd[xp_, leq_] := 
+With[{ff=Simplify[xp && leq]},
+	Print["ZAnd: ", xp&& leq];
+	Print["ZAnd: ", ff];
+	ff
+]
 
 (*Operator form of ReZAnd*)
 ReZAnd[xp_, rst_] := ReZAnd[xp, rst, #] &
 
 ReZAnd[xp_, rst_, fst_Equal] := 
- Module[{fsol = First@Solve@fst // Quiet, newrst, newxp}, 
-  newrst = ReplaceSolution[rst, fsol];
-  newxp = xp /. fsol;
-  ZAnd[newxp && fst, newrst]]
-
+ 	With[{sfst = Simplify[fst]},
+ 		If[sfst === False,
+ 		False,
+ 		With[{fsol = First@Solve@sfst},
+ 			ZAnd[Simplify[(xp /. fsol) && fst], ReplaceSolution[rst, fsol]]
+ 		]
+ 	]
+ ]
+  
 ReZAnd[xp_, rst_, fst_] := ZAnd[xp && fst, rst]
 
 ReplaceSolution[rst_?BooleanQ, sol_] := rst
 
-(*ReplaceSolution[rst_, sol_] := Module[{newrst}, newrst = rst /. sol;
-  If[Head[newrst] === And, Reduce[#, Reals] & /@ newrst, 
-   Reduce[newrst, Reals]]]*)
-
-ReplaceSolution[rst_, sol_] := Module[{newrst}, newrst = rst /. sol;
-  If[Head[newrst] === And, Simplify /@ newrst, 
-   Simplify[newrst]]]
+ReplaceSolution[rst_, sol_] := 
+With[{newrst = rst /. sol},
+  If[Head[newrst] === And, 
+  	And[Simplify@First@newrst, Rest@newrst], 
+   Simplify[newrst]
+   ]
+   ]
 
 SortOp = ReverseSortBy[Simplify`SimplifyCount]
 
