@@ -386,8 +386,9 @@ the solution to the critical congestion case";
 CriticalCongestionSolver[$Failed] := $Failed
 
 CriticalCongestionSolver[Eqs_] := 
-  Module[{PreEqs, js, AssoCritical}, 
-   PreEqs = MFGPreprocessing[Eqs];
+  Module[{PreEqs, js, AssoCritical, time}, 
+   {time, PreEqs} = AbsoluteTiming@MFGPreprocessing[Eqs];
+   Print["It took ", time, " seconds to preprocess."];
    js = Lookup[PreEqs, "js",$Failed];
    AssoCritical = MFGSystemSolver[PreEqs][AssociationThread[js, 0 js]];
    Join[PreEqs, Association["AssoCritical"-> AssoCritical]]
@@ -416,7 +417,7 @@ MFGSystemSolver[Eqs_][approxJs_] :=
    Ncpc = RoundValues @ (Expand/@(costpluscurrents /. approxJs));
    InitRules = Expand/@(InitRules /. Ncpc);
    NewSystem = NewSystem /. Ncpc;
-   Print["MFGSS: ", NewSystem];
+(*   Print["MFGSS: ", NewSystem];*)
    {NewSystem, InitRules} = FinalClean[{NewSystem, InitRules}];
    System = And @@ NewSystem;
    Which[System === False, 
