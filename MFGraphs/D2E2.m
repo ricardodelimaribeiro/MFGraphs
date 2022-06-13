@@ -101,7 +101,7 @@ Data2Equations[Data_Association] :=
     EqValueAuxiliaryEdges, OutRules, InRules, EqSwitchingByVertex, 
     EqCompCon, Nlhs, ModuleVars, ModuleVarsNames, LargeCases, 
     LargeSwitchingTransitions, ZeroRun, CostArgs, Nrhs, 
-    consistentCosts, costpluscurrents, EqGeneral}, 
+    consistentCosts, costpluscurrents, EqGeneral, CostArgs2}, 
    VL = Lookup[Data, "Vertices List", {}];
    AM = Lookup[Data, "Adjacency Matrix", {}];
    EVC = Lookup[Data, "Entrance Vertices and Currents", {}];
@@ -189,6 +189,13 @@ vertices*)
     	ZeroRun, 
      (*SwitchingCosts/.{0->10^(-6), Infinity-> 10^6}*)
      AssociationMap[jtvars[#] jtvars[BackTransition[#]] &, 
+  Keys@SwitchingCosts] + (SwitchingCosts /. {Infinity -> 10^6})];
+  CostArgs2 = 
+    Join[
+    	AssociationMap[Function[x,10^(-6) + Abs[jvars[x]] + Abs[jvars[OtherWay[x]]]], jargs], 
+    	ZeroRun, 
+     (*SwitchingCosts/.{0->10^(-6), Infinity-> 10^6}*)
+     AssociationMap[Abs[jtvars[#]]+ Abs[jtvars[BackTransition[#]]] &, 
   Keys@SwitchingCosts] + (SwitchingCosts /. {Infinity -> 10^6})];
    EqPosJs = And @@ (# >= 0 & /@ Join[jvars]);(*Inequality*)
    EqPosJts = And @@ (# >= 0 & /@ Join[jtvars]);(*Inequality*)
@@ -278,7 +285,7 @@ is constant and equal to the exit cost.*)
      EqBalanceGatheringCurrents, EqEntryIn, RuleEntryOut, 
      RuleExitCurrentsIn, RuleExitValues, EqValueAuxiliaryEdges, 
      OutRules, InRules, EqSwitchingByVertex, EqCompCon, Nlhs, 
-     CostArgs, Nrhs, costpluscurrents, EqGeneral};
+     CostArgs, Nrhs, costpluscurrents, EqGeneral, CostArgs2};
    ModuleVarsNames = {"VL", "AM", "EVC", "EVTC", "SC", "BG", 
      "EntranceVertices", "InwardVertices", "ExitVertices", 
      "OutwardVertices", "InEdges", "OutEdges", "AuxiliaryGraph", "FG",
@@ -293,7 +300,7 @@ is constant and equal to the exit cost.*)
      "EqEntryIn", "RuleEntryOut", "RuleExitCurrentsIn", 
      "RuleExitValues", "EqValueAuxiliaryEdges", "OutRules", "InRules",
       "EqSwitchingByVertex", "EqCompCon", "Nlhs", "CostArgs", 
-     "Nrhs", "costpluscurrents", "EqGeneral"};
+     "Nrhs", "costpluscurrents", "EqGeneral", "CostArgs2"};
    Join[Data, AssociationThread[ModuleVarsNames, ModuleVars]]];
 
 NumberVectorQ[j_] := And @@ (NumberQ /@ j);
@@ -309,7 +316,7 @@ GetKirchhoffMatrix[Eqs_] :=
      Lookup[Eqs, "BalanceSplittingCurrents", {}], 
     RuleExitCurrentsIn = Lookup[Eqs, "RuleExitCurrentsIn", {}], 
     RuleEntryOut = Lookup[Eqs, "RuleEntryOut", {}], BM, KM, vars, 
-    CostArgs = Lookup[Eqs, "CostArgs", <||>], 
+    CostArgs = Lookup[Eqs, "CostArgs2", <||>], 
     jvars = Lookup[Eqs, "jvars", {}], 
     jtvars = Lookup[Eqs, "jtvars", {}], cost, CCost}, 
    Kirchhoff = 
@@ -453,12 +460,12 @@ MFGSystemReduce[Eqs_][approxJs_] :=
    Ncpc = RoundValues @ (Expand/@(costpluscurrents /. approxJs));
    InitRules = Expand/@(InitRules /. Ncpc);
    NewSystem = NewSystem /. Ncpc;
-   {NewSystem, InitRules} = FinalClean[{NewSystem, InitRules}];
+   {NewSystem, InitRules} = FinalReduce[{NewSystem, InitRules}];
    System = And @@ NewSystem;
    Which[System === False, Print["MFGSS: There is no solution"], 
     System =!= True, 
     NewSystem = Reduce[System, Reals];
-    {NewSystem, InitRules} = FinalClean[{Sys2Triple[NewSystem], InitRules}];
+    {NewSystem, InitRules} = FinalReduce[{Sys2Triple[NewSystem], InitRules}];
     NewSystem = Reduce[And @@ NewSystem, Reals];
     (*not checking if NewSystem is not True...*)
     Print["MFGSS: Multiple solutions: ", NewSystem (*{NewSystem, InitRules}*)];
