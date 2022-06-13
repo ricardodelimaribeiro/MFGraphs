@@ -8,14 +8,14 @@ NonLinear[Eqs_] :=
   Module[{AssoCritical, PreEqs = Eqs, AssoNonCritical, NonCriticalList, js = 1, MaxIter = 15}, 
    If[KeyExistsQ[PreEqs, "AssoCritical"], 
    	(*if there is already an approximation for the non congestion case, use it!*)
-   	AssoCritical = Lookup[PreEqs, "AssoNonCritical", PreEqs["AssoCritical"]],
+   	AssoNonCritical = Lookup[PreEqs, "AssoNonCritical", PreEqs["AssoCritical"]],
    	PreEqs = MFGPreprocessing[PreEqs];
    	js = Lookup[PreEqs, "js", $Failed];
-   	AssoCritical = AssociationThread[js, 0 js]
+   	AssoNonCritical = AssociationThread[js, 0 js]
    ];
-   NonCriticalList = FixedPointList[NonLinearStep[PreEqs], AssoCritical, MaxIter];
+   NonCriticalList = FixedPointList[NonLinearStep[PreEqs], AssoNonCritical, MaxIter];
    Print["Iterated ", Length[NonCriticalList]-1, " times out of ", MaxIter];
-   If[js =!= 1, AssoCritical = NonCriticalList[[2]]];
+   AssoCritical = Lookup[PreEqs, "AssoCritical", NonCriticalList[[2]]];
    AssoNonCritical = NonCriticalList // Last;
    Join[PreEqs, Association[{"AssoCritical" -> AssoCritical, "AssoNonCritical" -> AssoNonCritical}]]
    ];
