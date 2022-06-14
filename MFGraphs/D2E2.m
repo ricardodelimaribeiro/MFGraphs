@@ -212,14 +212,11 @@ Data2Equations[Data_Association] :=
         Nlhs = Flatten[uvars[AtHead[#]] - uvars[AtTail[#]] + SignedCurrents[#] & /@ BEL];
         
         (*SignedCurrents[#] = jvars[AtHead[#]] - jvars[AtTail[#]*)
-        Nrhs = 
-         Flatten[SignedCurrents[#] - Sign[SignedCurrents[#]] Cost[SignedCurrents[#], #] & /@ BEL];
+        Nrhs = Flatten[SignedCurrents[#] - Sign[SignedCurrents[#]] Cost[SignedCurrents[#], #] & /@ BEL];
        (*stuff to solve the general case faster*)
-        costpluscurrents = 
-         Table[Symbol["cpc" <> ToString[k]], {k, 1, Length@BEL}];
+        costpluscurrents = Table[Symbol["cpc" <> ToString[k]], {k, 1, Length@BEL}];
          (*Nrhs = costpluscurrents;*)
-        EqGeneral = 
-         And @@ (MapThread[Equal, {Nlhs, costpluscurrents}]);
+        EqGeneral = And @@ (MapThread[Equal, {Nlhs, costpluscurrents}]);
         costpluscurrents = AssociationThread[costpluscurrents, Nrhs];
         (*stuff to solve the general case faster*)
         (*list of all module variables, except for ModuleVars*)
@@ -269,7 +266,7 @@ GetKirchhoffMatrix[Eqs_] :=
        Lookup[Eqs, "BalanceSplittingCurrents", {}], 
       RuleExitCurrentsIn = Lookup[Eqs, "RuleExitCurrentsIn", {}], 
       RuleEntryOut = Lookup[Eqs, "RuleEntryOut", {}], BM, KM, vars, 
-      CostArgs = Lookup[Eqs, "CostArgs2", <||>], 
+      CostArgs = Lookup[Eqs, "CostArgs", <||>], 
       jvars = Lookup[Eqs, "jvars", {}], 
       jtvars = Lookup[Eqs, "jtvars", {}], cost, CCost},
         Kirchhoff = Join[EqEntryIn, (# == 0 & /@ (BalanceGatheringCurrents + BalanceSplittingCurrents))];
@@ -418,12 +415,11 @@ MFGSystemReduce[Eqs_][approxJs_] :=
          vars = Join[usR, jjtsR];
          (*Have to pick one so that all the currents have numerical values*)
          pickOne = Association @ First @
-            FindInstance[NewSystem && And @@ ((# > 0 )& /@ jjtsR), vars, 
-             Reals];
+            FindInstance[NewSystem && And @@ ((# > 0 )& /@ jjtsR), vars, Reals];
          InitRules = Expand /@ Join[InitRules /. pickOne, pickOne];
          Print["\tPicked one value for the variable(s) ", vars, " ", InitRules/@vars, " (respectively)"]
-         ];
-         (*Print[InitRules];*)
+        ];
+        (*Print[InitRules];*)
         InitRules = Join[KeyTake[InitRules, us], KeyTake[InitRules, js], KeyTake[InitRules, jts]];
         InitRules
     ];
@@ -434,15 +430,10 @@ FinalStep[{{EE_?BooleanQ, NN_?BooleanQ, OR_?BooleanQ}, rules_}] :=
 FinalStep[{{EE_, NN_, OO_}, rules_}] :=
     Module[ {NewSystem, newrules, sorted = True, time, temp},
         {NewSystem, newrules} = TripleClean[{{EE, NN, OO}, rules}];
-  (*      Print["FS: ", NewSystem];*)
-     (*Which*)
         If[ NewSystem[[1]] && NewSystem[[3]] === True,
             Return[{NewSystem, newrules}, Module], 
-            (*True,*)
             sorted = RemoveDuplicates[NewSystem[[3]]]
         ];
-(*      Print["FS2: ", NewSystem];*)
-(*    Print["FS3: ", sorted];*)
         temp = PrintTemporary["Iterative DNF convertion..."];
         {time, NewSystem} = 
         AbsoluteTiming[ZAnd[And @@ Take[NewSystem, {1, 2}], sorted]];
@@ -452,7 +443,6 @@ FinalStep[{{EE_, NN_, OO_}, rules_}] :=
         {time,NewSystem} = AbsoluteTiming@Reduce[NewSystem, Reals];
         NotebookDelete[temp];
         Print["Reducing took ", time, " seconds to terminate."];
-       (*   Print[NewSystem];*)
         NewSystem = Sys2Triple[NewSystem];
         {NewSystem, newrules}
     ];
@@ -536,21 +526,22 @@ TripleStep[{{EEs_, NNs_, ORs_}, rules_Association}] :=
         If[ EE =!= True && EE =!= False,
             newrules = First@Solve[EE] // Quiet
         ];
-        newrules = 
-         Expand /@ Join[rules /. newrules, Association@newrules];
-        (*in=Simplify/@((And[EEs,NNs,ORs]/.rules)&&(And@@Equal@@@Normal@
+        newrules = Expand /@ Join[rules /. newrules, Association@newrules];
+        in=Simplify/@((And[EEs,NNs,ORs]/.rules)&&(And@@Equal@@@Normal@
         rules));
         out=Simplify/@((And[EE,NN,OR]/.newrules)&&(And@@Equal@@@Normal@
         newrules));
         Print["Checking..."];
-        Print[in];
-        Print[out];*)(*in=Simplify/@(And[EEs,NNs,ORs]/.newrules);
+        (*Print[in];
+        Print[out];*)
+        (*in=Simplify/@(And[EEs,NNs,ORs]/.newrules);
         out=Simplify/@(And[EE,NN,OR]/.newrules);
         Print[in];
-        Print[out];
-        Print["Checking (replacing updated rules in both systems)..."];(**)
-        If[Reduce[Implies[in,out],Reals]===True,Print["Ok!"],Print[
-        "Not Ok..."]];*)
+        Print[out];*)
+        (*Print["Checking (replacing updated rules in both systems)..."];*)
+        If[Reduce[Equivalent[in,out],Reals]===True,Print["Ok!"],
+        	Print["Not Ok..."]
+        ];
         {{EE, NN, OR}, Expand /@ newrules}
     ];
 
