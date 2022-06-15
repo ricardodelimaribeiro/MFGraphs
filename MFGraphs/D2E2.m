@@ -367,7 +367,6 @@ MFGSystemSolver[Eqs_][approxJs_] :=
         Ncpc = RoundValues @ (Expand/@(costpluscurrents /. approxJs));
         InitRules = Expand/@(InitRules /. Ncpc);
         NewSystem = NewSystem /. Ncpc;
-     (*   Print["MFGSS: ", NewSystem];*)
         {NewSystem, InitRules} = FinalClean[{NewSystem, InitRules}];
         System = And @@ NewSystem;
         Which[System === False, 
@@ -382,7 +381,7 @@ MFGSystemSolver[Eqs_][approxJs_] :=
             InitRules = Expand /@ Join[InitRules /. pickOne, pickOne];
             Print["\tPicked one value for the variable(s) ", vars, " ", InitRules/@vars//N, " (respectively)"],
          System =!= True, 
-         Print["This is (should be) an interesting example!!"]
+         Print["This is (should be) an interesting example!! ", System]
          ];
          (*Print[InitRules];*)
         InitRules = Join[KeyTake[InitRules, us], KeyTake[InitRules, js], KeyTake[InitRules, jts]];
@@ -439,7 +438,7 @@ FinalStep[{{EE_, NN_, OO_}, rules_}] :=
         AbsoluteTiming[ZAnd[And @@ Take[NewSystem, {1, 2}], sorted]];
         NotebookDelete[temp];
         Print["Iterative DNF convertion took ", time, " seconds to terminate."];
-        temp = PrintTemporary["Reducing..."];
+        temp = PrintTemporary["Reducing... ", NewSystem];
         {time,NewSystem} = AbsoluteTiming@Reduce[NewSystem, Reals];
         NotebookDelete[temp];
         Print["Reducing took ", time, " seconds to terminate."];
@@ -476,8 +475,11 @@ FinalReduceStep[{{EE_, NN_, OO_}, rules_}] :=
 FinalReduce[{{EE_, NN_, OR_}, rules_}] :=
     (FixedPoint[FinalReduceStep, {{EE, NN, OR}, rules}])
 
-FinalClean[{{EE_, NN_, OR_}, rules_}] :=
-    (FixedPoint[FinalStep, {{EE, NN, OR}, rules}])
+FinalClean[{{EE_, NN_, OR_}, rules_}] := With[
+	{NewSystemRules = FinalStep[{{EE, NN, OR}, rules}]},
+	TripleClean[{(Reduce[#, Reals]&/@NewSystemRules[[1]]),NewSystemRules[[2]]}]
+];
+(*    (FixedPoint[FinalStep, {{EE, NN, OR}, rules}])*)
 
 Sys2Triple[True] = Table[True, 3]
 
@@ -527,11 +529,11 @@ TripleStep[{{EEs_, NNs_, ORs_}, rules_Association}] :=
             newrules = First@Solve[EE] // Quiet
         ];
         newrules = Expand /@ Join[rules /. newrules, Association@newrules];
-        in=Simplify/@((And[EEs,NNs,ORs]/.rules)&&(And@@Equal@@@Normal@
+(*        in=Simplify/@((And[EEs,NNs,ORs]/.rules)&&(And@@Equal@@@Normal@
         rules));
         out=Simplify/@((And[EE,NN,OR]/.newrules)&&(And@@Equal@@@Normal@
         newrules));
-        Print["Checking..."];
+*)        (*Print["Checking..."];*)
         (*Print[in];
         Print[out];*)
         (*in=Simplify/@(And[EEs,NNs,ORs]/.newrules);
@@ -539,17 +541,22 @@ TripleStep[{{EEs_, NNs_, ORs_}, rules_Association}] :=
         Print[in];
         Print[out];*)
         (*Print["Checking (replacing updated rules in both systems)..."];*)
-        If[Reduce[Equivalent[in,out],Reals]===True,Print["Ok!"],
+        (*If[Reduce[Equivalent[in,out],Reals]===True,Print["Ok!"],
         	Print["Not Ok..."]
-        ];
+        ];*)
         {{EE, NN, OR}, Expand /@ newrules}
     ];
 
-TripleClean[{{EE_, NN_, OR_}, rules_}] :=
-    FixedPoint[TripleStep, {{EE, NN, OR}, rules}]
+TripleClean[{{EE_, NN_, OR_}, rules_}] := FixedPoint[TripleStep, {{EE, NN, OR}, rules}];
+
+
 Clear[ZAnd];
 ZAnd::usage =
-"ZAnd[processed, unprocessed] does something...";
+"
+ZAnd[xp,xps] returns a system which is equivalent to xp&&xps in disjunctive normal form. 
+ZAnd[xp, And[fst, scd] 
+ZAnd[xp, eq] returns xp with the solution of eq replaced in it together with eq.
+ZAnd[xp, Or[fst,scd]] returns ZAnd[xp, fst]||ZAnd[xp, scd]";
 
 ZAnd[_, False] :=
     False
@@ -560,24 +567,29 @@ ZAnd[False, _] :=
 ZAnd[xp_, True] :=
     xp
 
-ZAnd[xp_, eq_Equal] :=
-    With[ {sol = Solve[eq]},
+ZAnd[xp_, eq_Equal] := ReZAnd[xp, True, eq]
+    (*With[ {sol = Solve[eq]},
         If[ sol === {},
             False,
             With[ {fsol = First@sol},
                 Simplify[(xp /. fsol)] && And @@ (fsol /. Rule -> Equal)
             ]
         ]
-    ]
+    ]*)
 
 ZAnd[xp_, And[fst_,rst_]] :=
     If[ Head[fst] === Or,
         RemoveDuplicates@(ReZAnd[Simplify@xp, rst] /@ fst),
+        (*Print["head of fst in And is not Or. fst: ", fst, " and rest: ", rst];*)
         ReZAnd[Simplify@xp, rst, fst]
     ]
 
-ZAnd[xp_, orxp_Or] :=
-    RemoveDuplicates@(ZAnd[Simplify@xp, #] & /@ orxp)
+ZAnd[xp_, Or[fst_,scd_]] :=
+    RemoveDuplicates@(Or@@(ZAnd[Simplify@xp, #] & /@ {fst,scd}))
+
+
+(*ZAnd[xp_, orxp_Or] :=
+    RemoveDuplicates@(ZAnd[Simplify@xp, #] & /@ orxp)*)
 
 ZAnd[xp_, leq_] :=
     With[ {ff = Simplify[xp && leq]},
