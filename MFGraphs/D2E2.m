@@ -17,12 +17,18 @@ ConsistentSwithingCosts[sc_][{a_, b_, c_} -> S_] :=
 
 IsSwitchingCostConsistent::usage = "IsSwitchingCostConsistent[List of \
 switching costs] is True if all switching costs satisfy the triangle \
-inequality"
+inequality. If some switching costs are symbolic, then it returns the consistency conditions."
 IsSwitchingCostConsistent[SC_] :=
     And @@ Simplify[ConsistentSwithingCosts[SC] /@ SC]
 
+AtHead::usage = 
+"AtHead[DirectedEdge[a,b] returns {b,DirectedEdge[a,b]}. This is a way o selecting the edge with the orientation. "
+
 AtHead[DirectedEdge[a_, b_]] :=
     {b, DirectedEdge[a, b]}
+
+AtTail::usage = 
+"AtTail[DirectedEdge[a,b] returns {a,DirectedEdge[a,b]}. This is a way o selecting the edge with the orientation. "
 
 AtTail[DirectedEdge[a_, b_]] :=
     {a, DirectedEdge[a, b]}
@@ -95,18 +101,23 @@ ExitRules[uvars_, ExitCosts_][a_ \[DirectedEdge] b_] :=
 
 ExitCurrents[jvars_][a_ \[DirectedEdge] b_] :=
     jvars@{a, DirectedEdge[a, b]} -> 0;
-
+Transu::usage = 
+"Transu[u, SC][{v,e1,e2}] returns the optimality condition at the vertex v related to switching form e1 to e2. Namely, 
+u[{v, e1}] <= u[{v, e2}] + SC[{v, e1, e2}]"
 Transu[uvars_, SwitchingCosts_][{v_, edge1_, edge2_}] :=
     uvars[{v, edge1}] <= 
      uvars[{v, edge2}] + SwitchingCosts[{v, edge1, edge2}];
 
+Compu::usage =
+"Compu[jt,u,SC][{v,e1,e2}] returns the complementarity condition:
+(jt[{v, e1, e2}] == 0) || (u[{v, e2}] - u[{v, e1}] + SC[{v, e1, e2}] == 0)"
 Compu[jtvars_, uvars_, SwitchingCosts_][{v_, edge1_, 
     edge2_}] :=
     (jtvars[{v, edge1, edge2}] == 0) || 
-    uvars[{v, edge2}] - uvars[{v, edge1}] + SwitchingCosts[{v, edge1, edge2}] == 0;
+    (uvars[{v, edge2}] - uvars[{v, edge1}] + SwitchingCosts[{v, edge1, edge2}] == 0);
 
 Data2Equations::usage = "Data2Equations[Data] returns the equations, \
-inequalities, and alternatives associated to the Data"
+inequalities, and alternatives associated to the Data. "
 Data2Equations[Data_Association] :=
     Module[ {VL, AM, EVC, EVTC, SC, BG, EntranceVertices, InwardVertices,
       ExitVertices, OutwardVertices, InEdges, OutEdges, AuxiliaryGraph,
@@ -251,13 +262,14 @@ Data2Equations[Data_Association] :=
           "Nrhs", "costpluscurrents", "EqGeneral", "CostArgs2"};
         Join[Data, AssociationThread[ModuleVarsNames, ModuleVars]]
     ];
-
+NumberVectorQ::usage = 
+"NumberVectorQ[j] returns True if the vetor j is numeric."
 NumberVectorQ[j_] :=
     And @@ (NumberQ /@ j);
 
 GetKirchhoffMatrix::usage = "GetKirchhoffMatrix[d2e] returns the \
-Kirchhoff matrix, entry current vector, (critical congestion) cost \
-function, and the variables order."
+entry current vector, Kirchhoff matrix,  (critical congestion) cost \
+function, and the variables in the order corresponding to the Kirchhoff matrix."
 GetKirchhoffMatrix[Eqs_] :=
     Module[ {Kirchhoff, EqEntryIn = Lookup[Eqs, "EqEntryIn", True], 
       BalanceGatheringCurrents = 
@@ -277,7 +289,8 @@ GetKirchhoffMatrix[Eqs_] :=
         CCost = cost /@ vars /. MapThread[Rule, {vars, #}] &;
         {-BM, KM, CCost, vars}
     ];
-
+MFGPreprocessing::usage =
+"MFGPreprocessing[Eqs] returns the association Eqs with the preliminary solution \"InitRules\" and corresponding \'reduced\' \"NewSystem\"."
 MFGPreprocessing[Eqs_] :=
     Module[ {InitRules, RuleBalanceGatheringCurrents, EqEntryIn, 
       RuleEntryOut, RuleExitCurrentsIn, RuleExitValues, 
@@ -330,7 +343,7 @@ MFGPreprocessing[Eqs_] :=
     ];
 
 CriticalCongestionSolver::usage = 
-  "CriticalCongestionSolver[Eqs] returns an association with rules to \
+  "CriticalCongestionSolver[Eqs] returns Eqs with an association \"AssoCritical\" with rules to 
 the solution to the critical congestion case";
 CriticalCongestionSolver[$Failed] :=
     $Failed
@@ -344,6 +357,8 @@ CriticalCongestionSolver[Eqs_] :=
         Join[PreEqs, Association["AssoCritical"-> AssoCritical]]
     ];
 
+CriticalCongestionReduce::usage = 
+  "CriticalCongestionReduce[Eqs] is an attempt to a worst solver than CriticalCongestionSolver is.";
 CriticalCongestionReduce[Eqs_] :=
     Module[ {PreEqs, js, AssoCritical, time},
         {time, PreEqs} = AbsoluteTiming@MFGPreprocessing[Eqs];
@@ -353,8 +368,9 @@ CriticalCongestionReduce[Eqs_] :=
         Join[PreEqs, Association["AssoCritical"-> AssoCritical]]
     ];
 
-MFGSystemSolver::usage = "MFGSystemSolver[Eqs][edgeEquations] returns \
-an association with rules to the solution";
+MFGSystemSolver::usage = 
+"MFGSystemSolver[Eqs][edgeEquations] returns the
+association with rules to the solution";
 MFGSystemSolver[Eqs_][approxJs_] :=
     Module[ {NewSystem, InitRules, pickOne, vars, System, Ncpc,
         costpluscurrents, us, js, jts, usR, jjtsR},
@@ -475,12 +491,17 @@ FinalReduceStep[{{EE_, NN_, OO_}, rules_}] :=
 FinalReduce[{{EE_, NN_, OR_}, rules_}] :=
     (FixedPoint[FinalReduceStep, {{EE, NN, OR}, rules}])
 
+FinalClean::usage =
+"FinalClean[{{EE,NN,OR},rules}] performs FinalStep, Reduce, and TripleClean on {{EE,NN,OR},rules}.
+The result should always be {{True, True, NewOr}, NewRules}"
 FinalClean[{{EE_, NN_, OR_}, rules_}] := With[
 	{NewSystemRules = FinalStep[{{EE, NN, OR}, rules}]},
 	TripleClean[{(Reduce[#, Reals]&/@NewSystemRules[[1]]),NewSystemRules[[2]]}]
 ];
 (*    (FixedPoint[FinalStep, {{EE, NN, OR}, rules}])*)
 
+Sys2Triple::usage =
+"Sys2Triple[sys] retrns a triple with equalities, inequalites, and alternatives, respectively."
 Sys2Triple[True] = Table[True, 3]
 
 Sys2Triple[False] = Table[False, 3]
@@ -503,6 +524,10 @@ Sys2Triple[system_] :=
      True, 
          {True, system, True}];
 
+TripleStep::usage =
+"TripleStep[{{EE,NN,OR},Rules}] returns {{True, NewNN, NewOR}, NewRules}, where NewRules contain the solutions to the all equalities found in the system 
+after replacing Rules in {EE,NN,OR}."
+
 TripleStep[{{EEs_, NNs_, ORs_}, rules_List}] :=
     TripleStep[{{EEs, NNs, ORs}, Association@rules}]
 
@@ -518,9 +543,9 @@ TripleStep[{{EE_, NN_?TrueQ, OR_?TrueQ}, rules_Association}] :=
 
 TripleStep[{{EEs_, NNs_, ORs_}, rules_Association}] :=
     Module[ {EE = EEs /. rules, NN = Simplify /@ (NNs /. rules), 
-      OR = Simplify /@ (ORs /. rules), NNE, NNO, ORE, ORN, bool, 
+      OR = Simplify /@ (ORs /. rules), NNE, NNO, ORE, ORN, (*bool, *)
       newrules = {}},
-        bool = EE && NN && OR;
+        (*bool = EE && NN && OR;*)
         NN = Simplify[NN];
         {NNE, NN, NNO} = Sys2Triple[NN];
         {ORE, ORN, OR} = Sys2Triple[OR];
@@ -544,9 +569,12 @@ TripleStep[{{EEs_, NNs_, ORs_}, rules_Association}] :=
         (*If[Reduce[Equivalent[in,out],Reals]===True,Print["Ok!"],
         	Print["Not Ok..."]
         ];*)
-        {{EE, NN, OR}, Expand /@ newrules}
+        {{EE, NN, OR}, newrules}
     ];
 
+TripleClean::usage =
+"TripleClean[{{EE,NN,OR},Rules}] composes TripleStep until it reaches a fixed point, that is, {{True,NewNN,NewOR},NewRules} such that 
+replacement of NewRules in NewNN and NewOR do not produce equalities."
 TripleClean[{{EE_, NN_, OR_}, rules_}] := FixedPoint[TripleStep, {{EE, NN, OR}, rules}];
 
 
@@ -628,6 +656,11 @@ ReplaceSolution[rst_, sol_] :=
 
 SortOp = ReverseSortBy[Simplify`SimplifyCount]
 
+RemoveDuplicates::usage =
+"RemoveDuplicates[xp] sorts and then DeleteDuplicates. 
+We need to sort because DeleteDuplicates only deletes identical expressions.
+For example (A&&B)||(B&&A) reduce to (A&&B) only after sorting.
+"
 RemoveDuplicates[xp_And] :=
     DeleteDuplicates[SortOp[xp]];
 
