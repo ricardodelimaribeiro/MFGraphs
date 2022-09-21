@@ -272,26 +272,21 @@ CriticalBundle[Data_Association] :=
     ]
 
 CriticalCongestionSolverOLD[D2E_Association] :=
-    Module[ {system, subsystem, rules, vars, sysclean, rulclean, originalsystem, originalrules,
+    Module[ {system, rules, vars, originalsystem, originalrules,
     EqAllAll = Lookup[D2E, "EqAllAll", Print["No equations to solve."];
                                        Return[]], 
     EqCriticalCase = Lookup[D2E,"EqCriticalCase", Print["Critical case equations are missing."];
                                                   Return[]],
     InitRules = Lookup[D2E, "BoundaryRules", Print["Need boundary conditions"];],
-    jts = Lookup[D2E, "jtvars"]//Values,
     js = JOrder[D2E],
     us = UOrder[D2E],
     nvars
 },
-        (*Print["Number of variables: ", Length[Join[js, jts, us]]];*)
         system = EqCriticalCase && EqAllAll;
         rules = Association @ InitRules;
         originalsystem = system;
         originalrules = rules;
-        (*system = Simplify /@ (system /. rules);*)
         system = (system /. rules);
-        
-        
         {system, rules} = 
         FixedPoint[SetUValuesStep[D2E], {Simplify /@ system, rules}];
         FixedPoint[SetJUValuesStep[D2E], {Simplify /@ system, rules}];
@@ -299,12 +294,8 @@ CriticalCongestionSolverOLD[D2E_Association] :=
         {{system, rules}, vars, nvars} = EliminateVars[D2E][{{system, rules}, us, {}}];
         Print["us"];
         	{system, rules} = CleanEqualitiesOperator[D2E][{system, rules}];
-        (*Print["Removed variables: ", Length[rules]];
-        Print[system];*)
         quant[j_] := Length[Select[system, Function[kk, !FreeQ[kk,j] ] ] ]; 
         Print[js];
-        (*js = SortBy[js, quant];
-        Print[js];*)
         {{system, rules}, vars, nvars} = EliminateVars[D2E][{{system, rules}, js, {}}];
         If[ AllTrue[FreeQ[#][system] & /@ Join[us, js] // DeleteDuplicates,TrueQ],
             Print["Done!"],
@@ -344,25 +335,18 @@ EliminateVarsStep[D2E_][{{system_, rules_}, us_, persistus_}] :=
         If[ Head[var] === Missing,
             Return[{{newsys, newrules}, {}, persistus}]
         ];
-        (*Print["Selecting expressions with ", var];*)
         position = First @ FirstPosition[us, var];
         newus = Drop[us, position];
         subsys = Select[newsys, Function[x, !FreeQ[var][x]]];
-        (*Print[subsys];*)
         {subsys, newrules} = CleanEqualitiesOperator[D2E][{subsys, newrules}];
         Print[subsys];
-        (*subsys = Simplify @ subsys;
-        {subsys, newrules} = CleanEqualitiesOperator[D2E][{subsys, newrules}];
-        *)(*Print[subsys];*)
         newrules = Simplify /@ newrules;
         newsys = newsys /. newrules;
         If[ subsys =!= True,
             subsyscomplement = Select[newsys, Function[x, FreeQ[var][x]]];
             newsys = subsys && subsyscomplement;
             If[ !FreeQ[var][subsys],
-                    (*Print[var];*)
                 newpersistus = Join[newpersistus,{var}]
-            (*Print["Removed ", var];*)
                 ];
         ];
         {{newsys, newrules}, newus, newpersistus}
@@ -373,25 +357,20 @@ EliminateVarsSimplifyStep[D2E_][{{system_, rules_}, us_, persistus_}] :=
         If[ Head[var] === Missing,
             Return[{{newsys, newrules}, {}, persistus}]
         ];
-        (*Print["Selecting expressions with ", var];*)
         position = First @ FirstPosition[us, var];
         newus = Drop[us, position];
         subsys = Select[newsys, Function[x, !FreeQ[var][x]]];
-        (*Print[subsys];*)
         {subsys, newrules} = CleanEqualitiesOperator[D2E][{subsys, newrules}];
         Print[subsys];
         subsys = Simplify @ subsys;
         {subsys, newrules} = CleanEqualitiesOperator[D2E][{subsys, newrules}];
-        (*Print[subsys];*)
         newrules = Simplify /@ newrules;
         newsys = newsys /. newrules;
         If[ subsys =!= True,
             subsyscomplement = Select[newsys, Function[x, FreeQ[var][x]]];
             newsys = subsys && subsyscomplement;
             If[ !FreeQ[var][subsys],
-                    (*Print[var];*)
                 newpersistus = Join[newpersistus,{var}]
-            (*Print["Removed ", var];*)
                 ];
         ];
         {{newsys, newrules}, newus, newpersistus}
