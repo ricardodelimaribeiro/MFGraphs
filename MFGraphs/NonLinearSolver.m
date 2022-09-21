@@ -2,7 +2,7 @@
 Get["/Users/ribeirrd/eclipse-workspace/MFGraphs/MFGraphs/D2E2.m"];
 Clear[H,Cost];
 NonLinear::usage =
-    "NonLinear[Eqs] takes an association ";
+    "NonLinear[Eqs] takes an association resulting from Data2Equations and returns an approximation to the solution of the non-critical congestion case with alpha = value, specified by alpha[edge_]:= value.";
 
 NonLinear[Eqs_] :=
     Module[ {AssoCritical, PreEqs = Eqs, AssoNonCritical, NonCriticalList, js = 1, MaxIter = 15},
