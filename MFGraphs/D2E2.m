@@ -138,15 +138,17 @@ Data2Equations[Data_Association] :=
         EVC = Lookup[Data, "Entrance Vertices and Currents", {}];
         EVTC = Lookup[Data, "Exit Vertices and Terminal Costs", {}];
         SC = Lookup[Data, "Switching Costs", {}];
+        
         (****Graph stuff****)
         BG = AdjacencyGraph[VL, AM, VertexLabels -> "Name", DirectedEdges -> True];
         EntranceVertices = First /@ EVC;
         ExitVertices = First /@ EVTC;
         Clear["en*", "ex*"];
         (*InwardVertices defines auxiliary vertices for the entrance \
-     vertices*)
+     		vertices*)
         InwardVertices = AssociationMap[Symbol["en" <> ToString[#]] &, EntranceVertices];
         OutwardVertices = AssociationMap[Symbol["ex" <> ToString[#]] &, ExitVertices];
+        
         (*InEdges defines auxiliary arguments for the entrance vertices*)
         InEdges = MapThread[DirectedEdge, {InwardVertices /@ EntranceVertices, EntranceVertices}];
         OutEdges = MapThread[DirectedEdge, {ExitVertices, OutwardVertices /@ ExitVertices}];
@@ -155,16 +157,16 @@ Data2Equations[Data_Association] :=
         EL = EdgeList[FG];
         BEL = EdgeList[BG];
         FVL = VertexList[FG];
+        
         (*arguments*)
         jargs = Flatten[#, 1] &@({AtTail@#, AtHead@#} & /@ EL);
         uargs = jargs;
-        (*AllTransitions=TransitionsAt[BG,#]&/@VL//
-        Catenate(*at vertex from first edge to second edge*);*)
         AllTransitions = TransitionsAt[FG, #] & /@ FVL // Catenate(*at vertex from first edge to second edge*);
         EntryArgs = AtHead /@ ((EdgeList[AuxiliaryGraph, DirectedEdge[_, #]] & /@ (First /@ EVC)) // Flatten[#, 1] &);
         ZeroRun = AssociationMap[0 &][AtHead /@ Join[InEdges, OutEdges]];
         EntryDataAssociation = RoundValues@AssociationThread[EntryArgs, Last /@ EVC];
         ExitCosts = AssociationThread[OutwardVertices /@ (First /@ EVTC), Last /@ EVTC];
+        
         (*variables*)
         js = Table[Symbol["j" <> ToString[k]], {k, 1, Length@jargs}];
         jvars = AssociationThread[jargs, js];
@@ -199,18 +201,19 @@ Data2Equations[Data_Association] :=
         NoDeadEnds = IncomingEdges[FG] /@ VL // Flatten[#, 1] &;
         BalanceSplittingCurrents = ((jvars[#] - Total[jtvars /@ CurrentSplitting[AllTransitions][#]]) & /@ NoDeadEnds);
         EqBalanceSplittingCurrents = Simplify /@ (And @@ ((# == 0) & /@ BalanceSplittingCurrents));(*Equal*)(*Gathering currents in \
-     the inside of the basic graph*)
+     		the inside of the basic graph*)
         NoDeadStarts = OutgoingEdges[FG] /@ VL // Flatten[#, 1] &;
         RuleBalanceGatheringCurrents = Association[(jvars[#] -> Total[jtvars /@ CurrentGathering[AllTransitions][#]]) & /@ NoDeadStarts];(*Rule*)(*get equations for the exit currents at \
-     the entry vertices*)
+     		the entry vertices*)
         BalanceGatheringCurrents = ((-jvars[#] + Total[jtvars /@ CurrentGathering[AllTransitions][#]]) & /@ NoDeadStarts);
         EqBalanceGatheringCurrents = Simplify /@ (And @@ (# == 0 & /@ BalanceGatheringCurrents));
+        
         (*Incoming currents*)
         EqEntryIn = (jvars[#] == EntryDataAssociation[#]) & /@ (AtHead /@ InEdges);(*List of Equals*)(*Outgoing currents at entrances*)
         RuleEntryOut = Association[(jvars[#] -> 0) & /@ (AtTail /@ InEdges)];(*Rule*)
         RuleExitCurrentsIn = Association[ExitCurrents[jvars] /@ OutEdges];(*Rule*)(*Exit values at exit vertices*)
         RuleExitValues = Association[ExitRules[uvars, ExitCosts] /@ OutEdges];(*Rule*)(*The value function on the auxiliary edges \
-     is constant and equal to the exit cost.*)
+     		is constant and equal to the exit cost.*)
         EqValueAuxiliaryEdges = And @@ ((uvars[AtTail[#]] == uvars[AtHead[#]]) & /@ Join[InEdges, OutEdges]);(*Equal*)(*use ToRules to get the rules*)
         OutRules = Rule[#, Infinity] & /@ (Outer[Flatten[{AtTail[#1], #2}] &, OutEdges, 
              EL] // Flatten[#, 1] &);
@@ -224,14 +227,13 @@ Data2Equations[Data_Association] :=
         
         (*SignedCurrents[#] = jvars[AtHead[#]] - jvars[AtTail[#]*)
         Nrhs = Flatten[SignedCurrents[#] - Sign[SignedCurrents[#]] Cost[SignedCurrents[#], #] & /@ BEL];
-       (*stuff to solve the general case faster*)
+       	(*stuff to solve the general case faster*)
         costpluscurrents = Table[Symbol["cpc" <> ToString[k]], {k, 1, Length@BEL}];
-         (*Nrhs = costpluscurrents;*)
         EqGeneral = And @@ (MapThread[Equal, {Nlhs, costpluscurrents}]);
         costpluscurrents = AssociationThread[costpluscurrents, Nrhs];
         (*stuff to solve the general case faster*)
+
         (*list of all module variables, except for ModuleVars*)
-        (*TODO: write the cost function in this environment and see if it works outside*)
         ModuleVars = {VL, AM, EVC, EVTC, SC, BG, 
           EntranceVertices, InwardVertices, ExitVertices, OutwardVertices, 
           InEdges, OutEdges, AuxiliaryGraph, FG, EL, BEL, FVL, jargs, 
@@ -434,7 +436,6 @@ MFGSystemReduce[Eqs_][approxJs_] :=
          InitRules = Expand /@ Join[InitRules /. pickOne, pickOne];
          Print["\tPicked one value for the variable(s) ", vars, " ", InitRules/@vars, " (respectively)"]
         ];
-        (*Print[InitRules];*)
         InitRules = Join[KeyTake[InitRules, us], KeyTake[InitRules, js], KeyTake[InitRules, jts]];
         InitRules
     ];
@@ -498,7 +499,6 @@ FinalClean[{{EE_, NN_, OR_}, rules_}] := With[
 	{NewSystemRules = FinalStep[{{EE, NN, OR}, rules}]},
 	TripleClean[{(Reduce[#, Reals]&/@NewSystemRules[[1]]),NewSystemRules[[2]]}]
 ];
-(*    (FixedPoint[FinalStep, {{EE, NN, OR}, rules}])*)
 
 Sys2Triple::usage =
 "Sys2Triple[sys] retrns a triple with equalities, inequalites, and alternatives, respectively."
@@ -543,9 +543,8 @@ TripleStep[{{EE_, NN_?TrueQ, OR_?TrueQ}, rules_Association}] :=
 
 TripleStep[{{EEs_, NNs_, ORs_}, rules_Association}] :=
     Module[ {EE = EEs /. rules, NN = Simplify /@ (NNs /. rules), 
-      OR = Simplify /@ (ORs /. rules), NNE, NNO, ORE, ORN, (*bool, *)
+      OR = Simplify /@ (ORs /. rules), NNE, NNO, ORE, ORN,
       newrules = {}},
-        (*bool = EE && NN && OR;*)
         NN = Simplify[NN];
         {NNE, NN, NNO} = Sys2Triple[NN];
         {ORE, ORN, OR} = Sys2Triple[OR];
@@ -554,21 +553,6 @@ TripleStep[{{EEs_, NNs_, ORs_}, rules_Association}] :=
             newrules = First@Solve[EE] // Quiet
         ];
         newrules = Expand /@ Join[rules /. newrules, Association@newrules];
-(*        in=Simplify/@((And[EEs,NNs,ORs]/.rules)&&(And@@Equal@@@Normal@
-        rules));
-        out=Simplify/@((And[EE,NN,OR]/.newrules)&&(And@@Equal@@@Normal@
-        newrules));
-*)        (*Print["Checking..."];*)
-        (*Print[in];
-        Print[out];*)
-        (*in=Simplify/@(And[EEs,NNs,ORs]/.newrules);
-        out=Simplify/@(And[EE,NN,OR]/.newrules);
-        Print[in];
-        Print[out];*)
-        (*Print["Checking (replacing updated rules in both systems)..."];*)
-        (*If[Reduce[Equivalent[in,out],Reals]===True,Print["Ok!"],
-        	Print["Not Ok..."]
-        ];*)
         {{EE, NN, OR}, newrules}
     ];
 
@@ -577,8 +561,6 @@ TripleClean::usage =
 replacement of NewRules in NewNN and NewOR do not produce equalities."
 TripleClean[{{EE_, NN_, OR_}, rules_}] := FixedPoint[TripleStep, {{EE, NN, OR}, rules}];
 
-
-Clear[ZAnd];
 ZAnd::usage =
 "
 ZAnd[xp,xps] returns a system which is equivalent to xp&&xps in disjunctive normal form. 
@@ -596,28 +578,15 @@ ZAnd[xp_, True] :=
     xp
 
 ZAnd[xp_, eq_Equal] := ReZAnd[xp, True, eq]
-    (*With[ {sol = Solve[eq]},
-        If[ sol === {},
-            False,
-            With[ {fsol = First@sol},
-                Simplify[(xp /. fsol)] && And @@ (fsol /. Rule -> Equal)
-            ]
-        ]
-    ]*)
 
 ZAnd[xp_, And[fst_,rst_]] :=
     If[ Head[fst] === Or,
         RemoveDuplicates@(ReZAnd[Simplify@xp, rst] /@ fst),
-        (*Print["head of fst in And is not Or. fst: ", fst, " and rest: ", rst];*)
         ReZAnd[Simplify@xp, rst, fst]
     ]
 
 ZAnd[xp_, Or[fst_,scd_]] :=
     RemoveDuplicates@(Or@@(ZAnd[Simplify@xp, #] & /@ {fst,scd}))
-
-
-(*ZAnd[xp_, orxp_Or] :=
-    RemoveDuplicates@(ZAnd[Simplify@xp, #] & /@ orxp)*)
 
 ZAnd[xp_, leq_] :=
     With[ {ff = Simplify[xp && leq]},
