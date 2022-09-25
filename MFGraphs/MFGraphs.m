@@ -15,7 +15,7 @@ Get["MFGraphs`AuxiliaryFunctions`"]*)
 (*Get["MFGraphs`IterationFunction`"]
 
 Get["MFGraphs`DataToEquations`"]*)
-Get["MFGRAphs`NonLinearSolver`"];
+Get["MFGraphs`NonLinearSolver`"];
 (*Begin["`Private`"]
 (* Implementation of the package *)
 End[]
