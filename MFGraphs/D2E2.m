@@ -187,9 +187,11 @@ Data2Equations[Data_Association] :=
          consistentCosts =!= True, 
          Print["Switching costs conditions are ", consistentCosts]
         ];
+        (*Cost 1: Absolute values of currents plus the product of opposing currents*)
         CostArgs = 
          Join[AssociationMap[Function[x,Abs[SignedCurrents[Last[x]]] + jvars[x]jvars[OtherWay[x]]], jargs], 
              ZeroRun, AssociationMap[jtvars[#] jtvars[BackTransition[#]] &, Keys@SwitchingCosts] + (SwitchingCosts /. {Infinity -> 10^6})];
+        (*Cost 2: sum of absolute values of the opposing currents.*)
         CostArgs2 = 
           Join[AssociationMap[Function[x,10^(-6) + Abs[jvars[x]] + Abs[jvars[OtherWay[x]]]], jargs], 
               ZeroRun, AssociationMap[Abs[jtvars[#]]+ Abs[jtvars[BackTransition[#]]] &, 
