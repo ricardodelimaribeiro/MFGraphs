@@ -191,6 +191,10 @@ Data2Equations[Data_Association] :=
         CostArgs = 
          Join[AssociationMap[Function[x,Abs[SignedCurrents[Last[x]]] + jvars[x]jvars[OtherWay[x]]], jargs], 
              ZeroRun, AssociationMap[jtvars[#] jtvars[BackTransition[#]] &, Keys@SwitchingCosts] + (SwitchingCosts /. {Infinity -> 10^6})];
+        (*Cost 1.5 with Hamiltonian: Absolute values of currents plus the product of opposing currents*)
+        CostArgs = 
+         Join[AssociationMap[Function[x,Abs[SignedCurrents[Last[x]]] + jvars[x]jvars[OtherWay[x]]], jargs], 
+             ZeroRun, AssociationMap[jtvars[#] jtvars[BackTransition[#]] &, Keys@SwitchingCosts] + (SwitchingCosts /. {Infinity -> 10^6})];
         (*Cost 2: sum of absolute values of the opposing currents.*)
         CostArgs2 = 
           Join[AssociationMap[Function[x,10^(-6) + Abs[jvars[x]] + Abs[jvars[OtherWay[x]]]], jargs], 
@@ -361,7 +365,7 @@ CriticalCongestionSolver[Eqs_] :=
         Join[PreEqs, Association["AssoCritical"-> AssoCritical]]
     ];
 
-CriticalCongestionReduce::usage = 
+(*CriticalCongestionReduce::usage = 
   "CriticalCongestionReduce[Eqs] is an attempt to a worst solver than CriticalCongestionSolver is.";
 CriticalCongestionReduce[Eqs_] :=
     Module[ {PreEqs, js, AssoCritical, time},
@@ -370,7 +374,7 @@ CriticalCongestionReduce[Eqs_] :=
         js = Lookup[PreEqs, "js",$Failed];
         AssoCritical = MFGSystemReduce[PreEqs][AssociationThread[js, 0 js]];
         Join[PreEqs, Association["AssoCritical"-> AssoCritical]]
-    ];
+    ];*)
 
 MFGSystemSolver::usage = 
 "MFGSystemSolver[Eqs][edgeEquations] returns the
@@ -388,6 +392,8 @@ MFGSystemSolver[Eqs_][approxJs_] :=
         InitRules = Expand/@(InitRules /. Ncpc);
         NewSystem = NewSystem /. Ncpc;
         {NewSystem, InitRules} = FinalClean[{NewSystem, InitRules}];
+        NewSystem = Sys2Triple[ And @@(Reduce[#,Reals]&/@NewSystem)];
+        {NewSystem, InitRules} = FinalClean[{NewSystem, InitRules}];
         System = And @@ NewSystem;
         Which[System === False, 
             Print["MFGSS: There is no solution"], 
@@ -400,15 +406,15 @@ MFGSystemSolver[Eqs_][approxJs_] :=
             pickOne = Association @ First @ FindInstance[System && And @@ ((# > 0 )& /@ jjtsR), vars, Reals];
             InitRules = Expand /@ Join[InitRules /. pickOne, pickOne];
             Print["\tPicked one value for the variable(s) ", vars, " ", InitRules/@vars//N, " (respectively)"],
-         System =!= True, 
-         Print["This is (should be) an interesting example!! ", System]
+         System =!= True, (*TODO why would we fall here?*)
+         Print["This is (should be) an interesting example!! ", System](*Reducing in the reals should be a good way of simplifying things here.*)
          ];
          (*Print[InitRules];*)
         InitRules = Join[KeyTake[InitRules, us], KeyTake[InitRules, js], KeyTake[InitRules, jts]];
         InitRules
     ];
 
-MFGSystemReduce[Eqs_][approxJs_] :=
+(*MFGSystemReduce[Eqs_][approxJs_] :=
     Module[ {NewSystem, InitRules, pickOne, vars, System, Ncpc,
         costpluscurrents, us, js, jts, usR, jjtsR},
         us = Lookup[Eqs, "us", $Failed];
@@ -440,7 +446,7 @@ MFGSystemReduce[Eqs_][approxJs_] :=
         ];
         InitRules = Join[KeyTake[InitRules, us], KeyTake[InitRules, js], KeyTake[InitRules, jts]];
         InitRules
-    ];
+    ];*)
 
 FinalStep[{{EE_?BooleanQ, NN_?BooleanQ, OR_?BooleanQ}, rules_}] :=
     {{EE, NN, OR}, rules}
@@ -465,7 +471,7 @@ FinalStep[{{EE_, NN_, OO_}, rules_}] :=
         {NewSystem, newrules}
     ];
 
-FinalReduceStep[{{EE_, NN_, OO_}, rules_}] :=
+(*FinalReduceStep[{{EE_, NN_, OO_}, rules_}] :=
     Module[ {NewSystem, newrules, sorted, time, oo, fst},
         {NewSystem, newrules} = TripleClean[{{EE, NN, OO}, rules}];
         oo = Part[NewSystem, 3];
@@ -492,7 +498,7 @@ FinalReduceStep[{{EE_, NN_, OO_}, rules_}] :=
     ];
    
 FinalReduce[{{EE_, NN_, OR_}, rules_}] :=
-    (FixedPoint[FinalReduceStep, {{EE, NN, OR}, rules}])
+    (FixedPoint[FinalReduceStep, {{EE, NN, OR}, rules}])*)
 
 FinalClean::usage =
 "FinalClean[{{EE,NN,OR},rules}] performs FinalStep, Reduce, and TripleClean on {{EE,NN,OR},rules}.
