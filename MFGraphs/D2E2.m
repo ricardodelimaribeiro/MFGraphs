@@ -297,6 +297,7 @@ GetKirchhoffMatrix[Eqs_] :=
         CCost = cost /@ vars /. MapThread[Rule, {vars, #}] &;
         {-BM, KM, CCost, vars}
     ];
+    
 MFGPreprocessing::usage =
 "MFGPreprocessing[Eqs] returns the association Eqs with the preliminary solution \"InitRules\" and corresponding \'reduced\' \"NewSystem\"."
 MFGPreprocessing[Eqs_] :=
@@ -406,7 +407,7 @@ MFGSystemSolver[Eqs_][approxJs_] :=
             pickOne = Association @ First @ FindInstance[System && And @@ ((# > 0 )& /@ jjtsR), vars, Reals];
             InitRules = Expand /@ Join[InitRules /. pickOne, pickOne];
             Print["\tPicked one value for the variable(s) ", vars, " ", InitRules/@vars//N, " (respectively)"],
-         System =!= True, (*TODO why would we fall here?*)
+         (*System =!=*) True, (*TODO why would we fall here?*)
          Print["This is (should be) an interesting example!! ", System](*Reducing in the reals should be a good way of simplifying things here.*)
          ];
          (*Print[InitRules];*)
