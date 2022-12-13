@@ -174,7 +174,7 @@ Data2Equations[Data_Association] :=
         jtvars = AssociationThread[AllTransitions, jts];
         us = Table[Symbol["u" <> ToString[k]], {k, 1, Length@uargs}];
         uvars = AssociationThread[uargs, us];
-        SignedCurrents = AssociationMap[jvars[AtHead[#]] - jvars[AtTail[#]] &, BEL];
+        SignedCurrents = AssociationMap[jvars[AtHead[#]] - jvars[AtTail[#]] &, EL];
         SwitchingCosts = AssociationMap[0 &, AllTransitions];
         AssociateTo[SwitchingCosts, AssociationThread[triple2path[Take[#, 3], FG] & /@ SC, Last[#] & /@ SC]];
         LargeCases = Join[{Last[#], __, #} & /@ InEdges, {First[#], #, __} & /@ OutEdges];
@@ -187,13 +187,14 @@ Data2Equations[Data_Association] :=
          consistentCosts =!= True, 
          Print["Switching costs conditions are ", consistentCosts]
         ];
+        Clear[CostArgs];
         (*Cost 1: Absolute values of currents plus the product of opposing currents*)
         CostArgs = 
          Join[AssociationMap[Function[x,Abs[SignedCurrents[Last[x]]] + jvars[x]jvars[OtherWay[x]]], jargs], 
              ZeroRun, AssociationMap[jtvars[#] jtvars[BackTransition[#]] &, Keys@SwitchingCosts] + (SwitchingCosts /. {Infinity -> 10^6})];
         (*Cost 1.5 with Hamiltonian: Absolute values of currents plus the product of opposing currents*)
         CostArgs = 
-         Join[AssociationMap[Function[x,Abs[SignedCurrents[Last[x]]] + jvars[x]jvars[OtherWay[x]]], jargs], 
+         Join[AssociationMap[Function[x,Abs[Cost[SignedCurrents[Last[x]], Last[x]]] + jvars[x]jvars[OtherWay[x]]], jargs], 
              ZeroRun, AssociationMap[jtvars[#] jtvars[BackTransition[#]] &, Keys@SwitchingCosts] + (SwitchingCosts /. {Infinity -> 10^6})];
         (*Cost 2: sum of absolute values of the opposing currents.*)
         CostArgs2 = 
@@ -408,7 +409,7 @@ MFGSystemSolver[Eqs_][approxJs_] :=
             InitRules = Expand /@ Join[InitRules /. pickOne, pickOne];
             Print["\tPicked one value for the variable(s) ", vars, " ", InitRules/@vars//N, " (respectively)"],
          (*System =!=*) True, (*TODO why would we fall here?*)
-         Print["This is (should be) an interesting example!! ", System](*Reducing in the reals should be a good way of simplifying things here.*)
+         Print["System is ", System](*Reducing in the reals should be a good way of simplifying things here.*)
          ];
          (*Print[InitRules];*)
         InitRules = Join[KeyTake[InitRules, us], KeyTake[InitRules, js], KeyTake[InitRules, jts]];
