@@ -3,7 +3,8 @@ Get["/Users/ribeirrd/eclipse-workspace/MFGraphs/MFGraphs/D2E2.m"];
 Clear[H,Cost];
 NonLinear::usage =
     "NonLinear[Eqs] takes an association resulting from Data2Equations and returns an approximation to the solution of the non-critical congestion case with alpha = value, specified by alpha[edge_]:= value.";
-
+IsNonLinearSolution::usage = 
+"IsNonLinearSolution[Eqs] extracts AssoNonCritial and checks equations and inequalities. The right and left hand sides of the nonlinear equations are shown with the sup-norm of the difference."
 NonLinear[Eqs_] :=
     Module[ {AssoCritical, PreEqs = Eqs, AssoNonCritical, NonCriticalList, js = 1, MaxIter = 15},
         If[ KeyExistsQ[PreEqs, "AssoCritical"], 
@@ -19,7 +20,7 @@ NonLinear[Eqs_] :=
         AssoNonCritical = NonCriticalList // Last;
         Join[PreEqs, Association[{"AssoCritical" -> AssoCritical, "AssoNonCritical" -> AssoNonCritical}]]
     ];
-
+style = Style[#,Bold,Blue]&;
 NonLinearStep[Eqs_][approxSol_] :=
     Module[ {approxJs, approx, js, Nrhs, Nlhs, Newlhs, Newrhs},
         js = Lookup[Eqs, "js", $Failed];
@@ -30,14 +31,16 @@ NonLinearStep[Eqs_][approxSol_] :=
         Newlhs = N[Nlhs/.approx];
         Newrhs = Nrhs/.approx;
         Print[Newlhs,"\n",Newrhs];
-        Print["Max error for non-linear solution: ", Norm[Newlhs-Newrhs,Infinity]];
+        Print[style@"Max error for non-linear solution: ", Norm[Newlhs-Newrhs,Infinity]];
         approx
     ];
     
-IsNonLinearSolution[Eqs_][assoc_] :=
+IsNonLinearSolution[Eqs_] :=
     Module[ {EqEntryIn, EqValueAuxiliaryEdges, EqSwitchingByVertex, EqCompCon, 
         EqBalanceSplittingCurrents, EqCurrentCompCon, EqTransitionCompCon,
-        EqPosJs, EqPosJts, Nrhs, Nlhs, style, styler, styleg},
+        EqPosJs, EqPosJts, Nrhs, Nlhs, style, styler, styleg, assoc},
+        assoc = Lookup[Eqs, "AssoNonCritical", <||>];
+        (*Print[assoc];*)
         style = Style[#,Bold,Blue]&;
         styler = Style[#,Bold,Red]&;
         styleg = Style[#,Bold,Darker@Green]&;
@@ -134,7 +137,7 @@ IntM[j_?NumericQ, edge_] :=
     ];
 
 Cost[j_, edge_] :=
-    Abs[IntM[j, edge]];
+    IntM[j, edge];
 
 plotM[Eqs_, string_, edge_] :=
     Module[ {jays, sol},
