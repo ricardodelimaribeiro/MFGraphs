@@ -1,4 +1,6 @@
-test = Association[
+		eme=3;
+        ene=3;
+        test = Association[
     (*One vertex*)
     1 -> {
         (*VL=*){1},
@@ -408,15 +410,15 @@ test = Association[
         (*DataIn=*){{1, I1}/.I1->400},
         (*FinalCosts=*){{200, U1}/.U1->0},
         (*SwitchingCostsData=*){}
-        }(*,
+        },
         
-        "Gridemen" -> {
-        	(*VL=*)VertexList[GridGraph[{eme,ene}]],
-        (*AM=*)AdjacencyMatrix[GridGraph[{eme,ene},DirectedEdges->True]],
+        "Grid0303" -> {
+        	(*VL=*)VertexList[GridGraph[{3,3}]],
+        (*AM=*)AdjacencyMatrix[GridGraph[{3,3},DirectedEdges->True]],
         (*DataIn=*){{1, I1}/.I1->400},
-        (*FinalCosts=*){{eme*ene, U1}/.U1->0},
+        (*FinalCosts=*){{3*3, U1}/.U1->0},
         (*SwitchingCostsData=*){}
-        }*)
+        }
         
  (* 
     (*Y 1-in 2-out 3 vertices no switching*)

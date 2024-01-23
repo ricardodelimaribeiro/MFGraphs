@@ -6,9 +6,9 @@ BeginPackage["MFGraphs`"];
 (* Exported symbols added here with SymbolName::usage *) 
 (*Get["MFGraphs`Examples`ExamplesParameters`"]*)
 
-(*Get["MFGraphs`Examples`ExamplesData`"]
+Get["MFGraphs`Examples`ExamplesData`"];
 
-Get["MFGraphs`AuxiliaryFunctions`"]*)
+(*Get["MFGraphs`AuxiliaryFunctions`"];*)
 
 (*Get["MFGraphs`NetworkBuild`"]*)
 

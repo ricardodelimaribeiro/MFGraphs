@@ -23,12 +23,12 @@ Parameters =
           		"H[x,p,m]" -> H
           	}]
     	]*)
-g::usage =
+(*g::usage =
 ""    	
 g = If[ beta == 0,
 		Log,
         Function[{m}, m^beta]
-    ];
+    ];*)
 
 W::usage =
 ""
