@@ -686,12 +686,18 @@ ReZAnd[xp_, rst_, fst_Equal] :=
 ReZAnd[xp_, rst_, fst_] :=
     ZAnd[xp && fst, rst]
 
+
+ReplaceSolution::usage =
+"ReplaceSolution[xp,sol] substitutes the Rule, solution, on the expression xp.
+After that, it simplifies the first equation if the Head of the expression is And. 
+Otherwise, it simplifies the whole expression.";
 ReplaceSolution[rst_?BooleanQ, sol_] :=
     rst
 
-ReplaceSolution[rst_, sol_] :=
+ReplaceSolution[rst_, sol_Rule] :=
     With[ {newrst = rst /. sol},
-        If[ Head[newrst] === And,
+    	(*Should we use RemoveDuplicates here?*)
+    	If[ Head[newrst] === And,
             And[Simplify@First@newrst, Rest@newrst],
             Simplify[newrst]
         ]
@@ -702,7 +708,7 @@ SortOp = ReverseSortBy[Simplify`SimplifyCount]
 RemoveDuplicates::usage =
 "RemoveDuplicates[xp] sorts and then DeleteDuplicates. 
 We need to sort because DeleteDuplicates only deletes identical expressions.
-For example (A&&B)||(B&&A) reduce to (A&&B) only after sorting.
+For example (A&&B)||(B&&A) becomes (A&&B) only after sorting.
 "
 RemoveDuplicates[xp_And] :=
     DeleteDuplicates[SortOp[xp]];
