@@ -50,6 +50,11 @@ ReZAnd[xp_, rst_, fst_Equal] :=
 
 ReZAnd[xp_, rst_, fst_] := ZAnd[xp && fst, rst]
 
+ReplaceSolution::usage =
+"ReplaceSolution[xp,sol] substitutes the Rule, solution, on the expression xp.
+After that, it reduces each sub-expression over the Reals if the Head of the expression is And. 
+Otherwise, it reduces the whole expression over the Reals.";
+
 ReplaceSolution[rst_?BooleanQ, sol_] := rst
 
 ReplaceSolution[rst_, sol_] := Module[{newrst}, newrst = rst /. sol;
@@ -57,7 +62,11 @@ ReplaceSolution[rst_, sol_] := Module[{newrst}, newrst = rst /. sol;
    Reduce[newrst, Reals]]]
 
 (*ReplaceSolution[rst_,sol_]:=Simplify[rst/. sol]*)
-
+RemoveDuplicates::usage =
+"RemoveDuplicates[xp] sorts and then DeleteDuplicates. 
+We need to sort because DeleteDuplicates only deletes identical expressions.
+For example (A&&B)||(B&&A) becomes (A&&B) only after sorting.
+"
 RemoveDuplicates[xp_And] := DeleteDuplicates[Sort[xp]];
 RemoveDuplicates[xp_Or] := DeleteDuplicates[Sort[xp]];
 RemoveDuplicates[xp_] := xp
