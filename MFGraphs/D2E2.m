@@ -578,7 +578,7 @@ Sys2Triple[system_] :=
          {True, system, True}];
 
 TripleStep::usage =
-"TripleStep[{{EE,NN,OR},Rules}] returns {{True, NewNN, NewOR}, NewRules}, where NewRules contain the solutions to the all equalities found in the system 
+"TripleStep[{{EE,NN,OR},Rules}] returns {{True, NewNN, NewOR}, NewRules}, where NewRules contain the solutions to all the equalities found in the system 
 after replacing Rules in {EE,NN,OR}."
 
 TripleStep[{{EEs_, NNs_, ORs_}, rules_List}] :=
