@@ -1,5 +1,12 @@
 (* Wolfram Language package *)
 
+ZAnd::usage =
+"
+ZAnd[xp,xps] returns a system which is equivalent to xp&&xps in disjunctive normal form. 
+ZAnd[xp, And[fst, scd] 
+ZAnd[xp, eq] returns xp with the solution of eq replaced in it together with eq.
+ZAnd[xp, Or[fst,scd]] returns ZAnd[xp, fst]||ZAnd[xp, scd]";
+
 ZAnd[_, False] = 
 	False
 
