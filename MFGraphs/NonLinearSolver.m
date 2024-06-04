@@ -1,5 +1,5 @@
 (*Wolfram Language package*)
-Get["/Users/ribeirrd/eclipse-workspace/MFGraphs/MFGraphs/D2E2.m"];
+(*Get["/Users/ribeirrd/eclipse-workspace/MFGraphs/MFGraphs/D2E2.m"];*)
 Clear[H,Cost];
 NonLinear::usage =
     "NonLinear[Eqs] takes an association resulting from Data2Equations and returns an approximation to the solution of the non-critical congestion case with alpha = value, specified by alpha[edge_]:= value.";
@@ -36,40 +36,40 @@ NonLinearStep[Eqs_][approxSol_] :=
     ];
     
 IsNonLinearSolution[Eqs_] :=
-    Module[ {EqEntryIn, EqValueAuxiliaryEdges, EqSwitchingByVertex, EqCompCon, 
-        EqBalanceSplittingCurrents, EqCurrentCompCon, EqTransitionCompCon,
-        EqPosJs, EqPosJts, Nrhs, Nlhs, style, styler, styleg, assoc},
+    Module[ {EqEntryIn, EqValueAuxiliaryEdges, IneqSwitchingByVertex, AltOptCond, 
+        EqBalanceSplittingFlows, AltFlows, AltTransitionFlows,
+        IneqJs, IneqJts, Nrhs, Nlhs, style, styler, styleg, assoc},
         assoc = Lookup[Eqs, "AssoNonCritical", <||>];
         (*Print[assoc];*)
         style = Style[#,Bold,Blue]&;
         styler = Style[#,Bold,Red]&;
         styleg = Style[#,Bold,Darker@Green]&;
         EqEntryIn = And @@ Lookup[Eqs, "EqEntryIn", $Failed];
-        EqCompCon = Lookup[Eqs, "EqCompCon", $Failed];
-        EqCurrentCompCon = Lookup[Eqs, "EqCurrentCompCon", $Failed];
-        EqTransitionCompCon = Lookup[Eqs, "EqTransitionCompCon", $Failed];
-        EqPosJs = Lookup[Eqs, "EqPosJs", $Failed];
-        EqPosJts = Lookup[Eqs, "EqPosJts", $Failed];
-        EqSwitchingByVertex = And @@ Lookup[Eqs, "EqSwitchingByVertex", $Failed];
-        EqBalanceSplittingCurrents = Lookup[Eqs, "EqBalanceSplittingCurrents", $Failed];
+        AltOptCond = Lookup[Eqs, "AltOptCond", $Failed];
+        AltFlows = Lookup[Eqs, "AltFlows", $Failed];
+        AltTransitionFlows = Lookup[Eqs, "AltTransitionFlows", $Failed];
+        IneqJs = Lookup[Eqs, "IneqJs", $Failed];
+        IneqJts = Lookup[Eqs, "IneqJts", $Failed];
+        IneqSwitchingByVertex = And @@ Lookup[Eqs, "IneqSwitchingByVertex", $Failed];
+        EqBalanceSplittingFlows = Lookup[Eqs, "EqBalanceSplittingFlows", $Failed];
         EqValueAuxiliaryEdges = Lookup[Eqs, "EqValueAuxiliaryEdges", $Failed];
         Nrhs = Lookup[Eqs, "Nrhs", $Failed];
         Nlhs = Lookup[Eqs, "Nlhs", $Failed];
-        bool = (EqEntryIn&&EqValueAuxiliaryEdges&&EqCompCon&&
-            EqBalanceSplittingCurrents&&EqCurrentCompCon&&EqTransitionCompCon&&
-            EqPosJs&&EqPosJts&&EqSwitchingByVertex)/.assoc;
+        bool = (EqEntryIn&&EqValueAuxiliaryEdges&&AltOptCond&&
+            EqBalanceSplittingFlows&&AltFlows&&AltTransitionFlows&&
+            IneqJs&&IneqJts&&IneqSwitchingByVertex)/.assoc;
         If[ bool,
             Print["All restrictions are ", styleg@"True"],
             Print["At least one of the restrictions is ", styler@bool];
             Print[style@"EqEntryIn: ", EqEntryIn/.assoc, "\n", EqEntryIn];
             Print[style@"EqValueAuxiliaryEdges: ", EqValueAuxiliaryEdges/.assoc, "\n", EqValueAuxiliaryEdges];
-            Print[style@"EqCompCon: ", EqCompCon/.assoc, "\n", EqCompCon];
-            Print[style@"EqBalanceSplittingCurrents: ", EqBalanceSplittingCurrents/.assoc, "\n", EqBalanceSplittingCurrents];
-            Print[style@"EqCurrentCompCon: ", EqCurrentCompCon/.assoc, "\n",EqCurrentCompCon];
-            Print[style@"EqTransitionCompCon: ", EqTransitionCompCon/.assoc, "\n", EqTransitionCompCon];
-            Print[style@"EqPosJs: ", EqPosJs/.assoc, "\n", EqPosJs];
-            Print[style@"EqPosJts: ", EqPosJts/.assoc, "\n", EqPosJts];
-            Print[style@"EqSwitchingByVertex: ", EqSwitchingByVertex/.assoc, "\n", EqSwitchingByVertex]
+            Print[style@"AltOptCond: ", AltOptCond/.assoc, "\n", AltOptCond];
+            Print[style@"EqBalanceSplittingFlows: ", EqBalanceSplittingFlows/.assoc, "\n", EqBalanceSplittingFlows];
+            Print[style@"AltFlows: ", AltFlows/.assoc, "\n",AltFlows];
+            Print[style@"AltTransitionFlows: ", AltTransitionFlows/.assoc, "\n", AltTransitionFlows];
+            Print[style@"IneqJs: ", IneqJs/.assoc, "\n", IneqJs];
+            Print[style@"IneqJts: ", IneqJts/.assoc, "\n", IneqJts];
+            Print[style@"IneqSwitchingByVertex: ", IneqSwitchingByVertex/.assoc, "\n", IneqSwitchingByVertex]
         ];
         Print[style@"Nlhs: ", N[Nlhs/.assoc], "\n", Nlhs];
         Print[style@"Nrhs: ", N[Nrhs/.assoc], "\n", Nrhs];
@@ -93,17 +93,17 @@ alpha[edge_] :=
     1
 
 g[m_, edge_] :=
-    m
+    -1/m^2
 
 A = 0.5;
 
-V::usage = 
+(*V::usage = 
 ""
 V = Function[{x, edge}, W[x, A]];
 
 W::usage =
 ""
-W = Function[{y, a}, a Sin[2 Pi (y + 1/4)]^2];
+W = Function[{y, a}, a Sin[2 Pi (y + 1/4)]^2];*)
 
 H::usage = (*TODO include the other parameter here, if we call it beta, change the the other beta!*)
 "H[xi,p,m, edge] is the Hamiltonian function for the edges.
@@ -116,7 +116,7 @@ U::usage =
 "U[x, edge, Eqs, sol]"
 U[x_?NumericQ , edge_, Eqs_Association, sol_] :=
     Module[ {jay, uT},
-        jay = Eqs["SignedCurrents"][edge]/.sol;
+        jay = Eqs["SignedFlows"][edge]/.sol;
         uT = Eqs["uvars"][AtTail[edge]]/.sol;
         If[ jay == 0.|| jay == 0,
             uT,
@@ -142,7 +142,7 @@ Cost[j_, edge_] :=
 plotM[Eqs_, string_, edge_] :=
     Module[ {jays, sol},
         sol = Eqs[string];
-        jays = Eqs["SignedCurrents"][edge] /. sol;
+        jays = Eqs["SignedFlows"][edge] /. sol;
         sol = Eqs[string];
         Plot[M[jays /. sol, x, edge], {x, 0, 1}, 
          PlotLabel -> edge,(*PlotRange\[Rule]{-0.1,2.4},*)
@@ -150,7 +150,7 @@ plotM[Eqs_, string_, edge_] :=
     ]
    
 plotMs[Eqs_, string_] :=
-    plotM[Eqs, string, #] & /@ crit["BEL"];
+    plotM[Eqs, string, #] & /@ Eqs["EL"]
     
 plotU[Eqs_, string_, edge_] :=
     Module[ {sol},
