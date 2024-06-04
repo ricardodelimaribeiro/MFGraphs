@@ -7,7 +7,7 @@ BeginPackage["MFGraphs`"];
 (*Get["MFGraphs`Examples`ExamplesParameters`"]*)
 
 Get["MFGraphs`Examples`ExamplesData`"];
-
+Get["MFGraphs`D2E2`"];
 (*Get["MFGraphs`AuxiliaryFunctions`"];*)
 
 (*Get["MFGraphs`NetworkBuild`"]*)
@@ -20,5 +20,6 @@ Get["MFGraphs`NonLinearSolver`"];
 (* Implementation of the package *)
 End[]
 *)
+Get["MFGraphs`Monotone`"];
 EndPackage[];
 
