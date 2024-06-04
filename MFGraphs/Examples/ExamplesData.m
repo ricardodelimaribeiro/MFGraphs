@@ -450,7 +450,7 @@ Which[
     AssociationThread[{
     "Vertices List", 
     "Adjacency Matrix", 
-    "Entrance Vertices and Currents", 
+    "Entrance Vertices and Flows", 
     "Exit Vertices and Terminal Costs", 
     "Switching Costs"}, 
     test[
@@ -461,7 +461,7 @@ Which[
     AssociationThread[{
     "Vertices List", 
     "Adjacency Matrix", 
-    "Entrance Vertices and Currents", 
+    "Entrance Vertices and Flows", 
     "Exit Vertices and Terminal Costs", 
     "Switching Costs","a"},
     test[
@@ -472,7 +472,7 @@ Which[
     AssociationThread[{
     "Vertices List", 
     "Adjacency Matrix", 
-    "Entrance Vertices and Currents", 
+    "Entrance Vertices and Flows", 
     "Exit Vertices and Terminal Costs", 
     "Switching Costs","a",
     "alpha"},
