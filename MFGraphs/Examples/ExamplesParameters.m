@@ -30,13 +30,13 @@ g = If[ beta == 0,
         Function[{m}, m^beta]
     ];*)
 
-W::usage =
-""
-W = Function[{y, a}, a Sin[2 Pi (y + 1/4)]^2];
+(*W::usage =
+""*)
+(*W = Function[{y, a}, a Sin[2 Pi (y + 1/4)]^2];*)
 
-V::usage = 
-""
-V = Function[{x, edge}, W[x, A]];
+(*V::usage = 
+""*)
+(*V = Function[{x, edge}, W[x, A]];*)
 
 H::usage = (*TODO include the other parameter here, if we call it beta, change the the other beta!*)
 ""
