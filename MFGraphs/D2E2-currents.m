@@ -4,12 +4,14 @@ returns True if S, the cost of switching from the edge ab to cb, is smaller than
 returns the condition for this switching cost to satisfy the triangle inequality when S, and the other switching costs too, does not have a numerical value.";
 
 ConsistentSwithingCosts[sc_][{a_, b_, c_} -> S_] :=
-    Module[ {origin, destination, bounds},
-        origin = Cases[sc, HoldPattern[{a, b, _} -> _]];
+    Module[ {origin, bounds},
+    	origin = Cases[sc, HoldPattern[{a, b, _} -> _]];
+        (*Print[origin];*)
         origin = DeleteCases[origin, {a, b, c} -> S];
+        (*Print["org: ",origin];*)
         If[ origin =!= {},
-            destination = {a, Part[First[#], 3], c} & /@ origin;
-            bounds = ((S <= Last[#] + Association[sc][{a, Part[First[#], 3], c}]) & /@ origin);
+            bounds = ((S <= Last[#] + Association[sc][{ Part[First[#], 3], b, c}]) & /@ origin);
+            (*Print[bounds];*)
             And @@ bounds,
             True
         ]
@@ -68,9 +70,23 @@ path2triple[{a_, b_ \[DirectedEdge] c_, d_ \[DirectedEdge] e_} ->
 CurrentCompCon[jvars_][a_ \[DirectedEdge] b_] :=
     jvars[{a, a \[DirectedEdge] b}] == 0 || 
      jvars[{b, a \[DirectedEdge] b}] == 0;
-
+AltFlowOp::usage = 
+"AltFlowOp[j][list] returns the alternative: j@@list ==0 || j@@Reverse@list ==0.";     
+AltFlowOp[j_][list_]:=
+	j@@list==0||j@@Reverse@list==0;
+	
 CurrentSplitting[AllTransitions_][{c_, a_ \[DirectedEdge] b_}] :=
     Select[AllTransitions, (Take[#, 2] == {c, a \[DirectedEdge] b}) &];
+(*Clear[FlowSplitting];*)
+(*TODO: resolve kirchhoff equations: *)
+FlowSplitting::usage = 
+"FlowSplitting[AT][a[\UndirectedEdge]b] returns the transitions that start with {a,b}.";
+FlowSplitting[AllTransitions_List][x_] := Select[AllTransitions, MatchQ[#,{Sequence@@x,__}]&] ;
+
+
+FlowGathering::usage=
+"FlowGathering";
+FlowGathering[AllTransitions_List][x_] := Select[AllTransitions, MatchQ[#,{__,Sequence@@x}]&]
 
 CurrentGathering[AllTransitions_][{c_, a_ \[DirectedEdge] b_}] :=
     Select[
@@ -132,7 +148,9 @@ Data2Equations[Data_Association] :=
       EqValueAuxiliaryEdges, OutRules, InRules, IneqSwitchingByVertex, 
       AltOptCond, Nlhs, ModuleVars, ModuleVarsNames, LargeCases, 
       LargeSwitchingTransitions, ZeroRun, CostArgs, Nrhs, 
-      consistentCosts, costpluscurrents, EqGeneral, CostArgs2},
+      consistentCosts, costpluscurrents, EqGeneral, CostArgs2, 
+      inAuxEntryEdgePairs, outAuxEntryEdgePairs, inAuxExitEdgePairs, 
+      outAuxExitEdgePairs, basicEdgePairs, halfBasicEdgePairs},
         VL = Lookup[Data, "Vertices List", {}];
         AM = Lookup[Data, "Adjacency Matrix", {}];
         EVC = Lookup[Data, "Entrance Vertices and Flows", {}];
@@ -141,7 +159,6 @@ Data2Equations[Data_Association] :=
         
         (****Graph stuff****)
         BG = AdjacencyGraph[VL, AM, VertexLabels -> "Name", DirectedEdges -> False];
-        Print[BG];
         EntranceVertices = First /@ EVC;
         ExitVertices = First /@ EVTC;
         Clear["en*", "ex*"];
@@ -155,35 +172,51 @@ Data2Equations[Data_Association] :=
         OutEdges = MapThread[UndirectedEdge, {ExitVertices, OutwardVertices /@ ExitVertices}];
         AuxiliaryGraph = Graph[Join[InEdges, OutEdges], VertexLabels -> "Name", GraphLayout -> "SpringEmbedding"];
         FG = EdgeAdd[BG, Join[InEdges, OutEdges]];
-        Print[FG];
         EL = EdgeList[FG];
         BEL = EdgeList[BG];
         FVL = VertexList[FG];
         
         (*arguments*)
-        jargs = Flatten[#, 1] &@({AtTail@#, AtHead@#} & /@ EL);
-        jIndices = EL/.Rule->List;
-        newjargs = Join[jIndices,Reverse/@jIndices]; 
+        (*jargs = Flatten[#, 1] &@({AtTail@#, AtHead@#} & /@ EL);*)
+        halfBasicEdgePairs = BEL/.Rule->List;
+        inAuxEntryEdgePairs = InEdges/.Rule->List;
+        inAuxExitEdgePairs = Reverse/@OutEdges /.Rule->List;
+        outAuxEntryEdgePairs = Reverse/@inAuxEntryEdgePairs;
+        outAuxExitEdgePairs = Reverse/@inAuxExitEdgePairs;
+        basicEdgePairs = Join[halfBasicEdgePairs, Reverse/@halfBasicEdgePairs];
+        Print[halfBasicEdgePairs, basicEdgePairs,inAuxEntryEdgePairs, outAuxEntryEdgePairs, inAuxExitEdgePairs, outAuxExitEdgePairs];
+        jargs = Join[inAuxEntryEdgePairs, outAuxEntryEdgePairs, inAuxExitEdgePairs, outAuxExitEdgePairs, basicEdgePairs];
         uargs = jargs;
-        AllTransitions = TransitionsAt[FG, #] & /@ FVL // Catenate(*at vertex from first edge to second edge*);
-        Print[AllTransitions];
-        EntryArgs = AtHead /@ ((EdgeList[AuxiliaryGraph, DirectedEdge[_, #]] & /@ (First /@ EVC)) // Flatten[#, 1] &);
-        ZeroRun = AssociationMap[0 &][AtHead /@ Join[InEdges, OutEdges]];(*zero currents for *)
+        (*AllTransitions = TransitionsAt[FG, #] & /@ FVL // Catenate(*at vertex from first edge to second edge*);*)
+        AllTransitions = Flatten[Insert[#, 2] /@ Permutations[AdjacencyList[FG, #], {2}]&/@FVL,1];
+        (*EntryArgs = AtHead /@ ((EdgeList[AuxiliaryGraph, DirectedEdge[_, #]] & /@ (First /@ EVC)) // Flatten[#, 1] &);*)
+        EntryArgs = InEdges/.UndirectedEdge->List;
+        Print[EntryArgs];
+        (*ZeroRun = AssociationMap[0 &][AtHead /@ Join[InEdges, OutEdges]];(*zero currents for *)*)
+        ZeroRun = AssociationMap[0 &][ Join[InEdges, OutEdges]];(*zero currents for *)
+        Print["ZR: ",ZeroRun];
         EntryDataAssociation = RoundValues@AssociationThread[EntryArgs, Last /@ EVC];
         ExitCosts = AssociationThread[OutwardVertices /@ (First /@ EVTC), Last /@ EVTC];
         
         (*variables*)
-        js = Table[Symbol["j" <> ToString[k]], {k, 1, Length@jargs}];
-        js = Subscript[j, Sequence @@ #] & /@newjargs;
+        (*js = Table[Symbol["j" <> ToString[k]], {k, 1, Length@jargs}];
+        js = Subscript[j, Sequence @@ #] & /@jargs;*)
+        js = j[Sequence @@ #] & /@ jargs;
         jvars = AssociationThread[jargs, js];
-        jts = Table[Symbol["jt" <> ToString[k]], {k, 1, Length@AllTransitions}];
+        (*jts = Table[Symbol["jt" <> ToString[k]], {k, 1, Length@AllTransitions}];*)
+        jts = j[Sequence @@ #] & /@ AllTransitions;
+        (*Print[jts];*)
         jtvars = AssociationThread[AllTransitions, jts];
         
-        us = Table[Symbol["u" <> ToString[k]], {k, 1, Length@uargs}];
+        (*us = Table[Symbol["u" <> ToString[k]], {k, 1, Length@uargs}];*)
+        us = u[Sequence @@ #] & /@ jargs;
         uvars = AssociationThread[uargs, us];
-        SignedFlows = AssociationMap[jvars[AtHead[#]] - jvars[AtTail[#]] &, EL];
+        (*SignedFlows = AssociationMap[jvars[AtHead[#]] - jvars[AtTail[#]] &, EL];*)
+        SignedFlows = AssociationMap[j@@# - j@@Reverse@# &, jargs];
+        Print["SF: ",SignedFlows];
         SwitchingCosts = AssociationMap[0 &, AllTransitions];
         AssociateTo[SwitchingCosts, AssociationThread[triple2path[Take[#, 3], FG] & /@ SC, Last[#] & /@ SC]];
+        Print["SC: ",SwitchingCosts];
         LargeCases = Join[{Last[#], __, #} & /@ InEdges, {First[#], #, __} & /@ OutEdges];
         LargeSwitchingTransitions = Cases[AllTransitions, #] & /@ LargeCases // Flatten[#, 1] &;
         AssociateTo[SwitchingCosts, AssociationMap[Infinity &, LargeSwitchingTransitions]];
@@ -194,32 +227,47 @@ Data2Equations[Data_Association] :=
          consistentCosts =!= True, 
          Print["Switching costs conditions are ", consistentCosts]
         ];
-        Clear[CostArgs];
-        (*These were design to test the monotone strategy:*)
+        (*Clear[CostArgs];
+        These were design to test the monotone strategy:*)
         (*Cost 1: Absolute values of currents plus the product of opposing currents*)
-        CostArgs = 
+        (*CostArgs = 
          Join[AssociationMap[Function[x,Abs[SignedFlows[Last[x]]] + jvars[x]jvars[OtherWay[x]]], jargs], 
              ZeroRun, AssociationMap[jtvars[#] jtvars[BackTransition[#]] &, Keys@SwitchingCosts] + (SwitchingCosts /. {Infinity -> 10^6})];
+        Print[CostArgs];*)
         (*Cost 1.5 with Hamiltonian: Absolute values of currents plus the product of opposing currents*)
-        CostArgs = 
+        (*CostArgs = 
          Join[AssociationMap[Function[x,Abs[Cost[SignedFlows[Last[x]], Last[x]]] + jvars[x]jvars[OtherWay[x]]], jargs], 
-             ZeroRun, AssociationMap[jtvars[#] jtvars[BackTransition[#]] &, Keys@SwitchingCosts] + (SwitchingCosts /. {Infinity -> 10^6})];
+             ZeroRun, AssociationMap[jtvars[#] jtvars[BackTransition[#]] &, Keys@SwitchingCosts] + (SwitchingCosts /. {Infinity -> 10^6})];*)
         (*Cost 2: sum of absolute values of the opposing currents.*)
-        CostArgs2 = 
+        (*CostArgs2 = 
           Join[AssociationMap[Function[x,10^(-6) + Abs[jvars[x]] + Abs[jvars[OtherWay[x]]]], jargs], 
               ZeroRun, AssociationMap[Abs[jtvars[#]]+ Abs[jtvars[BackTransition[#]]] &, 
-        Keys@SwitchingCosts] + (SwitchingCosts /. {Infinity -> 10^6})];
-        IneqJs = And @@ (# >= 0 & /@ Join[jvars]);(*Inequality*)
-        IneqJts = And @@ (# >= 0 & /@ Join[jtvars]);(*Inequality*)
-        AltFlows = And @@ (CurrentCompCon[jvars] /@ EL);(*Or*)
+        Keys@SwitchingCosts] + (SwitchingCosts /. {Infinity -> 10^6})];*)
+        
+        
+        
+        IneqJs = And @@ (# >= 0 & /@ Join[js]);(*Inequality*)
+        IneqJts = And @@ (# >= 0 & /@ Join[jts]);(*Inequality*)
+        (*AltFlows = And @@ (CurrentCompCon[jvars] /@ EL);(*Or*)*)
+        AltFlows = And@@(AltFlowOp[j]/@(EL/.UndirectedEdge->List));
         AltTransitionFlows = And @@ ((Sort /@ TransitionCompCon[jtvars] /@ AllTransitions) // Union);(*Or*)(*Balance Splitting Flows in the full graph*)
-        NoDeadEnds = IncomingEdges[FG] /@ VL // Flatten[#, 1] &;
-        BalanceSplittingFlows = ((jvars[#] - Total[jtvars /@ CurrentSplitting[AllTransitions][#]]) & /@ NoDeadEnds);
+        AltTransitionFlows = And@@(AltFlowOp[j]/@AllTransitions);
+        (*Print[AllTransitions,AltFlows,AltTransitionFlows]; *) 
+        (*NoDeadEnds = IncomingEdges[FG] /@ VL // Flatten[#, 1] &;*)
+        NoDeadEnds = Join[inAuxEntryPairs, inAuxExitPairs];
+        Print[EL,"\n",BEL,"\n",EntryArgs,"\n",OutEdges,"\n",InEdges];
+        BalanceSplittingFlows = (j@@# - Total[j@@@FlowSplitting[AllTransitions][#]])&/@BEL;
+        (*BalanceSplittingFlows = ((jvars[#] - Total[jtvars /@ CurrentSplitting[AllTransitions][#]]) & /@ NoDeadEnds);*)
         EqBalanceSplittingFlows = Simplify /@ (And @@ ((# == 0) & /@ BalanceSplittingFlows));(*Equal*)(*Gathering currents in \
      		the inside of the basic graph*)
+        Print["nde: ",NoDeadEnds,"\n",BalanceSplittingFlows,"\nEBSF: ",EqBalanceSplittingFlows];
         NoDeadStarts = OutgoingEdges[FG] /@ VL // Flatten[#, 1] &;
+        Print["nds: ",NoDeadStarts,"\n",FlowGathering[AllTransitions]/@EL];
         RuleBalanceGatheringFlows = Association[(jvars[#] -> Total[jtvars /@ CurrentGathering[AllTransitions][#]]) & /@ NoDeadStarts];(*Rule*)(*get equations for the exit currents at \
      		the entry vertices*)
+        RuleBalanceGatheringFlows = Association[(j@@# -> Total[j@@@ FlowGathering[AllTransitions][#]]) & /@ EL];(*Rule*)(*get equations for the exit currents at \
+     		the entry vertices*)
+        Print[RuleBalanceGatheringFlows];
         BalanceGatheringFlows = ((-jvars[#] + Total[jtvars /@ CurrentGathering[AllTransitions][#]]) & /@ NoDeadStarts);
         EqBalanceGatheringFlows = Simplify /@ (And @@ (# == 0 & /@ BalanceGatheringFlows));
         
@@ -277,7 +325,8 @@ Data2Equations[Data_Association] :=
           "RuleExitValues", "EqValueAuxiliaryEdges", "OutRules", "InRules",
            "IneqSwitchingByVertex", "AltOptCond", "Nlhs", "CostArgs", 
           "Nrhs", "costpluscurrents", "EqGeneral", "CostArgs2"};
-        Join[Data, AssociationThread[ModuleVarsNames, ModuleVars]]
+        Join[Data, AssociationThread[ModuleVarsNames, ModuleVars]](******)
+        (**)
     ];
 NumberVectorQ::usage = 
 "NumberVectorQ[j] returns True if the vetor j is numeric."
