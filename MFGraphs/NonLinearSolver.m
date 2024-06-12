@@ -116,8 +116,11 @@ U::usage =
 "U[x, edge, Eqs, sol]"
 U[x_?NumericQ , edge_, Eqs_Association, sol_] :=
     Module[ {jay, uT},
-        jay = Eqs["SignedFlows"][edge]/.sol;
-        uT = Eqs["uvars"][AtTail[edge]]/.sol;
+        jay = Eqs["SignedFlows"][List@@edge]/.sol;
+        uT = u@@Reverse@(List@@edge);
+        (*Print[uT];*)
+        uT = uT/.sol;
+        (*Print[uT];*)
         If[ jay == 0.|| jay == 0,
             uT,
             uT - jay NIntegrate[M[jay, y, edge]^(alpha[edge] - 1), {y, 0, x}]
@@ -139,22 +142,23 @@ IntM[j_?NumericQ, edge_] :=
 Cost[j_, edge_] :=
     IntM[j, edge];
 
-plotM[Eqs_, string_, edge_] :=
-    Module[ {jays, sol},
+plotM[Eqs_Association, string_String, pair_List] :=
+    Module[ {jays, sol, edge},
         sol = Eqs[string];
-        jays = Eqs["SignedFlows"][edge] /. sol;
-        sol = Eqs[string];
+        jays = Eqs["SignedFlows"][pair] /. sol;
+        edge = UndirectedEdge@@pair;
         Plot[M[jays /. sol, x, edge], {x, 0, 1}, 
          PlotLabel -> edge,(*PlotRange\[Rule]{-0.1,2.4},*)
          GridLines -> Automatic]
-    ]
+    ];
    
 plotMs[Eqs_, string_] :=
     plotM[Eqs, string, #] & /@ Eqs["EL"]
     
-plotU[Eqs_, string_, edge_] :=
-    Module[ {sol},
+plotU[Eqs_Association, string_String, pair_List] :=
+    Module[ {sol, edge},
         sol = Eqs[string];
+        edge = UndirectedEdge@@pair;
         Plot[U[x, edge, Eqs, sol], {x, 0, 1}, PlotLabel -> edge(*,
          PlotRange\[Rule]{1-0.1,4.7}*), GridLines -> Automatic]
     ];
