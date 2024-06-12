@@ -406,7 +406,7 @@
         
         "Grid1020" -> {
         	(*VL=*)VertexList[GridGraph[{10,20}]],
-        (*AM=*)AdjacencyMatrix[GridGraph[{10,20},DirectedEdges->True]],
+        (*AM=*)AdjacencyMatrix[GridGraph[{10,20}, DirectedEdges->True]],
         (*DataIn=*){{1, I1}/.I1->400},
         (*FinalCosts=*){{200, U1}/.U1->0},
         (*SwitchingCostsData=*){}
