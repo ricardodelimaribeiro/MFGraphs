@@ -385,18 +385,24 @@ MFGSystemSolver[Eqs_][approxJs_] :=
         temp = PrintTemporary["MFGS: Selecting inequalities by transition flow..."];
         {time, ineqsByTransition} = AbsoluteTiming[Select[NewSystem[[2]], Function[exp, !FreeQ[#][exp]]]&/@jts];
         NotebookDelete[temp];
-        Print["MFGS: Selecting inequalities by transition flow took ", time, " seconds."];
+        Print["MFGS: Selecting inequalities by transition flow took ", time, " seconds. ", Length[ineqsByTransition]];
         temp = PrintTemporary["MFGSS: Simplifying inequalities by transition flow..."];
-        {time, ineqsByTransition}= AbsoluteTiming[Simplify/@ineqsByTransition];
+        {time, ineqsByTransition}= AbsoluteTiming[RemoveDuplicates[Simplify/@ineqsByTransition]];
         NotebookDelete[temp];
-        Print["MFGSS: Simplifying inequalities by transition flow took ", time, " seconds."(*,"\n", ineqsByTransition*)];
+        Print["MFGSS: Simplifying inequalities by transition flow took ", time, " seconds. "(*, DeleteDuplicates[Select[#,(Head[#]===Equal)&]&/@DeleteCases[ineqsByTransition,True]]*)(*,"\n", ineqsByTransition*)];
 		
-		NewSystem[[2]]=And@@ineqsByTransition;
+		NewSystem[[2]]=(*Simplify@*)(And@@ineqsByTransition);
 		NewSystem = Sys2Triple[And@@NewSystem];
 		(*Print["MFGSS: TripleClean"];*)
 		{NewSystem,InitRules} = TripleClean[{NewSystem,InitRules}];
 		(*Print["TripleClean finished.","\nHere is the system:\n",NewSystem,"\nand here are the rules\n",InitRules];*)
-		Return[{NewSystem,InitRules},Module];
+
+
+
+		(*Return[{NewSystem,InitRules},Module];*)
+
+
+
 		(*Print[NewSystem[[2]], "\n",AbsoluteTiming[Simplify@NewSystem[[2]]],"\n",AbsoluteTiming[Simplify/@NewSystem[[2]]]];*)
 		
         (*Print["There are no equations: ", NewSystem[[1]]];
@@ -431,10 +437,14 @@ MFGSystemSolver[Eqs_][approxJs_] :=
         	NewSystem[[3]] = SortBy[Simplify`SimplifyCount][Simplify/@NewSystem[[3]] ]
         ];*)
         
-        (*verify which are the variables that needs to be determined, but it seems it almost never gets finished by this point.*)
+        
         {NewSystem, InitRules} = FinalStep[{NewSystem, InitRules}];
-        System = BooleanConvert[And @@ NewSystem];
-        System = Simplify[System];
+        
+        
+        System = BooleanConvert[NewSystem[[3]]]&&NewSystem[[2]];
+        Print["BooleanConvert done. Simplifying..."];
+        System = Simplify[And@@NewSystem];
+        Print["Simplifying done. TripleClean..."];
         {System, InitRules} = TripleClean[{Sys2Triple[System], InitRules}];
         (*vars = Join[jts, js, us];
         vars = Intersection[Flatten[List@@@((Join[us, js] /. InitRules)/.Times->Plus)], vars];
@@ -485,33 +495,39 @@ FinalStep[{{EE_?BooleanQ, NN_?BooleanQ, OR_?BooleanQ}, rules_}] :=
 FinalStep[{{EE_, NN_, OO_}, rules_}] :=
     Module[ {NewSystem, newrules, sorted = True, time, temp, NewSystemBC},
         {NewSystem, newrules} = TripleClean[{{EE, NN, OO}, rules}];
-        If[ NewSystem[[1]] && NewSystem[[3]] === True,
+        If[NewSystem[[3]] === True,
         	(*only inequalities*)
             Return[{NewSystem, newrules}, Module],
-            temp = PrintTemporary["Final: RemoveDuplicates..."] ;
-            {time, sorted} = AbsoluteTiming[RemoveDuplicates[NewSystem[[3]]]];
+            Print["Final: ", Length/@NewSystem];
+            (*temp = PrintTemporary["Final: RemoveDuplicated alternatives..."] ;*)
+            (*{time, sorted} = AbsoluteTiming@RemoveDuplicates[NewSystem[[3]]];*)
+            sorted = RemoveDuplicates[NewSystem[[3]]];
             (*Print["Final: sorted: ",sorted];*)
-            NotebookDelete[temp];
-            Print["Final: RemoveDuplicates took ", time, " seconds"];
+            (*NotebookDelete[temp];
+            Print["Final: RemoveDuplicated alternatives took ", time, " seconds. ", Length[sorted]];*)
         ];
         (*Print["Final:\n", NewSystem, "\nRules:\n", newrules];*)
         temp = PrintTemporary["Final: Iterative DNF convertion on " , Length[sorted]," disjunctions..."(*,  Append[sorted][Most[NewSystem]]*)];
         {time, NewSystem} = AbsoluteTiming[ZAnd[And @@ Most[NewSystem], sorted]];
+        (*Print[Length[NewSystem], " ", Length/@NewSystem];*)
         NotebookDelete[temp];
         Print["Final: Iterative DNF convertion on " , Length[sorted]," disjunctions took ", time, " seconds to terminate."(*,"\nGiving\n", NewSystem*)];
         If[Head[NewSystem] === Or, 
-	        temp = PrintTemporary["Final: NOT Reducing (each alternative)... ", Length[NewSystem] ," of them."] ;
-        	(*Print["Final: Head is OR"];*)
-        	NewSystemBC = BooleanConvert[NewSystem];
-        	{time, NewSystem} = AbsoluteTiming[(*Reduce[#,Reals]&/@*)NewSystemBC],
+	        (*temp =*) Print(*Temporary*)["Final: Reducing (each alternative)... ", Length[NewSystem] ," of them.","\n", Head[NewSystem],"\n", NewSystem] ;
+        	(*Print["Final: Head is OR: ", NewSystem];*)
+        	{time, NewSystem} = AbsoluteTiming[Reduce[#,Reals]&/@NewSystem];
+        	NewSystem = Simplify[NewSystem],
         	(*Print["Head is not OR. Should we BooleanConvert anyway?","\n", NewSystem];*)
         	{time,NewSystem} = AbsoluteTiming@Reduce[NewSystem, Reals]
         ];
         (*NotebookDelete[temp];*)
         Print["Final: Reducing (each alternative), returned ", Length@NewSystem," of them, ","took ", time, " seconds to terminate."];
+        (*NewSystem = Simplify@NewSystem;*)
+        NewSystem = BooleanConvert@NewSystem;
+        (*Print["Final: ", NewSystem];*)
         NewSystem = Sys2Triple[NewSystem];
-        {NewSystem, newrules} = TripleClean[{{EE, NN, OO}, newrules}];
-        Print["Now: ", TimeObject[Now], "The new rules are: ", newrules];
+        {NewSystem, newrules} = TripleClean[{NewSystem, newrules}];
+        Print["Now: ", TimeObject[Now], "The new rules are: ", newrules, Length/@NewSystem];
         {NewSystem, newrules}
     ];
 
@@ -651,22 +667,34 @@ ZAnd[xp_, leq_] := xp && leq
 ReZAnd[xp_, rst_] :=
     ReZAnd[xp, rst, #] &
 
-ReZAnd[xp_, rst_, fst_Equal] :=
+(*ReZAnd[xp_, rst_, fst_Equal] :=
         If[ Simplify[fst] === False,
             False,
             With[ {fsol = First@Solve@fst},
                 ZAnd[Simplify[(xp /. fsol)] && fst, ReplaceSolution[rst, fsol]]
             ]
+        ]*)
+
+ReZAnd[xp_, rst_, fst_Equal] :=
+Module[{newfst=Simplify@fst},
+        If[ newfst === False,
+            False,
+            With[ {fsol = First@Solve@newfst},
+                ZAnd[ReplaceSolution[xp, fsol] && fst, ReplaceSolution[rst, fsol]]
+            ]
         ]
-  
+]
+
+
 ReZAnd[xp_, rst_, fst_] :=
     ZAnd[xp && fst, rst]
 
-
+Clear[ReplaceSolution];
 ReplaceSolution::usage =
 "ReplaceSolution[xp,sol] substitutes the Rule, solution, on the expression xp. After that, it simplifies the first equation if the Head of the expression is And. Otherwise, it simplifies the whole expression.";
 ReplaceSolution[rst_?BooleanQ, sol_] :=
     rst
+
 
 ReplaceSolution[rst_, sol_] :=
     With[ {newrst = rst /. sol},
@@ -675,7 +703,22 @@ ReplaceSolution[rst_, sol_] :=
             Simplify[newrst]
         ]
     ]
+    
 
+(*ReplaceSolution[rst_And, sol_] :=
+    Module[{groups=GroupBy[List@@rst, (!FreeQ[And@@(First/@sol)][#])&], reduced},
+    	(*Print["reducing "];*)
+    	(*reduced = Reduce[(And@@Lookup[groups, True, {}]/.sol),Reals];*)
+    	(*Print[Lookup[groups, True, {}]/.sol];*)
+    	reduced = And@@RemoveDuplicates[Lookup[groups, True, {}]/.sol];
+    	(*reduced = Simplify[reduced];
+    	Print["reduced: ", reduced];*)
+    	reduced&&And@@Lookup[groups, False, {}]
+    	])
+
+ReplaceSolution[rst_, sol_] := 
+Reduce[rst/.sol, Reals]
+*)
 SortOp = SortBy[Simplify`SimplifyCount]
 
 RemoveDuplicates::usage =
