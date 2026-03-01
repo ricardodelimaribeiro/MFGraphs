@@ -10,10 +10,10 @@
 NotebookFileLineBreakTest
 NotebookFileLineBreakTest
 NotebookDataPosition[       158,          7]
-NotebookDataLength[     52252,       1356]
-NotebookOptionsPosition[     47330,       1269]
-NotebookOutlinePosition[     47757,       1286]
-CellTagsIndexPosition[     47714,       1283]
+NotebookDataLength[     96267,       2124]
+NotebookOptionsPosition[     86442,       1973]
+NotebookOutlinePosition[     86834,       1989]
+CellTagsIndexPosition[     86791,       1986]
 WindowFrame->Normal*)
 
 (* Beginning of Notebook Content *)
@@ -22,12 +22,21 @@ Notebook[{
 Cell[CellGroupData[{
 Cell["Start choosing the example:", "Subsection",
  CellChangeTimes->{{3.807950436465856*^9, 
-  3.8079504513874207`*^9}},ExpressionUUID->"cb46fe0c-8e50-42a8-9349-\
-67f5c3b95db7"],
+  3.8079504513874207`*^9}},ExpressionUUID->"bc6d3f8a-29ac-418f-83f8-\
+4c070ef74141"],
 
-Cell[BoxData[
+Cell[BoxData[{
  RowBox[{
-  RowBox[{"t", "=", "23"}], ";"}]], "Input",
+  RowBox[{"t", "=", "23"}], ";"}], "\n", 
+ RowBox[{
+  RowBox[{"beta", " ", "=", " ", "1.2"}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"A", " ", "=", " ", "0.5"}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{
+  "Get", "[", 
+   "\"\</Users/ribeirrd/eclipse-workspace/MFGraphs/MFGraphs/Examples/\
+ExamplesParameters.m\>\"", "]"}], ";"}]}], "Input",
  CellChangeTimes->{{3.807950419074286*^9, 3.8079504216972313`*^9}, {
    3.80803066636535*^9, 3.808030694230341*^9}, {3.808030924486598*^9, 
    3.808030936770438*^9}, {3.808031210106669*^9, 3.80803121305068*^9}, {
@@ -36,10 +45,26 @@ Cell[BoxData[
    3.808047026052237*^9}, {3.8104386588599377`*^9, 3.810438658988085*^9}, {
    3.810537139126058*^9, 3.810537139180338*^9}, {3.81053844305475*^9, 
    3.8105384665759573`*^9}, {3.810539248355556*^9, 3.810539248389201*^9}, {
-   3.811410026720422*^9, 3.8114100276702347`*^9}, {3.811410402245213*^9, 
-   3.811410402537863*^9}},
+   3.812633427650338*^9, 3.812633427912162*^9}, 3.812633745009308*^9, 
+   3.812961834364792*^9, {3.814000920406817*^9, 3.814000931063221*^9}, {
+   3.814000991922937*^9, 3.8140009974272823`*^9}},
  CellLabel->
-  "In[297]:=",ExpressionUUID->"0634665e-1028-4f55-94c1-0100b44739d4"]
+  "In[153]:=",ExpressionUUID->"b5c80f33-a2e5-4b71-ae64-0a38e3f4d579"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"g", "[", "x", "]"}]], "Input",
+ CellChangeTimes->{{3.814000987353407*^9, 3.8140009879415817`*^9}},
+ CellLabel->
+  "In[157]:=",ExpressionUUID->"5313ba5b-45db-4c1e-aa2b-a74e0f4eaf99"],
+
+Cell[BoxData[
+ SuperscriptBox["x", "1.2`"]], "Output",
+ CellChangeTimes->{{3.814000988362014*^9, 3.814001005478878*^9}},
+ CellLabel->
+  "Out[157]=",ExpressionUUID->"301337ca-165a-4cc5-b411-6d8a6efba423"]
+}, Open  ]]
 }, Open  ]],
 
 Cell[CellGroupData[{
@@ -47,32 +72,26 @@ Cell[CellGroupData[{
 Cell["DataToEquations and the critical congestion solver", "Subsection",
  CellChangeTimes->{{3.806651309650549*^9, 3.806651321154381*^9}, {
   3.80776392133749*^9, 3.807763922663989*^9}, {3.807950300614449*^9, 
-  3.8079503256480303`*^9}},ExpressionUUID->"96fbf7f5-7214-43ff-b6ad-\
-9cce2d227d3a"],
+  3.8079503256480303`*^9}},ExpressionUUID->"de959c25-d36f-4f45-905a-\
+a3fc0b8540d6"],
 
 Cell[CellGroupData[{
 
 Cell[BoxData[{
- RowBox[{
-  RowBox[{"Data", "=", 
-   RowBox[{
-    RowBox[{"DataG", "[", "t", "]"}], "/.", 
-    RowBox[{"{", 
-     RowBox[{
-      RowBox[{"I1", "\[Rule]", 
-       RowBox[{"312", "/", "100"}]}], ",", " ", 
-      RowBox[{"U1", "\[Rule]", "2"}], ",", 
-      RowBox[{"S1", "\[Rule]", "0"}], ",", 
-      RowBox[{"S2", "\[Rule]", "0"}]}], "}"}]}]}], ";"}], "\n", 
+ RowBox[{"Data", "=", 
+  RowBox[{"DataG", "[", "t", "]"}]}], "\n", 
  RowBox[{
   RowBox[{
    RowBox[{"MFGEquations", "=", 
-    RowBox[{"DataToEquations", "[", "Data", "]"}]}], ";"}], "//", 
-  "Timing"}], "\[IndentingNewLine]", 
- RowBox[{"v00", "=", 
-  RowBox[{
-   RowBox[{"MFGEquations", "[", "\"\<criticalreduced1\>\"", "]"}], "[", 
-   RowBox[{"[", "2", "]"}], "]"}]}]}], "Input",
+    RowBox[{"DataToEquations", "[", 
+     RowBox[{"Data", "/.", 
+      RowBox[{"{", 
+       RowBox[{
+        RowBox[{"I1", "\[Rule]", "1"}], ",", " ", 
+        RowBox[{"U1", "\[Rule]", "2"}], ",", 
+        RowBox[{"S1", "\[Rule]", "0"}], ",", 
+        RowBox[{"S2", "\[Rule]", "0"}]}], "}"}]}], "]"}]}], ";"}], "//", 
+  "Timing"}]}], "Input",
  CellChangeTimes->{{3.806651342407763*^9, 3.8066513640438538`*^9}, {
    3.806744669784532*^9, 3.806744670659512*^9}, {3.8074402538858337`*^9, 
    3.807440254668627*^9}, {3.807511566301404*^9, 3.807511568209476*^9}, 
@@ -83,675 +102,185 @@ Cell[BoxData[{
    3.8079501448736343`*^9, 3.807950146152231*^9}, {3.8079502696621027`*^9, 
    3.807950293701563*^9}, {3.807950416053688*^9, 3.807950416384759*^9}, {
    3.8080470131610737`*^9, 3.808047015067747*^9}, {3.810539341699339*^9, 
-   3.8105393435155497`*^9}, {3.812006808405985*^9, 3.812006852977623*^9}, {
-   3.812006977720894*^9, 3.812006985136725*^9}, {3.812017473949589*^9, 
-   3.8120174823261538`*^9}, {3.812092827411447*^9, 3.8120928276043053`*^9}, {
-   3.812109089506352*^9, 3.812109119603134*^9}, {3.812170093150103*^9, 
-   3.81217009537429*^9}, {3.812170234839554*^9, 3.812170245364582*^9}, {
-   3.8121703525557413`*^9, 3.8121703542679653`*^9}, 3.8121829763467293`*^9, {
-   3.812185132291114*^9, 3.812185134469252*^9}, {3.8121851909065933`*^9, 
-   3.812185193450775*^9}, {3.812627311756352*^9, 3.812627311914031*^9}, {
-   3.812627362574823*^9, 3.8126273680289707`*^9}},
+   3.8105393435155497`*^9}, 3.812184637731494*^9, {3.812686622451744*^9, 
+   3.8126866255825443`*^9}, 3.8129622079617968`*^9},
  CellLabel->
-  "In[344]:=",ExpressionUUID->"cfa1e780-978d-489b-b551-660ddbb67ca6"],
+  "In[158]:=",ExpressionUUID->"2021c21d-bb6e-4c61-a553-bed2d14091ed"],
+
+Cell[BoxData[
+ RowBox[{"\[LeftAssociation]", 
+  RowBox[{
+   RowBox[{"\<\"Vertices List\"\>", "\[Rule]", 
+    RowBox[{"{", 
+     RowBox[{"1", ",", "2", ",", "3"}], "}"}]}], ",", 
+   RowBox[{"\<\"Adjacency Matrix\"\>", "\[Rule]", 
+    RowBox[{"{", 
+     RowBox[{
+      RowBox[{"{", 
+       RowBox[{"0", ",", "1", ",", "0"}], "}"}], ",", 
+      RowBox[{"{", 
+       RowBox[{"0", ",", "0", ",", "1"}], "}"}], ",", 
+      RowBox[{"{", 
+       RowBox[{"1", ",", "0", ",", "0"}], "}"}]}], "}"}]}], ",", 
+   RowBox[{"\<\"Entrance Vertices and Currents\"\>", "\[Rule]", 
+    RowBox[{"{", 
+     RowBox[{"{", 
+      RowBox[{"1", ",", "I1"}], "}"}], "}"}]}], ",", 
+   RowBox[{"\<\"Exit Vertices and Terminal Costs\"\>", "\[Rule]", 
+    RowBox[{"{", 
+     RowBox[{"{", 
+      RowBox[{"3", ",", "U1"}], "}"}], "}"}]}], ",", 
+   RowBox[{"\<\"Switching Costs\"\>", "\[Rule]", 
+    RowBox[{"{", 
+     RowBox[{
+      RowBox[{"{", 
+       RowBox[{"1", ",", "2", ",", "3", ",", "S1"}], "}"}], ",", 
+      RowBox[{"{", 
+       RowBox[{"3", ",", "2", ",", "1", ",", "S2"}], "}"}]}], "}"}]}]}], 
+  "\[RightAssociation]"}]], "Output",
+ CellChangeTimes->{
+  3.8126051160245037`*^9, 3.812605190871469*^9, {3.812605258940504*^9, 
+   3.812605286424317*^9}, 3.812605683752747*^9, {3.812622133019136*^9, 
+   3.812622134877288*^9}, 3.812622193151802*^9, 3.812622278333537*^9, 
+   3.812622375746702*^9, 3.812622460623798*^9, {3.812622504154257*^9, 
+   3.8126225329316063`*^9}, 3.812622996916731*^9, {3.812623039583034*^9, 
+   3.8126230689585667`*^9}, 3.8126231808918858`*^9, 3.8126232793557*^9, 
+   3.812626641610455*^9, 3.812633160978568*^9, 3.8126334545499897`*^9, 
+   3.8126337522383213`*^9, 3.8126338198512793`*^9, 3.81268701291508*^9, 
+   3.812785351741212*^9, 3.812961783081949*^9, 3.813978780288496*^9, 
+   3.814000935484276*^9, 3.814001005523361*^9},
+ CellLabel->
+  "Out[158]=",ExpressionUUID->"8b90e3a2-0127-4227-bc2c-daa7f60a3409"],
 
 Cell[CellGroupData[{
 
 Cell[BoxData["\<\"DataToEquations: Finished assembling strucural equations. \
 Reducing the structural system ... \"\>"], "Print",
- CellChangeTimes->{3.812627809558291*^9},
+ CellChangeTimes->{
+  3.8126051122883177`*^9, 3.812605190051656*^9, {3.812605257918145*^9, 
+   3.812605285468933*^9}, 3.8126055310566*^9, 3.8126219973207417`*^9, 
+   3.8126221347950974`*^9, 3.8126221930812263`*^9, 3.812622278248749*^9, 
+   3.81262237567756*^9, 3.8126224605512877`*^9, {3.812622504082634*^9, 
+   3.81262253286124*^9}, 3.812622996831562*^9, {3.812623039515666*^9, 
+   3.8126230688863297`*^9}, 3.8126231808502293`*^9, 3.812623279321196*^9, 
+   3.812626641580627*^9, 3.812633160643774*^9, 3.812633454406452*^9, 
+   3.812633752112162*^9, 3.81263381970588*^9, 3.812687012805266*^9, 
+   3.8127853516358767`*^9, 3.8129617827996063`*^9, 3.813978780292721*^9, 
+   3.8140009354885387`*^9, 3.814001005524624*^9},
  CellLabel->
   "During evaluation of \
-In[344]:=",ExpressionUUID->"674b60e4-a09f-4e48-a3d4-0157e358fda3"],
+In[158]:=",ExpressionUUID->"60914987-9181-4ada-b738-56c0b34e1b37"],
 
 Cell[BoxData["\<\"DataToEquations: Critical case ... \"\>"], "Print",
- CellChangeTimes->{3.812627809559867*^9},
+ CellChangeTimes->{
+  3.8126051122883177`*^9, 3.812605190051656*^9, {3.812605257918145*^9, 
+   3.812605285468933*^9}, 3.8126055310566*^9, 3.8126219973207417`*^9, 
+   3.8126221347950974`*^9, 3.8126221930812263`*^9, 3.812622278248749*^9, 
+   3.81262237567756*^9, 3.8126224605512877`*^9, {3.812622504082634*^9, 
+   3.81262253286124*^9}, 3.812622996831562*^9, {3.812623039515666*^9, 
+   3.8126230688863297`*^9}, 3.8126231808502293`*^9, 3.812623279321196*^9, 
+   3.812626641580627*^9, 3.812633160643774*^9, 3.812633454406452*^9, 
+   3.812633752112162*^9, 3.81263381970588*^9, 3.812687012805266*^9, 
+   3.8127853516358767`*^9, 3.8129617827996063`*^9, 3.813978780292721*^9, 
+   3.8140009354885387`*^9, 3.8140010055257387`*^9},
  CellLabel->
   "During evaluation of \
-In[344]:=",ExpressionUUID->"2a687b52-caf9-4ab6-a93e-1f70f4aafc91"],
+In[158]:=",ExpressionUUID->"8874ce34-91b3-4a16-ab19-9e4aa2bcf824"],
 
-Cell[BoxData["\<\"EliminatorX: Good job! \\n\"\>"], "Print",
- CellChangeTimes->{3.812627809664212*^9},
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"DataToEquations: It took \"\>", "\[InvisibleSpace]", 
+   "0.105981`", 
+   "\[InvisibleSpace]", "\<\" seconds to reduce with NewReduce!\"\>"}],
+  SequenceForm[
+  "DataToEquations: It took ", 0.105981, " seconds to reduce with NewReduce!"],
+  Editable->False]], "Print",
+ CellChangeTimes->{
+  3.8126051122883177`*^9, 3.812605190051656*^9, {3.812605257918145*^9, 
+   3.812605285468933*^9}, 3.8126055310566*^9, 3.8126219973207417`*^9, 
+   3.8126221347950974`*^9, 3.8126221930812263`*^9, 3.812622278248749*^9, 
+   3.81262237567756*^9, 3.8126224605512877`*^9, {3.812622504082634*^9, 
+   3.81262253286124*^9}, 3.812622996831562*^9, {3.812623039515666*^9, 
+   3.8126230688863297`*^9}, 3.8126231808502293`*^9, 3.812623279321196*^9, 
+   3.812626641580627*^9, 3.812633160643774*^9, 3.812633454406452*^9, 
+   3.812633752112162*^9, 3.81263381970588*^9, 3.812687012805266*^9, 
+   3.8127853516358767`*^9, 3.8129617827996063`*^9, 3.813978780292721*^9, 
+   3.8140009354885387`*^9, 3.814001005606123*^9},
  CellLabel->
   "During evaluation of \
-In[344]:=",ExpressionUUID->"5622da9d-8c83-4837-9a4d-722636ac5027"],
+In[158]:=",ExpressionUUID->"38b9f4eb-91e2-4c9f-80e7-6dbdaf4b151b"],
+
+Cell[BoxData["\<\"DataToEquations: Critical congestion solved.\"\>"], "Print",
+ CellChangeTimes->{
+  3.8126051122883177`*^9, 3.812605190051656*^9, {3.812605257918145*^9, 
+   3.812605285468933*^9}, 3.8126055310566*^9, 3.8126219973207417`*^9, 
+   3.8126221347950974`*^9, 3.8126221930812263`*^9, 3.812622278248749*^9, 
+   3.81262237567756*^9, 3.8126224605512877`*^9, {3.812622504082634*^9, 
+   3.81262253286124*^9}, 3.812622996831562*^9, {3.812623039515666*^9, 
+   3.8126230688863297`*^9}, 3.8126231808502293`*^9, 3.812623279321196*^9, 
+   3.812626641580627*^9, 3.812633160643774*^9, 3.812633454406452*^9, 
+   3.812633752112162*^9, 3.81263381970588*^9, 3.812687012805266*^9, 
+   3.8127853516358767`*^9, 3.8129617827996063`*^9, 3.813978780292721*^9, 
+   3.8140009354885387`*^9, 3.814001005644701*^9},
+ CellLabel->
+  "During evaluation of \
+In[158]:=",ExpressionUUID->"1c798ce4-4c2d-4a76-bd9c-84f6f996eec4"],
 
 Cell[BoxData["\<\"DataToEquations: Done.\"\>"], "Print",
- CellChangeTimes->{3.812627809667864*^9},
- CellLabel->
-  "During evaluation of \
-In[344]:=",ExpressionUUID->"6ddaa985-31fd-4efb-8bf7-ac2f0b6f71eb"]
-}, Open  ]],
-
-Cell[BoxData[
- RowBox[{"{", 
-  RowBox[{"0.114481`", ",", "Null"}], "}"}]], "Output",
- CellChangeTimes->{3.812627809668837*^9},
- CellLabel->
-  "Out[345]=",ExpressionUUID->"d8f96a80-fdff-4ac5-aa0f-d77fb73ceadc"],
-
-Cell[BoxData[
- RowBox[{"\[LeftAssociation]", 
-  RowBox[{
-   RowBox[{"j2530", "\[Rule]", 
-    FractionBox["78", "25"]}], ",", 
-   RowBox[{"u2558", "\[Rule]", "2"}], ",", 
-   RowBox[{"j2526", "\[Rule]", 
-    RowBox[{
-     FractionBox["78", "25"], "+", "0", "-", 
-     FractionBox["52", "25"], "+", "0"}]}], ",", 
-   RowBox[{"j2527", "\[Rule]", 
-    RowBox[{
-     FractionBox["78", "25"], "+", "0", "-", 
-     FractionBox["52", "25"], "+", "0"}]}], ",", 
-   RowBox[{"j2529", "\[Rule]", 
-    FractionBox["78", "25"]}], ",", 
-   RowBox[{"j2531", "\[Rule]", "0"}], ",", 
-   RowBox[{"j2532", "\[Rule]", "0"}], ",", 
-   RowBox[{"j2534", "\[Rule]", "0"}], ",", 
-   RowBox[{"j2535", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2537", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2538", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2539", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2540", "\[Rule]", 
-    RowBox[{
-     FractionBox["78", "25"], "-", 
-     FractionBox["52", "25"], "+", "0"}]}], ",", 
-   RowBox[{"jt2541", "\[Rule]", 
-    RowBox[{
-     FractionBox["52", "25"], "-", "0"}]}], ",", 
-   RowBox[{"jt2542", "\[Rule]", 
-    RowBox[{
-     FractionBox["78", "25"], "+", "0", "-", 
-     FractionBox["52", "25"], "+", "0"}]}], ",", 
-   RowBox[{"jt2543", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2544", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2545", "\[Rule]", 
-    RowBox[{
-     FractionBox["78", "25"], "-", 
-     FractionBox["52", "25"], "+", "0"}]}], ",", 
-   RowBox[{"jt2546", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2547", "\[Rule]", 
-    RowBox[{
-     FractionBox["52", "25"], "-", "0"}]}], ",", 
-   RowBox[{"jt2548", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2549", "\[Rule]", "0"}], ",", 
-   RowBox[{"u2553", "\[Rule]", "2"}], ",", 
-   RowBox[{"u2555", "\[Rule]", 
-    RowBox[{
-     RowBox[{"-", 
-      FractionBox["78", "25"]}], "-", "0", "+", 
-     FractionBox["52", "25"], "+", 
-     FractionBox["102", "25"]}]}], ",", 
-   RowBox[{"u2556", "\[Rule]", 
-    RowBox[{
-     RowBox[{"-", 
-      FractionBox["78", "25"]}], "-", "0", "+", 
-     FractionBox["52", "25"], "+", 
-     FractionBox["76", "25"]}]}], ",", 
-   RowBox[{"u2557", "\[Rule]", 
-    RowBox[{
-     RowBox[{"-", "0"}], "+", 
-     FractionBox["52", "25"], "+", "2"}]}], ",", 
-   RowBox[{"u2559", "\[Rule]", 
-    FractionBox["102", "25"]}], ",", 
-   RowBox[{"j2528", "\[Rule]", "0"}], ",", 
-   RowBox[{"j2533", "\[Rule]", 
-    FractionBox["52", "25"]}], ",", 
-   RowBox[{"jt2536", "\[Rule]", "0"}], ",", 
-   RowBox[{"u2550", "\[Rule]", 
-    FractionBox["102", "25"]}], ",", 
-   RowBox[{"u2551", "\[Rule]", 
-    FractionBox["76", "25"]}], ",", 
-   RowBox[{"u2552", "\[Rule]", "2"}], ",", 
-   RowBox[{"u2554", "\[Rule]", 
-    FractionBox["102", "25"]}]}], "\[RightAssociation]"}]], "Output",
- CellChangeTimes->{3.8126278096708717`*^9},
- CellLabel->
-  "Out[346]=",ExpressionUUID->"5c8cb9c3-4aab-4c97-b917-70a65f0ffc04"]
-}, Open  ]],
-
-Cell[BoxData[{
- RowBox[{
-  RowBox[{"v0", "//", "KeySort"}], "//", "Values"}], "\[IndentingNewLine]", 
- RowBox[{
-  RowBox[{
-   RowBox[{"v00", "//", "KeySort"}], "//", "Values"}], "//", "N"}]}], "Input",\
-
- CellChangeTimes->{{3.8126273781838217`*^9, 3.81262741214568*^9}},
- CellLabel->
-  "In[313]:=",ExpressionUUID->"1d1af2ac-07a8-4dca-8fb7-f6eb1fdfdc3f"],
-
-Cell[CellGroupData[{
-
-Cell[BoxData[{
- RowBox[{
-  RowBox[{
-   RowBox[{
-    RowBox[{"MFGEquations", "[", "\"\<criticalreduced1\>\"", "]"}], "[", 
-    RowBox[{"[", "2", "]"}], "]"}], "//", "KeySort"}], "//", 
-  "Values"}], "\[IndentingNewLine]", 
- RowBox[{
-  RowBox[{
-   RowBox[{
-    RowBox[{
-     RowBox[{"MFGEquations", "[", "\"\<criticalreduced1\>\"", "]"}], "[", 
-     RowBox[{"[", "2", "]"}], "]"}], "//", "KeySort"}], "//", "Values"}], "//",
-   "N"}]}], "Input",
- CellChangeTimes->{{3.8120142079331636`*^9, 3.812014259794724*^9}, {
-  3.8120143064841347`*^9, 3.812014312649898*^9}, {3.812627830117708*^9, 
-  3.812627834728504*^9}},
- CellLabel->
-  "In[351]:=",ExpressionUUID->"03f3b50a-22bb-4a03-b50f-36d19a1ee585"],
-
-Cell[BoxData[
- RowBox[{"{", 
-  RowBox[{
-   FractionBox["26", "25"], ",", 
-   FractionBox["26", "25"], ",", "0", ",", 
-   FractionBox["78", "25"], ",", 
-   FractionBox["78", "25"], ",", "0", ",", "0", ",", 
-   FractionBox["52", "25"], ",", "0", ",", "0", ",", "0", ",", "0", ",", "0", 
-   ",", "0", ",", 
-   FractionBox["26", "25"], ",", 
-   FractionBox["52", "25"], ",", 
-   FractionBox["26", "25"], ",", "0", ",", "0", ",", 
-   FractionBox["26", "25"], ",", "0", ",", 
-   FractionBox["52", "25"], ",", "0", ",", "0", ",", 
-   FractionBox["102", "25"], ",", 
-   FractionBox["76", "25"], ",", "2", ",", "2", ",", 
-   FractionBox["102", "25"], ",", 
-   FractionBox["76", "25"], ",", "2", ",", 
-   FractionBox["102", "25"], ",", "2", ",", 
-   FractionBox["102", "25"]}], "}"}]], "Output",
- CellChangeTimes->{{3.8126278193539543`*^9, 3.812627834993454*^9}},
- CellLabel->
-  "Out[351]=",ExpressionUUID->"19c388e7-bcdb-4774-9412-1825b8fb2799"],
-
-Cell[BoxData[
- RowBox[{"{", 
-  RowBox[{
-  "1.04`", ",", "1.04`", ",", "0.`", ",", "3.12`", ",", "3.12`", ",", "0.`", 
-   ",", "0.`", ",", "2.08`", ",", "0.`", ",", "0.`", ",", "0.`", ",", "0.`", 
-   ",", "0.`", ",", "0.`", ",", "1.04`", ",", "2.08`", ",", "1.04`", ",", 
-   "0.`", ",", "0.`", ",", "1.04`", ",", "0.`", ",", "2.08`", ",", "0.`", ",",
-    "0.`", ",", "4.08`", ",", "3.04`", ",", "2.`", ",", "2.`", ",", "4.08`", 
-   ",", "3.04`", ",", "2.`", ",", "4.08`", ",", "2.`", ",", "4.08`"}], 
-  "}"}]], "Output",
- CellChangeTimes->{{3.8126278193539543`*^9, 3.8126278349954767`*^9}},
- CellLabel->
-  "Out[352]=",ExpressionUUID->"a357cf2b-ceca-4408-b5a4-375559f2fe2b"]
-}, Open  ]],
-
-Cell[CellGroupData[{
-
-Cell[BoxData[{
- RowBox[{
-  RowBox[{
-   RowBox[{"MFGEquations", "[", "\"\<criticalreduced1\>\"", "]"}], "[", 
-   RowBox[{"[", "2", "]"}], "]"}], "//", "KeySort"}], "\[IndentingNewLine]", 
- RowBox[{
-  RowBox[{
-   RowBox[{
-    RowBox[{"MFGEquations", "[", "\"\<criticalreduced1\>\"", "]"}], "[", 
-    RowBox[{"[", "2", "]"}], "]"}], "//", "KeySort"}], "//", "N"}]}], "Input",\
-
- CellChangeTimes->{{3.8120142079331636`*^9, 3.812014259794724*^9}, {
-  3.8120143064841347`*^9, 3.812014312649898*^9}, {3.812627830117708*^9, 
-  3.812627834728504*^9}, {3.81262792295052*^9, 3.8126279337853413`*^9}},
- CellLabel->
-  "In[366]:=",ExpressionUUID->"14129f38-4490-478c-b9c9-a74567c04798"],
-
-Cell[BoxData[
- RowBox[{"\[LeftAssociation]", 
-  RowBox[{
-   RowBox[{"j2526", "\[Rule]", 
-    RowBox[{
-     FractionBox["78", "25"], "+", "0", "-", 
-     FractionBox["52", "25"], "+", "0"}]}], ",", 
-   RowBox[{"j2527", "\[Rule]", 
-    RowBox[{
-     FractionBox["78", "25"], "+", "0", "-", 
-     FractionBox["52", "25"], "+", "0"}]}], ",", 
-   RowBox[{"j2528", "\[Rule]", "0"}], ",", 
-   RowBox[{"j2529", "\[Rule]", 
-    FractionBox["78", "25"]}], ",", 
-   RowBox[{"j2530", "\[Rule]", 
-    FractionBox["78", "25"]}], ",", 
-   RowBox[{"j2531", "\[Rule]", "0"}], ",", 
-   RowBox[{"j2532", "\[Rule]", "0"}], ",", 
-   RowBox[{"j2533", "\[Rule]", 
-    FractionBox["52", "25"]}], ",", 
-   RowBox[{"j2534", "\[Rule]", "0"}], ",", 
-   RowBox[{"j2535", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2536", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2537", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2538", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2539", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2540", "\[Rule]", 
-    RowBox[{
-     FractionBox["78", "25"], "-", 
-     FractionBox["52", "25"], "+", "0"}]}], ",", 
-   RowBox[{"jt2541", "\[Rule]", 
-    RowBox[{
-     FractionBox["52", "25"], "-", "0"}]}], ",", 
-   RowBox[{"jt2542", "\[Rule]", 
-    RowBox[{
-     FractionBox["78", "25"], "+", "0", "-", 
-     FractionBox["52", "25"], "+", "0"}]}], ",", 
-   RowBox[{"jt2543", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2544", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2545", "\[Rule]", 
-    RowBox[{
-     FractionBox["78", "25"], "-", 
-     FractionBox["52", "25"], "+", "0"}]}], ",", 
-   RowBox[{"jt2546", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2547", "\[Rule]", 
-    RowBox[{
-     FractionBox["52", "25"], "-", "0"}]}], ",", 
-   RowBox[{"jt2548", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2549", "\[Rule]", "0"}], ",", 
-   RowBox[{"u2550", "\[Rule]", 
-    FractionBox["102", "25"]}], ",", 
-   RowBox[{"u2551", "\[Rule]", 
-    FractionBox["76", "25"]}], ",", 
-   RowBox[{"u2552", "\[Rule]", "2"}], ",", 
-   RowBox[{"u2553", "\[Rule]", "2"}], ",", 
-   RowBox[{"u2554", "\[Rule]", 
-    FractionBox["102", "25"]}], ",", 
-   RowBox[{"u2555", "\[Rule]", 
-    RowBox[{
-     RowBox[{"-", 
-      FractionBox["78", "25"]}], "-", "0", "+", 
-     FractionBox["52", "25"], "+", 
-     FractionBox["102", "25"]}]}], ",", 
-   RowBox[{"u2556", "\[Rule]", 
-    RowBox[{
-     RowBox[{"-", 
-      FractionBox["78", "25"]}], "-", "0", "+", 
-     FractionBox["52", "25"], "+", 
-     FractionBox["76", "25"]}]}], ",", 
-   RowBox[{"u2557", "\[Rule]", 
-    RowBox[{
-     RowBox[{"-", "0"}], "+", 
-     FractionBox["52", "25"], "+", "2"}]}], ",", 
-   RowBox[{"u2558", "\[Rule]", "2"}], ",", 
-   RowBox[{"u2559", "\[Rule]", 
-    FractionBox["102", "25"]}]}], "\[RightAssociation]"}]], "Output",
  CellChangeTimes->{
-  3.812627888565188*^9, {3.8126279261890574`*^9, 3.812627934653626*^9}},
+  3.8126051122883177`*^9, 3.812605190051656*^9, {3.812605257918145*^9, 
+   3.812605285468933*^9}, 3.8126055310566*^9, 3.8126219973207417`*^9, 
+   3.8126221347950974`*^9, 3.8126221930812263`*^9, 3.812622278248749*^9, 
+   3.81262237567756*^9, 3.8126224605512877`*^9, {3.812622504082634*^9, 
+   3.81262253286124*^9}, 3.812622996831562*^9, {3.812623039515666*^9, 
+   3.8126230688863297`*^9}, 3.8126231808502293`*^9, 3.812623279321196*^9, 
+   3.812626641580627*^9, 3.812633160643774*^9, 3.812633454406452*^9, 
+   3.812633752112162*^9, 3.81263381970588*^9, 3.812687012805266*^9, 
+   3.8127853516358767`*^9, 3.8129617827996063`*^9, 3.813978780292721*^9, 
+   3.8140009354885387`*^9, 3.814001005645425*^9},
  CellLabel->
-  "Out[366]=",ExpressionUUID->"d958608f-0453-4db4-a13e-b22955531fca"],
+  "During evaluation of \
+In[158]:=",ExpressionUUID->"307d68ea-615b-4833-b500-3dc76412de1e"]
+}, Open  ]],
 
 Cell[BoxData[
- RowBox[{"\[LeftAssociation]", 
-  RowBox[{
-   RowBox[{"j2526", "\[Rule]", "1.04`"}], ",", 
-   RowBox[{"j2527", "\[Rule]", "1.04`"}], ",", 
-   RowBox[{"j2528", "\[Rule]", "0.`"}], ",", 
-   RowBox[{"j2529", "\[Rule]", "3.12`"}], ",", 
-   RowBox[{"j2530", "\[Rule]", "3.12`"}], ",", 
-   RowBox[{"j2531", "\[Rule]", "0.`"}], ",", 
-   RowBox[{"j2532", "\[Rule]", "0.`"}], ",", 
-   RowBox[{"j2533", "\[Rule]", "2.08`"}], ",", 
-   RowBox[{"j2534", "\[Rule]", "0.`"}], ",", 
-   RowBox[{"j2535", "\[Rule]", "0.`"}], ",", 
-   RowBox[{"jt2536", "\[Rule]", "0.`"}], ",", 
-   RowBox[{"jt2537", "\[Rule]", "0.`"}], ",", 
-   RowBox[{"jt2538", "\[Rule]", "0.`"}], ",", 
-   RowBox[{"jt2539", "\[Rule]", "0.`"}], ",", 
-   RowBox[{"jt2540", "\[Rule]", "1.04`"}], ",", 
-   RowBox[{"jt2541", "\[Rule]", "2.08`"}], ",", 
-   RowBox[{"jt2542", "\[Rule]", "1.04`"}], ",", 
-   RowBox[{"jt2543", "\[Rule]", "0.`"}], ",", 
-   RowBox[{"jt2544", "\[Rule]", "0.`"}], ",", 
-   RowBox[{"jt2545", "\[Rule]", "1.04`"}], ",", 
-   RowBox[{"jt2546", "\[Rule]", "0.`"}], ",", 
-   RowBox[{"jt2547", "\[Rule]", "2.08`"}], ",", 
-   RowBox[{"jt2548", "\[Rule]", "0.`"}], ",", 
-   RowBox[{"jt2549", "\[Rule]", "0.`"}], ",", 
-   RowBox[{"u2550", "\[Rule]", "4.08`"}], ",", 
-   RowBox[{"u2551", "\[Rule]", "3.04`"}], ",", 
-   RowBox[{"u2552", "\[Rule]", "2.`"}], ",", 
-   RowBox[{"u2553", "\[Rule]", "2.`"}], ",", 
-   RowBox[{"u2554", "\[Rule]", "4.08`"}], ",", 
-   RowBox[{"u2555", "\[Rule]", "3.04`"}], ",", 
-   RowBox[{"u2556", "\[Rule]", "2.`"}], ",", 
-   RowBox[{"u2557", "\[Rule]", "4.08`"}], ",", 
-   RowBox[{"u2558", "\[Rule]", "2.`"}], ",", 
-   RowBox[{"u2559", "\[Rule]", "4.08`"}]}], "\[RightAssociation]"}]], "Output",\
-
+ RowBox[{"{", 
+  RowBox[{"0.167955`", ",", "Null"}], "}"}]], "Output",
  CellChangeTimes->{
-  3.812627888565188*^9, {3.8126279261890574`*^9, 3.812627934655875*^9}},
+  3.8126051160245037`*^9, 3.812605190871469*^9, {3.812605258940504*^9, 
+   3.812605286424317*^9}, 3.812605683752747*^9, {3.812622133019136*^9, 
+   3.812622134877288*^9}, 3.812622193151802*^9, 3.812622278333537*^9, 
+   3.812622375746702*^9, 3.812622460623798*^9, {3.812622504154257*^9, 
+   3.8126225329316063`*^9}, 3.812622996916731*^9, {3.812623039583034*^9, 
+   3.8126230689585667`*^9}, 3.8126231808918858`*^9, 3.8126232793557*^9, 
+   3.812626641610455*^9, 3.812633160978568*^9, 3.8126334545499897`*^9, 
+   3.8126337522383213`*^9, 3.8126338198512793`*^9, 3.81268701291508*^9, 
+   3.812785351741212*^9, 3.812961783081949*^9, 3.813978780288496*^9, 
+   3.814000935484276*^9, 3.8140010056460867`*^9},
  CellLabel->
-  "Out[367]=",ExpressionUUID->"1038b34f-de36-4f79-ab20-4b2b1b9e288b"]
+  "Out[159]=",ExpressionUUID->"0ae73376-cb2f-401f-9c4e-f41881925fb8"]
 }, Open  ]],
 
 Cell[CellGroupData[{
 
-Cell["Non-linear case with alpha != 1", "Subsubsection",
- CellChangeTimes->{{3.812109535758419*^9, 
-  3.812109561854887*^9}},ExpressionUUID->"4bb1b503-d23b-4a70-be3c-\
-68b26baa3210"],
-
-Cell[CellGroupData[{
-
-Cell[BoxData[{
- RowBox[{
-  RowBox[{"alpha", " ", "=", " ", ".8"}], ";"}], "\[IndentingNewLine]", 
- RowBox[{
-  RowBox[{"beta", " ", "=", " ", "0"}], ";"}], "\[IndentingNewLine]", 
- RowBox[{
-  RowBox[{"A", " ", "=", " ", "0.2"}], ";"}], "\[IndentingNewLine]", 
- RowBox[{
-  RowBox[{
-   RowBox[{"Parameters", "[", "\"\<alpha\>\"", "]"}], "=", "alpha"}], 
-  ";"}], "\[IndentingNewLine]", "Parameters"}], "Input",
- CellChangeTimes->{{3.812109564637452*^9, 3.812109568164879*^9}, 
-   3.812109617917515*^9, {3.812183099408299*^9, 3.8121831003244543`*^9}, {
-   3.8126274417872057`*^9, 3.8126274599163513`*^9}},
- CellLabel->
-  "In[355]:=",ExpressionUUID->"3c42ef63-914c-4c78-b2c0-005c199920f6"],
-
-Cell[BoxData[
- RowBox[{"\[LeftAssociation]", 
-  RowBox[{
-   RowBox[{"\<\"alpha\"\>", "\[Rule]", "0.8`"}], ",", 
-   RowBox[{"\<\"beta\"\>", "\[Rule]", "0"}], ",", 
-   RowBox[{"\<\"g[m]\"\>", "\[Rule]", "Log"}], ",", 
-   RowBox[{"\<\"W[x,A]\"\>", "\[Rule]", 
-    RowBox[{"Function", "[", 
-     RowBox[{
-      RowBox[{"{", 
-       RowBox[{"x", ",", "a"}], "}"}], ",", 
-      RowBox[{"a", " ", 
-       SuperscriptBox[
-        RowBox[{"Sin", "[", 
-         RowBox[{"2", " ", "\[Pi]", " ", 
-          RowBox[{"(", 
-           RowBox[{"x", "+", 
-            FractionBox["1", "4"]}], ")"}]}], "]"}], "2"]}]}], "]"}]}], ",", 
-   RowBox[{"\<\"V[x]\"\>", "\[Rule]", 
-    RowBox[{"Function", "[", 
-     RowBox[{
-      RowBox[{"{", "x$", "}"}], ",", 
-      RowBox[{"W$199966", "[", 
-       RowBox[{"x$", ",", "A"}], "]"}]}], "]"}]}], ",", 
-   RowBox[{"\<\"H[x,p,m]\"\>", "\[Rule]", 
-    RowBox[{"Function", "[", 
-     RowBox[{
-      RowBox[{"{", 
-       RowBox[{"x$", ",", "p$", ",", "m$"}], "}"}], ",", 
-      RowBox[{
-       FractionBox[
-        SuperscriptBox["p$", "2"], 
-        RowBox[{"2", " ", 
-         SuperscriptBox["m$", "alpha"]}]], "+", 
-       RowBox[{"V$199966", "[", "x$", "]"}], "-", 
-       RowBox[{"g$199966", "[", "m$", "]"}]}]}], "]"}]}]}], 
-  "\[RightAssociation]"}]], "Output",
- CellChangeTimes->{3.81262785487675*^9},
- CellLabel->
-  "Out[359]=",ExpressionUUID->"8b9f58fa-fee2-4be7-b1eb-f75b32c3d02f"]
-}, Open  ]],
+Cell["Non-linear case ", "Subsubsection",
+ CellChangeTimes->{{3.806651547979834*^9, 
+  3.8066515626656303`*^9}},ExpressionUUID->"e427d680-342b-47c6-8c8c-\
+ebed5c897cec"],
 
 Cell[CellGroupData[{
 
 Cell[BoxData[{
  RowBox[{
-  RowBox[{"sol1", "=", 
-   RowBox[{
-    RowBox[{"FixedPoint", "[", 
-     RowBox[{
-      RowBox[{"FixedSolverStepX1", "[", "MFGEquations", "]"}], ",", " ", 
-      RowBox[{
-       RowBox[{"MFGEquations", "[", "\"\<criticalreduced1\>\"", "]"}], "[", 
-       RowBox[{"[", "2", "]"}], "]"}], ",", "2", ",", " ", 
-      RowBox[{"SameTest", "\[Rule]", " ", 
-       RowBox[{"(", 
-        RowBox[{
-         RowBox[{
-          RowBox[{"Norm", "[", 
-           RowBox[{
-            RowBox[{
-             RowBox[{"MFGEquations", "[", "\"\<Nlhs\>\"", "]"}], "-", 
-             RowBox[{"MFGEquations", "[", "\"\<Nrhs\>\"", "]"}]}], "/.", 
-            "#"}], "]"}], "\[IndentingNewLine]", "<", 
-          RowBox[{"10", "^", 
-           RowBox[{"(", 
-            RowBox[{"-", "6"}], ")"}]}]}], "&"}], ")"}]}]}], "]"}], "//", 
-    "Quiet"}]}], ";"}], "\n", 
- RowBox[{
-  RowBox[{"Norm", "[", 
-   RowBox[{
-    RowBox[{"MFGEquations", "[", "\"\<Nlhs\>\"", "]"}], "-", 
-    RowBox[{"MFGEquations", "[", "\"\<Nrhs\>\"", "]"}]}], "]"}], "/.", 
-  "%"}]}], "Input",
- CellChangeTimes->{{3.812110483420946*^9, 3.812110493047192*^9}, {
-  3.812627509404647*^9, 3.812627521585294*^9}, {3.812627584691679*^9, 
-  3.812627601604233*^9}, {3.8126277868743477`*^9, 3.812627786991993*^9}, {
-  3.812627975759004*^9, 3.8126279960004473`*^9}},
- CellLabel->
-  "In[374]:=",ExpressionUUID->"2fa903e2-a7a8-443f-b31a-471dfcfb0c1f"],
-
-Cell[CellGroupData[{
-
-Cell[BoxData[
- RowBox[{"\[LeftAssociation]", 
+  RowBox[{"alpha", " ", "=", " ", "0"}], ";"}], "\n", 
+ RowBox[{"FFR", "=", 
   RowBox[{
-   RowBox[{"j2530", "\[Rule]", 
-    FractionBox["78", "25"]}], ",", 
-   RowBox[{"u2558", "\[Rule]", "2"}], ",", 
-   RowBox[{"j2526", "\[Rule]", 
-    RowBox[{
-     FractionBox["78", "25"], "+", "0", "-", 
-     FractionBox["52", "25"], "+", "0"}]}], ",", 
-   RowBox[{"j2527", "\[Rule]", 
-    RowBox[{
-     FractionBox["78", "25"], "+", "0", "-", 
-     FractionBox["52", "25"], "+", "0"}]}], ",", 
-   RowBox[{"j2529", "\[Rule]", 
-    FractionBox["78", "25"]}], ",", 
-   RowBox[{"j2531", "\[Rule]", "0"}], ",", 
-   RowBox[{"j2532", "\[Rule]", "0"}], ",", 
-   RowBox[{"j2534", "\[Rule]", "0"}], ",", 
-   RowBox[{"j2535", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2537", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2538", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2539", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2540", "\[Rule]", 
-    RowBox[{
-     FractionBox["78", "25"], "-", 
-     FractionBox["52", "25"], "+", "0"}]}], ",", 
-   RowBox[{"jt2541", "\[Rule]", 
-    RowBox[{
-     FractionBox["52", "25"], "-", "0"}]}], ",", 
-   RowBox[{"jt2542", "\[Rule]", 
-    RowBox[{
-     FractionBox["78", "25"], "+", "0", "-", 
-     FractionBox["52", "25"], "+", "0"}]}], ",", 
-   RowBox[{"jt2543", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2544", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2545", "\[Rule]", 
-    RowBox[{
-     FractionBox["78", "25"], "-", 
-     FractionBox["52", "25"], "+", "0"}]}], ",", 
-   RowBox[{"jt2546", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2547", "\[Rule]", 
-    RowBox[{
-     FractionBox["52", "25"], "-", "0"}]}], ",", 
-   RowBox[{"jt2548", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2549", "\[Rule]", "0"}], ",", 
-   RowBox[{"u2553", "\[Rule]", "2"}], ",", 
-   RowBox[{"u2555", "\[Rule]", 
-    RowBox[{
-     RowBox[{"-", 
-      FractionBox["78", "25"]}], "-", "0", "+", 
-     FractionBox["52", "25"], "+", 
-     FractionBox["102", "25"]}]}], ",", 
-   RowBox[{"u2556", "\[Rule]", 
-    RowBox[{
-     RowBox[{"-", 
-      FractionBox["78", "25"]}], "-", "0", "+", 
-     FractionBox["52", "25"], "+", 
-     FractionBox["76", "25"]}]}], ",", 
-   RowBox[{"u2557", "\[Rule]", 
-    RowBox[{
-     RowBox[{"-", "0"}], "+", 
-     FractionBox["52", "25"], "+", "2"}]}], ",", 
-   RowBox[{"u2559", "\[Rule]", 
-    FractionBox["102", "25"]}], ",", 
-   RowBox[{"j2528", "\[Rule]", "0"}], ",", 
-   RowBox[{"j2533", "\[Rule]", 
-    FractionBox["52", "25"]}], ",", 
-   RowBox[{"jt2536", "\[Rule]", "0"}], ",", 
-   RowBox[{"u2550", "\[Rule]", 
-    FractionBox["102", "25"]}], ",", 
-   RowBox[{"u2551", "\[Rule]", 
-    FractionBox["76", "25"]}], ",", 
-   RowBox[{"u2552", "\[Rule]", "2"}], ",", 
-   RowBox[{"u2554", "\[Rule]", 
-    FractionBox["102", "25"]}]}], "\[RightAssociation]"}]], "Print",
- CellChangeTimes->{{3.8126277833378553`*^9, 3.81262779206347*^9}, 
-   3.812627864194462*^9, {3.812627977156966*^9, 3.81262799742212*^9}},
- CellLabel->
-  "During evaluation of \
-In[374]:=",ExpressionUUID->"bcdea968-a5c5-4331-a8d4-dd33ccf9c8af"],
-
-Cell[BoxData[
- RowBox[{"{", 
-  RowBox[{
-   RowBox[{"j2528", "\[Rule]", "0"}], ",", 
-   RowBox[{"j2533", "\[Rule]", "2.133744995874177`"}], ",", 
-   RowBox[{"jt2536", "\[Rule]", "0"}], ",", 
-   RowBox[{"u2550", "\[Rule]", "3.8030173457924197`"}], ",", 
-   RowBox[{"u2551", "\[Rule]", "2.9015086728962096`"}], ",", 
-   RowBox[{"u2552", "\[Rule]", "2.`"}], ",", 
-   RowBox[{"u2554", "\[Rule]", "3.8030173457924197`"}]}], "}"}]], "Print",
- CellChangeTimes->{{3.8126277833378553`*^9, 3.81262779206347*^9}, 
-   3.812627864194462*^9, {3.812627977156966*^9, 3.812627997423345*^9}},
- CellLabel->
-  "During evaluation of \
-In[374]:=",ExpressionUUID->"d2a4d5b9-9fb7-4029-96a4-a55702fb2906"],
-
-Cell[BoxData[
- RowBox[{"\[LeftAssociation]", 
-  RowBox[{
-   RowBox[{"j2530", "\[Rule]", 
-    FractionBox["78", "25"]}], ",", 
-   RowBox[{"u2558", "\[Rule]", "2"}], ",", 
-   RowBox[{"j2526", "\[Rule]", 
-    RowBox[{
-     FractionBox["78", "25"], "+", "0", "-", 
-     FractionBox["52", "25"], "+", "0"}]}], ",", 
-   RowBox[{"j2527", "\[Rule]", 
-    RowBox[{
-     FractionBox["78", "25"], "+", "0", "-", 
-     FractionBox["52", "25"], "+", "0"}]}], ",", 
-   RowBox[{"j2529", "\[Rule]", 
-    FractionBox["78", "25"]}], ",", 
-   RowBox[{"j2531", "\[Rule]", "0"}], ",", 
-   RowBox[{"j2532", "\[Rule]", "0"}], ",", 
-   RowBox[{"j2534", "\[Rule]", "0"}], ",", 
-   RowBox[{"j2535", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2537", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2538", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2539", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2540", "\[Rule]", 
-    RowBox[{
-     FractionBox["78", "25"], "-", 
-     FractionBox["52", "25"], "+", "0"}]}], ",", 
-   RowBox[{"jt2541", "\[Rule]", 
-    RowBox[{
-     FractionBox["52", "25"], "-", "0"}]}], ",", 
-   RowBox[{"jt2542", "\[Rule]", 
-    RowBox[{
-     FractionBox["78", "25"], "+", "0", "-", 
-     FractionBox["52", "25"], "+", "0"}]}], ",", 
-   RowBox[{"jt2543", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2544", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2545", "\[Rule]", 
-    RowBox[{
-     FractionBox["78", "25"], "-", 
-     FractionBox["52", "25"], "+", "0"}]}], ",", 
-   RowBox[{"jt2546", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2547", "\[Rule]", 
-    RowBox[{
-     FractionBox["52", "25"], "-", "0"}]}], ",", 
-   RowBox[{"jt2548", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2549", "\[Rule]", "0"}], ",", 
-   RowBox[{"u2553", "\[Rule]", "2"}], ",", 
-   RowBox[{"u2555", "\[Rule]", 
-    RowBox[{
-     RowBox[{"-", 
-      FractionBox["78", "25"]}], "-", "0", "+", 
-     FractionBox["52", "25"], "+", 
-     FractionBox["102", "25"]}]}], ",", 
-   RowBox[{"u2556", "\[Rule]", 
-    RowBox[{
-     RowBox[{"-", 
-      FractionBox["78", "25"]}], "-", "0", "+", 
-     FractionBox["52", "25"], "+", 
-     FractionBox["76", "25"]}]}], ",", 
-   RowBox[{"u2557", "\[Rule]", 
-    RowBox[{
-     RowBox[{"-", "0"}], "+", 
-     FractionBox["52", "25"], "+", "2"}]}], ",", 
-   RowBox[{"u2559", "\[Rule]", 
-    FractionBox["102", "25"]}], ",", 
-   RowBox[{"j2528", "\[Rule]", "0"}], ",", 
-   RowBox[{"j2533", "\[Rule]", "2.133744995874177`"}], ",", 
-   RowBox[{"jt2536", "\[Rule]", "0"}], ",", 
-   RowBox[{"u2550", "\[Rule]", "3.8030173457924197`"}], ",", 
-   RowBox[{"u2551", "\[Rule]", "2.9015086728962096`"}], ",", 
-   RowBox[{"u2552", "\[Rule]", "2.`"}], ",", 
-   RowBox[{"u2554", "\[Rule]", "3.8030173457924197`"}]}], 
-  "\[RightAssociation]"}]], "Print",
- CellChangeTimes->{{3.8126277833378553`*^9, 3.81262779206347*^9}, 
-   3.812627864194462*^9, {3.812627977156966*^9, 3.812627997755831*^9}},
- CellLabel->
-  "During evaluation of \
-In[374]:=",ExpressionUUID->"642aec55-b2ad-4b54-8dba-7ec2b2b715d2"],
-
-Cell[BoxData[
- RowBox[{"{", 
-  RowBox[{
-   RowBox[{"j2528", "\[Rule]", "0"}], ",", 
-   RowBox[{"j2533", "\[Rule]", "2.1390406813415224`"}], ",", 
-   RowBox[{"jt2536", "\[Rule]", "0"}], ",", 
-   RowBox[{"u2550", "\[Rule]", "3.7924259748577285`"}], ",", 
-   RowBox[{"u2551", "\[Rule]", "2.8962129874288642`"}], ",", 
-   RowBox[{"u2552", "\[Rule]", "2.`"}], ",", 
-   RowBox[{"u2554", "\[Rule]", "3.7924259748577285`"}]}], "}"}]], "Print",
- CellChangeTimes->{{3.8126277833378553`*^9, 3.81262779206347*^9}, 
-   3.812627864194462*^9, {3.812627977156966*^9, 3.812627997757942*^9}},
- CellLabel->
-  "During evaluation of \
-In[374]:=",ExpressionUUID->"1fbc35a9-c86c-4eb2-a2f3-8490a480ea83"]
-}, Open  ]],
-
-Cell[BoxData["0.35809831598641895`"], "Output",
- CellChangeTimes->{{3.812627783356839*^9, 3.812627792081567*^9}, 
-   3.812627865633341*^9, {3.81262797718906*^9, 3.8126279978308067`*^9}},
- CellLabel->
-  "Out[375]=",ExpressionUUID->"0ada08e2-7c4e-4f83-87de-5b53d9ae87b9"]
-}, Open  ]],
-
-Cell["Note that 5 iterations work for the X2 solver tools:", "Text",
- CellChangeTimes->{{3.812110059210799*^9, 3.812110074695814*^9}, {
-  3.812110590868843*^9, 
-  3.812110599141656*^9}},ExpressionUUID->"f6abcd66-d211-43fb-bf41-\
-3b2cce3bed76"],
-
-Cell[BoxData[{
- RowBox[{
-  RowBox[{"sol2", " ", "=", " ", 
    RowBox[{"FixedPoint", "[", 
     RowBox[{
-     RowBox[{"FixedSolverStepX2", "[", "MFGEquations", "]"}], ",", " ", 
+     RowBox[{"FixedReduceX1", "[", "MFGEquations", "]"}], ",", " ", 
      RowBox[{
-      RowBox[{"MFGEquations", "[", "\"\<criticalreduced2\>\"", "]"}], "[", 
-      RowBox[{"[", "2", "]"}], "]"}], ",", "1", ",", " ", 
+      RowBox[{"MFGEquations", "[", "\"\<criticalreduced1\>\"", "]"}], "[", 
+      RowBox[{"[", "2", "]"}], "]"}], ",", " ", "10", ",", " ", 
      RowBox[{"SameTest", "\[Rule]", " ", 
       RowBox[{"(", 
        RowBox[{
@@ -761,47 +290,209 @@ Cell[BoxData[{
            RowBox[{
             RowBox[{"MFGEquations", "[", "\"\<Nlhs\>\"", "]"}], "-", 
             RowBox[{"MFGEquations", "[", "\"\<Nrhs\>\"", "]"}]}], "/.", "#"}],
-           "]"}], "\[IndentingNewLine]", "<", 
-         RowBox[{"10", "^", 
-          RowBox[{"(", 
-           RowBox[{"-", "6"}], ")"}]}]}], "&"}], ")"}]}]}], "]"}]}], 
-  ";"}], "\[IndentingNewLine]", 
- RowBox[{
-  RowBox[{"Norm", "[", 
-   RowBox[{
-    RowBox[{
-     RowBox[{"MFGEquations", "[", "\"\<Nlhs\>\"", "]"}], "-", 
-     RowBox[{"MFGEquations", "[", "\"\<Nrhs\>\"", "]"}]}], "/.", "sol2"}], 
-   "]"}], " ", 
-  RowBox[{"(*", 
-   RowBox[{"not", " ", 
-    RowBox[{"good", "!"}]}], "*)"}]}]}], "Input",
- CellChangeTimes->{{3.8121100785617533`*^9, 3.8121100790152893`*^9}, {
-   3.812110567466909*^9, 3.8121105714447193`*^9}, {3.812110808525897*^9, 
-   3.812110810275724*^9}, 3.812110973187693*^9, {3.8121111165162477`*^9, 
-   3.812111116698021*^9}, {3.812172616151637*^9, 3.812172646508679*^9}, {
-   3.812627635985623*^9, 3.8126276361573963`*^9}, {3.8126277317973413`*^9, 
-   3.8126277371917353`*^9}},ExpressionUUID->"5080170d-f58d-40da-84c3-\
-a3f812fbdbde"],
+           "]"}], "<", 
+         RowBox[{"MFGEquations", "[", "\"\<TOL\>\"", "]"}]}], "&"}], 
+       ")"}]}]}], "]"}], "//", "KeySort"}]}]}], "Input",
+ CellChangeTimes->{{3.808126142141547*^9, 3.8081261460059547`*^9}, {
+   3.810539024323907*^9, 3.810539034152894*^9}, {3.812184669640719*^9, 
+   3.812184677454872*^9}, {3.812625386393382*^9, 3.812625433369575*^9}, {
+   3.812625811885701*^9, 3.812625812292194*^9}, {3.812626877712508*^9, 
+   3.81262687792752*^9}, {3.812626922255061*^9, 3.8126269235282087`*^9}, {
+   3.812627134162677*^9, 3.8126271357051983`*^9}, {3.8126272423039293`*^9, 
+   3.8126272424476023`*^9}, 3.812633637074614*^9, 3.81263380853738*^9, {
+   3.812687118645494*^9, 3.8126871430278254`*^9}, {3.8126872202340612`*^9, 
+   3.812687272647026*^9}, {3.81278629064502*^9, 3.812786291149084*^9}, {
+   3.812961884080874*^9, 3.8129619041243668`*^9}, {3.8129620397021837`*^9, 
+   3.81296208669575*^9}, {3.812962265106738*^9, 3.8129622660840607`*^9}},
+ CellLabel->
+  "In[160]:=",ExpressionUUID->"1f51945a-ea78-4e15-b194-423c698063f6"],
 
-Cell["\<\
-But if we try one more iteration, the next system is False. Now we have to \
-create a way to deal with this.\
-\>", "Text",
- CellChangeTimes->{{3.812110107721415*^9, 3.812110156561368*^9}, {
-  3.812110553523336*^9, 
-  3.812110554057179*^9}},ExpressionUUID->"c8ce2f9c-eaf1-4f89-b590-\
-55493c4bd71e"],
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "0.059665209604840536`"}],
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 0.059665209604840536`],
+  Editable->False]], "Print",
+ CellChangeTimes->{
+  3.8127861684107237`*^9, {3.81278623733703*^9, 3.8127862518343897`*^9}, {
+   3.8127863032026873`*^9, 3.812786314647684*^9}, 3.8129620179365587`*^9, 
+   3.812962089879304*^9, 3.81296226860849*^9, 3.8139787808866463`*^9, 
+   3.8140009361077347`*^9, 3.814001006326352*^9},
+ CellLabel->
+  "During evaluation of \
+In[160]:=",ExpressionUUID->"496b3643-8327-4dad-a7dc-9db0ca62179c"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "0.001720986364262978`"}],
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 0.001720986364262978],
+  Editable->False]], "Print",
+ CellChangeTimes->{
+  3.8127861684107237`*^9, {3.81278623733703*^9, 3.8127862518343897`*^9}, {
+   3.8127863032026873`*^9, 3.812786314647684*^9}, 3.8129620179365587`*^9, 
+   3.812962089879304*^9, 3.81296226860849*^9, 3.8139787808866463`*^9, 
+   3.8140009361077347`*^9, 3.8140010069912357`*^9},
+ CellLabel->
+  "During evaluation of \
+In[160]:=",ExpressionUUID->"56278590-75bf-4148-91ef-3ca033e36a02"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "0.00022863446741256676`"}],
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 0.00022863446741256676`],
+  Editable->False]], "Print",
+ CellChangeTimes->{
+  3.8127861684107237`*^9, {3.81278623733703*^9, 3.8127862518343897`*^9}, {
+   3.8127863032026873`*^9, 3.812786314647684*^9}, 3.8129620179365587`*^9, 
+   3.812962089879304*^9, 3.81296226860849*^9, 3.8139787808866463`*^9, 
+   3.8140009361077347`*^9, 3.81400100764797*^9},
+ CellLabel->
+  "During evaluation of \
+In[160]:=",ExpressionUUID->"4d2bdbfb-068a-40d2-94d3-8054c72a273c"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", 
+   "0.000030042873381932092`"}],
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 0.000030042873381932092`],
+  Editable->False]], "Print",
+ CellChangeTimes->{
+  3.8127861684107237`*^9, {3.81278623733703*^9, 3.8127862518343897`*^9}, {
+   3.8127863032026873`*^9, 3.812786314647684*^9}, 3.8129620179365587`*^9, 
+   3.812962089879304*^9, 3.81296226860849*^9, 3.8139787808866463`*^9, 
+   3.8140009361077347`*^9, 3.8140010082965918`*^9},
+ CellLabel->
+  "During evaluation of \
+In[160]:=",ExpressionUUID->"65570aca-95da-417a-ac1d-cc3301b87b5d"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "3.953543781580296`*^-6"}],
+  
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 3.953543781580296*^-6],
+  Editable->False]], "Print",
+ CellChangeTimes->{
+  3.8127861684107237`*^9, {3.81278623733703*^9, 3.8127862518343897`*^9}, {
+   3.8127863032026873`*^9, 3.812786314647684*^9}, 3.8129620179365587`*^9, 
+   3.812962089879304*^9, 3.81296226860849*^9, 3.8139787808866463`*^9, 
+   3.8140009361077347`*^9, 3.814001008961712*^9},
+ CellLabel->
+  "During evaluation of \
+In[160]:=",ExpressionUUID->"2d2fbc17-74c7-4ccb-aacd-943a09094385"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "5.201721084341565`*^-7"}],
+  
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 5.201721084341565*^-7],
+  Editable->False]], "Print",
+ CellChangeTimes->{
+  3.8127861684107237`*^9, {3.81278623733703*^9, 3.8127862518343897`*^9}, {
+   3.8127863032026873`*^9, 3.812786314647684*^9}, 3.8129620179365587`*^9, 
+   3.812962089879304*^9, 3.81296226860849*^9, 3.8139787808866463`*^9, 
+   3.8140009361077347`*^9, 3.81400100962329*^9},
+ CellLabel->
+  "During evaluation of \
+In[160]:=",ExpressionUUID->"80be711e-318c-419c-90db-790b94a222f8"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "6.84413712204211`*^-8"}],
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 6.84413712204211*^-8],
+  Editable->False]], "Print",
+ CellChangeTimes->{
+  3.8127861684107237`*^9, {3.81278623733703*^9, 3.8127862518343897`*^9}, {
+   3.8127863032026873`*^9, 3.812786314647684*^9}, 3.8129620179365587`*^9, 
+   3.812962089879304*^9, 3.81296226860849*^9, 3.8139787808866463`*^9, 
+   3.8140009361077347`*^9, 3.814001010326643*^9},
+ CellLabel->
+  "During evaluation of \
+In[160]:=",ExpressionUUID->"5d56f680-4218-409d-88c3-58cbcd27f077"]
+}, Open  ]],
+
+Cell[BoxData[
+ RowBox[{"\[LeftAssociation]", 
+  RowBox[{
+   RowBox[{"j1009", "\[Rule]", "0.21080540215515775`"}], ",", 
+   RowBox[{"j1010", "\[Rule]", "0.21080540215515775`"}], ",", 
+   RowBox[{"j1011", "\[Rule]", "0"}], ",", 
+   RowBox[{"j1012", "\[Rule]", "1.`"}], ",", 
+   RowBox[{"j1013", "\[Rule]", "1.`"}], ",", 
+   RowBox[{"j1014", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"j1015", "\[Rule]", "0"}], ",", 
+   RowBox[{"j1016", "\[Rule]", "0.7891945978448422`"}], ",", 
+   RowBox[{"j1017", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"j1018", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1019", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1020", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1021", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1022", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1023", "\[Rule]", "0.21080540215515775`"}], ",", 
+   RowBox[{"jt1024", "\[Rule]", "0.7891945978448422`"}], ",", 
+   RowBox[{"jt1025", "\[Rule]", "0.21080540215515775`"}], ",", 
+   RowBox[{"jt1026", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1027", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1028", "\[Rule]", "0.21080540215515775`"}], ",", 
+   RowBox[{"jt1029", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1030", "\[Rule]", "0.7891945978448422`"}], ",", 
+   RowBox[{"jt1031", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1032", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"u1033", "\[Rule]", "3.003634566569401`"}], ",", 
+   RowBox[{"u1034", "\[Rule]", "2.5018172832847005`"}], ",", 
+   RowBox[{"u1035", "\[Rule]", "2.`"}], ",", 
+   RowBox[{"u1036", "\[Rule]", "2.`"}], ",", 
+   RowBox[{"u1037", "\[Rule]", "3.003634566569401`"}], ",", 
+   RowBox[{"u1038", "\[Rule]", "2.5018172832847005`"}], ",", 
+   RowBox[{"u1039", "\[Rule]", "2.`"}], ",", 
+   RowBox[{"u1040", "\[Rule]", "3.003634566569401`"}], ",", 
+   RowBox[{"u1041", "\[Rule]", "2.`"}], ",", 
+   RowBox[{"u1042", "\[Rule]", "3.003634566569401`"}]}], 
+  "\[RightAssociation]"}]], "Output",
+ CellChangeTimes->{
+  3.8127858151161823`*^9, 3.812785861374214*^9, 3.812786077710237*^9, {
+   3.812786120713867*^9, 3.81278616978543*^9}, {3.812786239024435*^9, 
+   3.812786253451363*^9}, {3.812786305583374*^9, 3.812786318119326*^9}, 
+   3.81296202132207*^9, 3.812962093282465*^9, 3.812962270960025*^9, 
+   3.81397878431503*^9, 3.814000939398622*^9, 3.814001010433713*^9},
+ CellLabel->
+  "Out[161]=",ExpressionUUID->"de32a9ed-9b99-4d2c-9791-d103bc5d4db9"]
+}, Open  ]],
+
+Cell[CellGroupData[{
 
 Cell[BoxData[{
  RowBox[{
-  RowBox[{"sol26It", "=", 
+  RowBox[{"alpha", " ", "=", " ", "0.1"}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{"FFR", "=", 
+  RowBox[{
    RowBox[{"FixedPoint", "[", 
     RowBox[{
-     RowBox[{"FixedSolverStepX2", "[", "MFGEquations", "]"}], ",", " ", 
+     RowBox[{"FixedReduceX1", "[", "MFGEquations", "]"}], ",", 
      RowBox[{
-      RowBox[{"MFGEquations", "[", "\"\<criticalreduced2\>\"", "]"}], "[", 
-      RowBox[{"[", "2", "]"}], "]"}], ",", "8", ",", " ", 
+      RowBox[{"MFGEquations", "[", "\"\<criticalreduced1\>\"", "]"}], "[", 
+      RowBox[{"[", "2", "]"}], "]"}], ",", "10", ",", 
      RowBox[{"SameTest", "\[Rule]", " ", 
       RowBox[{"(", 
        RowBox[{
@@ -810,469 +501,1481 @@ Cell[BoxData[{
           RowBox[{
            RowBox[{
             RowBox[{"MFGEquations", "[", "\"\<Nlhs\>\"", "]"}], "-", 
-            RowBox[{"MFGEquations", "[", "\"\<Nrhs\>\"", "]"}]}], "/.", 
-           "#2"}], "]"}], "\[IndentingNewLine]", "<", 
-         RowBox[{"10", "^", 
-          RowBox[{"(", 
-           RowBox[{"-", "6"}], ")"}]}]}], "&"}], ")"}]}]}], "]"}]}], 
-  ";"}], "\[IndentingNewLine]", 
- RowBox[{"Norm", "[", 
-  RowBox[{
-   RowBox[{
-    RowBox[{"MFGEquations", "[", "\"\<Nlhs\>\"", "]"}], "-", 
-    RowBox[{"MFGEquations", "[", "\"\<Nrhs\>\"", "]"}]}], "/.", "%"}], 
-  "]"}]}], "Input",
- CellChangeTimes->{
-  3.812109997723832*^9, {3.8121100384276867`*^9, 3.812110042238467*^9}, {
-   3.812111067205964*^9, 3.812111067297247*^9}, {3.812111272631073*^9, 
-   3.812111273055934*^9}, {3.812170477840476*^9, 3.812170486788569*^9}, {
-   3.812185254791748*^9, 3.812185256215719*^9}},
- CellLabel->"In[21]:=",ExpressionUUID->"16f619c0-0bb0-430b-ae0e-e7b9653b8cf3"],
-
-Cell[BoxData[{
- RowBox[{
-  RowBox[{"sol36It", "=", 
-   RowBox[{"Catch", " ", "@", " ", 
-    RowBox[{"FixedPoint", "[", 
-     RowBox[{
-      RowBox[{"FixedSolverStepX3", "[", "MFGEquations", "]"}], ",", " ", 
-      RowBox[{
-       RowBox[{"MFGEquations", "[", "\"\<criticalreduced2\>\"", "]"}], "[", 
-       RowBox[{"[", "2", "]"}], "]"}], ",", "6", ",", " ", 
-      RowBox[{"SameTest", "\[Rule]", " ", 
-       RowBox[{"(", 
-        RowBox[{
-         RowBox[{
-          RowBox[{"Norm", "[", 
-           RowBox[{
-            RowBox[{
-             RowBox[{"MFGEquations", "[", "\"\<Nlhs\>\"", "]"}], "-", 
-             RowBox[{"MFGEquations", "[", "\"\<Nrhs\>\"", "]"}]}], "/.", 
-            "#2"}], "]"}], "\[IndentingNewLine]", "<", 
-          RowBox[{"10", "^", 
-           RowBox[{"(", 
-            RowBox[{"-", "6"}], ")"}]}]}], "&"}], ")"}]}]}], "]"}]}]}], 
-  ";"}], "\[IndentingNewLine]", 
- RowBox[{"Norm", "[", 
-  RowBox[{
-   RowBox[{
-    RowBox[{"MFGEquations", "[", "\"\<Nlhs\>\"", "]"}], "-", 
-    RowBox[{"MFGEquations", "[", "\"\<Nrhs\>\"", "]"}]}], "/.", "%"}], 
-  "]"}]}], "Input",
- CellChangeTimes->{{3.812172116823504*^9, 3.812172121132327*^9}, {
-  3.8121852706754827`*^9, 3.8121852710775337`*^9}, {3.8121853110455112`*^9, 
-  3.812185343332305*^9}},
- CellLabel->"In[27]:=",ExpressionUUID->"14f6ef47-8155-480f-804b-d5f8e55bcd7e"]
-}, Open  ]],
-
-Cell[CellGroupData[{
-
-Cell["Non-linear case with alpha = 1", "Subsubsection",
- CellChangeTimes->{{3.806651547979834*^9, 3.8066515626656303`*^9}, {
-  3.81210952495395*^9, 
-  3.812109532342245*^9}},ExpressionUUID->"e282858c-4ae6-4438-8f76-\
-1256fe5d7ebf"],
-
-Cell[CellGroupData[{
-
-Cell[BoxData[{
- RowBox[{
-  RowBox[{
-   RowBox[{"Parameters", "[", "\"\<alpha\>\"", "]"}], "=", "1"}], 
-  ";"}], "\n", "Parameters"}], "Input",
- CellChangeTimes->{{3.812109146012582*^9, 3.812109152746203*^9}, 
-   3.812183202603105*^9},
- CellLabel->
-  "In[335]:=",ExpressionUUID->"8c7eb2f6-7d85-4302-8bfa-4ec62ff02f31"],
-
-Cell[BoxData[
- RowBox[{"\[LeftAssociation]", 
-  RowBox[{
-   RowBox[{"\<\"alpha\"\>", "\[Rule]", "1"}], ",", 
-   RowBox[{"\<\"beta\"\>", "\[Rule]", "0"}], ",", 
-   RowBox[{"\<\"g[m]\"\>", "\[Rule]", "Log"}], ",", 
-   RowBox[{"\<\"W[x,A]\"\>", "\[Rule]", 
-    RowBox[{"Function", "[", 
-     RowBox[{
-      RowBox[{"{", 
-       RowBox[{"x", ",", "a"}], "}"}], ",", 
-      RowBox[{"a", " ", 
-       SuperscriptBox[
-        RowBox[{"Sin", "[", 
-         RowBox[{"2", " ", "\[Pi]", " ", 
-          RowBox[{"(", 
-           RowBox[{"x", "+", 
-            FractionBox["1", "4"]}], ")"}]}], "]"}], "2"]}]}], "]"}]}], ",", 
-   RowBox[{"\<\"V[x]\"\>", "\[Rule]", 
-    RowBox[{"Function", "[", 
-     RowBox[{
-      RowBox[{"{", "x$", "}"}], ",", 
-      RowBox[{"W$199966", "[", 
-       RowBox[{"x$", ",", "A"}], "]"}]}], "]"}]}], ",", 
-   RowBox[{"\<\"H[x,p,m]\"\>", "\[Rule]", 
-    RowBox[{"Function", "[", 
-     RowBox[{
-      RowBox[{"{", 
-       RowBox[{"x$", ",", "p$", ",", "m$"}], "}"}], ",", 
-      RowBox[{
-       FractionBox[
-        SuperscriptBox["p$", "2"], 
-        RowBox[{"2", " ", 
-         SuperscriptBox["m$", "alpha"]}]], "+", 
-       RowBox[{"V$199966", "[", "x$", "]"}], "-", 
-       RowBox[{"g$199966", "[", "m$", "]"}]}]}], "]"}]}]}], 
-  "\[RightAssociation]"}]], "Output",
- CellChangeTimes->{3.8126277472670727`*^9},
- CellLabel->
-  "Out[336]=",ExpressionUUID->"c83e92ca-2fd6-4db8-ae18-649741331eba"]
-}, Open  ]],
-
-Cell[CellGroupData[{
-
-Cell[BoxData[
- RowBox[{"nsol1", "=", 
-  RowBox[{"FixedPoint", "[", 
-   RowBox[{
-    RowBox[{"FixedSolverStepX1", "[", "MFGEquations", "]"}], ",", " ", 
-    RowBox[{
-     RowBox[{"MFGEquations", "[", "\"\<criticalreduced1\>\"", "]"}], "[", 
-     RowBox[{"[", "2", "]"}], "]"}], ",", "6", ",", " ", 
-    RowBox[{"SameTest", "\[Rule]", " ", 
-     RowBox[{"(", 
-      RowBox[{
-       RowBox[{
-        RowBox[{"Norm", "[", 
-         RowBox[{
-          RowBox[{"(", 
-           RowBox[{
-            RowBox[{"KeySort", "@", "#1"}], "-", 
-            RowBox[{"KeySort", "@", "#2"}]}], ")"}], "//", "Values"}], "]"}], 
-        "<", 
-        RowBox[{"10", "^", 
-         RowBox[{"(", 
-          RowBox[{"-", "3"}], ")"}]}]}], "&"}], ")"}]}]}], "]"}]}]], "Input",
+            RowBox[{"MFGEquations", "[", "\"\<Nrhs\>\"", "]"}]}], "/.", "#"}],
+           "]"}], "<", 
+         RowBox[{"MFGEquations", "[", "\"\<TOL\>\"", "]"}]}], "&"}], 
+       ")"}]}]}], "]"}], "//", "KeySort"}]}]}], "Input",
  CellChangeTimes->{{3.808126142141547*^9, 3.8081261460059547`*^9}, {
-   3.810539024323907*^9, 3.810539034152894*^9}, 3.81201449754346*^9, {
-   3.812016088102501*^9, 3.812016095295714*^9}, {3.8120915481231117`*^9, 
-   3.812091549573965*^9}, 3.8121106190697107`*^9},
+   3.810539024323907*^9, 3.810539034152894*^9}, {3.812184669640719*^9, 
+   3.812184677454872*^9}, {3.812625386393382*^9, 3.812625433369575*^9}, {
+   3.812625811885701*^9, 3.812625812292194*^9}, {3.812626877712508*^9, 
+   3.81262687792752*^9}, {3.812626922255061*^9, 3.8126269235282087`*^9}, {
+   3.812627134162677*^9, 3.8126271357051983`*^9}, {3.8126272423039293`*^9, 
+   3.8126272424476023`*^9}, 3.812633637074614*^9, 3.81263380853738*^9, {
+   3.812689391837798*^9, 3.812689394949883*^9}, {3.812772900393942*^9, 
+   3.812772901335569*^9}, {3.812773061346002*^9, 3.812773061910006*^9}, {
+   3.812773179599184*^9, 3.81277318060874*^9}, {3.8127757940870857`*^9, 
+   3.81277579422501*^9}, {3.812775953363473*^9, 3.812775953465438*^9}, {
+   3.812776014690617*^9, 3.8127760148371983`*^9}, {3.81277901550498*^9, 
+   3.812779016391673*^9}, {3.812786671108713*^9, 3.8127867103289013`*^9}, {
+   3.812786768469487*^9, 3.81278676872291*^9}, {3.812962156143097*^9, 
+   3.81296215632146*^9}, 3.8129622270513372`*^9},
  CellLabel->
-  "In[337]:=",ExpressionUUID->"752af9e5-f8b2-4272-8582-7bcba0037ec1"],
+  "In[162]:=",ExpressionUUID->"3ae9798f-3a10-41d4-b6c2-f29171d3e396"],
 
 Cell[CellGroupData[{
 
 Cell[BoxData[
- RowBox[{"\[LeftAssociation]", 
-  RowBox[{
-   RowBox[{"j2338", "\[Rule]", 
-    FractionBox["78", "25"]}], ",", 
-   RowBox[{"u2366", "\[Rule]", "2"}], ",", 
-   RowBox[{"j2334", "\[Rule]", 
-    RowBox[{
-     FractionBox["78", "25"], "+", "0", "-", 
-     FractionBox["52", "25"], "+", "0"}]}], ",", 
-   RowBox[{"j2335", "\[Rule]", 
-    RowBox[{
-     FractionBox["78", "25"], "+", "0", "-", 
-     FractionBox["52", "25"], "+", "0"}]}], ",", 
-   RowBox[{"j2337", "\[Rule]", 
-    FractionBox["78", "25"]}], ",", 
-   RowBox[{"j2339", "\[Rule]", "0"}], ",", 
-   RowBox[{"j2340", "\[Rule]", "0"}], ",", 
-   RowBox[{"j2342", "\[Rule]", "0"}], ",", 
-   RowBox[{"j2343", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2345", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2346", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2347", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2348", "\[Rule]", 
-    RowBox[{
-     FractionBox["78", "25"], "-", 
-     FractionBox["52", "25"], "+", "0"}]}], ",", 
-   RowBox[{"jt2349", "\[Rule]", 
-    RowBox[{
-     FractionBox["52", "25"], "-", "0"}]}], ",", 
-   RowBox[{"jt2350", "\[Rule]", 
-    RowBox[{
-     FractionBox["78", "25"], "+", "0", "-", 
-     FractionBox["52", "25"], "+", "0"}]}], ",", 
-   RowBox[{"jt2351", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2352", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2353", "\[Rule]", 
-    RowBox[{
-     FractionBox["78", "25"], "-", 
-     FractionBox["52", "25"], "+", "0"}]}], ",", 
-   RowBox[{"jt2354", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2355", "\[Rule]", 
-    RowBox[{
-     FractionBox["52", "25"], "-", "0"}]}], ",", 
-   RowBox[{"jt2356", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2357", "\[Rule]", "0"}], ",", 
-   RowBox[{"u2361", "\[Rule]", "2"}], ",", 
-   RowBox[{"u2363", "\[Rule]", 
-    RowBox[{
-     RowBox[{"-", 
-      FractionBox["78", "25"]}], "-", "0", "+", 
-     FractionBox["52", "25"], "+", 
-     FractionBox["102", "25"]}]}], ",", 
-   RowBox[{"u2364", "\[Rule]", 
-    RowBox[{
-     RowBox[{"-", 
-      FractionBox["78", "25"]}], "-", "0", "+", 
-     FractionBox["52", "25"], "+", 
-     FractionBox["76", "25"]}]}], ",", 
-   RowBox[{"u2365", "\[Rule]", 
-    RowBox[{
-     RowBox[{"-", "0"}], "+", 
-     FractionBox["52", "25"], "+", "2"}]}], ",", 
-   RowBox[{"u2367", "\[Rule]", 
-    FractionBox["102", "25"]}], ",", 
-   RowBox[{"j2336", "\[Rule]", "0"}], ",", 
-   RowBox[{"j2341", "\[Rule]", 
-    FractionBox["52", "25"]}], ",", 
-   RowBox[{"jt2344", "\[Rule]", "0"}], ",", 
-   RowBox[{"u2358", "\[Rule]", 
-    FractionBox["102", "25"]}], ",", 
-   RowBox[{"u2359", "\[Rule]", 
-    FractionBox["76", "25"]}], ",", 
-   RowBox[{"u2360", "\[Rule]", "2"}], ",", 
-   RowBox[{"u2362", "\[Rule]", 
-    FractionBox["102", "25"]}]}], "\[RightAssociation]"}]], "Print",
- CellChangeTimes->{3.812627752786168*^9},
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "0.04757855197964527`"}],
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 0.04757855197964527],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.81296229002627*^9, 3.8139787847178717`*^9, 
+  3.814000939802723*^9, 3.814001011063335*^9},
  CellLabel->
   "During evaluation of \
-In[337]:=",ExpressionUUID->"6085ce30-8b49-44db-8abe-7f2d661fe936"],
+In[162]:=",ExpressionUUID->"fc75f454-d94c-474c-a290-b1198b3b7fc3"],
 
 Cell[BoxData[
- RowBox[{"{", 
-  RowBox[{
-   RowBox[{"j2336", "\[Rule]", "0"}], ",", 
-   RowBox[{"j2341", "\[Rule]", 
-    FractionBox["52", "25"]}], ",", 
-   RowBox[{"jt2344", "\[Rule]", "0"}], ",", 
-   RowBox[{"u2358", "\[Rule]", 
-    FractionBox["102", "25"]}], ",", 
-   RowBox[{"u2359", "\[Rule]", 
-    FractionBox["76", "25"]}], ",", 
-   RowBox[{"u2360", "\[Rule]", "2"}], ",", 
-   RowBox[{"u2362", "\[Rule]", 
-    FractionBox["102", "25"]}]}], "}"}]], "Print",
- CellChangeTimes->{3.812627752787417*^9},
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "0.0016622409057437588`"}],
+  
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 0.0016622409057437588`],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.81296229002627*^9, 3.8139787847178717`*^9, 
+  3.814000939802723*^9, 3.814001011751021*^9},
  CellLabel->
   "During evaluation of \
-In[337]:=",ExpressionUUID->"6a13140d-7e10-48c9-9b6c-bae902945b10"]
+In[162]:=",ExpressionUUID->"961b7852-fb7e-48ec-919f-f643ce56522f"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "0.0001815013386333543`"}],
+  
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 0.0001815013386333543],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.81296229002627*^9, 3.8139787847178717`*^9, 
+  3.814000939802723*^9, 3.8140010124369793`*^9},
+ CellLabel->
+  "During evaluation of \
+In[162]:=",ExpressionUUID->"ddfab3d1-cf6f-43ca-9d91-131f3bd28905"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", 
+   "0.000019562575864933223`"}],
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 0.000019562575864933223`],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.81296229002627*^9, 3.8139787847178717`*^9, 
+  3.814000939802723*^9, 3.814001013124276*^9},
+ CellLabel->
+  "During evaluation of \
+In[162]:=",ExpressionUUID->"9f272761-d6fa-46bf-8fc9-6a8a7eeeddab"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "2.111549077960761`*^-6"}],
+  
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 2.111549077960761*^-6],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.81296229002627*^9, 3.8139787847178717`*^9, 
+  3.814000939802723*^9, 3.814001013808779*^9},
+ CellLabel->
+  "During evaluation of \
+In[162]:=",ExpressionUUID->"be560d0f-aa79-459c-9e2c-be8b3e6f550c"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "2.2788130183627707`*^-7"}],
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 2.2788130183627707`*^-7],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.81296229002627*^9, 3.8139787847178717`*^9, 
+  3.814000939802723*^9, 3.8140010144967337`*^9},
+ CellLabel->
+  "During evaluation of \
+In[162]:=",ExpressionUUID->"557c35eb-bfb4-431a-b1e6-b4494297c88e"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "2.4593679437291134`*^-8"}],
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 2.4593679437291134`*^-8],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.81296229002627*^9, 3.8139787847178717`*^9, 
+  3.814000939802723*^9, 3.814001015191185*^9},
+ CellLabel->
+  "During evaluation of \
+In[162]:=",ExpressionUUID->"ee1bbbdb-3ca6-4e42-b200-de75023788b7"]
 }, Open  ]],
 
 Cell[BoxData[
  RowBox[{"\[LeftAssociation]", 
   RowBox[{
-   RowBox[{"j2338", "\[Rule]", 
-    FractionBox["78", "25"]}], ",", 
-   RowBox[{"u2366", "\[Rule]", "2"}], ",", 
-   RowBox[{"j2334", "\[Rule]", 
-    RowBox[{
-     FractionBox["78", "25"], "+", "0", "-", 
-     FractionBox["52", "25"], "+", "0"}]}], ",", 
-   RowBox[{"j2335", "\[Rule]", 
-    RowBox[{
-     FractionBox["78", "25"], "+", "0", "-", 
-     FractionBox["52", "25"], "+", "0"}]}], ",", 
-   RowBox[{"j2337", "\[Rule]", 
-    FractionBox["78", "25"]}], ",", 
-   RowBox[{"j2339", "\[Rule]", "0"}], ",", 
-   RowBox[{"j2340", "\[Rule]", "0"}], ",", 
-   RowBox[{"j2342", "\[Rule]", "0"}], ",", 
-   RowBox[{"j2343", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2345", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2346", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2347", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2348", "\[Rule]", 
-    RowBox[{
-     FractionBox["78", "25"], "-", 
-     FractionBox["52", "25"], "+", "0"}]}], ",", 
-   RowBox[{"jt2349", "\[Rule]", 
-    RowBox[{
-     FractionBox["52", "25"], "-", "0"}]}], ",", 
-   RowBox[{"jt2350", "\[Rule]", 
-    RowBox[{
-     FractionBox["78", "25"], "+", "0", "-", 
-     FractionBox["52", "25"], "+", "0"}]}], ",", 
-   RowBox[{"jt2351", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2352", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2353", "\[Rule]", 
-    RowBox[{
-     FractionBox["78", "25"], "-", 
-     FractionBox["52", "25"], "+", "0"}]}], ",", 
-   RowBox[{"jt2354", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2355", "\[Rule]", 
-    RowBox[{
-     FractionBox["52", "25"], "-", "0"}]}], ",", 
-   RowBox[{"jt2356", "\[Rule]", "0"}], ",", 
-   RowBox[{"jt2357", "\[Rule]", "0"}], ",", 
-   RowBox[{"u2361", "\[Rule]", "2"}], ",", 
-   RowBox[{"u2363", "\[Rule]", 
-    RowBox[{
-     RowBox[{"-", 
-      FractionBox["78", "25"]}], "-", "0", "+", 
-     FractionBox["52", "25"], "+", 
-     FractionBox["102", "25"]}]}], ",", 
-   RowBox[{"u2364", "\[Rule]", 
-    RowBox[{
-     RowBox[{"-", 
-      FractionBox["78", "25"]}], "-", "0", "+", 
-     FractionBox["52", "25"], "+", 
-     FractionBox["76", "25"]}]}], ",", 
-   RowBox[{"u2365", "\[Rule]", 
-    RowBox[{
-     RowBox[{"-", "0"}], "+", 
-     FractionBox["52", "25"], "+", "2"}]}], ",", 
-   RowBox[{"u2367", "\[Rule]", 
-    FractionBox["102", "25"]}], ",", 
-   RowBox[{"j2336", "\[Rule]", "0"}], ",", 
-   RowBox[{"j2341", "\[Rule]", 
-    FractionBox["52", "25"]}], ",", 
-   RowBox[{"jt2344", "\[Rule]", "0"}], ",", 
-   RowBox[{"u2358", "\[Rule]", 
-    FractionBox["102", "25"]}], ",", 
-   RowBox[{"u2359", "\[Rule]", 
-    FractionBox["76", "25"]}], ",", 
-   RowBox[{"u2360", "\[Rule]", "2"}], ",", 
-   RowBox[{"u2362", "\[Rule]", 
-    FractionBox["102", "25"]}]}], "\[RightAssociation]"}]], "Output",
- CellChangeTimes->{3.8126277527897387`*^9},
+   RowBox[{"j1009", "\[Rule]", "0.22581288142473177`"}], ",", 
+   RowBox[{"j1010", "\[Rule]", "0.22581288142473177`"}], ",", 
+   RowBox[{"j1011", "\[Rule]", "0"}], ",", 
+   RowBox[{"j1012", "\[Rule]", "1.`"}], ",", 
+   RowBox[{"j1013", "\[Rule]", "1.`"}], ",", 
+   RowBox[{"j1014", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"j1015", "\[Rule]", "0"}], ",", 
+   RowBox[{"j1016", "\[Rule]", "0.7741871185752682`"}], ",", 
+   RowBox[{"j1017", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"j1018", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1019", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1020", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1021", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1022", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1023", "\[Rule]", "0.22581288142473177`"}], ",", 
+   RowBox[{"jt1024", "\[Rule]", "0.7741871185752682`"}], ",", 
+   RowBox[{"jt1025", "\[Rule]", "0.22581288142473177`"}], ",", 
+   RowBox[{"jt1026", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1027", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1028", "\[Rule]", "0.22581288142473177`"}], ",", 
+   RowBox[{"jt1029", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1030", "\[Rule]", "0.7741871185752682`"}], ",", 
+   RowBox[{"jt1031", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1032", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"u1033", "\[Rule]", "2.9760013283997315`"}], ",", 
+   RowBox[{"u1034", "\[Rule]", "2.4880006641998658`"}], ",", 
+   RowBox[{"u1035", "\[Rule]", "2.`"}], ",", 
+   RowBox[{"u1036", "\[Rule]", "2.`"}], ",", 
+   RowBox[{"u1037", "\[Rule]", "2.9760013283997315`"}], ",", 
+   RowBox[{"u1038", "\[Rule]", "2.4880006641998658`"}], ",", 
+   RowBox[{"u1039", "\[Rule]", "2.`"}], ",", 
+   RowBox[{"u1040", "\[Rule]", "2.9760013283997315`"}], ",", 
+   RowBox[{"u1041", "\[Rule]", "2.`"}], ",", 
+   RowBox[{"u1042", "\[Rule]", "2.9760013283997315`"}]}], 
+  "\[RightAssociation]"}]], "Output",
+ CellChangeTimes->{3.8129622924963913`*^9, 3.8139787884327297`*^9, 
+  3.814000943277067*^9, 3.8140010153018093`*^9},
  CellLabel->
-  "Out[337]=",ExpressionUUID->"efe7edb9-128b-46a4-bca0-275226ac253a"]
-}, Open  ]],
-
-Cell[BoxData[
- RowBox[{"nsol2", "=", 
-  RowBox[{"FixedPoint", "[", 
-   RowBox[{
-    RowBox[{"FixedSolverStepX2", "[", "MFGEquations", "]"}], ",", " ", 
-    RowBox[{
-     RowBox[{"MFGEquations", "[", "\"\<criticalreduced2\>\"", "]"}], "[", 
-     RowBox[{"[", "2", "]"}], "]"}], ",", "6", ",", " ", 
-    RowBox[{"SameTest", "\[Rule]", " ", 
-     RowBox[{"(", 
-      RowBox[{
-       RowBox[{
-        RowBox[{"Norm", "[", 
-         RowBox[{
-          RowBox[{"(", 
-           RowBox[{
-            RowBox[{"KeySort", "@", "#1"}], "-", 
-            RowBox[{"KeySort", "@", "#2"}]}], ")"}], "//", "Values"}], "]"}], 
-        "<", 
-        RowBox[{"10", "^", 
-         RowBox[{"(", 
-          RowBox[{"-", "3"}], ")"}]}]}], "&"}], ")"}]}]}], "]"}]}]], "Input",
- CellChangeTimes->{{3.80795037465897*^9, 3.807950409649624*^9}, {
-   3.808041329972259*^9, 3.808041330110248*^9}, 3.808041854176283*^9, {
-   3.808041936005766*^9, 3.8080419360936117`*^9}, {3.808045042787985*^9, 
-   3.808045055145073*^9}, {3.808045167791016*^9, 3.808045168011415*^9}, {
-   3.808047050251305*^9, 3.80804705031923*^9}, 3.808126192912178*^9, {
-   3.810539043666054*^9, 3.810539052923976*^9}, 3.8120145289768343`*^9, {
-   3.812022234444523*^9, 3.812022242702527*^9}, {3.812022301252475*^9, 
-   3.8120223037659693`*^9}, {3.812074062452026*^9, 3.81207406255406*^9}, {
-   3.8121103955819063`*^9, 3.812110395717738*^9}},
- CellLabel->"In[33]:=",ExpressionUUID->"1a4f7195-e53f-4b85-a58d-aa17b99c95fe"],
-
-Cell[BoxData[
- RowBox[{"nsol3", "=", 
-  RowBox[{"FixedPoint", "[", 
-   RowBox[{
-    RowBox[{"FixedSolverStepX3", "[", "MFGEquations", "]"}], ",", " ", 
-    RowBox[{
-     RowBox[{"MFGEquations", "[", "\"\<criticalreduced2\>\"", "]"}], "[", 
-     RowBox[{"[", "2", "]"}], "]"}], ",", "9", ",", " ", 
-    RowBox[{"SameTest", "\[Rule]", " ", 
-     RowBox[{"(", 
-      RowBox[{
-       RowBox[{
-        RowBox[{"Norm", "[", 
-         RowBox[{
-          RowBox[{"(", 
-           RowBox[{
-            RowBox[{"KeySort", "@", "#1"}], "-", 
-            RowBox[{"KeySort", "@", "#2"}]}], ")"}], "//", "Values"}], "]"}], 
-        "<", 
-        RowBox[{"10", "^", 
-         RowBox[{"(", 
-          RowBox[{"-", "9"}], ")"}]}]}], "&"}], ")"}]}]}], "]"}]}]], "Input",
- CellChangeTimes->{{3.80795037465897*^9, 3.807950409649624*^9}, {
-   3.808041329972259*^9, 3.808041330110248*^9}, 3.808041854176283*^9, {
-   3.808041936005766*^9, 3.8080419360936117`*^9}, {3.808045042787985*^9, 
-   3.808045055145073*^9}, {3.808045167791016*^9, 3.808045168011415*^9}, {
-   3.808047050251305*^9, 3.80804705031923*^9}, 3.808126192912178*^9, {
-   3.810539043666054*^9, 3.810539052923976*^9}, 3.8120145289768343`*^9, {
-   3.812022234444523*^9, 3.812022242702527*^9}, {3.812022301252475*^9, 
-   3.8120223037659693`*^9}, {3.812074062452026*^9, 3.81207406255406*^9}, {
-   3.8121103955819063`*^9, 3.812110395717738*^9}, {3.8121806107733*^9, 
-   3.812180613545459*^9}, {3.812180715216552*^9, 3.812180716150769*^9}, {
-   3.812181193926519*^9, 3.812181194122731*^9}, {3.81218159908678*^9, 
-   3.812181599683831*^9}, {3.81218186475356*^9, 3.81218186517454*^9}},
- CellLabel->"In[35]:=",ExpressionUUID->"c3afb926-790e-4904-a6a1-23e038f7a02f"]
-}, Open  ]]
+  "Out[163]=",ExpressionUUID->"f029512a-6fba-439c-b493-c817de22da7f"]
 }, Open  ]],
 
 Cell[CellGroupData[{
 
-Cell["What is this plot for?", "Subsection",
- CellChangeTimes->{{3.8079501978523407`*^9, 3.807950202844841*^9}, {
-  3.8105407559696712`*^9, 
-  3.810540756579419*^9}},ExpressionUUID->"491d6c16-e2a0-4aab-a783-\
-259ca285f616"],
-
-Cell[BoxData[
+Cell[BoxData[{
  RowBox[{
-  RowBox[{"Function", "[", 
-   RowBox[{"a", ",", 
-    RowBox[{"ListLinePlot", " ", "[", 
+  RowBox[{"alpha", " ", "=", " ", "0.3"}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{"FFR", "=", 
+  RowBox[{
+   RowBox[{"FixedPoint", "[", 
+    RowBox[{
+     RowBox[{"FixedReduceX1", "[", "MFGEquations", "]"}], ",", 
      RowBox[{
-      RowBox[{
-       RowBox[{"Values", " ", "@", " ", 
-        RowBox[{"First", " ", "@", " ", 
-         RowBox[{"FindRoot", " ", "[", 
+      RowBox[{"MFGEquations", "[", "\"\<criticalreduced1\>\"", "]"}], "[", 
+      RowBox[{"[", "2", "]"}], "]"}], ",", "10", ",", 
+     RowBox[{"SameTest", "\[Rule]", " ", 
+      RowBox[{"(", 
+       RowBox[{
+        RowBox[{
+         RowBox[{"Norm", "[", 
           RowBox[{
            RowBox[{
-            RowBox[{"Parameters", "[", "\"\<H[x,p,m]\>\"", "]"}], "[", 
-            RowBox[{"#", ",", 
-             RowBox[{
-              RowBox[{"-", "a"}], "/", 
-              RowBox[{"(", 
-               RowBox[{"m", "^", 
-                RowBox[{"(", 
-                 RowBox[{"1", "-", "alpha"}], ")"}]}], ")"}]}], ",", "m"}], 
-            "]"}], ",", 
-           RowBox[{"{", 
-            RowBox[{"m", ",", "1"}], "}"}]}], "]"}]}]}], "&"}], " ", "/@", 
-      RowBox[{"Table", "[", 
-       RowBox[{"i", ",", 
-        RowBox[{"{", 
-         RowBox[{"i", ",", "0", ",", "1", ",", 
-          RowBox[{"1", "/", "2000"}]}], "}"}]}], "]"}]}], "]"}]}], "]"}], "/@",
-   "jv"}]], "Input",
- CellChangeTimes->{{3.80665396502817*^9, 3.8066540289252*^9}, {
-  3.8066541376359797`*^9, 3.806654313701807*^9}, {3.8105408087256727`*^9, 
-  3.810540811505369*^9}, {3.810540842885269*^9, 3.810540878986801*^9}, {
-  3.810541208339141*^9, 3.810541220409133*^9}, {3.8105412651836443`*^9, 
-  3.8105413079003963`*^9}},ExpressionUUID->"0548720a-3999-45b6-aed0-\
-d7b4863e553b"],
+            RowBox[{"MFGEquations", "[", "\"\<Nlhs\>\"", "]"}], "-", 
+            RowBox[{"MFGEquations", "[", "\"\<Nrhs\>\"", "]"}]}], "/.", "#"}],
+           "]"}], "<", 
+         RowBox[{"MFGEquations", "[", "\"\<TOL\>\"", "]"}]}], "&"}], 
+       ")"}]}]}], "]"}], "//", "KeySort"}]}]}], "Input",
+ CellChangeTimes->{{3.808126142141547*^9, 3.8081261460059547`*^9}, {
+   3.810539024323907*^9, 3.810539034152894*^9}, {3.812184669640719*^9, 
+   3.812184677454872*^9}, {3.812625386393382*^9, 3.812625433369575*^9}, {
+   3.812625811885701*^9, 3.812625812292194*^9}, {3.812626877712508*^9, 
+   3.81262687792752*^9}, {3.812626922255061*^9, 3.8126269235282087`*^9}, {
+   3.812627134162677*^9, 3.8126271357051983`*^9}, {3.8126272423039293`*^9, 
+   3.8126272424476023`*^9}, 3.812633637074614*^9, 3.81263380853738*^9, {
+   3.812689391837798*^9, 3.812689394949883*^9}, {3.812772900393942*^9, 
+   3.812772901335569*^9}, {3.812773061346002*^9, 3.812773061910006*^9}, {
+   3.812773179599184*^9, 3.81277318060874*^9}, {3.8127757940870857`*^9, 
+   3.81277579422501*^9}, {3.812775953363473*^9, 3.812775953465438*^9}, {
+   3.812776014690617*^9, 3.8127760148371983`*^9}, {3.81277901550498*^9, 
+   3.812779016391673*^9}, {3.812786671108713*^9, 3.8127867103289013`*^9}, {
+   3.8127867710754757`*^9, 3.81278677125104*^9}, {3.812962164375021*^9, 
+   3.81296216465864*^9}, 3.812962237148438*^9},
+ CellLabel->
+  "In[164]:=",ExpressionUUID->"33f9bc98-4155-4d8c-86bf-d9c63ad2ffb0"],
 
-Cell["\<\
-j from critical cong. use this in the rhs. maybe some jt is now defined and \
-changes the value of that initial j. so, if we use the association to update \
-the solution rules, we will always retrieve the most up - to - date values. \
-\>", "Text",
- CellChangeTimes->{{3.8075136762878*^9, 3.8075138218707743`*^9}, 
-   3.810540835469728*^9},ExpressionUUID->"fb94f032-78bf-440e-b0e2-\
-c48c398aa84a"]
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "0.027812663390436414`"}],
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 0.027812663390436414`],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.812962296403822*^9, 3.81397878884897*^9, 
+  3.814000943682807*^9, 3.814001015944561*^9},
+ CellLabel->
+  "During evaluation of \
+In[164]:=",ExpressionUUID->"c15b82bc-9856-4419-afcd-e16ee5bd1b70"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "0.0011907928479797237`"}],
+  
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 0.0011907928479797237`],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.812962296403822*^9, 3.81397878884897*^9, 
+  3.814000943682807*^9, 3.814001016654397*^9},
+ CellLabel->
+  "During evaluation of \
+In[164]:=",ExpressionUUID->"e5d92724-5d3d-4c4b-9083-f03912852d87"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "0.00009111330374534911`"}],
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 0.00009111330374534911],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.812962296403822*^9, 3.81397878884897*^9, 
+  3.814000943682807*^9, 3.814001017365326*^9},
+ CellLabel->
+  "During evaluation of \
+In[164]:=",ExpressionUUID->"fadc1a96-94fd-44d7-97c0-78bb0caaae37"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "6.885791472100645`*^-6"}],
+  
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 6.885791472100645*^-6],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.812962296403822*^9, 3.81397878884897*^9, 
+  3.814000943682807*^9, 3.814001018077173*^9},
+ CellLabel->
+  "During evaluation of \
+In[164]:=",ExpressionUUID->"82f0dd1d-8196-4308-984d-430189546e4e"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "5.208891149571667`*^-7"}],
+  
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 5.208891149571667*^-7],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.812962296403822*^9, 3.81397878884897*^9, 
+  3.814000943682807*^9, 3.814001018765986*^9},
+ CellLabel->
+  "During evaluation of \
+In[164]:=",ExpressionUUID->"fdc84c58-8bbe-4b85-9947-6280ea02f0d7"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "3.9400801662894426`*^-8"}],
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 3.9400801662894426`*^-8],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.812962296403822*^9, 3.81397878884897*^9, 
+  3.814000943682807*^9, 3.814001019452413*^9},
+ CellLabel->
+  "During evaluation of \
+In[164]:=",ExpressionUUID->"1533144b-9af4-4d68-ba09-c8e670b85900"]
+}, Open  ]],
+
+Cell[BoxData[
+ RowBox[{"\[LeftAssociation]", 
+  RowBox[{
+   RowBox[{"j1009", "\[Rule]", "0.25418495765830684`"}], ",", 
+   RowBox[{"j1010", "\[Rule]", "0.25418495765830684`"}], ",", 
+   RowBox[{"j1011", "\[Rule]", "0"}], ",", 
+   RowBox[{"j1012", "\[Rule]", "1.`"}], ",", 
+   RowBox[{"j1013", "\[Rule]", "1.`"}], ",", 
+   RowBox[{"j1014", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"j1015", "\[Rule]", "0"}], ",", 
+   RowBox[{"j1016", "\[Rule]", "0.7458150423416932`"}], ",", 
+   RowBox[{"j1017", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"j1018", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1019", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1020", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1021", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1022", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1023", "\[Rule]", "0.25418495765830684`"}], ",", 
+   RowBox[{"jt1024", "\[Rule]", "0.7458150423416932`"}], ",", 
+   RowBox[{"jt1025", "\[Rule]", "0.25418495765830684`"}], ",", 
+   RowBox[{"jt1026", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1027", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1028", "\[Rule]", "0.25418495765830684`"}], ",", 
+   RowBox[{"jt1029", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1030", "\[Rule]", "0.7458150423416932`"}], ",", 
+   RowBox[{"jt1031", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1032", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"u1033", "\[Rule]", "2.915912558536437`"}], ",", 
+   RowBox[{"u1034", "\[Rule]", "2.4579562792682186`"}], ",", 
+   RowBox[{"u1035", "\[Rule]", "2.`"}], ",", 
+   RowBox[{"u1036", "\[Rule]", "2.`"}], ",", 
+   RowBox[{"u1037", "\[Rule]", "2.915912558536437`"}], ",", 
+   RowBox[{"u1038", "\[Rule]", "2.4579562792682186`"}], ",", 
+   RowBox[{"u1039", "\[Rule]", "2.`"}], ",", 
+   RowBox[{"u1040", "\[Rule]", "2.915912558536437`"}], ",", 
+   RowBox[{"u1041", "\[Rule]", "2.`"}], ",", 
+   RowBox[{"u1042", "\[Rule]", "2.915912558536437`"}]}], 
+  "\[RightAssociation]"}]], "Output",
+ CellChangeTimes->{3.812962298856761*^9, 3.813978792164754*^9, 
+  3.814000946754397*^9, 3.814001019563263*^9},
+ CellLabel->
+  "Out[165]=",ExpressionUUID->"63b8e936-0c68-4976-a2d2-ebbff604a208"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[{
+ RowBox[{
+  RowBox[{"alpha", " ", "=", " ", "0.9"}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{"FFR", "=", 
+  RowBox[{
+   RowBox[{"FixedPoint", "[", 
+    RowBox[{
+     RowBox[{"FixedReduceX1", "[", "MFGEquations", "]"}], ",", 
+     RowBox[{
+      RowBox[{"MFGEquations", "[", "\"\<criticalreduced1\>\"", "]"}], "[", 
+      RowBox[{"[", "2", "]"}], "]"}], ",", "14", ",", 
+     RowBox[{"SameTest", "\[Rule]", " ", 
+      RowBox[{"(", 
+       RowBox[{
+        RowBox[{
+         RowBox[{"Norm", "[", 
+          RowBox[{
+           RowBox[{
+            RowBox[{"MFGEquations", "[", "\"\<Nlhs\>\"", "]"}], "-", 
+            RowBox[{"MFGEquations", "[", "\"\<Nrhs\>\"", "]"}]}], "/.", "#"}],
+           "]"}], "<", 
+         RowBox[{"MFGEquations", "[", "\"\<TOL\>\"", "]"}]}], "&"}], 
+       ")"}]}]}], "]"}], "//", "KeySort"}]}]}], "Input",
+ CellChangeTimes->{{3.808126142141547*^9, 3.8081261460059547`*^9}, {
+   3.810539024323907*^9, 3.810539034152894*^9}, {3.812184669640719*^9, 
+   3.812184677454872*^9}, {3.812625386393382*^9, 3.812625433369575*^9}, {
+   3.812625811885701*^9, 3.812625812292194*^9}, {3.812626877712508*^9, 
+   3.81262687792752*^9}, {3.812626922255061*^9, 3.8126269235282087`*^9}, {
+   3.812627134162677*^9, 3.8126271357051983`*^9}, {3.8126272423039293`*^9, 
+   3.8126272424476023`*^9}, 3.812633637074614*^9, 3.81263380853738*^9, {
+   3.812689391837798*^9, 3.812689394949883*^9}, {3.812772900393942*^9, 
+   3.812772901335569*^9}, {3.812773061346002*^9, 3.812773061910006*^9}, {
+   3.812773179599184*^9, 3.81277318060874*^9}, {3.8127757940870857`*^9, 
+   3.81277579422501*^9}, {3.812775953363473*^9, 3.812775953465438*^9}, {
+   3.812776014690617*^9, 3.8127760148371983`*^9}, {3.81277901550498*^9, 
+   3.812779016391673*^9}, {3.812786671108713*^9, 3.8127867103289013`*^9}, {
+   3.812786774598467*^9, 3.812786774694209*^9}, {3.812962167308837*^9, 
+   3.812962167560379*^9}, 3.812962238536881*^9, {3.81296232222418*^9, 
+   3.812962322323187*^9}},
+ CellLabel->
+  "In[166]:=",ExpressionUUID->"498ffffb-2a8b-45be-b1a4-4f98b2dbb91a"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "0.0004999731528563564`"}],
+  
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 0.0004999731528563564],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.8129623130004168`*^9, 3.812962322879881*^9}, 
+   3.813978792417564*^9, 3.814000947005714*^9, 3.814001020026925*^9},
+ CellLabel->
+  "During evaluation of \
+In[166]:=",ExpressionUUID->"0932d054-5402-4799-82a4-03fe762c69c3"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "7.062726318816106`*^-6"}],
+  
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 7.062726318816106*^-6],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.8129623130004168`*^9, 3.812962322879881*^9}, 
+   3.813978792417564*^9, 3.814000947005714*^9, 3.814001020523937*^9},
+ CellLabel->
+  "During evaluation of \
+In[166]:=",ExpressionUUID->"d5fde7ed-2251-4489-91c8-578454a162f2"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "1.0049603175468258`*^-7"}],
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 1.0049603175468258`*^-7],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.8129623130004168`*^9, 3.812962322879881*^9}, 
+   3.813978792417564*^9, 3.814000947005714*^9, 3.814001021023848*^9},
+ CellLabel->
+  "During evaluation of \
+In[166]:=",ExpressionUUID->"39d00882-3beb-4005-8937-2ae394b976d7"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "1.4298227794940832`*^-9"}],
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 1.4298227794940832`*^-9],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.8129623130004168`*^9, 3.812962322879881*^9}, 
+   3.813978792417564*^9, 3.814000947005714*^9, 3.814001021517784*^9},
+ CellLabel->
+  "During evaluation of \
+In[166]:=",ExpressionUUID->"93f7586b-8645-49ad-9a18-5a24fa3757aa"]
+}, Open  ]],
+
+Cell[BoxData[
+ RowBox[{"\[LeftAssociation]", 
+  RowBox[{
+   RowBox[{"j1009", "\[Rule]", "0.3239813486190303`"}], ",", 
+   RowBox[{"j1010", "\[Rule]", "0.3239813486190303`"}], ",", 
+   RowBox[{"j1011", "\[Rule]", "0"}], ",", 
+   RowBox[{"j1012", "\[Rule]", "1.`"}], ",", 
+   RowBox[{"j1013", "\[Rule]", "1.`"}], ",", 
+   RowBox[{"j1014", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"j1015", "\[Rule]", "0"}], ",", 
+   RowBox[{"j1016", "\[Rule]", "0.6760186513809697`"}], ",", 
+   RowBox[{"j1017", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"j1018", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1019", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1020", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1021", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1022", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1023", "\[Rule]", "0.3239813486190303`"}], ",", 
+   RowBox[{"jt1024", "\[Rule]", "0.6760186513809697`"}], ",", 
+   RowBox[{"jt1025", "\[Rule]", "0.3239813486190303`"}], ",", 
+   RowBox[{"jt1026", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1027", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1028", "\[Rule]", "0.3239813486190303`"}], ",", 
+   RowBox[{"jt1029", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1030", "\[Rule]", "0.6760186513809697`"}], ",", 
+   RowBox[{"jt1031", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1032", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"u1033", "\[Rule]", "2.704895422974168`"}], ",", 
+   RowBox[{"u1034", "\[Rule]", "2.352447711487084`"}], ",", 
+   RowBox[{"u1035", "\[Rule]", "2.`"}], ",", 
+   RowBox[{"u1036", "\[Rule]", "2.`"}], ",", 
+   RowBox[{"u1037", "\[Rule]", "2.7048954229741677`"}], ",", 
+   RowBox[{"u1038", "\[Rule]", "2.352447711487084`"}], ",", 
+   RowBox[{"u1039", "\[Rule]", "2.`"}], ",", 
+   RowBox[{"u1040", "\[Rule]", "2.7048954229741677`"}], ",", 
+   RowBox[{"u1041", "\[Rule]", "2.`"}], ",", 
+   RowBox[{"u1042", "\[Rule]", "2.7048954229741677`"}]}], 
+  "\[RightAssociation]"}]], "Output",
+ CellChangeTimes->{{3.812962314435445*^9, 3.812962324309598*^9}, 
+   3.813978793231172*^9, 3.814000947758513*^9, 3.814001021598377*^9},
+ CellLabel->
+  "Out[167]=",ExpressionUUID->"a474752c-8b5d-45b5-b67b-79f54a17155a"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[{
+ RowBox[{
+  RowBox[{"alpha", " ", "=", " ", "1"}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{"FFR", "=", 
+  RowBox[{
+   RowBox[{"FixedPoint", "[", 
+    RowBox[{
+     RowBox[{"FixedReduceX1", "[", "MFGEquations", "]"}], ",", 
+     RowBox[{
+      RowBox[{"MFGEquations", "[", "\"\<criticalreduced1\>\"", "]"}], "[", 
+      RowBox[{"[", "2", "]"}], "]"}], ",", "10", ",", 
+     RowBox[{"SameTest", "\[Rule]", " ", 
+      RowBox[{"(", 
+       RowBox[{
+        RowBox[{
+         RowBox[{"Norm", "[", 
+          RowBox[{
+           RowBox[{
+            RowBox[{"MFGEquations", "[", "\"\<Nlhs\>\"", "]"}], "-", 
+            RowBox[{"MFGEquations", "[", "\"\<Nrhs\>\"", "]"}]}], "/.", "#"}],
+           "]"}], "<", 
+         RowBox[{"MFGEquations", "[", "\"\<TOL\>\"", "]"}]}], "&"}], 
+       ")"}]}]}], "]"}], "//", "KeySort"}]}]}], "Input",
+ CellChangeTimes->{{3.808126142141547*^9, 3.8081261460059547`*^9}, {
+   3.810539024323907*^9, 3.810539034152894*^9}, {3.812184669640719*^9, 
+   3.812184677454872*^9}, {3.812625386393382*^9, 3.812625433369575*^9}, {
+   3.812625811885701*^9, 3.812625812292194*^9}, {3.812626877712508*^9, 
+   3.81262687792752*^9}, {3.812626922255061*^9, 3.8126269235282087`*^9}, {
+   3.812627134162677*^9, 3.8126271357051983`*^9}, {3.8126272423039293`*^9, 
+   3.8126272424476023`*^9}, 3.812633637074614*^9, 3.81263380853738*^9, {
+   3.812689391837798*^9, 3.812689394949883*^9}, {3.812772900393942*^9, 
+   3.812772901335569*^9}, {3.812773061346002*^9, 3.812773061910006*^9}, {
+   3.812773179599184*^9, 3.81277318060874*^9}, {3.8127757940870857`*^9, 
+   3.81277579422501*^9}, {3.812775953363473*^9, 3.812775953465438*^9}, {
+   3.812776014690617*^9, 3.8127760148371983`*^9}, {3.81277901550498*^9, 
+   3.812779016391673*^9}, {3.812786671108713*^9, 3.8127867103289013`*^9}, {
+   3.812786776251436*^9, 3.8127867764008427`*^9}, {3.81296217381207*^9, 
+   3.8129621740323677`*^9}, 3.812962239981963*^9},
+ CellLabel->
+  "In[168]:=",ExpressionUUID->"38649032-0496-442b-a56a-17eb9cce5553"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", 
+   "1.2212453270876722`*^-15"}],
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 1.2212453270876722`*^-15],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.812962331684149*^9, 3.813978793368731*^9, 
+  3.8140009478503428`*^9, 3.8140010217289133`*^9},
+ CellLabel->
+  "During evaluation of \
+In[168]:=",ExpressionUUID->"86c5df63-e19f-4fd7-8e10-98275fb0c6fb"],
+
+Cell[BoxData[
+ RowBox[{"\[LeftAssociation]", 
+  RowBox[{
+   RowBox[{"j1009", "\[Rule]", "0.3333333333333333`"}], ",", 
+   RowBox[{"j1010", "\[Rule]", "0.3333333333333333`"}], ",", 
+   RowBox[{"j1011", "\[Rule]", "0"}], ",", 
+   RowBox[{"j1012", "\[Rule]", "1.`"}], ",", 
+   RowBox[{"j1013", "\[Rule]", "1.`"}], ",", 
+   RowBox[{"j1014", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"j1015", "\[Rule]", "0"}], ",", 
+   RowBox[{"j1016", "\[Rule]", "0.6666666666666667`"}], ",", 
+   RowBox[{"j1017", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"j1018", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1019", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1020", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1021", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1022", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1023", "\[Rule]", "0.3333333333333333`"}], ",", 
+   RowBox[{"jt1024", "\[Rule]", "0.6666666666666667`"}], ",", 
+   RowBox[{"jt1025", "\[Rule]", "0.3333333333333333`"}], ",", 
+   RowBox[{"jt1026", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1027", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1028", "\[Rule]", "0.3333333333333333`"}], ",", 
+   RowBox[{"jt1029", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1030", "\[Rule]", "0.6666666666666667`"}], ",", 
+   RowBox[{"jt1031", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1032", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"u1033", "\[Rule]", "2.6666666666666665`"}], ",", 
+   RowBox[{"u1034", "\[Rule]", "2.3333333333333335`"}], ",", 
+   RowBox[{"u1035", "\[Rule]", "2.`"}], ",", 
+   RowBox[{"u1036", "\[Rule]", "2.`"}], ",", 
+   RowBox[{"u1037", "\[Rule]", "2.6666666666666665`"}], ",", 
+   RowBox[{"u1038", "\[Rule]", "2.3333333333333335`"}], ",", 
+   RowBox[{"u1039", "\[Rule]", "2.`"}], ",", 
+   RowBox[{"u1040", "\[Rule]", "2.6666666666666665`"}], ",", 
+   RowBox[{"u1041", "\[Rule]", "2.`"}], ",", 
+   RowBox[{"u1042", "\[Rule]", "2.6666666666666665`"}]}], 
+  "\[RightAssociation]"}]], "Output",
+ CellChangeTimes->{3.812962331702483*^9, 3.813978793390383*^9, 
+  3.814000947883542*^9, 3.814001021751976*^9},
+ CellLabel->
+  "Out[169]=",ExpressionUUID->"4f921987-2c07-414d-a981-df48d59ebd90"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[{
+ RowBox[{
+  RowBox[{"alpha", " ", "=", " ", "1.2"}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{"FFR", "=", 
+  RowBox[{
+   RowBox[{"FixedPoint", "[", 
+    RowBox[{
+     RowBox[{"FixedReduceX1", "[", "MFGEquations", "]"}], ",", 
+     RowBox[{
+      RowBox[{"MFGEquations", "[", "\"\<criticalreduced1\>\"", "]"}], "[", 
+      RowBox[{"[", "2", "]"}], "]"}], ",", "10", ",", 
+     RowBox[{"SameTest", "\[Rule]", " ", 
+      RowBox[{"(", 
+       RowBox[{
+        RowBox[{
+         RowBox[{"Norm", "[", 
+          RowBox[{
+           RowBox[{
+            RowBox[{"MFGEquations", "[", "\"\<Nlhs\>\"", "]"}], "-", 
+            RowBox[{"MFGEquations", "[", "\"\<Nrhs\>\"", "]"}]}], "/.", "#"}],
+           "]"}], "<", 
+         RowBox[{"MFGEquations", "[", "\"\<TOL\>\"", "]"}]}], "&"}], 
+       ")"}]}]}], "]"}], "//", "KeySort"}]}]}], "Input",
+ CellChangeTimes->{{3.808126142141547*^9, 3.8081261460059547`*^9}, {
+   3.810539024323907*^9, 3.810539034152894*^9}, {3.812184669640719*^9, 
+   3.812184677454872*^9}, {3.812625386393382*^9, 3.812625433369575*^9}, {
+   3.812625811885701*^9, 3.812625812292194*^9}, {3.812626877712508*^9, 
+   3.81262687792752*^9}, {3.812626922255061*^9, 3.8126269235282087`*^9}, {
+   3.812627134162677*^9, 3.8126271357051983`*^9}, {3.8126272423039293`*^9, 
+   3.8126272424476023`*^9}, 3.812633637074614*^9, 3.81263380853738*^9, {
+   3.812689391837798*^9, 3.812689394949883*^9}, {3.812772900393942*^9, 
+   3.812772901335569*^9}, {3.812773061346002*^9, 3.812773061910006*^9}, {
+   3.812773179599184*^9, 3.81277318060874*^9}, {3.8127757940870857`*^9, 
+   3.81277579422501*^9}, {3.812775953363473*^9, 3.812775953465438*^9}, {
+   3.812776014690617*^9, 3.8127760148371983`*^9}, {3.81277901550498*^9, 
+   3.812779016391673*^9}, {3.812786671108713*^9, 3.8127867103289013`*^9}, {
+   3.812786778248601*^9, 3.812786779915797*^9}, {3.812962177435605*^9, 
+   3.812962177643608*^9}, 3.812962241236058*^9},
+ CellLabel->
+  "In[170]:=",ExpressionUUID->"99027026-7a45-424a-9f23-8cfe57660223"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "0.0018390564153033925`"}],
+  
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 0.0018390564153033925`],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.812962337008016*^9, 3.8139787937172737`*^9, 
+  3.814000948220173*^9, 3.8140010220731173`*^9},
+ CellLabel->
+  "During evaluation of \
+In[170]:=",ExpressionUUID->"5119d747-bb28-4ff5-868e-b3c15ca04ee2"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "0.0000689082359381073`"}],
+  
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 0.0000689082359381073],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.812962337008016*^9, 3.8139787937172737`*^9, 
+  3.814000948220173*^9, 3.814001022465156*^9},
+ CellLabel->
+  "During evaluation of \
+In[170]:=",ExpressionUUID->"a0d575e7-ad82-4486-aa20-921db3571eeb"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "2.6027874898785757`*^-6"}],
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 2.6027874898785757`*^-6],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.812962337008016*^9, 3.8139787937172737`*^9, 
+  3.814000948220173*^9, 3.814001022815969*^9},
+ CellLabel->
+  "During evaluation of \
+In[170]:=",ExpressionUUID->"b6272d35-a05e-45ea-847c-2abea709d58d"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "9.834614334037208`*^-8"}],
+  
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 9.834614334037208*^-8],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.812962337008016*^9, 3.8139787937172737`*^9, 
+  3.814000948220173*^9, 3.8140010231774607`*^9},
+ CellLabel->
+  "During evaluation of \
+In[170]:=",ExpressionUUID->"12ae6e81-ac89-4eb9-9e9e-ec48ef8b51e6"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "3.7160512711805955`*^-9"}],
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 3.7160512711805955`*^-9],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.812962337008016*^9, 3.8139787937172737`*^9, 
+  3.814000948220173*^9, 3.814001023541236*^9},
+ CellLabel->
+  "During evaluation of \
+In[170]:=",ExpressionUUID->"ad31376f-ff03-455f-a696-a261ef581d90"]
+}, Open  ]],
+
+Cell[BoxData[
+ RowBox[{"\[LeftAssociation]", 
+  RowBox[{
+   RowBox[{"j1009", "\[Rule]", "0.35013923637708516`"}], ",", 
+   RowBox[{"j1010", "\[Rule]", "0.35013923637708516`"}], ",", 
+   RowBox[{"j1011", "\[Rule]", "0"}], ",", 
+   RowBox[{"j1012", "\[Rule]", "1.`"}], ",", 
+   RowBox[{"j1013", "\[Rule]", "1.`"}], ",", 
+   RowBox[{"j1014", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"j1015", "\[Rule]", "0"}], ",", 
+   RowBox[{"j1016", "\[Rule]", "0.6498607636229148`"}], ",", 
+   RowBox[{"j1017", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"j1018", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1019", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1020", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1021", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1022", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1023", "\[Rule]", "0.35013923637708516`"}], ",", 
+   RowBox[{"jt1024", "\[Rule]", "0.6498607636229148`"}], ",", 
+   RowBox[{"jt1025", "\[Rule]", "0.35013923637708516`"}], ",", 
+   RowBox[{"jt1026", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1027", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1028", "\[Rule]", "0.35013923637708516`"}], ",", 
+   RowBox[{"jt1029", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1030", "\[Rule]", "0.6498607636229148`"}], ",", 
+   RowBox[{"jt1031", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1032", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"u1033", "\[Rule]", "2.589129682053597`"}], ",", 
+   RowBox[{"u1034", "\[Rule]", "2.2945648410267983`"}], ",", 
+   RowBox[{"u1035", "\[Rule]", "2.`"}], ",", 
+   RowBox[{"u1036", "\[Rule]", "2.`"}], ",", 
+   RowBox[{"u1037", "\[Rule]", "2.589129682053597`"}], ",", 
+   RowBox[{"u1038", "\[Rule]", "2.2945648410267983`"}], ",", 
+   RowBox[{"u1039", "\[Rule]", "2.`"}], ",", 
+   RowBox[{"u1040", "\[Rule]", "2.589129682053597`"}], ",", 
+   RowBox[{"u1041", "\[Rule]", "2.`"}], ",", 
+   RowBox[{"u1042", "\[Rule]", "2.589129682053597`"}]}], 
+  "\[RightAssociation]"}]], "Output",
+ CellChangeTimes->{3.812962339057805*^9, 3.813978795226982*^9, 
+  3.814000949597002*^9, 3.814001023593926*^9},
+ CellLabel->
+  "Out[171]=",ExpressionUUID->"cfecac00-e37c-4189-aa50-d5005c5c2e3e"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[{
+ RowBox[{
+  RowBox[{"alpha", " ", "=", " ", "1.5"}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{"FFR", "=", 
+  RowBox[{
+   RowBox[{"FixedPoint", "[", 
+    RowBox[{
+     RowBox[{"FixedReduceX1", "[", "MFGEquations", "]"}], ",", 
+     RowBox[{
+      RowBox[{"MFGEquations", "[", "\"\<criticalreduced1\>\"", "]"}], "[", 
+      RowBox[{"[", "2", "]"}], "]"}], ",", "10", ",", 
+     RowBox[{"SameTest", "\[Rule]", " ", 
+      RowBox[{"(", 
+       RowBox[{
+        RowBox[{
+         RowBox[{"Norm", "[", 
+          RowBox[{
+           RowBox[{
+            RowBox[{"MFGEquations", "[", "\"\<Nlhs\>\"", "]"}], "-", 
+            RowBox[{"MFGEquations", "[", "\"\<Nrhs\>\"", "]"}]}], "/.", "#"}],
+           "]"}], "<", 
+         RowBox[{"MFGEquations", "[", "\"\<TOL\>\"", "]"}]}], "&"}], 
+       ")"}]}]}], "]"}], "//", "KeySort"}]}]}], "Input",
+ CellChangeTimes->{{3.808126142141547*^9, 3.8081261460059547`*^9}, {
+   3.810539024323907*^9, 3.810539034152894*^9}, {3.812184669640719*^9, 
+   3.812184677454872*^9}, {3.812625386393382*^9, 3.812625433369575*^9}, {
+   3.812625811885701*^9, 3.812625812292194*^9}, {3.812626877712508*^9, 
+   3.81262687792752*^9}, {3.812626922255061*^9, 3.8126269235282087`*^9}, {
+   3.812627134162677*^9, 3.8126271357051983`*^9}, {3.8126272423039293`*^9, 
+   3.8126272424476023`*^9}, 3.812633637074614*^9, 3.81263380853738*^9, {
+   3.812689391837798*^9, 3.812689394949883*^9}, {3.812772900393942*^9, 
+   3.812772901335569*^9}, {3.812773061346002*^9, 3.812773061910006*^9}, {
+   3.812773179599184*^9, 3.81277318060874*^9}, {3.8127757940870857`*^9, 
+   3.81277579422501*^9}, {3.812775953363473*^9, 3.812775953465438*^9}, {
+   3.812776014690617*^9, 3.8127760148371983`*^9}, {3.81277901550498*^9, 
+   3.812779016391673*^9}, {3.812786671108713*^9, 3.8127867103289013`*^9}, {
+   3.812786781931663*^9, 3.812786783527264*^9}, {3.812962180574884*^9, 
+   3.812962180791648*^9}, 3.812962242549861*^9},
+ CellLabel->
+  "In[172]:=",ExpressionUUID->"d4ec863a-d00f-4f76-8e8f-a38295fb62d2"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "0.010148121672795449`"}],
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 0.010148121672795449`],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.812962342944191*^9, 3.81397879566346*^9, 
+  3.814000950018718*^9, 3.8140010242610292`*^9},
+ CellLabel->
+  "During evaluation of \
+In[172]:=",ExpressionUUID->"912aed37-35d7-4e18-b061-d05ee4ea4988"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "0.0012237925193450568`"}],
+  
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 0.0012237925193450568`],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.812962342944191*^9, 3.81397879566346*^9, 
+  3.814000950018718*^9, 3.814001024907423*^9},
+ CellLabel->
+  "During evaluation of \
+In[172]:=",ExpressionUUID->"17cb7752-9158-4aed-8cd7-a78722703455"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "0.00015147698949661347`"}],
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 0.00015147698949661347`],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.812962342944191*^9, 3.81397879566346*^9, 
+  3.814000950018718*^9, 3.8140010255747337`*^9},
+ CellLabel->
+  "During evaluation of \
+In[172]:=",ExpressionUUID->"b09acb71-aeca-424b-bbb5-93a7ef6f0e45"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", 
+   "0.000018819192437014312`"}],
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 0.000018819192437014312`],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.812962342944191*^9, 3.81397879566346*^9, 
+  3.814000950018718*^9, 3.8140010262287483`*^9},
+ CellLabel->
+  "During evaluation of \
+In[172]:=",ExpressionUUID->"2f50831c-16bf-4000-8357-6961902a17ed"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "2.3391586344074136`*^-6"}],
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 2.3391586344074136`*^-6],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.812962342944191*^9, 3.81397879566346*^9, 
+  3.814000950018718*^9, 3.814001026844942*^9},
+ CellLabel->
+  "During evaluation of \
+In[172]:=",ExpressionUUID->"b71564f7-f730-47c1-88fc-c7c902d02543"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "2.907661381573282`*^-7"}],
+  
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 2.907661381573282*^-7],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.812962342944191*^9, 3.81397879566346*^9, 
+  3.814000950018718*^9, 3.814001027469492*^9},
+ CellLabel->
+  "During evaluation of \
+In[172]:=",ExpressionUUID->"136dfc7e-39d5-4383-a847-c1eb8790bd8f"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "3.614357816447598`*^-8"}],
+  
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 3.614357816447598*^-8],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.812962342944191*^9, 3.81397879566346*^9, 
+  3.814000950018718*^9, 3.8140010281358023`*^9},
+ CellLabel->
+  "During evaluation of \
+In[172]:=",ExpressionUUID->"570e7677-ba96-43e2-8ffd-0ca234245bda"]
+}, Open  ]],
+
+Cell[BoxData[
+ RowBox[{"\[LeftAssociation]", 
+  RowBox[{
+   RowBox[{"j1009", "\[Rule]", "0.37062576647238804`"}], ",", 
+   RowBox[{"j1010", "\[Rule]", "0.37062576647238804`"}], ",", 
+   RowBox[{"j1011", "\[Rule]", "0"}], ",", 
+   RowBox[{"j1012", "\[Rule]", "1.`"}], ",", 
+   RowBox[{"j1013", "\[Rule]", "1.`"}], ",", 
+   RowBox[{"j1014", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"j1015", "\[Rule]", "0"}], ",", 
+   RowBox[{"j1016", "\[Rule]", "0.629374233527612`"}], ",", 
+   RowBox[{"j1017", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"j1018", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1019", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1020", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1021", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1022", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1023", "\[Rule]", "0.37062576647238804`"}], ",", 
+   RowBox[{"jt1024", "\[Rule]", "0.629374233527612`"}], ",", 
+   RowBox[{"jt1025", "\[Rule]", "0.37062576647238804`"}], ",", 
+   RowBox[{"jt1026", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1027", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1028", "\[Rule]", "0.37062576647238804`"}], ",", 
+   RowBox[{"jt1029", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1030", "\[Rule]", "0.629374233527612`"}], ",", 
+   RowBox[{"jt1031", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1032", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"u1033", "\[Rule]", "2.4734761171838477`"}], ",", 
+   RowBox[{"u1034", "\[Rule]", "2.236738058591924`"}], ",", 
+   RowBox[{"u1035", "\[Rule]", "2.`"}], ",", 
+   RowBox[{"u1036", "\[Rule]", "2.`"}], ",", 
+   RowBox[{"u1037", "\[Rule]", "2.4734761171838477`"}], ",", 
+   RowBox[{"u1038", "\[Rule]", "2.236738058591924`"}], ",", 
+   RowBox[{"u1039", "\[Rule]", "2.`"}], ",", 
+   RowBox[{"u1040", "\[Rule]", "2.4734761171838477`"}], ",", 
+   RowBox[{"u1041", "\[Rule]", "2.`"}], ",", 
+   RowBox[{"u1042", "\[Rule]", "2.4734761171838477`"}]}], 
+  "\[RightAssociation]"}]], "Output",
+ CellChangeTimes->{3.812962345444564*^9, 3.81397879891969*^9, 
+  3.81400095306639*^9, 3.814001028225548*^9},
+ CellLabel->
+  "Out[173]=",ExpressionUUID->"46ba4e61-6550-4bc6-aeb1-8ea44ee5fab4"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[{
+ RowBox[{
+  RowBox[{"alpha", " ", "=", " ", "1.9"}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{"FFR", "=", 
+  RowBox[{
+   RowBox[{"FixedPoint", "[", 
+    RowBox[{
+     RowBox[{"FixedReduceX1", "[", "MFGEquations", "]"}], ",", 
+     RowBox[{
+      RowBox[{"MFGEquations", "[", "\"\<criticalreduced1\>\"", "]"}], "[", 
+      RowBox[{"[", "2", "]"}], "]"}], ",", "140", ",", 
+     RowBox[{"SameTest", "\[Rule]", " ", 
+      RowBox[{"(", 
+       RowBox[{
+        RowBox[{
+         RowBox[{"Norm", "[", 
+          RowBox[{
+           RowBox[{
+            RowBox[{"MFGEquations", "[", "\"\<Nlhs\>\"", "]"}], "-", 
+            RowBox[{"MFGEquations", "[", "\"\<Nrhs\>\"", "]"}]}], "/.", "#"}],
+           "]"}], "<", 
+         RowBox[{"MFGEquations", "[", "\"\<TOL\>\"", "]"}]}], "&"}], 
+       ")"}]}]}], "]"}], "//", "KeySort"}]}]}], "Input",
+ CellChangeTimes->{{3.808126142141547*^9, 3.8081261460059547`*^9}, {
+   3.810539024323907*^9, 3.810539034152894*^9}, {3.812184669640719*^9, 
+   3.812184677454872*^9}, {3.812625386393382*^9, 3.812625433369575*^9}, {
+   3.812625811885701*^9, 3.812625812292194*^9}, {3.812626877712508*^9, 
+   3.81262687792752*^9}, {3.812626922255061*^9, 3.8126269235282087`*^9}, {
+   3.812627134162677*^9, 3.8126271357051983`*^9}, {3.8126272423039293`*^9, 
+   3.8126272424476023`*^9}, 3.812633637074614*^9, 3.81263380853738*^9, {
+   3.812689391837798*^9, 3.812689394949883*^9}, {3.812772900393942*^9, 
+   3.812772901335569*^9}, {3.812773061346002*^9, 3.812773061910006*^9}, {
+   3.812773179599184*^9, 3.81277318060874*^9}, {3.8127757940870857`*^9, 
+   3.81277579422501*^9}, {3.812775953363473*^9, 3.812775953465438*^9}, {
+   3.812776014690617*^9, 3.8127760148371983`*^9}, {3.81277901550498*^9, 
+   3.812779016391673*^9}, {3.812786671108713*^9, 3.8127867103289013`*^9}, {
+   3.8127867850738277`*^9, 3.812786786008025*^9}, {3.812962183554872*^9, 
+   3.8129621837760363`*^9}, 3.8129622438807573`*^9, 3.812962359681319*^9},
+ CellLabel->
+  "In[174]:=",ExpressionUUID->"37526c64-ee3f-4310-af6d-c026fac80e06"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "0.024069884685000528`"}],
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 0.024069884685000528`],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.8129623494535713`*^9, 3.812962360428232*^9}, 
+   3.813978799335518*^9, 3.814000953480186*^9, 3.814001028758799*^9},
+ CellLabel->
+  "During evaluation of \
+In[174]:=",ExpressionUUID->"d3a0b960-d293-4a0b-b2f2-59bd8fcee501"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "0.006999908435436695`"}],
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 0.006999908435436695],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.8129623494535713`*^9, 3.812962360428232*^9}, 
+   3.813978799335518*^9, 3.814000953480186*^9, 3.814001029384716*^9},
+ CellLabel->
+  "During evaluation of \
+In[174]:=",ExpressionUUID->"c2d93bf1-7d01-4021-a6b5-bf5508dd8ed3"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "0.002081054180794603`"}],
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 0.002081054180794603],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.8129623494535713`*^9, 3.812962360428232*^9}, 
+   3.813978799335518*^9, 3.814000953480186*^9, 3.814001030029825*^9},
+ CellLabel->
+  "During evaluation of \
+In[174]:=",ExpressionUUID->"0c0b7379-a765-4ce4-af92-236d56188edc"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "0.000622589113540137`"}],
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 0.000622589113540137],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.8129623494535713`*^9, 3.812962360428232*^9}, 
+   3.813978799335518*^9, 3.814000953480186*^9, 3.81400103071138*^9},
+ CellLabel->
+  "During evaluation of \
+In[174]:=",ExpressionUUID->"46ffb2b5-1e2f-4072-bd05-9a393bfef657"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "0.00018660418940398622`"}],
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 0.00018660418940398622`],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.8129623494535713`*^9, 3.812962360428232*^9}, 
+   3.813978799335518*^9, 3.814000953480186*^9, 3.814001031360557*^9},
+ CellLabel->
+  "During evaluation of \
+In[174]:=",ExpressionUUID->"a849c74a-1a6e-43f3-a3e7-ea19640bc262"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", 
+   "0.000055960316485012134`"}],
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 0.000055960316485012134`],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.8129623494535713`*^9, 3.812962360428232*^9}, 
+   3.813978799335518*^9, 3.814000953480186*^9, 3.814001032012188*^9},
+ CellLabel->
+  "During evaluation of \
+In[174]:=",ExpressionUUID->"52857de3-a92d-40c6-a423-452dfc267b83"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", 
+   "0.000016784578905725888`"}],
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 0.000016784578905725888`],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.8129623494535713`*^9, 3.812962360428232*^9}, 
+   3.813978799335518*^9, 3.814000953480186*^9, 3.814001032661194*^9},
+ CellLabel->
+  "During evaluation of \
+In[174]:=",ExpressionUUID->"ae66df31-f0be-4176-a020-957e3a669320"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "5.034567601576314`*^-6"}],
+  
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 5.034567601576314*^-6],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.8129623494535713`*^9, 3.812962360428232*^9}, 
+   3.813978799335518*^9, 3.814000953480186*^9, 3.814001033433861*^9},
+ CellLabel->
+  "During evaluation of \
+In[174]:=",ExpressionUUID->"c249f528-244c-4ed0-8acc-31c36a78ab5d"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "1.510150854853023`*^-6"}],
+  
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 1.510150854853023*^-6],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.8129623494535713`*^9, 3.812962360428232*^9}, 
+   3.813978799335518*^9, 3.814000953480186*^9, 3.814001034166291*^9},
+ CellLabel->
+  "During evaluation of \
+In[174]:=",ExpressionUUID->"4c03d8bd-45e6-4395-bf30-2f6babb24cf4"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "4.529814498679827`*^-7"}],
+  
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 4.529814498679827*^-7],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.8129623494535713`*^9, 3.812962360428232*^9}, 
+   3.813978799335518*^9, 3.814000953480186*^9, 3.814001034858824*^9},
+ CellLabel->
+  "During evaluation of \
+In[174]:=",ExpressionUUID->"9054178b-3bd2-48fe-8701-41798125c30e"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "1.3587547651870092`*^-7"}],
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 1.3587547651870092`*^-7],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.8129623494535713`*^9, 3.812962360428232*^9}, 
+   3.813978799335518*^9, 3.814000953480186*^9, 3.814001035536408*^9},
+ CellLabel->
+  "During evaluation of \
+In[174]:=",ExpressionUUID->"486a4a6c-cd9d-4aa3-a56d-a6b580dc1089"]
+}, Open  ]],
+
+Cell[BoxData[
+ RowBox[{"\[LeftAssociation]", 
+  RowBox[{
+   RowBox[{"j1009", "\[Rule]", "0.38855139388030463`"}], ",", 
+   RowBox[{"j1010", "\[Rule]", "0.38855139388030463`"}], ",", 
+   RowBox[{"j1011", "\[Rule]", "0"}], ",", 
+   RowBox[{"j1012", "\[Rule]", "1.`"}], ",", 
+   RowBox[{"j1013", "\[Rule]", "1.`"}], ",", 
+   RowBox[{"j1014", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"j1015", "\[Rule]", "0"}], ",", 
+   RowBox[{"j1016", "\[Rule]", "0.6114486061196953`"}], ",", 
+   RowBox[{"j1017", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"j1018", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1019", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1020", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1021", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1022", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1023", "\[Rule]", "0.38855139388030463`"}], ",", 
+   RowBox[{"jt1024", "\[Rule]", "0.6114486061196953`"}], ",", 
+   RowBox[{"jt1025", "\[Rule]", "0.38855139388030463`"}], ",", 
+   RowBox[{"jt1026", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1027", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1028", "\[Rule]", "0.38855139388030463`"}], ",", 
+   RowBox[{"jt1029", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1030", "\[Rule]", "0.6114486061196953`"}], ",", 
+   RowBox[{"jt1031", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1032", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"u1033", "\[Rule]", "2.3319009892455287`"}], ",", 
+   RowBox[{"u1034", "\[Rule]", "2.165950494622764`"}], ",", 
+   RowBox[{"u1035", "\[Rule]", "2.`"}], ",", 
+   RowBox[{"u1036", "\[Rule]", "2.`"}], ",", 
+   RowBox[{"u1037", "\[Rule]", "2.3319009892455287`"}], ",", 
+   RowBox[{"u1038", "\[Rule]", "2.165950494622764`"}], ",", 
+   RowBox[{"u1039", "\[Rule]", "2.`"}], ",", 
+   RowBox[{"u1040", "\[Rule]", "2.3319009892455287`"}], ",", 
+   RowBox[{"u1041", "\[Rule]", "2.`"}], ",", 
+   RowBox[{"u1042", "\[Rule]", "2.3319009892455287`"}]}], 
+  "\[RightAssociation]"}]], "Output",
+ CellChangeTimes->{{3.812962351922175*^9, 3.8129623706345673`*^9}, 
+   3.8139788061450987`*^9, 3.814000959930331*^9, 3.814001035644075*^9},
+ CellLabel->
+  "Out[175]=",ExpressionUUID->"b956cf2e-62ea-4a2b-88fa-9b3830a8a67d"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[{
+ RowBox[{
+  RowBox[{"alpha", " ", "=", " ", "2"}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{"FFR", "=", 
+  RowBox[{
+   RowBox[{"FixedPoint", "[", 
+    RowBox[{
+     RowBox[{"FixedReduceX1", "[", "MFGEquations", "]"}], ",", 
+     RowBox[{
+      RowBox[{"MFGEquations", "[", "\"\<criticalreduced1\>\"", "]"}], "[", 
+      RowBox[{"[", "2", "]"}], "]"}], ",", "20", ",", 
+     RowBox[{"SameTest", "\[Rule]", " ", 
+      RowBox[{"(", 
+       RowBox[{
+        RowBox[{
+         RowBox[{"Norm", "[", 
+          RowBox[{
+           RowBox[{
+            RowBox[{"MFGEquations", "[", "\"\<Nlhs\>\"", "]"}], "-", 
+            RowBox[{"MFGEquations", "[", "\"\<Nrhs\>\"", "]"}]}], "/.", "#"}],
+           "]"}], "<", 
+         RowBox[{"MFGEquations", "[", "\"\<TOL\>\"", "]"}]}], "&"}], 
+       ")"}]}]}], "]"}], "//", "KeySort"}]}]}], "Input",
+ CellChangeTimes->{{3.808126142141547*^9, 3.8081261460059547`*^9}, {
+   3.810539024323907*^9, 3.810539034152894*^9}, {3.812184669640719*^9, 
+   3.812184677454872*^9}, {3.812625386393382*^9, 3.812625433369575*^9}, {
+   3.812625811885701*^9, 3.812625812292194*^9}, {3.812626877712508*^9, 
+   3.81262687792752*^9}, {3.812626922255061*^9, 3.8126269235282087`*^9}, {
+   3.812627134162677*^9, 3.8126271357051983`*^9}, {3.8126272423039293`*^9, 
+   3.8126272424476023`*^9}, 3.812633637074614*^9, 3.81263380853738*^9, {
+   3.812689391837798*^9, 3.812689394949883*^9}, {3.812772900393942*^9, 
+   3.812772901335569*^9}, {3.812773061346002*^9, 3.812773061910006*^9}, {
+   3.812773179599184*^9, 3.81277318060874*^9}, {3.8127757940870857`*^9, 
+   3.81277579422501*^9}, {3.812775953363473*^9, 3.812775953465438*^9}, {
+   3.812776014690617*^9, 3.8127760148371983`*^9}, {3.81277901550498*^9, 
+   3.812779016391673*^9}, {3.812786671108713*^9, 3.8127867103289013`*^9}, {
+   3.812786764372004*^9, 3.812786764715908*^9}, {3.8129621865882463`*^9, 
+   3.812962186775948*^9}, 3.812962245204269*^9, {3.812962383748994*^9, 
+   3.812962384390048*^9}},
+ CellLabel->
+  "In[176]:=",ExpressionUUID->"92b4cc90-ac2b-4183-bc4d-1220438b16d8"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "0.026418239481487867`"}],
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 0.026418239481487867`],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.812962378080688*^9, 3.812962385185195*^9}, 
+   3.813978806497773*^9, 3.814000960293687*^9, 3.814001036242099*^9},
+ CellLabel->
+  "During evaluation of \
+In[176]:=",ExpressionUUID->"a6c51695-dec8-4643-ae01-c3cddb9bb01c"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "0.009042461854354556`"}],
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 0.009042461854354556],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.812962378080688*^9, 3.812962385185195*^9}, 
+   3.813978806497773*^9, 3.814000960293687*^9, 3.814001036855665*^9},
+ CellLabel->
+  "During evaluation of \
+In[176]:=",ExpressionUUID->"ebb7e30f-c6e5-41f8-86d4-3340da7cb678"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "0.0031544212047607796`"}],
+  
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 0.0031544212047607796`],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.812962378080688*^9, 3.812962385185195*^9}, 
+   3.813978806497773*^9, 3.814000960293687*^9, 3.8140010374871683`*^9},
+ CellLabel->
+  "During evaluation of \
+In[176]:=",ExpressionUUID->"8669ce71-c813-40db-bf76-438e59566130"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "0.001106913762061475`"}],
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 0.001106913762061475],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.812962378080688*^9, 3.812962385185195*^9}, 
+   3.813978806497773*^9, 3.814000960293687*^9, 3.814001038068327*^9},
+ CellLabel->
+  "During evaluation of \
+In[176]:=",ExpressionUUID->"a133c0d7-3300-47bf-83d6-4672d49e8e18"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "0.00038919112588172875`"}],
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 0.00038919112588172875`],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.812962378080688*^9, 3.812962385185195*^9}, 
+   3.813978806497773*^9, 3.814000960293687*^9, 3.814001038640211*^9},
+ CellLabel->
+  "During evaluation of \
+In[176]:=",ExpressionUUID->"9696dd13-6f40-4ef1-9346-17436d6932c6"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "0.0001369326639965882`"}],
+  
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 0.0001369326639965882],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.812962378080688*^9, 3.812962385185195*^9}, 
+   3.813978806497773*^9, 3.814000960293687*^9, 3.8140010392035427`*^9},
+ CellLabel->
+  "During evaluation of \
+In[176]:=",ExpressionUUID->"3bcb4a23-96fb-4bd7-981d-08ad93c69e3e"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", 
+   "0.000048189704196438726`"}],
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 0.000048189704196438726`],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.812962378080688*^9, 3.812962385185195*^9}, 
+   3.813978806497773*^9, 3.814000960293687*^9, 3.814001039772057*^9},
+ CellLabel->
+  "During evaluation of \
+In[176]:=",ExpressionUUID->"812c1fb0-67c3-448c-a1ce-dd4ee5e277cf"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", 
+   "0.000016960460870524375`"}],
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 0.000016960460870524375`],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.812962378080688*^9, 3.812962385185195*^9}, 
+   3.813978806497773*^9, 3.814000960293687*^9, 3.814001040364183*^9},
+ CellLabel->
+  "During evaluation of \
+In[176]:=",ExpressionUUID->"0e8b0f26-b1db-4b30-9966-ee653d778051"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "5.969442354180465`*^-6"}],
+  
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 5.969442354180465*^-6],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.812962378080688*^9, 3.812962385185195*^9}, 
+   3.813978806497773*^9, 3.814000960293687*^9, 3.814001040929742*^9},
+ CellLabel->
+  "During evaluation of \
+In[176]:=",ExpressionUUID->"c1b9e4dd-3392-4df4-a28e-417ab0a2454f"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "2.1010401574943095`*^-6"}],
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 2.1010401574943095`*^-6],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.812962378080688*^9, 3.812962385185195*^9}, 
+   3.813978806497773*^9, 3.814000960293687*^9, 3.8140010414926367`*^9},
+ CellLabel->
+  "During evaluation of \
+In[176]:=",ExpressionUUID->"c7df1744-6689-400b-a3d5-038b4f1a0568"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "7.394971757377378`*^-7"}],
+  
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 7.394971757377378*^-7],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.812962378080688*^9, 3.812962385185195*^9}, 
+   3.813978806497773*^9, 3.814000960293687*^9, 3.814001042061594*^9},
+ CellLabel->
+  "During evaluation of \
+In[176]:=",ExpressionUUID->"4c58f721-2a5f-4717-b539-7d73cef334b0"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"FRX1: The Minimum between the Error and the relative Errors on \
+the nonlinear terms is \"\>", "\[InvisibleSpace]", "2.6027906647717574`*^-7"}],
+  SequenceForm[
+  "FRX1: The Minimum between the Error and the relative Errors on the \
+nonlinear terms is ", 2.6027906647717574`*^-7],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.812962378080688*^9, 3.812962385185195*^9}, 
+   3.813978806497773*^9, 3.814000960293687*^9, 3.814001042619651*^9},
+ CellLabel->
+  "During evaluation of \
+In[176]:=",ExpressionUUID->"116dab34-55e0-49a3-b296-c25d16ca8c25"]
+}, Open  ]],
+
+Cell[BoxData[
+ RowBox[{"\[LeftAssociation]", 
+  RowBox[{
+   RowBox[{"j1009", "\[Rule]", "0.391148511605791`"}], ",", 
+   RowBox[{"j1010", "\[Rule]", "0.391148511605791`"}], ",", 
+   RowBox[{"j1011", "\[Rule]", "0"}], ",", 
+   RowBox[{"j1012", "\[Rule]", "1.`"}], ",", 
+   RowBox[{"j1013", "\[Rule]", "1.`"}], ",", 
+   RowBox[{"j1014", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"j1015", "\[Rule]", "0"}], ",", 
+   RowBox[{"j1016", "\[Rule]", "0.608851488394209`"}], ",", 
+   RowBox[{"j1017", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"j1018", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1019", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1020", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1021", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1022", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1023", "\[Rule]", "0.391148511605791`"}], ",", 
+   RowBox[{"jt1024", "\[Rule]", "0.608851488394209`"}], ",", 
+   RowBox[{"jt1025", "\[Rule]", "0.391148511605791`"}], ",", 
+   RowBox[{"jt1026", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1027", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1028", "\[Rule]", "0.391148511605791`"}], ",", 
+   RowBox[{"jt1029", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1030", "\[Rule]", "0.608851488394209`"}], ",", 
+   RowBox[{"jt1031", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"jt1032", "\[Rule]", "0.`"}], ",", 
+   RowBox[{"u1033", "\[Rule]", "2.3007749919245324`"}], ",", 
+   RowBox[{"u1034", "\[Rule]", "2.150387495962266`"}], ",", 
+   RowBox[{"u1035", "\[Rule]", "2.`"}], ",", 
+   RowBox[{"u1036", "\[Rule]", "2.`"}], ",", 
+   RowBox[{"u1037", "\[Rule]", "2.3007749919245324`"}], ",", 
+   RowBox[{"u1038", "\[Rule]", "2.150387495962266`"}], ",", 
+   RowBox[{"u1039", "\[Rule]", "2.`"}], ",", 
+   RowBox[{"u1040", "\[Rule]", "2.3007749919245324`"}], ",", 
+   RowBox[{"u1041", "\[Rule]", "2.`"}], ",", 
+   RowBox[{"u1042", "\[Rule]", "2.3007749919245324`"}]}], 
+  "\[RightAssociation]"}]], "Output",
+ CellChangeTimes->{{3.812962380295835*^9, 3.812962389715438*^9}, 
+   3.813978813489554*^9, 3.814000966787774*^9, 3.814001042709416*^9},
+ CellLabel->
+  "Out[177]=",ExpressionUUID->"e03180db-51c1-4b53-8733-0499adb80dba"]
+}, Open  ]]
+}, Open  ]]
 }, Open  ]]
 },
-WindowSize->{1690, 1315},
-WindowMargins->{{2263, Automatic}, {768, Automatic}},
-Magnification:>2. Inherited,
+WindowSize->{1680, 925},
+WindowMargins->{{0, Automatic}, {Automatic, 0}},
 FrontEndVersion->"12.1 for Mac OS X x86 (64-bit) (June 19, 2020)",
 StyleDefinitions->"Default.nb",
-ExpressionUUID->"e9f1b8ab-bef1-4083-9bb7-57eff6e1a8a1"
+ExpressionUUID->"1b90c430-d931-4f46-bcbc-60d27a7e2bbb"
 ]
 (* End of Notebook Content *)
 
@@ -1286,77 +1989,142 @@ CellTagsIndex->{}
 (*NotebookFileOutline
 Notebook[{
 Cell[CellGroupData[{
-Cell[580, 22, 177, 3, 107, "Subsection",ExpressionUUID->"cb46fe0c-8e50-42a8-9349-67f5c3b95db7"],
-Cell[760, 27, 832, 14, 81, "Input",ExpressionUUID->"0634665e-1028-4f55-94c1-0100b44739d4"]
-}, Open  ]],
+Cell[580, 22, 177, 3, 54, "Subsection",ExpressionUUID->"bc6d3f8a-29ac-418f-83f8-4c070ef74141"],
+Cell[760, 27, 1246, 24, 94, "Input",ExpressionUUID->"b5c80f33-a2e5-4b71-ae64-0a38e3f4d579"],
 Cell[CellGroupData[{
-Cell[1629, 46, 294, 4, 107, "Subsection",ExpressionUUID->"96fbf7f5-7214-43ff-b6ad-9cce2d227d3a"],
-Cell[CellGroupData[{
-Cell[1948, 54, 2148, 41, 164, "Input",ExpressionUUID->"cfa1e780-978d-489b-b551-660ddbb67ca6"],
-Cell[CellGroupData[{
-Cell[4121, 99, 277, 5, 47, "Print",ExpressionUUID->"674b60e4-a09f-4e48-a3d4-0157e358fda3"],
-Cell[4401, 106, 217, 4, 47, "Print",ExpressionUUID->"2a687b52-caf9-4ab6-a93e-1f70f4aafc91"],
-Cell[4621, 112, 208, 4, 86, "Print",ExpressionUUID->"5622da9d-8c83-4837-9a4d-722636ac5027"],
-Cell[4832, 118, 204, 4, 47, "Print",ExpressionUUID->"6ddaa985-31fd-4efb-8bf7-ac2f0b6f71eb"]
-}, Open  ]],
-Cell[5051, 125, 209, 5, 89, "Output",ExpressionUUID->"d8f96a80-fdff-4ac5-aa0f-d77fb73ceadc"],
-Cell[5263, 132, 2843, 78, 412, "Output",ExpressionUUID->"5c8cb9c3-4aab-4c97-b917-70a65f0ffc04"]
-}, Open  ]],
-Cell[8121, 213, 353, 9, 123, "Input",ExpressionUUID->"1d1af2ac-07a8-4dca-8fb7-f6eb1fdfdc3f"],
-Cell[CellGroupData[{
-Cell[8499, 226, 694, 18, 123, "Input",ExpressionUUID->"03f3b50a-22bb-4a03-b50f-36d19a1ee585"],
-Cell[9196, 246, 936, 22, 176, "Output",ExpressionUUID->"19c388e7-bcdb-4774-9412-1825b8fb2799"],
-Cell[10135, 270, 672, 12, 131, "Output",ExpressionUUID->"a357cf2b-ceca-4408-b5a4-375559f2fe2b"]
-}, Open  ]],
-Cell[CellGroupData[{
-Cell[10844, 287, 672, 15, 123, "Input",ExpressionUUID->"14129f38-4490-478c-b9c9-a74567c04798"],
-Cell[11519, 304, 2892, 79, 436, "Output",ExpressionUUID->"d958608f-0453-4db4-a13e-b22955531fca"],
-Cell[14414, 385, 1876, 41, 254, "Output",ExpressionUUID->"1038b34f-de36-4f79-ab20-4b2b1b9e288b"]
-}, Open  ]],
-Cell[CellGroupData[{
-Cell[16327, 431, 182, 3, 89, "Subsubsection",ExpressionUUID->"4bb1b503-d23b-4a70-be3c-68b26baa3210"],
-Cell[CellGroupData[{
-Cell[16534, 438, 684, 15, 246, "Input",ExpressionUUID->"3c42ef63-914c-4c78-b2c0-005c199920f6"],
-Cell[17221, 455, 1412, 39, 250, "Output",ExpressionUUID->"8b9f58fa-fee2-4be7-b1eb-f75b32c3d02f"]
-}, Open  ]],
-Cell[CellGroupData[{
-Cell[18670, 499, 1411, 35, 205, "Input",ExpressionUUID->"2fa903e2-a7a8-443f-b31a-471dfcfb0c1f"],
-Cell[CellGroupData[{
-Cell[20106, 538, 2959, 80, 317, "Print",ExpressionUUID->"bcdea968-a5c5-4331-a8d4-dd33ccf9c8af"],
-Cell[23068, 620, 679, 14, 47, "Print",ExpressionUUID->"d2a4d5b9-9fb7-4029-96a4-a55702fb2906"],
-Cell[23750, 636, 2934, 77, 312, "Print",ExpressionUUID->"642aec55-b2ad-4b54-8dba-7ec2b2b715d2"],
-Cell[26687, 715, 680, 14, 47, "Print",ExpressionUUID->"1fbc35a9-c86c-4eb2-a2f3-8490a480ea83"]
-}, Open  ]],
-Cell[27382, 732, 269, 4, 89, "Output",ExpressionUUID->"0ada08e2-7c4e-4f83-87de-5b53d9ae87b9"]
-}, Open  ]],
-Cell[27666, 739, 243, 4, 69, "Text",ExpressionUUID->"f6abcd66-d211-43fb-bf41-3b2cce3bed76"],
-Cell[27912, 745, 1601, 39, 224, "Input",ExpressionUUID->"5080170d-f58d-40da-84c3-a3f812fbdbde"],
-Cell[29516, 786, 307, 7, 69, "Text",ExpressionUUID->"c8ce2f9c-eaf1-4f89-b590-55493c4bd71e"],
-Cell[29826, 795, 1404, 34, 183, "Input",ExpressionUUID->"16f619c0-0bb0-430b-ae0e-e7b9653b8cf3"],
-Cell[31233, 831, 1342, 33, 224, "Input",ExpressionUUID->"14f6ef47-8155-480f-804b-d5f8e55bcd7e"]
-}, Open  ]],
-Cell[CellGroupData[{
-Cell[32612, 869, 231, 4, 89, "Subsubsection",ExpressionUUID->"e282858c-4ae6-4438-8f76-1256fe5d7ebf"],
-Cell[CellGroupData[{
-Cell[32868, 877, 317, 8, 123, "Input",ExpressionUUID->"8c7eb2f6-7d85-4302-8bfa-4ec62ff02f31"],
-Cell[33188, 887, 1412, 39, 250, "Output",ExpressionUUID->"c83e92ca-2fd6-4db8-ae18-649741331eba"]
-}, Open  ]],
-Cell[CellGroupData[{
-Cell[34637, 931, 1100, 27, 123, "Input",ExpressionUUID->"752af9e5-f8b2-4272-8582-7bcba0037ec1"],
-Cell[CellGroupData[{
-Cell[35762, 962, 2863, 79, 317, "Print",ExpressionUUID->"6085ce30-8b49-44db-8abe-7f2d661fe936"],
-Cell[38628, 1043, 611, 17, 69, "Print",ExpressionUUID->"6a13140d-7e10-48c9-9b6c-bae902945b10"]
-}, Open  ]],
-Cell[39254, 1063, 2843, 78, 412, "Output",ExpressionUUID->"efe7edb9-128b-46a4-bca0-275226ac253a"]
-}, Open  ]],
-Cell[42112, 1144, 1460, 31, 101, "Input",ExpressionUUID->"1a4f7195-e53f-4b85-a58d-aa17b99c95fe"],
-Cell[43575, 1177, 1697, 34, 101, "Input",ExpressionUUID->"c3afb926-790e-4904-a6a1-23e038f7a02f"]
+Cell[2031, 55, 205, 4, 30, "Input",ExpressionUUID->"5313ba5b-45db-4c1e-aa2b-a74e0f4eaf99"],
+Cell[2239, 61, 203, 4, 34, "Output",ExpressionUUID->"301337ca-165a-4cc5-b411-6d8a6efba423"]
 }, Open  ]]
 }, Open  ]],
 Cell[CellGroupData[{
-Cell[45321, 1217, 223, 4, 107, "Subsection",ExpressionUUID->"491d6c16-e2a0-4aab-a783-259ca285f616"],
-Cell[45547, 1223, 1358, 34, 183, "Input",ExpressionUUID->"0548720a-3999-45b6-aed0-d7b4863e553b"],
-Cell[46908, 1259, 406, 7, 114, "Text",ExpressionUUID->"fb94f032-78bf-440e-b0e2-c48c398aa84a"]
+Cell[2491, 71, 294, 4, 54, "Subsection",ExpressionUUID->"de959c25-d36f-4f45-905a-a3fc0b8540d6"],
+Cell[CellGroupData[{
+Cell[2810, 79, 1422, 28, 52, "Input",ExpressionUUID->"2021c21d-bb6e-4c61-a553-bed2d14091ed"],
+Cell[4235, 109, 1909, 43, 60, "Output",ExpressionUUID->"8b90e3a2-0127-4227-bc2c-daa7f60a3409"],
+Cell[CellGroupData[{
+Cell[6169, 156, 953, 15, 24, "Print",ExpressionUUID->"60914987-9181-4ada-b738-56c0b34e1b37"],
+Cell[7125, 173, 895, 14, 24, "Print",ExpressionUUID->"8874ce34-91b3-4a16-ab19-9e4aa2bcf824"],
+Cell[8023, 189, 1141, 21, 24, "Print",ExpressionUUID->"38b9f4eb-91e2-4c9f-80e7-6dbdaf4b151b"],
+Cell[9167, 212, 902, 14, 24, "Print",ExpressionUUID->"1c798ce4-4c2d-4a76-bd9c-84f6f996eec4"],
+Cell[10072, 228, 880, 14, 24, "Print",ExpressionUUID->"307d68ea-615b-4833-b500-3dc76412de1e"]
+}, Open  ]],
+Cell[10967, 245, 885, 15, 34, "Output",ExpressionUUID->"0ae73376-cb2f-401f-9c4e-f41881925fb8"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[11889, 265, 169, 3, 45, "Subsubsection",ExpressionUUID->"e427d680-342b-47c6-8c8c-ebed5c897cec"],
+Cell[CellGroupData[{
+Cell[12083, 272, 1738, 35, 52, "Input",ExpressionUUID->"1f51945a-ea78-4e15-b194-423c698063f6"],
+Cell[CellGroupData[{
+Cell[13846, 311, 752, 15, 24, "Print",ExpressionUUID->"496b3643-8327-4dad-a7dc-9db0ca62179c"],
+Cell[14601, 328, 753, 15, 24, "Print",ExpressionUUID->"56278590-75bf-4148-91ef-3ca033e36a02"],
+Cell[15357, 345, 755, 15, 24, "Print",ExpressionUUID->"4d2bdbfb-068a-40d2-94d3-8054c72a273c"],
+Cell[16115, 362, 764, 16, 24, "Print",ExpressionUUID->"65570aca-95da-417a-ac1d-cc3301b87b5d"],
+Cell[16882, 380, 756, 16, 25, "Print",ExpressionUUID->"2d2fbc17-74c7-4ccb-aacd-943a09094385"],
+Cell[17641, 398, 755, 16, 25, "Print",ExpressionUUID->"80be711e-318c-419c-90db-790b94a222f8"],
+Cell[18399, 416, 751, 15, 25, "Print",ExpressionUUID->"5d56f680-4218-409d-88c3-58cbcd27f077"]
+}, Open  ]],
+Cell[19165, 434, 2347, 45, 80, "Output",ExpressionUUID->"de32a9ed-9b99-4d2c-9791-d103bc5d4db9"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[21549, 484, 2005, 39, 52, "Input",ExpressionUUID->"3ae9798f-3a10-41d4-b6c2-f29171d3e396"],
+Cell[CellGroupData[{
+Cell[23579, 527, 570, 12, 24, "Print",ExpressionUUID->"fc75f454-d94c-474c-a290-b1198b3b7fc3"],
+Cell[24152, 541, 578, 13, 24, "Print",ExpressionUUID->"961b7852-fb7e-48ec-919f-f643ce56522f"],
+Cell[24733, 556, 579, 13, 24, "Print",ExpressionUUID->"ddfab3d1-cf6f-43ca-9d91-131f3bd28905"],
+Cell[25315, 571, 583, 13, 24, "Print",ExpressionUUID->"9f272761-d6fa-46bf-8fc9-6a8a7eeeddab"],
+Cell[25901, 586, 577, 13, 25, "Print",ExpressionUUID->"be560d0f-aa79-459c-9e2c-be8b3e6f550c"],
+Cell[26481, 601, 579, 12, 25, "Print",ExpressionUUID->"557c35eb-bfb4-431a-b1e6-b4494297c88e"],
+Cell[27063, 615, 577, 12, 25, "Print",ExpressionUUID->"ee1bbbdb-3ca6-4e42-b200-de75023788b7"]
+}, Open  ]],
+Cell[27655, 630, 2094, 41, 80, "Output",ExpressionUUID->"f029512a-6fba-439c-b493-c817de22da7f"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[29786, 676, 2005, 39, 52, "Input",ExpressionUUID->"33f9bc98-4155-4d8c-86bf-d9c63ad2ffb0"],
+Cell[CellGroupData[{
+Cell[31816, 719, 571, 12, 24, "Print",ExpressionUUID->"c15b82bc-9856-4419-afcd-e16ee5bd1b70"],
+Cell[32390, 733, 576, 13, 24, "Print",ExpressionUUID->"e5d92724-5d3d-4c4b-9083-f03912852d87"],
+Cell[32969, 748, 574, 12, 24, "Print",ExpressionUUID->"fadc1a96-94fd-44d7-97c0-78bb0caaae37"],
+Cell[33546, 762, 575, 13, 25, "Print",ExpressionUUID->"82f0dd1d-8196-4308-984d-430189546e4e"],
+Cell[34124, 777, 575, 13, 25, "Print",ExpressionUUID->"fdc84c58-8bbe-4b85-9947-6280ea02f0d7"],
+Cell[34702, 792, 575, 12, 25, "Print",ExpressionUUID->"1533144b-9af4-4d68-ba09-c8e670b85900"]
+}, Open  ]],
+Cell[35292, 807, 2084, 41, 80, "Output",ExpressionUUID->"63b8e936-0c68-4976-a2d2-ebbff604a208"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[37413, 853, 2054, 40, 52, "Input",ExpressionUUID->"498ffffb-2a8b-45be-b1a4-4f98b2dbb91a"],
+Cell[CellGroupData[{
+Cell[39492, 897, 603, 13, 24, "Print",ExpressionUUID->"0932d054-5402-4799-82a4-03fe762c69c3"],
+Cell[40098, 912, 603, 13, 25, "Print",ExpressionUUID->"d5fde7ed-2251-4489-91c8-578454a162f2"],
+Cell[40704, 927, 603, 12, 25, "Print",ExpressionUUID->"39d00882-3beb-4005-8937-2ae394b976d7"],
+Cell[41310, 941, 603, 12, 25, "Print",ExpressionUUID->"93f7586b-8645-49ad-9a18-5a24fa3757aa"]
+}, Open  ]],
+Cell[41928, 956, 2105, 41, 80, "Output",ExpressionUUID->"a474752c-8b5d-45b5-b67b-79f54a17155a"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[44070, 1002, 2006, 39, 52, "Input",ExpressionUUID->"38649032-0496-442b-a56a-17eb9cce5553"],
+Cell[46079, 1043, 586, 13, 25, "Print",ExpressionUUID->"86c5df63-e19f-4fd7-8e10-98275fb0c6fb"],
+Cell[46668, 1058, 2083, 41, 80, "Output",ExpressionUUID->"4f921987-2c07-414d-a981-df48d59ebd90"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[48788, 1104, 2005, 39, 52, "Input",ExpressionUUID->"99027026-7a45-424a-9f23-8cfe57660223"],
+Cell[CellGroupData[{
+Cell[50818, 1147, 581, 13, 24, "Print",ExpressionUUID->"5119d747-bb28-4ff5-868e-b3c15ca04ee2"],
+Cell[51402, 1162, 578, 13, 24, "Print",ExpressionUUID->"a0d575e7-ad82-4486-aa20-921db3571eeb"],
+Cell[51983, 1177, 578, 12, 25, "Print",ExpressionUUID->"b6272d35-a05e-45ea-847c-2abea709d58d"],
+Cell[52564, 1191, 580, 13, 25, "Print",ExpressionUUID->"12ae6e81-ac89-4eb9-9e9e-ec48ef8b51e6"],
+Cell[53147, 1206, 578, 12, 25, "Print",ExpressionUUID->"ad31376f-ff03-455f-a696-a261ef581d90"]
+}, Open  ]],
+Cell[53740, 1221, 2084, 41, 80, "Output",ExpressionUUID->"cfecac00-e37c-4189-aa50-d5005c5c2e3e"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[55861, 1267, 2005, 39, 52, "Input",ExpressionUUID->"d4ec863a-d00f-4f76-8e8f-a38295fb62d2"],
+Cell[CellGroupData[{
+Cell[57891, 1310, 573, 12, 24, "Print",ExpressionUUID->"912aed37-35d7-4e18-b061-d05ee4ea4988"],
+Cell[58467, 1324, 576, 13, 24, "Print",ExpressionUUID->"17cb7752-9158-4aed-8cd7-a78722703455"],
+Cell[59046, 1339, 577, 12, 24, "Print",ExpressionUUID->"b09acb71-aeca-424b-bbb5-93a7ef6f0e45"],
+Cell[59626, 1353, 583, 13, 24, "Print",ExpressionUUID->"2f50831c-16bf-4000-8357-6961902a17ed"],
+Cell[60212, 1368, 575, 12, 25, "Print",ExpressionUUID->"b71564f7-f730-47c1-88fc-c7c902d02543"],
+Cell[60790, 1382, 575, 13, 25, "Print",ExpressionUUID->"136dfc7e-39d5-4383-a847-c1eb8790bd8f"],
+Cell[61368, 1397, 577, 13, 25, "Print",ExpressionUUID->"570e7677-ba96-43e2-8ffd-0ca234245bda"]
+}, Open  ]],
+Cell[61960, 1413, 2081, 41, 80, "Output",ExpressionUUID->"46ba4e61-6550-4bc6-aeb1-8ea44ee5fab4"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[64078, 1459, 2034, 39, 52, "Input",ExpressionUUID->"37526c64-ee3f-4310-af6d-c026fac80e06"],
+Cell[CellGroupData[{
+Cell[66137, 1502, 599, 12, 24, "Print",ExpressionUUID->"d3a0b960-d293-4a0b-b2f2-59bd8fcee501"],
+Cell[66739, 1516, 598, 12, 24, "Print",ExpressionUUID->"c2d93bf1-7d01-4021-a6b5-bf5508dd8ed3"],
+Cell[67340, 1530, 598, 12, 24, "Print",ExpressionUUID->"0c0b7379-a765-4ce4-af92-236d56188edc"],
+Cell[67941, 1544, 597, 12, 24, "Print",ExpressionUUID->"46ffb2b5-1e2f-4072-bd05-9a393bfef657"],
+Cell[68541, 1558, 603, 12, 24, "Print",ExpressionUUID->"a849c74a-1a6e-43f3-a3e7-ea19640bc262"],
+Cell[69147, 1572, 609, 13, 24, "Print",ExpressionUUID->"52857de3-a92d-40c6-a423-452dfc267b83"],
+Cell[69759, 1587, 609, 13, 24, "Print",ExpressionUUID->"ae66df31-f0be-4176-a020-957e3a669320"],
+Cell[70371, 1602, 603, 13, 25, "Print",ExpressionUUID->"c249f528-244c-4ed0-8acc-31c36a78ab5d"],
+Cell[70977, 1617, 603, 13, 25, "Print",ExpressionUUID->"4c03d8bd-45e6-4395-bf30-2f6babb24cf4"],
+Cell[71583, 1632, 603, 13, 25, "Print",ExpressionUUID->"9054178b-3bd2-48fe-8701-41798125c30e"],
+Cell[72189, 1647, 603, 12, 25, "Print",ExpressionUUID->"486a4a6c-cd9d-4aa3-a56d-a6b580dc1089"]
+}, Open  ]],
+Cell[72807, 1662, 2115, 41, 80, "Output",ExpressionUUID->"b956cf2e-62ea-4a2b-88fa-9b3830a8a67d"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[74959, 1708, 2055, 40, 52, "Input",ExpressionUUID->"92b4cc90-ac2b-4183-bc4d-1220438b16d8"],
+Cell[CellGroupData[{
+Cell[77039, 1752, 597, 12, 24, "Print",ExpressionUUID->"a6c51695-dec8-4643-ae01-c3cddb9bb01c"],
+Cell[77639, 1766, 596, 12, 24, "Print",ExpressionUUID->"ebb7e30f-c6e5-41f8-86d4-3340da7cb678"],
+Cell[78238, 1780, 604, 13, 24, "Print",ExpressionUUID->"8669ce71-c813-40db-bf76-438e59566130"],
+Cell[78845, 1795, 596, 12, 24, "Print",ExpressionUUID->"a133c0d7-3300-47bf-83d6-4672d49e8e18"],
+Cell[79444, 1809, 601, 12, 24, "Print",ExpressionUUID->"9696dd13-6f40-4ef1-9346-17436d6932c6"],
+Cell[80048, 1823, 603, 13, 24, "Print",ExpressionUUID->"3bcb4a23-96fb-4bd7-981d-08ad93c69e3e"],
+Cell[80654, 1838, 607, 13, 24, "Print",ExpressionUUID->"812c1fb0-67c3-448c-a1ce-dd4ee5e277cf"],
+Cell[81264, 1853, 607, 13, 24, "Print",ExpressionUUID->"0e8b0f26-b1db-4b30-9966-ee653d778051"],
+Cell[81874, 1868, 601, 13, 25, "Print",ExpressionUUID->"c1b9e4dd-3392-4df4-a28e-417ab0a2454f"],
+Cell[82478, 1883, 603, 12, 25, "Print",ExpressionUUID->"c7df1744-6689-400b-a3d5-038b4f1a0568"],
+Cell[83084, 1897, 601, 13, 25, "Print",ExpressionUUID->"4c58f721-2a5f-4717-b539-7d73cef334b0"],
+Cell[83688, 1912, 601, 12, 25, "Print",ExpressionUUID->"116dab34-55e0-49a3-b296-c25d16ca8c25"]
+}, Open  ]],
+Cell[84304, 1927, 2098, 41, 103, "Output",ExpressionUUID->"e03180db-51c1-4b53-8733-0499adb80dba"]
+}, Open  ]]
+}, Open  ]]
 }, Open  ]]
 }
 ]
