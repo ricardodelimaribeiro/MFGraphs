@@ -1,72 +1,87 @@
 (* Wolfram Language package *)
+(* Boolean algebra utilities for disjunctive normal form reduction *)
+(* Canonical source for ZAnd, ReZAnd, ReplaceSolution, RemoveDuplicates *)
 
 ZAnd::usage =
-"
-ZAnd[xp,xps] returns a system which is equivalent to xp&&xps in disjunctive normal form. 
-ZAnd[xp, And[fst, scd] 
-ZAnd[xp, eq] returns xp with the solution of eq replaced in it together with eq.
-ZAnd[xp, Or[fst,scd]] returns ZAnd[xp, fst]||ZAnd[xp, scd]";
+"ZAnd[xp, xps] returns a system equivalent to xp && xps in disjunctive normal form.
+ZAnd[xp, And[fst, scd]] processes the conjunction by handling Or branches via ReZAnd.
+ZAnd[xp, eq] returns xp with the solution of eq replaced in it, together with eq.
+ZAnd[xp, Or[fst, scd]] returns ZAnd[xp, fst] || ZAnd[xp, scd].";
 
-ZAnd[_, False] = 
-	False
-
-ZAnd[False, _] = 
-	False
-
-ZAnd[xp_, True] := 
-	xp
-
-ZAnd[xp_, eq_Equal] := 
- With[{sol = Solve[eq]}, 
-  If[sol === {}, 
-   False, (xp /. First@sol) && And @@ (First@sol /. Rule -> Equal) // 
-    Simplify]]
-
-ZAnd[xp_, orxp_Or] := (ZAnd[xp, #] & /@ orxp) // RemoveDuplicates
-
-ZAnd[xp_, leq_] := Simplify[xp && leq]
-
-ZAnd[xp_, andxp_And] := 
- With[{fst = First[andxp], rst = Rest[andxp]}, 
-  Print["ZAnd: head is and: ", fst];
-  Which[
-  	Head[fst] === Or, 
-  		ReZAnd[xp, rst] /@ fst // RemoveDuplicates, 
-  	True, 
-   		ReZAnd[xp, rst, fst]
-  ]
- ]
-
-
-(*Operator form of ReZAnd*)
-ReZAnd[xp_, rst_] := ReZAnd[xp, rst, #] &
-
-ReZAnd[xp_, rst_, fst_Equal] := 
- Module[{fsol = First@Solve@fst // Quiet, newrst, newxp}, 
-  newrst = ReplaceSolution[rst, fsol];
-  newxp = xp /. fsol;
-  Print["ReZAnd: ", fst, " ", newrst, " ", newxp];
-  ZAnd[newxp && fst, newrst]]
-
-ReZAnd[xp_, rst_, fst_] := ZAnd[xp && fst, rst]
+ReZAnd::usage =
+"ReZAnd[xp, rst, fst] is the recursive helper for ZAnd.
+ReZAnd[xp, rst] returns the operator form ReZAnd[xp, rst, #]&.";
 
 ReplaceSolution::usage =
-"ReplaceSolution[xp,sol] substitutes the Rule, solution, on the expression xp.
-After that, it reduces each sub-expression over the Reals if the Head of the expression is And. 
-Otherwise, it reduces the whole expression over the Reals.";
+"ReplaceSolution[xp, sol] substitutes the Rule sol into the expression xp.
+If the result has Head And, it simplifies the first conjunct.
+Otherwise, it simplifies the whole expression.";
+
+RemoveDuplicates::usage =
+"RemoveDuplicates[xp] sorts (by SimplifyCount) and then DeleteDuplicates.
+Sorting is needed because DeleteDuplicates only removes identical expressions.
+For example, (A && B) || (B && A) becomes (A && B) only after sorting.";
+
+(* --- ZAnd: disjunctive normal form converter --- *)
+
+ZAnd[_, False] := False
+
+ZAnd[False, _] := False
+
+ZAnd[xp_, True] := xp
+
+ZAnd[xp_, eq_Equal] := ReZAnd[xp, True, eq]
+
+ZAnd[xp_, And[fst_, rst_]] :=
+    If[ Head[fst] === Or,
+        RemoveDuplicates@(ReZAnd[xp, rst] /@ fst),
+        ReZAnd[xp, rst, fst]
+    ]
+
+ZAnd[xp_, Or[fst_, scd_]] :=
+    With[{rfst = Reduce[fst, Reals]},
+        RemoveDuplicates@(Or @@ (ZAnd[xp, #] & /@ {rfst, scd}))
+    ]
+
+ZAnd[xp_, leq_] := xp && leq
+
+(* --- ReZAnd: recursive helper --- *)
+
+(* Operator form *)
+ReZAnd[xp_, rst_] := ReZAnd[xp, rst, #] &
+
+(* Equality case: solve and substitute *)
+ReZAnd[xp_, rst_, fst_Equal] :=
+    Module[{newfst = Simplify@fst},
+        If[ newfst === False,
+            False,
+            With[{fsol = First@Solve@newfst},
+                ZAnd[ReplaceSolution[xp, fsol] && fst, ReplaceSolution[rst, fsol]]
+            ]
+        ]
+    ]
+
+(* Default case: absorb into the first argument *)
+ReZAnd[xp_, rst_, fst_] := ZAnd[xp && fst, rst]
+
+(* --- ReplaceSolution --- *)
 
 ReplaceSolution[rst_?BooleanQ, sol_] := rst
 
-ReplaceSolution[rst_, sol_] := Module[{newrst}, newrst = rst /. sol;
-  If[Head[newrst] === And, Reduce[#, Reals] & /@ newrst, 
-   Reduce[newrst, Reals]]]
+ReplaceSolution[rst_, sol_] :=
+    With[{newrst = rst /. sol},
+        If[ Head[newrst] === And,
+            And[Simplify@First@newrst, Rest@newrst],
+            Simplify[newrst]
+        ]
+    ]
 
-(*ReplaceSolution[rst_,sol_]:=Simplify[rst/. sol]*)
-RemoveDuplicates::usage =
-"RemoveDuplicates[xp] sorts and then DeleteDuplicates. 
-We need to sort because DeleteDuplicates only deletes identical expressions.
-For example (A&&B)||(B&&A) becomes (A&&B) only after sorting.
-"
-RemoveDuplicates[xp_And] := DeleteDuplicates[Sort[xp]];
-RemoveDuplicates[xp_Or] := DeleteDuplicates[Sort[xp]];
+(* --- RemoveDuplicates --- *)
+
+SortOp = SortBy[Simplify`SimplifyCount];
+
+RemoveDuplicates[xp_And] := DeleteDuplicates[SortOp[xp]];
+
+RemoveDuplicates[xp_Or] := DeleteDuplicates[SortOp[xp]];
+
 RemoveDuplicates[xp_] := xp

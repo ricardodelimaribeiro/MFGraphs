@@ -1,6 +1,9 @@
 (* ::Package:: *)
 
 (* Wolfram Language package *)
+(* NOTE: This file is LEGACY code and is NOT loaded by MFGraphs.m.
+   It is kept for reference. The active solvers are in D2E2.m and NonLinearSolver.m.
+   ZAnd/ReZAnd/ReplaceSolution/RemoveDuplicates definitions here are superseded by ZAnd.m. *)
 
 CriticalCongestionSolver::usage = 
 "CriticalCongestionSolver[eq_Association] returns the critical congestion solution."
