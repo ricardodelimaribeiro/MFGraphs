@@ -1,9 +1,12 @@
 (*Wolfram Language package*)
-ConsistentSwithingCosts::usage = "ConsistentSwithingCosts[switchingcosts][{a,b,c}->S]  
+(* Variant of D2E2.m that includes current calculations *)
+(* NOTE: If used standalone, load ZAnd.m first for ZAnd/ReZAnd/ReplaceSolution/RemoveDuplicates *)
+
+ConsistentSwitchingCosts::usage = "ConsistentSwitchingCosts[switchingcosts][{a,b,c}->S]
 returns True if S, the cost of switching from the edge ab to cb, is smaller than any other combination, such as, ab to bd and then from bd to dc.
 returns the condition for this switching cost to satisfy the triangle inequality when S, and the other switching costs too, does not have a numerical value.";
 
-ConsistentSwithingCosts[sc_][{a_, b_, c_} -> S_] :=
+ConsistentSwitchingCosts[sc_][{a_, b_, c_} -> S_] :=
     Module[ {origin, bounds},
     	origin = Cases[sc, HoldPattern[{a, b, _} -> _]];
         (*Print[origin];*)
@@ -21,7 +24,7 @@ IsSwitchingCostConsistent::usage = "IsSwitchingCostConsistent[List of \
 switching costs] is True if all switching costs satisfy the triangle \
 inequality. If some switching costs are symbolic, then it returns the consistency conditions."
 IsSwitchingCostConsistent[SC_] :=
-    And @@ Simplify[ConsistentSwithingCosts[SC] /@ SC]
+    And @@ Simplify[ConsistentSwitchingCosts[SC] /@ SC]
 
 AtHead::usage = 
 "AtHead[DirectedEdge[a,b] returns {b,DirectedEdge[a,b]}. This is a way o selecting the edge with the orientation. "
@@ -705,79 +708,5 @@ TripleClean::usage =
 replacement of NewRules in NewNN and NewOR do not produce equalities."
 TripleClean[{{EE_, NN_, OR_}, rules_}] := FixedPoint[TripleStep, {{EE, NN, OR}, rules}];
 
-ZAnd::usage =
-"
-ZAnd[xp,xps] returns a system which is equivalent to xp&&xps in disjunctive normal form. 
-ZAnd[xp, And[fst, scd] 
-ZAnd[xp, eq] returns xp with the solution of eq replaced in it together with eq.
-ZAnd[xp, Or[fst,scd]] returns ZAnd[xp, fst]||ZAnd[xp, scd]";
-
-ZAnd[_, False] :=
-    False
-
-ZAnd[False, _] :=
-    False
-
-ZAnd[xp_, True] :=
-    xp
-
-ZAnd[xp_, eq_Equal] := ReZAnd[xp, True, eq]
-
-ZAnd[xp_, And[fst_,rst_]] :=
-    If[ Head[fst] === Or,
-        RemoveDuplicates@(ReZAnd[(*Simplify@*)xp, rst] /@ fst),
-        ReZAnd[(*Simplify@*)xp, rst, fst]
-    ]
-
-ZAnd[xp_, Or[fst_,scd_]] :=
-	With[{rfst = Reduce[fst,Reals]},
-    	RemoveDuplicates@(Or@@(ZAnd[(*Simplify@*)xp, #] & /@ {rfst,scd}))
-	];
-
-ZAnd[xp_, leq_] := xp && leq
-
-(*Operator form of ReZAnd*)
-ReZAnd[xp_, rst_] :=
-    ReZAnd[xp, rst, #] &
-
-ReZAnd[xp_, rst_, fst_Equal] :=
-        If[ Simplify[fst] === False,
-            False,
-            With[ {fsol = First@Solve@fst},
-                ZAnd[Simplify[(xp /. fsol)] && fst, ReplaceSolution[rst, fsol]]
-            ]
-        ]
-  
-ReZAnd[xp_, rst_, fst_] :=
-    ZAnd[xp && fst, rst]
-
-
-ReplaceSolution::usage =
-"ReplaceSolution[xp,sol] substitutes the Rule, solution, on the expression xp. After that, it simplifies the first equation if the Head of the expression is And. Otherwise, it simplifies the whole expression.";
-ReplaceSolution[rst_?BooleanQ, sol_] :=
-    rst
-
-ReplaceSolution[rst_, sol_] :=
-    With[ {newrst = rst /. sol},
-    	(*Should we use RemoveDuplicates here?*)
-    	If[ Head[newrst] === And,
-            And[Simplify@First@newrst, Rest@newrst],
-            Simplify[newrst]
-        ]
-    ]
-
-SortOp = ReverseSortBy[Simplify`SimplifyCount]
-
-RemoveDuplicates::usage =
-"RemoveDuplicates[xp] sorts and then DeleteDuplicates. 
-We need to sort because DeleteDuplicates only deletes identical expressions.
-For example (A&&B)||(B&&A) becomes (A&&B) only after sorting.
-"
-RemoveDuplicates[xp_And] :=
-    DeleteDuplicates[SortOp[xp]];
-
-RemoveDuplicates[xp_Or] :=
-    DeleteDuplicates[SortOp[xp]];
-
-RemoveDuplicates[xp_] :=
-    xp
+(* ZAnd, ReZAnd, ReplaceSolution, RemoveDuplicates, SortOp are now in ZAnd.m *)
+(* Load ZAnd.m if using this file standalone *)

@@ -1,48 +1,48 @@
 		eme=3;
         ene=3;
         test = Association[
-    (*One vertex*)
+    (* One vertex *)
     1 -> {
         (*VL=*){1},
         (*AM=*){{0}},
         (*DataIn=*){{1, I1}},
         (*FinalCosts=*){{1, U1}},
         (*SwitchingCostsData=*){}},
-        
-    (*1 edge*)
+
+    (* 1 edge *)
     2 -> {
         (*VL=*){1, 2},
         (*AM=*){{0, 1}, {0, 0}},
         (*DataIn=*){{1, I1}},
         (*FinalCosts=*){{2, U1}},
         (*SwitchingCostsData=*){}},
-        
-    (*2 edges*)
+
+    (* 2 edges *)
     3 -> {
         (*VL=*){1, 2, 3},
         (*AM=*){{0, 1, 0}, {0, 0, 1}, {0, 0, 0}},
         (*DataIn=*){{1, I1}},
         (*FinalCosts=*){{3, U1}},
         (*SwitchingCostsData=*){}},
-    
-    (*3 edges*)
+
+    (* 3 edges *)
    4 -> {
         (*VL=*){1, 2, 3, 4},
         (*AM=*){{0, 1, 0, 0}, {0, 0, 1, 0}, {0, 0, 0, 1}, {0, 0, 0, 0}},
         (*DataIn=*){{1, I1}},
         (*FinalCosts=*){{4, U1}},
         (*SwitchingCostsData=*){}},
-    
-    (*4 edges*)    
+
+    (* 4 edges *)
     5 -> {
         (*VL=*){1, 2, 3, 4, 5},
-        (*AM=*){{0, 1, 0, 0, 0}, {0, 0, 1, 0, 0}, 
+        (*AM=*){{0, 1, 0, 0, 0}, {0, 0, 1, 0, 0},
         	    {0, 0, 0, 1, 0}, {0, 0, 0, 0 ,1}, {0, 0, 0, 0 ,0}},
         (*DataIn=*){{1, I1}},
         (*FinalCosts=*){{5, U1}},
         (*SwitchingCostsData=*){}},
-   
-   (*9 edges*)
+
+   (* 9 edges *)
     6 -> {
         (*VL=*){1,2,3,4,5,6,7,8,9,10},
         (*AM=*){
@@ -58,21 +58,17 @@
         {0,0,0,0,0,0,0,0,0,0}},
         (*DataIn=*){{1, I1}},
         (*FinalCosts=*){{10, U1}},
-        (*SwitchingCostsData=*){}},     
-       
-        
-     (**********)
-     
-        
-    (*Y 1-in 2-out 4 vertices no switching*)
+        (*SwitchingCostsData=*){}},
+
+    (* Y 1-in 2-out 4 vertices no switching *)
     7 -> {
         (*VL=*){1, 2, 3, 4},
         (*AM=*){{0, 1, 0, 0}, {0, 0, 1, 1}, {0, 0, 0, 0}, {0, 0, 0, 0}},
         (*DataIn=*){{1, I1}},
         (*FinalCosts=*){{3, U1}, {4, U2}},
         (*SwitchingCostsData=*){}},
-        
-    (*Y 1-in 2-out 4 vertices with switching*)
+
+    (* Y 1-in 2-out 4 vertices with switching *)
     8 -> {
         (*VL=*){1, 2, 3, 4},
         (*AM=*){{0, 1, 0, 0}, {0, 0, 1, 1}, {0, 0, 0, 0}, {0, 0, 0, 0}},
@@ -80,16 +76,16 @@
         (*FinalCosts=*){{3, U1}, {4, U2}},
         (*SwitchingCostsData=*){{1, 2, 3, S1}, {1, 2, 4, S2}, {3, 2, 1, S3}, {3, 2, 4, S4}, {4, 2, 1, S5}, {4, 2, 3, S6}}
         },
-        
-    (*Y 2-in 1-out 4 vertices no swithing*)
+
+    (* Y 2-in 1-out 4 vertices no switching *)
     9 -> {
         (*VL=*){1, 2, 3, 4},
         (*AM=*){{0, 1, 0, 0}, {0, 0, 0, 1}, {0, 1, 0, 0}, {0, 0, 0, 0}},
         (*DataIn=*){{1, I1}, {3, I2}},
         (*FinalCosts=*){{4, U1}},
         (*SwitchingCostsData=*){}},
-        
-    (*Y 2-in 1-out 4 vertices with switching*)
+
+    (* Y 2-in 1-out 4 vertices with switching *)
     10 -> {
         (*VL=*){1, 2, 3, 4},
         (*AM=*){{0, 1, 0, 0}, {0, 0, 0, 1}, {0, 1, 0, 0}, {0, 0, 0, 0}},
@@ -97,54 +93,49 @@
         (*FinalCosts=*){{4, U1}},
         (*SwitchingCostsData=*){{1, 2, 4, S1}, {1, 2, 3, S2}, {3, 2, 1, S3}, {3, 2, 4, S4}, {4, 2, 1, S5}, {4, 2, 3, S6}}
         },
-   
-   (********)
-   
-        
-    (*Attraction Problem*)
+
+    (* Attraction Problem *)
     11 -> {
         (*VL=*){1, 2, 3, 4},
         (*AM=*){{0, 1, 1, 0}, {0, 0, 1, 1}, {0, 0, 0, 1}, {0, 0, 0, 0}},
         (*DataIn=*){{1, I1}},
-        (*FinalCosts=*){{4, U1}}, 
+        (*FinalCosts=*){{4, U1}},
         (*SwitchingCostsData=*){
-            {1, 2, 4, S1}, 
-            {1, 2, 3, S2}, 
+            {1, 2, 4, S1},
+            {1, 2, 3, S2},
             {3, 2, 1, S3},
-            {3, 2, 4, S4}, 
-            {4, 2, 1, S5}, 
-            {4, 2, 3, S6}, 
-            {1, 3, 4, S7}, 
-            {4, 3, 1, S8}, 
-            {1, 3, 2, S9}, 
-            {2, 3, 1, S10}, 
-            {3, 4, 2, S11}, 
-            {2, 4, 3, S12}, 
-            {2, 3, 4, S13}, 
-            {4, 3, 2, S14}, 
-            {3, 1, 2, S15}, 
+            {3, 2, 4, S4},
+            {4, 2, 1, S5},
+            {4, 2, 3, S6},
+            {1, 3, 4, S7},
+            {4, 3, 1, S8},
+            {1, 3, 2, S9},
+            {2, 3, 1, S10},
+            {3, 4, 2, S11},
+            {2, 4, 3, S12},
+            {2, 3, 4, S13},
+            {4, 3, 2, S14},
+            {3, 1, 2, S15},
             {2, 1, 3, S16}}
         },
-   
-   (* Attraction without switching*)
+
+   (* Attraction without switching *)
     12 -> {
         (*VL=*){1, 2, 3, 4},
         (*AM=*){{0, 1, 1, 0}, {0, 0, 1, 1}, {0, 0, 0, 1}, {0, 0, 0, 0}},
         (*DataIn=*){{1, I1}},
-        (*FinalCosts=*){{4, U1}}, 
+        (*FinalCosts=*){{4, U1}},
         (*SwitchingCostsData=*){}},
-   
-    (* Attraction without edge in the middle*)
+
+    (* Attraction without edge in the middle *)
     13 -> {
     	(*VL=*){1, 2, 3, 4},
         (*AM=*){{0, 1, 1, 0}, {0, 0, 0, 1}, {0, 0, 0, 1}, {0, 0, 0, 0}},
         (*DataIn=*){{1, I1}},
-        (*FinalCosts=*){{4, U1}}, 
+        (*FinalCosts=*){{4, U1}},
         (*SwitchingCostsData=*){{1,2,4,S1},{1,3,4,S2},{4,2,1,S3},{4,3,1,S4}}}/. {I1 -> 1, U1 -> 0, S1 -> 0, S2 -> 0, S3 -> 0, S4 -> 0},
-   
-   (*********)
- 
-   (*triangle*)
+
+   (* Triangle *)
     14 -> {
         (*VL=*){1, 2, 3},
         (*AM=*){{0, 1, 0}, {0, 0, 1}, {1, 0, 0}},
@@ -152,8 +143,8 @@
         (*FinalCosts=*){{3, U1}},
         (*SwitchingCostsData=*){{1, 2, 3, S1}, {3, 2, 1, S2}}
         },
-            
-   (*triangle with 2 entrances and 3 exits*)
+
+   (* Triangle with 2 entrances and 3 exits *)
     104 -> {
         (*VL=*){1, 2, 3},
         (*AM=*){{0, 1, 0}, {0, 0, 1}, {1, 0, 0}},
@@ -161,8 +152,8 @@
         (*FinalCosts=*){{1,0},{2,0},{3, 0}},
         (*SwitchingCostsData=*){}
         },
-            
-	(*triangle*)
+
+	(* Triangle with two exits *)
     "triangle with two exits" -> {
         (*VL=*){1, 2, 3},
         (*AM=*){{0, 1, 0}, {0, 0, 1}, {1, 0, 0}},
@@ -170,9 +161,8 @@
         (*FinalCosts=*){{2, U1},{3, U2}},
         (*SwitchingCostsData=*){}
         },
-            
-        
-    (*Y 2-in 1-out 3 vertices with switching*)
+
+    (* Y 2-in 1-out 3 vertices with switching *)
     15 -> {
         (*VL=*){1, 2, 3},
         (*AM=*){{0, 0, 0}, {1, 0, 0}, {1, 0, 0}},
@@ -180,30 +170,26 @@
         (*FinalCosts=*){{1, U1}},
         (*SwitchingCostsData=*){{2, 1, 3, S1}, {3, 1, 2,S2}}
         },
-        
-              
-    (*Error in the switching costs*)
-    16 -> {
-        (*VL*){1, 2, 3}, 
-        (*AM*){{0, 1, 0}, {0, 0, 1}, {0, 0, 0}}, 
-        (*DataIn*){{1, I1}}, 
-        (*FinalCosts*){{3, U1}}, 
-        (*SwiotchingCostsData*){{1, 3, 2, S1}}
-        },
-        
 
-  
-       
-    (*2 edges entrance in the middle*)
+    (* Error in the switching costs *)
+    16 -> {
+        (*VL*){1, 2, 3},
+        (*AM*){{0, 1, 0}, {0, 0, 1}, {0, 0, 0}},
+        (*DataIn*){{1, I1}},
+        (*FinalCosts*){{3, U1}},
+        (*SwitchingCostsData*){{1, 3, 2, S1}}
+        },
+
+    (* 2 edges entrance in the middle *)
     17 -> {
-        (*VL=*) {1, 2, 3}, 
-        (*AM*) {{0, 1, 0}, {0, 0, 1}, {0, 0, 0}}, 
-        (*DataIn*) {{2, I1}}, 
+        (*VL=*) {1, 2, 3},
+        (*AM*) {{0, 1, 0}, {0, 0, 1}, {0, 0, 0}},
+        (*DataIn*) {{2, I1}},
         (*FinalCost*) {{1, U1}, {3,U2}},
         (*SwitchingCostsData=*){{1, 2, 3, S1}, {3, 2, 1, S2}}
         },
-    
-     (*2 edges*)
+
+     (* 2 edges *)
     18 -> {
         (*VL=*){1, 2, 3},
         (*AM=*){{0, 1, 0}, {0, 0, 1}, {0, 0, 0}},
@@ -211,8 +197,17 @@
         (*FinalCosts=*){{3, U1}},
         (*SwitchingCostsData=*){ {1, 2, 3, S1}, {3, 2, 1, S2}}
         },
-     
-         20 -> {
+
+    (* Y 1-in 2-out 4 vertices with switching, 2 entrances *)
+    19 -> {
+        (*VL=*){1, 2, 3, 4},
+        (*AM=*){{0, 1, 0, 0}, {0, 0, 1, 1}, {0, 0, 0, 0}, {0, 0, 0, 0}},
+        (*DataIn=*){{1, I1},{4, I2}},
+        (*FinalCosts=*){{3, U1}},
+        (*SwitchingCostsData=*){{1, 2, 3, S1}, {1, 2, 4, S2}, {3, 2, 1, S3}, {3, 2, 4, S4}, {4, 2, 1, S5}, {4, 2, 3, S6}}
+        },
+
+    20 -> {
         (*VL=*){1,2,3,4,5,6,7,8,9},
         (*AM=*){
         {0,0,1,0,0,0,0,0,0},
@@ -226,9 +221,9 @@
         {0,0,0,0,0,0,0,0,0}},
         (*DataIn=*){{1, I1},{2, I2}},
         (*FinalCosts=*){{7, U1},{8, U2},{9, U3}},
-        (*SwitchingCostsData=*){}}, 
-        
-         21 -> {
+        (*SwitchingCostsData=*){}},
+
+    21 -> {
         (*VL=*){1,2,3,4,5,6,7,8,9,10,11,12},
         (*AM=*){
         {0,0,1,0,0,0,0,0,0,0,0,0},
@@ -245,9 +240,9 @@
         {0,0,0,0,0,0,0,0,0,0,0,0}},
         (*DataIn=*){{1, I1},{2, I2}},
         (*FinalCosts=*){{10, U1},{11, U2},{12, U3}},
-        (*SwitchingCostsData=*){}},     
-        
-        22 -> {
+        (*SwitchingCostsData=*){}},
+
+    22 -> {
         (*VL=*){1,2,3,4,5,6,7},
         (*AM=*){
         {0,1,1,0,0,0,0},
@@ -260,8 +255,8 @@
         (*DataIn=*){{1, I1},{2, I2}},
         (*FinalCosts=*){{5, U1},{6, U2},{7, U3}},
         (*SwitchingCostsData=*){}},
-       
-       "Jamaratv9"->
+
+    "Jamaratv9"->
        {
         (*VL=*){1,2,3,4,5,6,7,8,9},
         (*AM=*){
@@ -278,11 +273,8 @@
         (*DataIn=*){{1, I1},{2, I2}},
         (*FinalCosts=*){{7, U1},{8, U2},{9, U3}},
         (*SwitchingCostsData=*){}},
-       
-       
-       
-       
-            23 -> {
+
+    23 -> {
         (*VL=*){1,2,3,4,5,6},
         (*AM=*){
         {0,1,1,0,0,0},
@@ -294,23 +286,15 @@
         (*DataIn=*){{1, I1},{2, I2}},
         (*FinalCosts=*){{4, U1},{5, U2},{6, U3}},
         (*SwitchingCostsData=*){}},
-   
-    (*Y 1-in 2-out 4 vertices with switching*)
-    19 -> {
-        (*VL=*){1, 2, 3, 4},
-        (*AM=*){{0, 1, 0, 0}, {0, 0, 1, 1}, {0, 0, 0, 0}, {0, 0, 0, 0}},
-        (*DataIn=*){{1, I1},{4, I2}},
-        (*FinalCosts=*){{3, U1}},
-        (*SwitchingCostsData=*){{1, 2, 3, S1}, {1, 2, 4, S2}, {3, 2, 1, S3}, {3, 2, 4, S4}, {4, 2, 1, S5}, {4, 2, 3, S6}}
-        },
-        27 -> {
+
+    27 -> {
         (*VL=*){1, 2},
         (*AM=*){{0, 1}, {1, 0}},
         (*DataIn=*){{1, I1}},
         (*FinalCosts=*){{2, U1}},
         (*SwitchingCostsData=*){}},
-        
-        "Braess split" -> {
+
+    "Braess split" -> {
         (*VL=*){1,2,3,4,5,6,7,8},
         (*AM=*){
         {0,1,1,0,0,0,0,0},
@@ -324,8 +308,8 @@
         (*DataIn=*){{1, I1}/.I1->2},
         (*FinalCosts=*){{8, U1}/.U1->0},
         (*SwitchingCostsData=*){{1,2,4,S1},{5,7,8,S2}}/.{S1->10,S2->10}},
-        
-        "Braess congest" -> {
+
+    "Braess congest" -> {
         (*VL=*){1,2,3,4,5,6,7},
         (*AM=*){
         {0,1,1,0,0,0,0},
@@ -338,8 +322,8 @@
         (*DataIn=*){{1, I1}/.I1->2},
         (*FinalCosts=*){{7, U1}/.U1->0},
         (*SwitchingCostsData=*){{1,2,4,S1},{4,6,7,S2}}/.{S1->10,S2->10}},
-        
-        "New Braess" -> {
+
+    "New Braess" -> {
         (*VL=*){1,2,3,4,5,6},
         (*AM=*){
         {0,1,0,1,0,0},
@@ -359,8 +343,8 @@
         		]
         ]
         },
-        
-        "Big Braess split" -> {
+
+    "Big Braess split" -> {
         (*VL=*){1,2,3,4,5,6,7,8,9,10},
         (*AM=*){
         {0,1,1,0,0,0,0,0,0,0},
@@ -376,8 +360,8 @@
         (*DataIn=*){{1, I1}/.I1->2},
         (*FinalCosts=*){{10, U1}/.U1->0},
         (*SwitchingCostsData=*){{1,3,6,S1},{5,7,10,S2}}/.{S1->10,S2->10}},
-        
-        "Big Braess congest" -> {
+
+    "Big Braess congest" -> {
         (*VL=*){1,2,3,4,5,6,7,8,9},
         (*AM=*){
         {0,1,1,0,0,0,0,0,0},
@@ -392,8 +376,8 @@
         (*DataIn=*){{1, I1}/.I1->2},
         (*FinalCosts=*){{9, U1}/.U1->0},
         (*SwitchingCostsData=*){{1,3,5,S1},{5,7,9,S2}}/.{S1->10,S2->10}},
-        
-        "Paper example" -> {
+
+    "Paper example" -> {
         (*VL=*){1,2,3,4},
         (*AM=*){
         {0,1,0,0},
@@ -403,88 +387,50 @@
         (*DataIn=*){{1, I1},{3, I2}},
         (*FinalCosts=*){{2, U1},{4,U2}}/.{U1->0,U2->0},
         (*SwitchingCostsData=*){{1,2,3,S1},{3,2,1,S2},{2,3,4,S3},{4,3,2,S4}}},
-        
-        "Grid1020" -> {
-        	(*VL=*)VertexList[GridGraph[{10,20}]],
+
+    "Grid1020" -> {
+    	(*VL=*)VertexList[GridGraph[{10,20}]],
         (*AM=*)AdjacencyMatrix[GridGraph[{10,20}, DirectedEdges->True]],
         (*DataIn=*){{1, I1}/.I1->400},
         (*FinalCosts=*){{200, U1}/.U1->0},
         (*SwitchingCostsData=*){}
         },
-        
-        "Grid0303" -> {
-        	(*VL=*)VertexList[GridGraph[{3,3}]],
+
+    "Grid0303" -> {
+    	(*VL=*)VertexList[GridGraph[{3,3}]],
         (*AM=*)AdjacencyMatrix[GridGraph[{3,3},DirectedEdges->True]],
         (*DataIn=*){{1, I1}/.I1->400},
         (*FinalCosts=*){{3*3, U1}/.U1->0},
         (*SwitchingCostsData=*){}
         }
-        
- (* 
-    (*Y 1-in 2-out 3 vertices no switching*)
-   18 -> {
-        (*VL=*){1, 2, 3},
-        (*AM=*){{0, 1, 0}, {0, 0, 1}, {0, 0, 0}},
-        (*DataIn=*){{1, I1}},
-        (*FinalCosts=*){{2, U1}, {3, U2}},
-        (*SwitchingCostsData=*){}}
-      
-    19 -> {{}, {}, {}, {}, {}},
-    
- 
-    20 -> {
-     	{1}, 
-     	{{0}}, 
-     	{{}}, 
-     	{{1, U1}}, 
-     	{}}
-  
-        
-        *)      
 ];
-    
+
+
+(* --- DataG: construct an Association from a test case --- *)
+
+DataG::usage =
+"DataG[n] returns an Association with keys \"Vertices List\", \"Adjacency Matrix\",
+\"Entrance Vertices and Flows\", \"Exit Vertices and Terminal Costs\", and \"Switching Costs\"
+from the test case test[n].
+Supports test cases with 5 fields (basic), 6 fields (+cost function 'a'), or 7 fields (+alpha).";
+
+$DataGFieldNames5 = {
+    "Vertices List",
+    "Adjacency Matrix",
+    "Entrance Vertices and Flows",
+    "Exit Vertices and Terminal Costs",
+    "Switching Costs"};
+
+$DataGFieldNames6 = Join[$DataGFieldNames5, {"a"}];
+
+$DataGFieldNames7 = Join[$DataGFieldNames6, {"alpha"}];
 
 DataG[n_] :=
-Which[
-	Length[test[[n]]] === 5,
-    AssociationThread[{
-    "Vertices List", 
-    "Adjacency Matrix", 
-    "Entrance Vertices and Flows", 
-    "Exit Vertices and Terminal Costs", 
-    "Switching Costs"}, 
-    test[
-        n
+    With[{data = test[n]},
+        Switch[Length[data],
+            5, AssociationThread[$DataGFieldNames5, data],
+            6, AssociationThread[$DataGFieldNames6, data],
+            7, AssociationThread[$DataGFieldNames7, data],
+            _, (Print["DataG: unexpected number of fields (", Length[data], ") for test case ", n]; $Failed)
+        ]
     ]
-    ],
-    Length[test[[n]]] === 6,
-    AssociationThread[{
-    "Vertices List", 
-    "Adjacency Matrix", 
-    "Entrance Vertices and Flows", 
-    "Exit Vertices and Terminal Costs", 
-    "Switching Costs","a"},
-    test[
-        n
-    ]
-    ],
-    Length[test[[n]]] === 7,
-    AssociationThread[{
-    "Vertices List", 
-    "Adjacency Matrix", 
-    "Entrance Vertices and Flows", 
-    "Exit Vertices and Terminal Costs", 
-    "Switching Costs","a",
-    "alpha"},
-    test[
-        n
-    ]
-    ]
-    (*To have a visual of the available examples, run: Table[DataToGraph[DataG[n]],{n,1,Length[Test]}]*)
-]                     
-          
-
-
-
-          
-
