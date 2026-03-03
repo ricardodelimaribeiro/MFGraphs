@@ -43,14 +43,35 @@ GradientProjection[x_?NumberVectorQ, A_] :=
 (* Backward-compatible alias *)
 GG = GradientProjection;
 
+(* --- CachedGradientProjection: caches PseudoInverse when x changes slowly --- *)
+
+CachedGradientProjection::usage =
+"CachedGradientProjection[x, K, dim, At, cache] is a version of GradientProjection
+that caches the PseudoInverse result and reuses it when x has not changed significantly.
+cache should be a held Symbol containing <|\"x\" -> ..., \"pi\" -> ...|> or Null.";
+
+CachedGradientProjection[x_?NumberVectorQ, K_, dim_, At_, cache_Symbol, tol_:10^-6] :=
+  Module[{invH, AinvHAt, pi},
+    invH = InvH[x];
+    If[cache =!= Null && Norm[x - cache["x"], Infinity] < tol,
+      (* Reuse cached PseudoInverse *)
+      invH . (IdentityMatrix[dim] - At . cache["pi"] . K . invH),
+      (* Recompute PseudoInverse and cache *)
+      AinvHAt = K . invH . At;
+      pi = PseudoInverse[AinvHAt];
+      cache = <|"x" -> x, "pi" -> pi|>;
+      invH . (IdentityMatrix[dim] - At . pi . K . invH)
+    ]
+  ];
+
 (* --- MonotoneSolver --- *)
 
-Options[MonotoneSolverFromData] = {"TimeSteps" -> 100};
+Options[MonotoneSolverFromData] = {"TimeSteps" -> 100, "UseCachedGradient" -> True};
 Options[MonotoneSolver] = Options[MonotoneSolverFromData];
 
 MonotoneSolverFromData::usage =
 "MonotoneSolverFromData[Data] solves the MFG problem from raw Data using the monotone operator method.
-Options: \"TimeSteps\" (default 100) - number of ODE integration steps.";
+Options: \"TimeSteps\" (default 100), \"UseCachedGradient\" (default True).";
 MonotoneSolverFromData[Data_, opts:OptionsPattern[]] :=
 	Module[{d2e},
 		d2e = Data2Equations[Data];
@@ -62,21 +83,31 @@ MonotoneSolver[d2e_, opts:OptionsPattern[]] :=
 		{B, K, cost, jj} = GetKirchhoffMatrix[d2e];
 		cc[j_?NumberVectorQ] := cost[j];
 		x0 = jj /. (First@FindInstance[K . jj == B && And @@ ((# > 0) & /@ jj), jj]);
-		MonotoneSolverODE[x0, K, jj, cc, GradientProjection, FilterRules[{opts}, Options[MonotoneSolverODE]]]
+		MonotoneSolverODE[x0, K, jj, cc, FilterRules[{opts}, Options[MonotoneSolverODE]]]
 	];
 
-Options[MonotoneSolverODE] = {"TimeSteps" -> 100};
+Options[MonotoneSolverODE] = {"TimeSteps" -> 100, "UseCachedGradient" -> True};
 
 MonotoneSolverODE::usage =
-"MonotoneSolverODE[x0, K, jj, cc, gradProj] solves the gradient flow ODE from initial condition x0.
-Options: \"TimeSteps\" (default 100).";
-MonotoneSolverODE[x0_, K_, jj_, cc_, gradProj_, opts:OptionsPattern[]] :=
-	Module[{At, dim, sol, x, xx, n},
+"MonotoneSolverODE[x0, K, jj, cc] solves the gradient flow ODE from initial condition x0.
+Options: \"TimeSteps\" (default 100), \"UseCachedGradient\" (default True).";
+MonotoneSolverODE[x0_, K_, jj_, cc_, opts:OptionsPattern[]] :=
+	Module[{At, dim, sol, x, xx, n, useCache, piCache, gradFn},
 		n = OptionValue["TimeSteps"];
+		useCache = OptionValue["UseCachedGradient"];
 		At = Transpose[K];
 		dim = Length[x0];
+
+		If[useCache,
+			(* Use cached version to avoid redundant PseudoInverse calls *)
+			piCache = Null;
+			gradFn[xv_?NumberVectorQ] := CachedGradientProjection[xv, K, dim, At, piCache],
+			(* Use original uncached version *)
+			gradFn[xv_?NumberVectorQ] := GradientProjection[xv, K, dim, At]
+		];
+
 		sol = NDSolve[
-			x'[t] == -gradProj[x[t], K, dim, At] . cc[x[t]] && x[0] == x0,
+			x'[t] == -gradFn[x[t]] . cc[x[t]] && x[0] == x0,
 			x[t], {t, 0, n}, Method -> "BDF"];
 		xx = Table[x[t] /. sol[[1]], {t, 1, n, 1}];
 		AssociationThread[jj, Last[xx]]

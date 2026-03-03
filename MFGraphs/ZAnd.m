@@ -22,6 +22,27 @@ RemoveDuplicates::usage =
 Sorting is needed because DeleteDuplicates only removes identical expressions.
 For example, (A && B) || (B && A) becomes (A && B) only after sorting.";
 
+ClearSolveCache::usage =
+"ClearSolveCache[] clears the internal cache used by CachedSolve.
+Call this between different problem instances to prevent stale results.";
+
+(* --- Solve memoization cache --- *)
+
+$SolveCache = <||>;
+
+CachedSolve[eq_] :=
+  Module[{key, result},
+    key = Hash[eq, "SHA256"];
+    If[KeyExistsQ[$SolveCache, key],
+      $SolveCache[key],
+      result = Solve[eq];
+      $SolveCache[key] = result;
+      result
+    ]
+  ];
+
+ClearSolveCache[] := ($SolveCache = <||>);
+
 (* --- ZAnd: disjunctive normal form converter --- *)
 
 ZAnd[_, False] := False
@@ -33,14 +54,26 @@ ZAnd[xp_, True] := xp
 ZAnd[xp_, eq_Equal] := ReZAnd[xp, True, eq]
 
 ZAnd[xp_, And[fst_, rst_]] :=
-    If[ Head[fst] === Or,
-        RemoveDuplicates@(ReZAnd[xp, rst] /@ fst),
-        ReZAnd[xp, rst, fst]
+    If[ xp === False,
+        False,
+        If[ Head[fst] === Or,
+            RemoveDuplicates@(ReZAnd[xp, rst] /@ fst),
+            ReZAnd[xp, rst, fst]
+        ]
     ]
 
 ZAnd[xp_, Or[fst_, scd_]] :=
-    With[{rfst = Reduce[fst, Reals]},
-        RemoveDuplicates@(Or @@ (ZAnd[xp, #] & /@ {rfst, scd}))
+    Module[{rfst, result1, result2},
+      rfst = Reduce[fst, Reals];
+      result1 = ZAnd[xp, rfst];
+      result2 = ZAnd[xp, scd];
+      (* Skip False branches in the Or result *)
+      Which[
+        result1 === False && result2 === False, False,
+        result1 === False, result2,
+        result2 === False, result1,
+        True, RemoveDuplicates@(Or @@ {result1, result2})
+      ]
     ]
 
 ZAnd[xp_, leq_] := xp && leq
@@ -50,12 +83,12 @@ ZAnd[xp_, leq_] := xp && leq
 (* Operator form *)
 ReZAnd[xp_, rst_] := ReZAnd[xp, rst, #] &
 
-(* Equality case: solve and substitute *)
+(* Equality case: solve and substitute, with memoized Solve *)
 ReZAnd[xp_, rst_, fst_Equal] :=
     Module[{newfst = Simplify@fst},
         If[ newfst === False,
             False,
-            With[{fsol = First@Solve@newfst},
+            With[{fsol = First@CachedSolve@newfst},
                 ZAnd[ReplaceSolution[xp, fsol] && fst, ReplaceSolution[rst, fsol]]
             ]
         ]
