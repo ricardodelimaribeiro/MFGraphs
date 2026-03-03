@@ -327,6 +327,7 @@ CriticalCongestionSolver[$Failed] := $Failed
 
 CriticalCongestionSolver[Eqs_] :=
     Module[ {PreEqs, js, AssoCritical, time, temp},
+    	ClearSolveCache[];
     	If[KeyExistsQ[Eqs,"InitRules"],
     		PreEqs = Eqs,
     		temp = MFGPrintTemporary["Preprocessing..."];
@@ -348,6 +349,7 @@ MFGSystemSolver[Eqs_][approxJs_] :=
     Module[ {NewSystem, InitRules, pickOne, vars, System, Ncpc,
         costpluscurrents, us, js, jts, jjtsR, usR, time, temp,
         ineqsByTransition},
+        ClearSolveCache[];
         us = Lookup[Eqs, "us", $Failed];
         js = Lookup[Eqs, "js", $Failed];
         jts = Lookup[Eqs, "jts", $Failed];

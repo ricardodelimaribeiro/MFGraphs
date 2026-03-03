@@ -137,6 +137,47 @@ IntM[j_?NumericQ, edge_] :=
 Cost[j_, edge_] :=
     IntM[j, edge];
 
+(* --- Interpolation-based M for faster Cost evaluation --- *)
+
+PrecomputeM::usage =
+"PrecomputeM[jMin, jMax, edge, nPoints] precomputes M[j,x,edge] on a grid and returns
+an InterpolatingFunction. This avoids per-point FindRoot calls during NIntegrate.
+nPoints controls the grid resolution (default 50).";
+
+PrecomputeM[jMin_?NumericQ, jMax_?NumericQ, edge_, nPoints_Integer:50] :=
+  Module[{jVals, xVals, mGrid, flatData},
+    jVals = Subdivide[jMin, jMax, nPoints];
+    xVals = Subdivide[0., 1., nPoints];
+    mGrid = Table[
+      If[PossibleZeroQ[jv], 0.,
+        Quiet @ Check[
+          Values @ First @ FindRoot[H[xv, -jv m^(alpha[edge]-1), m, edge], {m, 1}],
+          0.
+        ]
+      ],
+      {jv, jVals}, {xv, xVals}
+    ];
+    flatData = Flatten[
+      Table[
+        {{jVals[[i]], xVals[[k]]}, mGrid[[i, k]]},
+        {i, Length@jVals}, {k, Length@xVals}
+      ], 1
+    ];
+    Interpolation[flatData, InterpolationOrder -> 3]
+  ];
+
+FastIntM::usage =
+"FastIntM[interpM, j, edge] computes IntM using a precomputed interpolation of M.
+interpM should be the result of PrecomputeM.";
+
+FastIntM[interpM_, j_?NumericQ, edge_] :=
+  If[PossibleZeroQ[j], 0,
+    j NIntegrate[interpM[j, x]^(alpha[edge]-1), {x, 0, 1}] // Quiet
+  ];
+
+FastCost[interpM_, j_, edge_] :=
+  FastIntM[interpM, j, edge];
+
 (* --- Plotting utilities --- *)
 
 plotM[Eqs_Association, string_String, pair_List] :=
