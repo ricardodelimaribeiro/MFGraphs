@@ -50,7 +50,7 @@ This generates `Results/bottleneck_report.md` with detailed call counts and timi
 
 ## Solvers benchmarked
 
-1. **CriticalCongestionSolver** -- Symbolic solver for the zero-flow case. Uses `Solve`, `Reduce`, `ZAnd` (disjunctive normal form), and `TripleClean` (fixed-point simplification).
+1. **CriticalCongestionSolver** -- Symbolic solver for the zero-flow case. Uses `Solve`, `Reduce`, `DNFReduce` (disjunctive normal form), and `TripleClean` (fixed-point simplification).
 
 2. **NonLinear** -- Iterative fixed-point solver for general congestion. Calls `MFGSystemSolver` up to 15 times per solve, with `FindRoot`/`NIntegrate` for Hamiltonian cost evaluation.
 
@@ -58,9 +58,9 @@ This generates `Results/bottleneck_report.md` with detailed call counts and timi
 
 ## Identified bottlenecks
 
-### 1. ZAnd exponential branching
+### 1. DNFReduce exponential branching
 
-`ZAnd` in `ZAnd.m` recursively converts boolean expressions to disjunctive normal form. For `Or` expressions with N branches, this creates up to 2^N recursive paths. Each path calls `Solve` (via `ReZAnd`) and `Reduce`, with no caching of results across branches.
+`DNFReduce` in `DNFReduce.m` recursively converts boolean expressions to disjunctive normal form. For `Or` expressions with N branches, this creates up to 2^N recursive paths. Each path calls `Solve` (via `ReDNFReduce`) and `Reduce`, with no caching of results across branches.
 
 **Impact**: Dominates CriticalCongestionSolver runtime for cases with switching costs (keys 8, 10, 11, 14, Braess variants).
 
@@ -84,24 +84,24 @@ This generates `Results/bottleneck_report.md` with detailed call counts and timi
 
 ## Optimizations implemented
 
-### Optimization 1: ZAnd Solve memoization
+### Optimization 1: DNFReduce Solve memoization
 
-**File**: `MFGraphs/ZAnd.m`
+**File**: `MFGraphs/DNFReduce.m`
 
-Added a hash-based cache (`$SolveCache`) for `Solve` results within `ReZAnd`. The same equality often appears across multiple branches of an `Or` expression; memoization avoids redundant symbolic solves.
+Added a hash-based cache (`$SolveCache`) for `Solve` results within `ReDNFReduce`. The same equality often appears across multiple branches of an `Or` expression; memoization avoids redundant symbolic solves.
 
 - `CachedSolve[eq]` -- hash-based lookup/store wrapper around `Solve`
 - `ClearSolveCache[]` -- called at solver entry points to prevent stale results
 
 **Expected impact**: 30-70% fewer `Solve` calls on cases with switching costs.
 
-### Optimization 2: ZAnd branch pruning
+### Optimization 2: DNFReduce branch pruning
 
-**File**: `MFGraphs/ZAnd.m`
+**File**: `MFGraphs/DNFReduce.m`
 
 Added early-exit checks:
-- `ZAnd[xp, And[fst, rst]]` returns `False` immediately when `xp === False`
-- `ZAnd[xp, Or[fst, scd]]` skips `False` branches in the result instead of creating trivial Or expressions
+- `DNFReduce[xp, And[fst, rst]]` returns `False` immediately when `xp === False`
+- `DNFReduce[xp, Or[fst, scd]]` skips `False` branches in the result instead of creating trivial Or expressions
 
 **Expected impact**: Avoids exponential blowup on inconsistent branches.
 
@@ -155,7 +155,7 @@ Benchmark results are exported as CSV and JSON with these fields:
 
 ## Recommendations for future work
 
-1. **Parallel ZAnd branches**: `Or` branches in `ZAnd` are independent and could be evaluated in parallel using `ParallelMap`.
+1. **Parallel DNFReduce branches**: `Or` branches in `DNFReduce` are independent and could be evaluated in parallel using `ParallelMap`.
 2. **Compiled Hamiltonian**: Use `Compile` or `FunctionCompile` for the Hamiltonian `H` and mass function `M` to reduce per-evaluation overhead.
 3. **Sparse matrix operations**: For large graphs (Grid1020), switch from dense `PseudoInverse` to sparse `LinearSolve` with pre-factorization.
 4. **Incremental TripleClean**: Cache partial results across `TripleStep` iterations instead of re-solving the full equality system each time.
