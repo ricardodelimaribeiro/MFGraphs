@@ -9,7 +9,7 @@ BeginPackage["MFGraphs`"];
 $MFGraphsVerbose::usage =
 "$MFGraphsVerbose controls whether progress and timing messages are printed.
 Set $MFGraphsVerbose = False to suppress output. Default is True.";
-$MFGraphsVerbose = True;
+$MFGraphsVerbose = False;
 
 MFGPrint::usage =
 "MFGPrint[args___] prints args only when $MFGraphsVerbose is True.";

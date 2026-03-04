@@ -52,11 +52,11 @@ IsNonLinearSolution::usage =
 "IsNonLinearSolution[Eqs] extracts AssoNonCritical and checks equations and inequalities. The right and left hand sides of the nonlinear equations are shown with the sup-norm of the difference."
 
 IsNonLinearSolution[Eqs_] :=
-    Module[ {EqEntryIn, EqValueAuxiliaryEdges, IneqSwitchingByVertex, AltOptCond,
+    Reap@Module[ {EqEntryIn, EqValueAuxiliaryEdges, IneqSwitchingByVertex, AltOptCond,
         EqBalanceSplittingFlows, AltFlows, AltTransitionFlows,
         IneqJs, IneqJts, Nrhs, Nlhs,
         styleBlue, styleRed, styleGreen, assoc, allSatisfied},
-        assoc = Lookup[Eqs, "AssoNonCritical", <||>];
+        assoc = Lookup[Eqs, "AssoNonCritical", Print["Needs \"AssoNonCritical\" solution."]; Sow[<||>]];
         styleBlue = Style[#, Bold, Blue]&;
         styleRed = Style[#, Bold, Red]&;
         styleGreen = Style[#, Bold, Darker@Green]&;
@@ -87,8 +87,9 @@ IsNonLinearSolution[Eqs_] :=
             Print[styleBlue@"IneqJts: ", IneqJts/.assoc, "\n", IneqJts];
             Print[styleBlue@"IneqSwitchingByVertex: ", IneqSwitchingByVertex/.assoc, "\n", IneqSwitchingByVertex]
         ];
-        Print[styleBlue@"Nlhs: ", N[Nlhs/.assoc], "\n", Nlhs];
-        Print[styleBlue@"Nrhs: ", N[Nrhs/.assoc], "\n", Nrhs];
+        
+        Print[styleBlue@"Nlhs: ", Nlhs/.assoc, "\n", Nlhs];
+        Print[styleBlue@"Nrhs: ", Nrhs/.assoc, "\n", Nrhs];
         Print[styleBlue@"Max error for non-linear solution: ", Norm[N[Nlhs/.assoc]-(Nrhs/.assoc), Infinity]];
         N@assoc
     ];
