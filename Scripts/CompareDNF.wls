@@ -121,7 +121,7 @@ CompareMethods[key_, params_] :=
         bcDisjuncts = CountDisjuncts[bcResult];
         bcLeafCount = LeafCount[bcResult];
         bcConjuncts = ConjunctsPerDisjunct[bcResult];
-        Print["  BooleanConvert: ", NumberForm[bcTime, {6, 3}], "s, ",
+        Print["  BooleanConvert: ", ToString@N[bcTime, 6], "s, ",
               bcDisjuncts, " disjuncts, ", bcLeafCount, " leaves"];
       ]
     ];
@@ -147,7 +147,7 @@ CompareMethods[key_, params_] :=
         dnfDisjuncts = CountDisjuncts[dnfResult];
         dnfLeafCount = LeafCount[dnfResult];
         dnfConjuncts = ConjunctsPerDisjunct[dnfResult];
-        Print["  DNFReduce:      ", NumberForm[dnfTime, {6, 3}], "s, ",
+        Print["  DNFReduce:      ", ToString@N[dnfTime, 6], "s, ",
               dnfDisjuncts, " disjuncts, ", dnfLeafCount, " leaves"];
       ]
     ];
@@ -177,13 +177,13 @@ CompareMethods[key_, params_] :=
         equiv === "ERROR", "EQUIV_ERROR",
         True, "NOT_EQUIVALENT: " <> ToString[InputForm[equiv]]
       ];
-      Print["  Equivalence: ", equiv, " (", NumberForm[equivTime, {6, 3}], "s)"];
+      Print["  Equivalence: ", equiv, " (", ToString@N[equivTime, 6], "s)"];
     ];
 
     (* --- Summary --- *)
     Print["  Speedup (BC/DNF): ",
       If[dnfTime > 0 && bcTime > 0 && bcResult =!= $TimedOut && dnfResult =!= $TimedOut,
-        NumberForm[bcTime / dnfTime, {4, 2}] <> "x",
+        ToString@N[bcTime / dnfTime, 2] <> "x",
         "N/A"
       ]
     ];
@@ -234,10 +234,7 @@ Do[
   Module[{key, params, result},
     {key, params} = $ComparisonCases[label];
     If[$requestedCase =!= "all" && label =!= $requestedCase, Continue[]];
-    result = Quiet @ Check[
-      CompareMethods[key, params],
-      <|"Key" -> ToString[key], "Status" -> "ERROR"|>
-    ];
+    result = CompareMethods[key, params];
     AppendTo[$results, result];
   ],
   {label, Keys[$ComparisonCases]}
@@ -262,9 +259,9 @@ Do[
     AppendTo[$lines,
       "| " <> r["Key"] <> " | " <>
       ToString[r["InputDisjuncts"]] <> " | " <>
-      If[r["BC_Time"] >= 0, ToString[NumberForm[r["BC_Time"], {6, 3}]], "TIMEOUT"] <> " | " <>
-      If[r["DNF_Time"] >= 0, ToString[NumberForm[r["DNF_Time"], {6, 3}]], "TIMEOUT"] <> " | " <>
-      If[r["Speedup_BC_over_DNF"] > 0, ToString[NumberForm[r["Speedup_BC_over_DNF"], {4, 2}]] <> "x", "N/A"] <> " | " <>
+      If[r["BC_Time"] >= 0, ToString@N[r["BC_Time"], 3], "TIMEOUT"] <> " | " <>
+      If[r["DNF_Time"] >= 0, ToString@N[r["DNF_Time"], 3], "TIMEOUT"] <> " | " <>
+      If[r["Speedup_BC_over_DNF"] > 0, ToString@N[r["Speedup_BC_over_DNF"], 2] <> "x", "N/A"] <> " | " <>
       ToString[r["BC_Disjuncts"]] <> " | " <>
       ToString[r["DNF_Disjuncts"]] <> " | " <>
       ToString[r["BC_LeafCount"]] <> " | " <>

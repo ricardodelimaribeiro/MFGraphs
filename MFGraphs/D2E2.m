@@ -399,13 +399,21 @@ MFGSystemSolver[Eqs_][approxJs_] :=
             vars = Join[usR, jjtsR];
 
             (* Pick one solution so that all the currents have numerical values *)
-            pickOne = FindInstance[System && And @@ ((# > 0 )& /@ jjtsR), vars, Reals];
-            If[pickOne === {},
-            	pickOne = FindInstance[System && And @@ ((# >= 0 )& /@ jjtsR), vars, Reals]
-            ];
-           	pickOne = Association @ First @ pickOne;
-            MFGPrint["MFGSS: Picked one solution: ", pickOne];
-            InitRules = Expand /@ Join[InitRules /. pickOne, pickOne],
+            If[Length[vars] > 0,
+              pickOne = FindInstance[System && And @@ ((# > 0 )& /@ jjtsR), vars, Reals];
+              If[pickOne === {},
+              	pickOne = FindInstance[System && And @@ ((# >= 0 )& /@ jjtsR), vars, Reals]
+              ];
+              If[pickOne =!= {},
+                pickOne = Association @ First @ pickOne;
+                MFGPrint["MFGSS: Picked one solution: ", pickOne];
+                InitRules = Expand /@ Join[InitRules /. pickOne, pickOne],
+                MFGPrint["MFGSS: No feasible solution found"];
+                Return[Null, Module]
+              ],
+              (* All variables already solved — nothing to pick *)
+              MFGPrint["MFGSS: All variables already determined in InitRules"]
+            ],
             True,
          	MFGPrint["MFGSS: System is ", System]
          ];
