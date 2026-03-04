@@ -396,10 +396,11 @@ MFGSystemSolver[Eqs_][approxJs_] :=
             Return[Null,Module],
             System =!= True,
             MFGPrint["MFGSS: (Possibly) Multiple solutions:\n", System];
-            jjtsR = Join[js, jts];
-            jjtsR = Intersection[Flatten[List@@@((Join[us, js] /. InitRules)/.Times->Plus)], jjtsR];
-        	usR = Intersection[Flatten[List@@@((Join[us, js] /. InitRules)/.Times->Plus)], us];
-            vars = Join[usR, jjtsR];
+            (* Extract all unsolved variables from System *)
+            vars = Select[Variables[System], MatchQ[#, j[_,_,_] | j[_,_] | u[_,_] | u[_,_,_]] &];
+            vars = Complement[vars, Keys[InitRules]];
+            jjtsR = Select[vars, MatchQ[#, j[_,_,_] | j[_,_]] &];
+            usR = Select[vars, MatchQ[#, u[_,_,_] | u[_,_]] &];
 
             (* Pick one solution so that all the currents have numerical values *)
             If[Length[vars] > 0,
