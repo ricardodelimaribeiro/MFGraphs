@@ -79,10 +79,24 @@ MonotoneSolverFromData[Data_, opts:OptionsPattern[]] :=
 	];
 
 MonotoneSolver[d2e_, opts:OptionsPattern[]] :=
-	Module[{B, K, cost, jj, cc, x0},
+	Module[{B, K, cost, jj, cc, x0, result},
 		{B, K, cost, jj} = GetKirchhoffMatrix[d2e];
+		(* Guard: skip MonotoneSolver for degenerate cases with no flow variables *)
+		If[Length[jj] === 0,
+			MFGPrint["MonotoneSolver: Degenerate case (no flow variables), skipping."];
+			Return[<|"Message" -> "Degenerate case"|>, Module]
+		];
 		cc[j_?NumberVectorQ] := cost[j];
-		x0 = jj /. (First@FindInstance[K . jj == B && And @@ ((# > 0) & /@ jj), jj]);
+		(* Guard: check if FindInstance succeeds *)
+		result = Quiet @ Check[
+			First@FindInstance[K . jj == B && And @@ ((# > 0) & /@ jj), jj],
+			$Failed
+		];
+		If[result === $Failed,
+			MFGPrint["MonotoneSolver: FindInstance failed, returning null solution."];
+			Return[Null, Module]
+		];
+		x0 = jj /. result;
 		MonotoneSolverODE[x0, K, jj, cc, FilterRules[{opts}, Options[MonotoneSolverODE]]]
 	];
 
