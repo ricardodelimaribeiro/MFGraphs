@@ -400,6 +400,7 @@ MFGSystemSolver[Eqs_][approxJs_] :=
 
             (* Pick one solution so that all the currents have numerical values *)
             If[Length[vars] > 0,
+              (* Attempt to find a solution *)
               pickOne = FindInstance[System && And @@ ((# > 0 )& /@ jjtsR), vars, Reals];
               If[pickOne === {},
               	pickOne = FindInstance[System && And @@ ((# >= 0 )& /@ jjtsR), vars, Reals]
