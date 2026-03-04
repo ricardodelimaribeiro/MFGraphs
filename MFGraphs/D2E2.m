@@ -238,16 +238,19 @@ GetKirchhoffMatrix[Eqs_] :=
        Lookup[Eqs, "BalanceSplittingFlows", {}],
       RuleExitFlowsIn = Lookup[Eqs, "RuleExitFlowsIn", {}],
       RuleEntryOut = Lookup[Eqs, "RuleEntryOut", {}], BM, KM, vars,
-      CostArgs = Lookup[Eqs, "CostArgs", <||>],
-      jvars = Lookup[Eqs, "jvars", {}],
-      jtvars = Lookup[Eqs, "jtvars", {}], cost, CCost},
+      CostArgs = Lookup[Eqs, "CostArgs", <||>], cost, CCost},
         Kirchhoff = Join[EqEntryIn, (# == 0 & /@ (BalanceGatheringFlows + BalanceSplittingFlows))];
         Kirchhoff = Kirchhoff /. Join[RuleExitFlowsIn, RuleEntryOut];
-        vars = Select[Values@Join[jvars,jtvars],MemberQ[Variables[Kirchhoff /. Equal -> List],#]&];
-        {BM, KM} = CoefficientArrays[Kirchhoff, vars];
-        cost = AssociationThread[vars, KeyMap[Join[jvars,jtvars]][CostArgs]/@vars];
-        CCost = cost /@ vars /. MapThread[Rule, {vars, #}] &;
-        {-BM, KM, CCost, vars}
+        (* Extract all flow variables from the Kirchhoff system *)
+        vars = Select[Variables[Kirchhoff /. Equal -> List], MatchQ[#, j[_,_,_] | j[_,_]] &];
+        If[Length[vars] === 0,
+          (* Degenerate case: no flow variables *)
+          {0, 0, <||>, {}},
+          {BM, KM} = CoefficientArrays[Kirchhoff, vars];
+          cost = AssociationThread[vars, (0 &) /@ vars];
+          CCost = cost /@ vars /. MapThread[Rule, {vars, #}] &;
+          {-BM, KM, CCost, vars}
+        ]
     ];
 
 (* --- MFGPreprocessing --- *)
