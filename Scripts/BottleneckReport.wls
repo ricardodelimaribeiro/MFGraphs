@@ -61,9 +61,9 @@ Do[
       "Label" -> label,
       "Key" -> ToString[key],
       "TotalTime" -> totalTime,
-      "ZAndTime" -> $ProfileTimings["ZAnd"],
-      "ZAndCalls" -> $ProfileCounts["ZAnd"],
-      "ZAndMaxDepth" -> $ProfileExtras["ZAnd_MaxDepth"],
+      "DNFReduceTime" -> $ProfileTimings["DNFReduce"],
+      "DNFReduceCalls" -> $ProfileCounts["DNFReduce"],
+      "DNFReduceMaxDepth" -> $ProfileExtras["DNFReduce_MaxDepth"],
       "TripleStepTime" -> $ProfileTimings["TripleStep"],
       "TripleStepCalls" -> $ProfileCounts["TripleStep"],
       "GradProjTime" -> $ProfileTimings["GradientProjection"],
@@ -86,7 +86,7 @@ $ReportLines = {
   "",
   "## Summary",
   "",
-  "| Label | Case | Total (s) | ZAnd (s) | ZAnd Calls | ZAnd Depth | TripleStep (s) | TripleStep Calls | GradProj (s) | Status |",
+  "| Label | Case | Total (s) | DNFReduce (s) | DNFReduce Calls | DNFReduce Depth | TripleStep (s) | TripleStep Calls | GradProj (s) | Status |",
   "|---|---|---|---|---|---|---|---|---|---|"
 };
 
@@ -94,9 +94,9 @@ Do[
   AppendTo[$ReportLines,
     "| " <> r["Label"] <> " | " <> r["Key"] <> " | " <>
     ToString[NumberForm[r["TotalTime"], {6, 3}]] <> " | " <>
-    ToString[NumberForm[r["ZAndTime"], {6, 3}]] <> " | " <>
-    ToString[r["ZAndCalls"]] <> " | " <>
-    ToString[r["ZAndMaxDepth"]] <> " | " <>
+    ToString[NumberForm[r["DNFReduceTime"], {6, 3}]] <> " | " <>
+    ToString[r["DNFReduceCalls"]] <> " | " <>
+    ToString[r["DNFReduceMaxDepth"]] <> " | " <>
     ToString[NumberForm[r["TripleStepTime"], {6, 3}]] <> " | " <>
     ToString[r["TripleStepCalls"]] <> " | " <>
     ToString[NumberForm[r["GradProjTime"], {6, 3}]] <> " | " <>
@@ -134,15 +134,15 @@ Do[
 AppendTo[$ReportLines, "## Key Observations"];
 AppendTo[$ReportLines, ""];
 
-(* Find the case with the most ZAnd calls *)
-Module[{maxZAnd, maxTriple},
-  maxZAnd = MaximalBy[$AllTimings, #["ZAndCalls"] &];
+(* Find the case with the most DNFReduce calls *)
+Module[{maxDNF, maxTriple},
+  maxDNF = MaximalBy[$AllTimings, #["DNFReduceCalls"] &];
   maxTriple = MaximalBy[$AllTimings, #["TripleStepCalls"] &];
-  If[Length[maxZAnd] > 0,
+  If[Length[maxDNF] > 0,
     AppendTo[$ReportLines,
-      "- **Highest ZAnd call count**: " <> First[maxZAnd]["Label"] <>
-      " with " <> ToString[First[maxZAnd]["ZAndCalls"]] <> " calls, " <>
-      "taking " <> ToString[NumberForm[First[maxZAnd]["ZAndTime"], {6, 3}]] <> "s"
+      "- **Highest DNFReduce call count**: " <> First[maxDNF]["Label"] <>
+      " with " <> ToString[First[maxDNF]["DNFReduceCalls"]] <> " calls, " <>
+      "taking " <> ToString[NumberForm[First[maxDNF]["DNFReduceTime"], {6, 3}]] <> "s"
     ];
   ];
   If[Length[maxTriple] > 0,
@@ -157,8 +157,8 @@ Module[{maxZAnd, maxTriple},
 AppendTo[$ReportLines, ""];
 AppendTo[$ReportLines, "## Optimization Targets"];
 AppendTo[$ReportLines, ""];
-AppendTo[$ReportLines, "1. **ZAnd Solve Memoization**: Cache results of `Solve` within `ReZAnd` to avoid redundant symbolic solves across Or-branches."];
-AppendTo[$ReportLines, "2. **ZAnd Branch Pruning**: Early-exit when `xp === False` to avoid processing inconsistent branches."];
+AppendTo[$ReportLines, "1. **DNFReduce Solve Memoization**: Cache results of `Solve` and `Reduce` to avoid redundant symbolic solves across Or-branches."];
+AppendTo[$ReportLines, "2. **DNFReduce Branch Pruning**: Early-exit when `xp === False` to avoid processing inconsistent branches."];
 AppendTo[$ReportLines, "3. **PseudoInverse Caching**: Cache the PseudoInverse result in `GradientProjection` to avoid O(n^3) recomputation per ODE step."];
 AppendTo[$ReportLines, "4. **M Interpolation**: Pre-compute `M[j, x, edge]` on a grid and interpolate instead of calling `FindRoot` per point."];
 

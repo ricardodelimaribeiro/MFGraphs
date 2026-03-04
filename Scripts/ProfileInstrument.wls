@@ -10,24 +10,24 @@ $ProfileExtras = <||>;
 
 InitProfile[] := (
   $ProfileTimings = <|
-    "ZAnd" -> 0., "ZAnd_Solve" -> 0., "ZAnd_Reduce" -> 0.,
-    "ZAnd_Simplify" -> 0., "TripleStep" -> 0., "TripleClean" -> 0.,
+    "DNFReduce" -> 0., "DNFReduce_Solve" -> 0., "DNFReduce_Reduce" -> 0.,
+    "DNFReduce_Simplify" -> 0., "TripleStep" -> 0., "TripleClean" -> 0.,
     "FinalStep" -> 0., "BooleanConvert" -> 0.,
     "GradientProjection" -> 0., "PseudoInverse" -> 0.,
     "FindRoot" -> 0., "NIntegrate" -> 0.,
     "MFGSystemSolver" -> 0., "MFGPreprocessing" -> 0.
   |>;
   $ProfileCounts = <|
-    "ZAnd" -> 0, "ZAnd_Solve" -> 0, "ZAnd_Reduce" -> 0,
-    "ZAnd_Simplify" -> 0, "TripleStep" -> 0, "TripleClean" -> 0,
+    "DNFReduce" -> 0, "DNFReduce_Solve" -> 0, "DNFReduce_Reduce" -> 0,
+    "DNFReduce_Simplify" -> 0, "TripleStep" -> 0, "TripleClean" -> 0,
     "FinalStep" -> 0, "BooleanConvert" -> 0,
     "GradientProjection" -> 0, "PseudoInverse" -> 0,
     "FindRoot" -> 0, "NIntegrate" -> 0,
     "MFGSystemSolver" -> 0, "MFGPreprocessing" -> 0
   |>;
   $ProfileExtras = <|
-    "ZAnd_MaxDepth" -> 0,
-    "ZAnd_CurrentDepth" -> 0,
+    "DNFReduce_MaxDepth" -> 0,
+    "DNFReduce_CurrentDepth" -> 0,
     "TripleClean_MaxIters" -> 0
   |>;
 );
@@ -49,9 +49,9 @@ ProfileReport[] :=
     ];
     (* Add extras *)
     rows = Append[rows, <|
-      "Function" -> "ZAnd_MaxDepth",
+      "Function" -> "DNFReduce_MaxDepth",
       "TotalTime" -> Missing["N/A"],
-      "CallCount" -> $ProfileExtras["ZAnd_MaxDepth"],
+      "CallCount" -> $ProfileExtras["DNFReduce_MaxDepth"],
       "AvgTime" -> Missing["N/A"]
     |>];
     rows = Append[rows, <|
@@ -83,7 +83,7 @@ ProfileReportMarkdown[] :=
 (* --- Instrumentation via DownValues wrapping --- *)
 
 (* Flag to prevent recursive instrumentation *)
-$InProfileZAnd = False;
+$InProfileDNFReduce = False;
 $InProfileTripleStep = False;
 $InProfileTripleClean = False;
 $InProfileFinalStep = False;
@@ -93,36 +93,36 @@ InstallProfileWrappers[] :=
   Module[{},
     Print["Installing profiling wrappers..."];
 
-    (* --- Wrap ZAnd --- *)
+    (* --- Wrap DNFReduce --- *)
     (* Save original definitions *)
-    $OriginalZAndDV = DownValues[ZAnd];
+    $OriginalDNFReduceDV = DownValues[DNFReduce];
 
     (* Prepend a profiling catch-all that delegates to the originals *)
-    DownValues[ZAnd] = Join[
+    DownValues[DNFReduce] = Join[
       {
-        HoldPattern[ZAnd[xp_, arg_]] :>
+        HoldPattern[DNFReduce[xp_, arg_]] :>
           Module[{res, t},
-            $ProfileCounts["ZAnd"]++;
-            $ProfileExtras["ZAnd_CurrentDepth"]++;
-            $ProfileExtras["ZAnd_MaxDepth"] = Max[
-              $ProfileExtras["ZAnd_MaxDepth"],
-              $ProfileExtras["ZAnd_CurrentDepth"]
+            $ProfileCounts["DNFReduce"]++;
+            $ProfileExtras["DNFReduce_CurrentDepth"]++;
+            $ProfileExtras["DNFReduce_MaxDepth"] = Max[
+              $ProfileExtras["DNFReduce_MaxDepth"],
+              $ProfileExtras["DNFReduce_CurrentDepth"]
             ];
             t = AbsoluteTime[];
             (* Temporarily restore originals to avoid infinite recursion *)
-            Block[{$InProfileZAnd = True},
-              With[{savedDV = DownValues[ZAnd]},
-                DownValues[ZAnd] = $OriginalZAndDV;
-                res = ZAnd[xp, arg];
-                DownValues[ZAnd] = savedDV;
+            Block[{$InProfileDNFReduce = True},
+              With[{savedDV = DownValues[DNFReduce]},
+                DownValues[DNFReduce] = $OriginalDNFReduceDV;
+                res = DNFReduce[xp, arg];
+                DownValues[DNFReduce] = savedDV;
               ]
             ];
-            $ProfileTimings["ZAnd"] += AbsoluteTime[] - t;
-            $ProfileExtras["ZAnd_CurrentDepth"]--;
+            $ProfileTimings["DNFReduce"] += AbsoluteTime[] - t;
+            $ProfileExtras["DNFReduce_CurrentDepth"]--;
             res
-          ] /; !TrueQ[$InProfileZAnd]
+          ] /; !TrueQ[$InProfileDNFReduce]
       },
-      $OriginalZAndDV
+      $OriginalDNFReduceDV
     ];
 
     (* --- Wrap TripleStep --- *)
@@ -174,7 +174,7 @@ InstallProfileWrappers[] :=
 
 UninstallProfileWrappers[] :=
   Module[{},
-    If[ValueQ[$OriginalZAndDV], DownValues[ZAnd] = $OriginalZAndDV];
+    If[ValueQ[$OriginalDNFReduceDV], DownValues[DNFReduce] = $OriginalDNFReduceDV];
     If[ValueQ[$OriginalTripleStepDV], DownValues[TripleStep] = $OriginalTripleStepDV];
     If[ValueQ[$OriginalGradProjDV], DownValues[GradientProjection] = $OriginalGradProjDV];
     Print["Profiling wrappers removed."];
