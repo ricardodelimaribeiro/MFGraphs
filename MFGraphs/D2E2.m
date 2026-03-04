@@ -416,7 +416,7 @@ MFGSystemSolver[Eqs_][approxJs_] :=
 (* --- FinalStep --- *)
 
 FinalStep::usage =
-"FinalStep[{EE,NN,OR}, rules] takes a grouped system and some Association of rules (a partial solution). It returns the result of applying ZAnd.";
+"FinalStep[{EE,NN,OR}, rules] takes a grouped system and some Association of rules (a partial solution). It returns the result of applying DNFReduce.";
 
 FinalStep[{{EE_?BooleanQ, NN_?BooleanQ, OR_?BooleanQ}, rules_}] :=
     {{EE, NN, OR}, rules}
@@ -430,7 +430,7 @@ FinalStep[{{EE_, NN_, OO_}, rules_}] :=
             sorted = RemoveDuplicates[NewSystem[[3]]];
         ];
         temp = MFGPrintTemporary["Final: Iterative DNF conversion on " , Length[sorted]," disjunctions..."];
-        {time, NewSystem} = AbsoluteTiming[ZAnd[And @@ Most[NewSystem], sorted]];
+        {time, NewSystem} = AbsoluteTiming[DNFReduce[And @@ Most[NewSystem], sorted]];
         NotebookDelete[temp];
         MFGPrint["Final: Iterative DNF conversion on " , Length[sorted]," disjunctions took ", time, " seconds to terminate."];
         If[Head[NewSystem] === Or,

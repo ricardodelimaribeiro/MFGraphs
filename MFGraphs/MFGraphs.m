@@ -21,7 +21,7 @@ MFGPrintTemporary[args___] := If[$MFGraphsVerbose, PrintTemporary[args], Null];
 
 (* Load submodules in dependency order *)
 Get["MFGraphs`Examples`ExamplesData`"];
-Get["MFGraphs`ZAnd`"];
+Get["MFGraphs`DNFReduce`"];
 Get["MFGraphs`D2E2`"];
 Get["MFGraphs`NonLinearSolver`"];
 Get["MFGraphs`Monotone`"];

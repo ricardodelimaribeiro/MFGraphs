@@ -212,7 +212,7 @@ V = Function[{x, edge}, 0.5 Sin[2 Pi (x + 1/4)]^2];
 ```
 MFGraphs/
   MFGraphs.m              Package loader, verbose flag, MFGPrint helpers
-  ZAnd.m                  Boolean algebra (disjunctive normal form reduction)
+  DNFReduce.m             Boolean algebra (disjunctive normal form reduction)
   D2E2.m                  Data-to-equations converter and critical congestion solver
   NonLinearSolver.m       Iterative non-linear solver and Hamiltonian framework
   Monotone.m              Monotone operator (ODE-based) solver

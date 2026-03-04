@@ -1,6 +1,6 @@
 (*Wolfram Language package*)
 (* Variant of D2E2.m that includes current calculations *)
-(* NOTE: If used standalone, load ZAnd.m first for ZAnd/ReZAnd/ReplaceSolution/RemoveDuplicates *)
+(* NOTE: If used standalone, load DNFReduce.m first for DNFReduce/ReplaceSolution/RemoveDuplicates *)
 
 ConsistentSwitchingCosts::usage = "ConsistentSwitchingCosts[switchingcosts][{a,b,c}->S]
 returns True if S, the cost of switching from the edge ab to cb, is smaller than any other combination, such as, ab to bd and then from bd to dc.
@@ -544,7 +544,7 @@ MFGSystemSolver[Eqs_][approxJs_] :=
     ];*)
 
 FinalStep::usage = 
-"FinalStep[{EE,NN,OR}, rules] takes a grouped system and some Association of rules (a partial solution). It returns the result of applying ZAnd ";
+"FinalStep[{EE,NN,OR}, rules] takes a grouped system and some Association of rules (a partial solution). It returns the result of applying DNFReduce.";
 
 FinalStep[{{EE_?BooleanQ, NN_?BooleanQ, OR_?BooleanQ}, rules_}] :=
     {{EE, NN, OR}, rules}
@@ -558,7 +558,7 @@ FinalStep[{{EE_, NN_, OO_}, rules_}] :=
             sorted = RemoveDuplicates[NewSystem[[3]]]
         ];
         temp = PrintTemporary["Iterative DNF convertion..."];
-        {time, NewSystem} = AbsoluteTiming[ZAnd[And @@ Take[NewSystem, {1, 2}], sorted]];
+        {time, NewSystem} = AbsoluteTiming[DNFReduce[And @@ Take[NewSystem, {1, 2}], sorted]];
         NotebookDelete[temp];
         Print["Iterative DNF convertion took ", time, " seconds to terminate."];
         temp = PrintTemporary["Reducing... ", NewSystem];
@@ -708,5 +708,5 @@ TripleClean::usage =
 replacement of NewRules in NewNN and NewOR do not produce equalities."
 TripleClean[{{EE_, NN_, OR_}, rules_}] := FixedPoint[TripleStep, {{EE, NN, OR}, rules}];
 
-(* ZAnd, ReZAnd, ReplaceSolution, RemoveDuplicates, SortOp are now in ZAnd.m *)
-(* Load ZAnd.m if using this file standalone *)
+(* DNFReduce, ReplaceSolution, RemoveDuplicates, SortOp are now in DNFReduce.m *)
+(* Load DNFReduce.m if using this file standalone *)
