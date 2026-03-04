@@ -13,8 +13,7 @@ Mathematica: 14.3.0 for Mac OS X ARM (64-bit) (July 8, 2025)
 | 11 | 1 | 40.4654 | 3.90456 | 10.3636x | 3359232 | 2977 | 6094206721 | 1199868 | EQUIV_TIMEOUT |
 | 14 | 1 | 0.002211 | 0.014944 | 0.147952x | 384 | 1 | 139009 | 33 | EQUIVALENT |
 | Braess congest | 1 | 1.241 | 1.37349 | 0.903533x | 147456 | 179 | 166035457 | 18944 | EQUIV_TIMEOUT |
-| Paper example | 1 | 0.000023 |      -6
-5. 10 | 4.6x | 1 | 1 | 3 | 3 | EQUIVALENT |
+| Paper example | 1 | 0.000023 |      -65. 10 | 4.6x | 1 | 1 | 3 | 3 | EQUIVALENT |
 | 20 | 1 | 0.005263 | 0.031009 | 0.169725x | 1024 | 8 | 469505 | 669 | EQUIVALENT |
 
 ## Interpretation
