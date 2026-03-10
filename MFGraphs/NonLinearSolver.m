@@ -5,25 +5,35 @@ Clear[H, Cost];
 
 (* --- Options --- *)
 
-Options[NonLinear] = {"MaxIterations" -> 15};
+Options[NonLinear] = {"MaxIterations" -> 15, "Tolerance" -> 0};
 
 (* --- NonLinear: main iterative solver --- *)
 
 NonLinear::usage =
     "NonLinear[Eqs] takes an association resulting from Data2Equations and returns an approximation to the solution of the non-critical congestion case with alpha = value, specified by alpha[edge_] := value.
-Options: \"MaxIterations\" (default 15).";
+Options: \"MaxIterations\" (default 15), \"Tolerance\" (default 0). When Tolerance > 0, iteration stops early when the infinity-norm change in flow variables between consecutive steps falls below the given tolerance.";
 
 NonLinear[Eqs_, OptionsPattern[]] :=
-    Module[ {AssoCritical, PreEqs = Eqs, AssoNonCritical, NonCriticalList, js = 1,
-             MaxIter = OptionValue["MaxIterations"]},
+    Module[ {AssoCritical, PreEqs = Eqs, AssoNonCritical, NonCriticalList, js,
+             MaxIter = OptionValue["MaxIterations"], tol = OptionValue["Tolerance"]},
         If[ KeyExistsQ[PreEqs, "AssoCritical"],
             (* If there is already an approximation for the non-congestion case, use it *)
             AssoNonCritical = Lookup[PreEqs, "AssoNonCritical", PreEqs["AssoCritical"]],
             PreEqs = MFGPreprocessing[PreEqs];
-            js = Lookup[PreEqs, "js", $Failed];
-            AssoNonCritical = AssociationThread[js, 0 js]
+            AssoNonCritical = AssociationThread[Lookup[PreEqs, "js", {}], 0 Lookup[PreEqs, "js", {}]]
         ];
-        NonCriticalList = FixedPointList[NonLinearStep[PreEqs], AssoNonCritical, MaxIter];
+        js = Lookup[PreEqs, "js", {}];
+        NonCriticalList = If[ tol > 0 && js =!= {},
+            (* Tolerance-based stopping: compare consecutive flow vectors *)
+            NestWhileList[
+                NonLinearStep[PreEqs],
+                AssoNonCritical,
+                (Norm[N[Values[KeyTake[#2, js]] - Values[KeyTake[#1, js]]], Infinity] > tol)&,
+                2, MaxIter
+            ],
+            (* Default: exact fixed-point check (stops when consecutive results are identical) *)
+            FixedPointList[NonLinearStep[PreEqs], AssoNonCritical, MaxIter]
+        ];
         MFGPrint["Iterated ", Length[NonCriticalList]-1, " times out of ", MaxIter];
         AssoCritical = Lookup[PreEqs, "AssoCritical", NonCriticalList[[2]]];
         AssoNonCritical = NonCriticalList // Last;

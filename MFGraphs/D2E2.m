@@ -501,7 +501,7 @@ TripleStep[{{EE_?BooleanQ, NN_?BooleanQ, OR_?BooleanQ}, rules_Association}] :=
 
 TripleStep[{{EE_, NN_?TrueQ, OR_?TrueQ}, rules_Association}] :=
     Module[ {newrules = {}},
-        newrules = First@Solve[EE /. rules] // Quiet;
+        newrules = First@CachedSolve[EE /. rules] // Quiet;
         newrules = Join[rules /. newrules, Association@newrules];
         {{True, NN, OR}, Expand /@ newrules}
     ];
@@ -512,7 +512,7 @@ TripleStep[{{True, NNs_, ORs_}, rules_Association}] :=
 TripleStep[{{EEs_, NNs_, ORs_}, rules_Association}] :=
 	Module[{EE = EEs /. rules, NN, OR, NNE, NNO, ORE, ORN, newrules ={}},
 	If[ EE =!= True && EE =!= False,
-    	newrules = First@Solve[EE] // Quiet
+    	newrules = First@CachedSolve[EE] // Quiet
     ];
     newrules = Expand /@ Join[rules /. newrules, Association@newrules];
     NN = Expand /@ (NNs /. newrules);

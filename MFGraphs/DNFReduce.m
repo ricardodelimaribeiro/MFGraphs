@@ -67,8 +67,20 @@ DNFReduce[xp_, And[fst_, rst_]] :=
     If[ xp === False,
         False,
         If[ Head[fst] === Or,
-            (* Distribute: process each disjunct against (xp, rst) *)
-            RemoveDuplicates@(DNFReduce[xp, rst, #] & /@ fst),
+            (* Distribute sequentially with early exit:
+               if any branch leaves xp unchanged, xp already satisfies the Or, so stop. *)
+            Catch[
+                Module[{accumulated = False, r},
+                    Do[
+                        r = DNFReduce[xp, rst, b];
+                        If[r === xp, Throw[xp, "dnfAndOr"]];
+                        accumulated = Or[accumulated, r],   (* Or[False, x] -> x automatically *)
+                        {b, List @@ fst}
+                    ];
+                    If[accumulated === False, False, RemoveDuplicates[accumulated]]
+                ],
+                "dnfAndOr"
+            ],
             (* Process the single element *)
             DNFReduce[xp, rst, fst]
         ]
