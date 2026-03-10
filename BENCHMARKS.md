@@ -127,6 +127,32 @@ Added `PrecomputeM[jMin, jMax, edge, nPoints]` that builds an `InterpolatingFunc
 
 **Expected impact**: Large speedup for NIntegrate-heavy iterations; slight numerical approximation controlled by grid resolution.
 
+### Optimization 5: DNFReduce sequential And-Or with early exit
+
+**File**: `MFGraphs/DNFReduce.m`
+
+The And-Or distribution case (`DNFReduce[xp_, And[fst_Or, rst_]]`) previously evaluated all disjuncts of `fst` unconditionally using `Map`. Replaced with a sequential `Do` loop and `Catch/Throw` that exits as soon as any branch returns `r === xp` — the same short-circuit condition used in the existing 2-arg Or case. When a branch leaves `xp` unchanged, it means the Or constraint is already satisfied, so remaining branches cannot contribute new information.
+
+**Expected impact**: Fewer branch evaluations for And-Or patterns in well-constrained systems; symmetric to the existing Or short-circuit which showed dramatic speedup on cases 11 and 12.
+
+### Optimization 6: TripleStep Solve memoization
+
+**File**: `MFGraphs/D2E2.m`
+
+Both overloads of `TripleStep` called `Solve` directly. Replaced with `CachedSolve` (already defined in `DNFReduce.m`) so that identical equality systems encountered within a single `MFGSystemSolver` invocation (between `ClearSolveCache` calls) are solved only once.
+
+**Expected impact**: Modest reduction in `Solve` calls during multi-step `TripleClean` fixed-point iteration.
+
+### Optimization 7: NonLinear tolerance-based early stopping
+
+**File**: `MFGraphs/NonLinearSolver.m`
+
+Added `"Tolerance" -> 0` option to `NonLinear`. When `Tolerance > 0`, iteration switches from `FixedPointList` (exact equality on Associations, rarely fires for floating-point results) to `NestWhileList` with a norm-based stopping condition: stops when the infinity-norm change in flow variables between consecutive iterations is below the tolerance.
+
+**Usage**: `NonLinear[d2e, "Tolerance" -> 10^-6]`
+
+**Expected impact**: Significant savings when problems converge in fewer than `MaxIterations` steps; previously all 15 iterations ran regardless of numerical convergence.
+
 ## Profiling scripts
 
 | Script | Purpose |
@@ -155,8 +181,6 @@ Benchmark results are exported as CSV and JSON with these fields:
 
 ## Recommendations for future work
 
-1. **Parallel DNFReduce branches**: `Or` branches in `DNFReduce` are independent and could be evaluated in parallel using `ParallelMap`.
-2. **Compiled Hamiltonian**: Use `Compile` or `FunctionCompile` for the Hamiltonian `H` and mass function `M` to reduce per-evaluation overhead.
+1. **Parallel DNFReduce branches**: `Or` branches in `DNFReduce` are independent and could be evaluated in parallel using `ParallelMap`. Note: parallel kernels do not share `$SolveCache`/`$ReduceCache`, so cache benefits would be per-branch only.
+2. **Compiled Hamiltonian**: Use `Compile` or `FunctionCompile` for the Hamiltonian `H` and mass function `M` to reduce per-evaluation overhead (feasible for the default `alpha`, `g` but not user-overridden versions).
 3. **Sparse matrix operations**: For large graphs (Grid1020), switch from dense `PseudoInverse` to sparse `LinearSolve` with pre-factorization.
-4. **Incremental TripleClean**: Cache partial results across `TripleStep` iterations instead of re-solving the full equality system each time.
-5. **Adaptive NonLinear stepping**: Use residual monitoring to skip unnecessary iterations when convergence is reached early.
