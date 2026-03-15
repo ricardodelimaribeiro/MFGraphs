@@ -13,7 +13,7 @@ Clone this repository and load the package in Mathematica:
 Needs["MFGraphs`"]
 
 (* Option 2: Direct load from a specific location *)
-Get["/path/to/MFGraphs/MFGraphs/MFGraphs.m"]
+Get["/path/to/MFGraphs/MFGraphs/MFGraphs.wl"]
 ```
 
 Requires Mathematica 12.0 or later.
@@ -211,13 +211,13 @@ V = Function[{x, edge}, 0.5 Sin[2 Pi (x + 1/4)]^2];
 
 ```
 MFGraphs/
-  MFGraphs.m              Package loader, verbose flag, MFGPrint helpers
-  DNFReduce.m             Boolean algebra (disjunctive normal form reduction)
-  DataToEquations.m                  Data-to-equations converter and critical congestion solver
-  NonLinearSolver.m       Iterative non-linear solver and Hamiltonian framework
-  Monotone.m              Monotone operator (ODE-based) solver
+  MFGraphs.wl             Package loader, verbose flag, MFGPrint helpers
+  DNFReduce.wl            Boolean algebra (disjunctive normal form reduction)
+  DataToEquations.wl      Data-to-equations converter and critical congestion solver
+  NonLinearSolver.wl      Iterative non-linear solver and Hamiltonian framework
+  Monotone.wl             Monotone operator (ODE-based) solver
   Examples/
-    ExamplesData.m         Built-in test cases and GetExampleData function
+    ExamplesData.wl        Built-in test cases and GetExampleData function
   Kernel/
     init.m                 Paclet initialization
 ```

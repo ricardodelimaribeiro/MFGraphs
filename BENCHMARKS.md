@@ -60,25 +60,25 @@ This generates `Results/bottleneck_report.md` with detailed call counts and timi
 
 ### 1. DNFReduce exponential branching
 
-`DNFReduce` in `DNFReduce.m` recursively converts boolean expressions to disjunctive normal form. For `Or` expressions with N branches, this creates up to 2^N recursive paths. Each path calls `Solve` (via `ReDNFReduce`) and `Reduce`, with no caching of results across branches.
+`DNFReduce` in `DNFReduce.wl` recursively converts boolean expressions to disjunctive normal form. For `Or` expressions with N branches, this creates up to 2^N recursive paths. Each path calls `Solve` (via `ReDNFReduce`) and `Reduce`, with no caching of results across branches.
 
 **Impact**: Dominates CriticalCongestionSolver runtime for cases with switching costs (keys 8, 10, 11, 14, Braess variants).
 
 ### 2. TripleClean fixed-point iteration
 
-`TripleClean` in `DataToEquations.m` repeatedly calls `TripleStep` until convergence. Each step calls `Solve` on the equality subsystem. Called multiple times per solver invocation (once in `MFGPreprocessing`, again in `MFGSystemSolver`).
+`TripleClean` in `DataToEquations.wl` repeatedly calls `TripleStep` until convergence. Each step calls `Solve` on the equality subsystem. Called multiple times per solver invocation (once in `MFGPreprocessing`, again in `MFGSystemSolver`).
 
 **Impact**: 5-10 iterations typical; each iteration involves symbolic solve of increasing complexity.
 
 ### 3. PseudoInverse in GradientProjection
 
-`GradientProjection` in `Monotone.m` computes `PseudoInverse` (O(n^3)) at every ODE evaluation step. For `NDSolve` with 100 time steps and adaptive stepping, this can mean hundreds of PseudoInverse calls with nearly-identical matrices.
+`GradientProjection` in `Monotone.wl` computes `PseudoInverse` (O(n^3)) at every ODE evaluation step. For `NDSolve` with 100 time steps and adaptive stepping, this can mean hundreds of PseudoInverse calls with nearly-identical matrices.
 
 **Impact**: Dominates MonotoneSolver runtime for larger graphs (Grid0303+).
 
 ### 4. Per-point FindRoot/NIntegrate
 
-`M[j, x, edge]` in `NonLinearSolver.m` calls `FindRoot` for every (j, x) evaluation point. `IntegratedMass` wraps this in `NIntegrate`, which samples M at many points. Called per-edge, per-iteration of `NonLinearSolver`.
+`M[j, x, edge]` in `NonLinearSolver.wl` calls `FindRoot` for every (j, x) evaluation point. `IntegratedMass` wraps this in `NIntegrate`, which samples M at many points. Called per-edge, per-iteration of `NonLinearSolver`.
 
 **Impact**: Significant for problems with many edges and many `NonLinearSolver` iterations.
 
@@ -86,7 +86,7 @@ This generates `Results/bottleneck_report.md` with detailed call counts and timi
 
 ### Optimization 1: DNFReduce Solve memoization
 
-**File**: `MFGraphs/DNFReduce.m`
+**File**: `MFGraphs/DNFReduce.wl`
 
 Added a hash-based cache (`$SolveCache`) for `Solve` results within `ReDNFReduce`. The same equality often appears across multiple branches of an `Or` expression; memoization avoids redundant symbolic solves.
 
@@ -97,7 +97,7 @@ Added a hash-based cache (`$SolveCache`) for `Solve` results within `ReDNFReduce
 
 ### Optimization 2: DNFReduce branch pruning
 
-**File**: `MFGraphs/DNFReduce.m`
+**File**: `MFGraphs/DNFReduce.wl`
 
 Added early-exit checks:
 - `DNFReduce[xp, And[fst, rst]]` returns `False` immediately when `xp === False`
@@ -107,7 +107,7 @@ Added early-exit checks:
 
 ### Optimization 3: PseudoInverse caching in MonotoneSolver
 
-**File**: `MFGraphs/Monotone.m`
+**File**: `MFGraphs/Monotone.wl`
 
 Added `CachedGradientProjection` that caches the PseudoInverse matrix and reuses it when the flow vector `x` hasn't changed beyond a tolerance threshold (default 10^-6).
 
@@ -118,7 +118,7 @@ Added `CachedGradientProjection` that caches the PseudoInverse matrix and reuses
 
 ### Optimization 4: M interpolation for NonLinearSolver
 
-**File**: `MFGraphs/NonLinearSolver.m`
+**File**: `MFGraphs/NonLinearSolver.wl`
 
 Added `PrecomputeM[jMin, jMax, edge, nPoints]` that builds an `InterpolatingFunction` from a grid of `FindRoot` evaluations. `FastIntegratedMass` and `FastIntegratedMass` use this interpolation instead of per-point `FindRoot` calls.
 
@@ -129,7 +129,7 @@ Added `PrecomputeM[jMin, jMax, edge, nPoints]` that builds an `InterpolatingFunc
 
 ### Optimization 5: DNFReduce sequential And-Or with early exit
 
-**File**: `MFGraphs/DNFReduce.m`
+**File**: `MFGraphs/DNFReduce.wl`
 
 The And-Or distribution case (`DNFReduce[xp_, And[fst_Or, rst_]]`) previously evaluated all disjuncts of `fst` unconditionally using `Map`. Replaced with a sequential `Do` loop and `Catch/Throw` that exits as soon as any branch returns `r === xp` — the same short-circuit condition used in the existing 2-arg Or case. When a branch leaves `xp` unchanged, it means the Or constraint is already satisfied, so remaining branches cannot contribute new information.
 
@@ -137,15 +137,15 @@ The And-Or distribution case (`DNFReduce[xp_, And[fst_Or, rst_]]`) previously ev
 
 ### Optimization 6: TripleStep Solve memoization
 
-**File**: `MFGraphs/DataToEquations.m`
+**File**: `MFGraphs/DataToEquations.wl`
 
-Both overloads of `TripleStep` called `Solve` directly. Replaced with `CachedSolve` (already defined in `DNFReduce.m`) so that identical equality systems encountered within a single `MFGSystemSolver` invocation (between `ClearSolveCache` calls) are solved only once.
+Both overloads of `TripleStep` called `Solve` directly. Replaced with `CachedSolve` (already defined in `DNFReduce.wl`) so that identical equality systems encountered within a single `MFGSystemSolver` invocation (between `ClearSolveCache` calls) are solved only once.
 
 **Expected impact**: Modest reduction in `Solve` calls during multi-step `TripleClean` fixed-point iteration.
 
 ### Optimization 7: NonLinearSolver tolerance-based early stopping
 
-**File**: `MFGraphs/NonLinearSolver.m`
+**File**: `MFGraphs/NonLinearSolver.wl`
 
 Added `"Tolerance" -> 0` option to `NonLinearSolver`. When `Tolerance > 0`, iteration switches from `FixedPointList` (exact equality on Associations, rarely fires for floating-point results) to `NestWhileList` with a norm-based stopping condition: stops when the infinity-norm change in flow variables between consecutive iterations is below the tolerance.
 

@@ -44,23 +44,23 @@ The package has a linear pipeline: **network data → equations → solver**.
 ```
 Data (Association)
   ↓
-DataToEquations[data]                    (DataToEquations.m)
+DataToEquations[data]                    (DataToEquations.wl)
   ↓
-CriticalCongestionSolver[d2e]           (DataToEquations.m, uses DNFReduce.m)
+CriticalCongestionSolver[d2e]           (DataToEquations.wl, uses DNFReduce.wl)
   ↓
 NonLinearSolver[criticalResult]  or  MonotoneSolverFromData[data]
 ```
 
-**Module load order** (defined in `MFGraphs.m`):
-1. `Examples/ExamplesData.m` — 34 built-in test cases via `GetExampleData[key]`
-2. `DNFReduce.m` — Boolean algebra solver (disjunctive normal form reduction with Solve/Reduce memoization and branch pruning)
-3. `DataToEquations.m` — Core converter: network topology → equations; implements `DataToEquations`, `CriticalCongestionSolver`, `MFGSystemSolver`, `TripleClean`
-4. `NonLinearSolver.m` — Iterative fixed-point solver (`NonLinearSolver`) using Hamiltonian framework (up to 15 iterations)
-5. `Monotone.m` — ODE-based gradient flow solver on Kirchhoff matrix using `NDSolve`
+**Module load order** (defined in `MFGraphs.wl`):
+1. `Examples/ExamplesData.wl` — 34 built-in test cases via `GetExampleData[key]`
+2. `DNFReduce.wl` — Boolean algebra solver (disjunctive normal form reduction with Solve/Reduce memoization and branch pruning)
+3. `DataToEquations.wl` — Core converter: network topology → equations; implements `DataToEquations`, `CriticalCongestionSolver`, `MFGSystemSolver`, `TripleClean`
+4. `NonLinearSolver.wl` — Iterative fixed-point solver (`NonLinearSolver`) using Hamiltonian framework (up to 15 iterations)
+5. `Monotone.wl` — ODE-based gradient flow solver on Kirchhoff matrix using `NDSolve`
 
-### Inner solver pipeline (DataToEquations.m)
+### Inner solver pipeline (DataToEquations.wl)
 
-The critical congestion solver has a multi-stage pipeline inside `DataToEquations.m`:
+The critical congestion solver has a multi-stage pipeline inside `DataToEquations.wl`:
 
 ```
 CriticalCongestionSolver
@@ -120,4 +120,4 @@ Symbolic parameters (e.g., `I1`, `U1`, `S1`) can be used and substituted with `/
 
 **Important**: Call `ClearSolveCache[]` between different problem instances to prevent stale cached results.
 
-Performance history is tracked in `DNF_PERFORMANCE_HISTORY.md`. When making changes to `DNFReduce.m`, run `CompareDNF.wls` with `--tag` to record the impact.
+Performance history is tracked in `DNF_PERFORMANCE_HISTORY.md`. When making changes to `DNFReduce.wl`, run `CompareDNF.wls` with `--tag` to record the impact.
