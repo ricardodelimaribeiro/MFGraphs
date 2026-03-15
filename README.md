@@ -216,27 +216,15 @@ MFGraphs/
   D2E2.m                  Data-to-equations converter and critical congestion solver
   NonLinearSolver.m       Iterative non-linear solver and Hamiltonian framework
   Monotone.m              Monotone operator (ODE-based) solver
-  IterationFunction2.m    Legacy solver (not loaded, kept for reference)
   Examples/
     ExamplesData.m         Built-in test cases and DataG function
-  Documentation/
-    English/Guides/        Package guide notebook
-    English/ReferencePages/ Symbol reference pages
   Kernel/
     init.m                 Paclet initialization
 ```
 
-## Example notebooks
+## Examples
 
-The repository includes working notebooks for each built-in test case:
-
-- **`Example_1.nb`** through **`Example_31.nb`** — numbered test cases
-- **`Braess.nb`**, **`BigBraess.nb`**, **`NewBraess.nb`** — Braess paradox variants
-- **`Jamarat-6v.nb`**, **`Jamarat-7v.nb`**, **`Jamarat-9v.nb`** — Jamarat pilgrimage network
-- **`Example_Grid0303.nb`**, **`Example_Grid1020.nb`**, **`Example_Grid2010.nb`** — grid graphs
-- **`Example_Paper.nb`** — example from the research paper
-- **`Paper2-critical-congestion.nb`** — critical congestion analysis
-- **`MFGraphs.nb`** — main package demonstration
+All examples are reproducible by running the code in this README using the `DataG[key]` function, which provides 34 built-in test cases. See the [Built-in examples](#built-in-examples) table for available keys.
 
 ## End-to-end example
 
