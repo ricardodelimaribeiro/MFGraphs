@@ -1,17 +1,41 @@
 (* Wolfram Language package *)
 (* Iterative solver for the non-critical (general) congestion case *)
 
-Clear[H, Cost];
-
-(* --- Options --- *)
-
-Options[NonLinearSolver] = {"MaxIterations" -> 15, "Tolerance" -> 0};
-
-(* --- NonLinearSolver: main iterative solver --- *)
+(* --- Public API declarations --- *)
 
 NonLinearSolver::usage =
     "NonLinearSolver[Eqs] takes an association resulting from DataToEquations and returns an approximation to the solution of the non-critical congestion case with alpha = value, specified by alpha[edge_] := value.
 Options: \"MaxIterations\" (default 15), \"Tolerance\" (default 0). When Tolerance > 0, iteration stops early when the infinity-norm change in flow variables between consecutive steps falls below the given tolerance.";
+
+IsNonLinearSolution::usage =
+"IsNonLinearSolution[Eqs] extracts AssoNonCritical and checks equations and inequalities. The right and left hand sides of the nonlinear equations are shown with the sup-norm of the difference."
+
+H::usage =
+"H[xi, p, m, edge] is the Hamiltonian function for the edges.
+edge is a directed edge from the graph."
+
+U::usage =
+"U[x, edge, Eqs, sol] computes the value function at position x on the given edge."
+
+PrecomputeM::usage =
+"PrecomputeM[jMin, jMax, edge, nPoints] precomputes M[j,x,edge] on a grid and returns
+an InterpolatingFunction. This avoids per-point FindRoot calls during NIntegrate.
+nPoints controls the grid resolution (default 50).";
+
+FastIntegratedMass::usage =
+"FastIntegratedMass[interpM, j, edge] computes IntegratedMass using a precomputed interpolation of M.
+interpM should be the result of PrecomputeM.";
+
+IsFeasible::usage =
+"IsFeasible[result] returns True if result[\"Status\"] is \"Feasible\".";
+
+Clear[H, Cost];
+
+Options[NonLinearSolver] = {"MaxIterations" -> 15, "Tolerance" -> 0};
+
+Begin["`Private`"];
+
+(* --- NonLinearSolver: main iterative solver --- *)
 
 NonLinearSolver[Eqs_, OptionsPattern[]] :=
     Module[ {AssoCritical, PreEqs = Eqs, AssoNonCritical, NonCriticalList, js,
@@ -37,7 +61,16 @@ NonLinearSolver[Eqs_, OptionsPattern[]] :=
         MFGPrint["Iterated ", Length[NonCriticalList]-1, " times out of ", MaxIter];
         AssoCritical = Lookup[PreEqs, "AssoCritical", NonCriticalList[[2]]];
         AssoNonCritical = NonCriticalList // Last;
-        Join[PreEqs, Association[{"AssoCritical" -> AssoCritical, "AssoNonCritical" -> AssoNonCritical}]]
+        (* Feasibility check on the non-linear solution *)
+        Module[{status, flowKeys, flowVals},
+            If[AssoNonCritical === Null,
+                status = "Infeasible",
+                flowKeys = Select[Keys[AssoNonCritical], MatchQ[#, _j] &];
+                flowVals = Lookup[AssoNonCritical, flowKeys];
+                status = If[flowVals === {} || Min[Select[flowVals, NumericQ]] < 0, "Infeasible", "Feasible"]
+            ];
+            Join[PreEqs, <|"AssoCritical" -> AssoCritical, "AssoNonCritical" -> AssoNonCritical, "Status" -> status|>]
+        ]
     ];
 
 (* --- nonLinearStep: single iteration --- *)
@@ -52,14 +85,11 @@ nonLinearStep[Eqs_][approxSol_] :=
         Newlhs = N[Nlhs/.approx];
         Newrhs = Nrhs/.approx;
         MFGPrint[Newlhs,"\n",Newrhs];
-        MFGPrint[Style["Max error for non-linear solution: ", Bold, Blue], Norm[Newlhs-Newrhs, Infinity]];
+        MFGPrint[Style["Max error for non-linear solution: ", Bold, Blue], Max[Abs[Flatten[{Newlhs-Newrhs}]]]];
         approx
     ];
 
 (* --- IsNonLinearSolution: validation --- *)
-
-IsNonLinearSolution::usage =
-"IsNonLinearSolution[Eqs] extracts AssoNonCritical and checks equations and inequalities. The right and left hand sides of the nonlinear equations are shown with the sup-norm of the difference."
 
 IsNonLinearSolution[Eqs_] :=
     Reap@Module[ {EqEntryIn, EqValueAuxiliaryEdges, IneqSwitchingByVertex, AltOptCond,
@@ -100,7 +130,7 @@ IsNonLinearSolution[Eqs_] :=
         
         Print[styleBlue@"Nlhs: ", Nlhs/.assoc, "\n", Nlhs];
         Print[styleBlue@"Nrhs: ", Nrhs/.assoc, "\n", Nrhs];
-        Print[styleBlue@"Max error for non-linear solution: ", Norm[N[Nlhs/.assoc]-(Nrhs/.assoc), Infinity]];
+        Print[styleBlue@"Max error for non-linear solution: ", Max[Abs[Flatten[{N[Nlhs/.assoc]-(Nrhs/.assoc)}]]]];
         N@assoc
     ];
 
@@ -115,13 +145,8 @@ g[m_, edge_] := -1/m^2
 (* Potential function - users should override V[x, edge] for specific problems *)
 (* Default: V = Function[{x, edge}, W[x, A]] where W[y,a] = a Sin[2 Pi (y+1/4)]^2 *)
 
-H::usage =
-"H[xi, p, m, edge] is the Hamiltonian function for the edges.
-edge is a directed edge from the graph."
 H = Function[{xi, p, m, edge}, p^2/(2 m^alpha[edge]) + V[xi, edge] - g[m, edge]];
 
-U::usage =
-"U[x, edge, Eqs, sol] computes the value function at position x on the given edge."
 U[x_?NumericQ , edge_, Eqs_Association, sol_] :=
     Module[ {jay, uT},
         jay = Eqs["SignedFlows"][List@@edge]/.sol;
@@ -150,11 +175,6 @@ Cost[j_, edge_] :=
 
 (* --- Interpolation-based M for faster Cost evaluation --- *)
 
-PrecomputeM::usage =
-"PrecomputeM[jMin, jMax, edge, nPoints] precomputes M[j,x,edge] on a grid and returns
-an InterpolatingFunction. This avoids per-point FindRoot calls during NIntegrate.
-nPoints controls the grid resolution (default 50).";
-
 PrecomputeM[jMin_?NumericQ, jMax_?NumericQ, edge_, nPoints_Integer:50] :=
   Module[{jVals, xVals, mGrid, flatData},
     jVals = Subdivide[jMin, jMax, nPoints];
@@ -176,10 +196,6 @@ PrecomputeM[jMin_?NumericQ, jMax_?NumericQ, edge_, nPoints_Integer:50] :=
     ];
     Interpolation[flatData, InterpolationOrder -> 3]
   ];
-
-FastIntegratedMass::usage =
-"FastIntegratedMass[interpM, j, edge] computes IntegratedMass using a precomputed interpolation of M.
-interpM should be the result of PrecomputeM.";
 
 FastIntegratedMass[interpM_, j_?NumericQ, edge_] :=
   If[PossibleZeroQ[j], 0,
@@ -211,3 +227,9 @@ PlotValueFunction[Eqs_Association, string_String, pair_List] :=
 
 PlotValueFunctions[Eqs_, string_] :=
     PlotValueFunction[Eqs, string, #] & /@ Lookup[Eqs, "pairs", {}]
+
+(* --- Feasibility check --- *)
+
+IsFeasible[result_Association] := Lookup[result, "Status", "Unknown"] === "Feasible";
+
+End[];

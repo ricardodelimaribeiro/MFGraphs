@@ -1,6 +1,6 @@
 (*Wolfram Language package*)
 
-(* --- Switching cost consistency --- *)
+(* --- Public API declarations --- *)
 
 ConsistentSwitchingCosts::usage =
 "ConsistentSwitchingCosts[switchingcosts][{a,b,c}->S]
@@ -8,6 +8,67 @@ returns True if S, the cost of switching from the edge ab to cb, is smaller than
 such as, ab to bd and then from db to bc.
 Returns the condition for this switching cost to satisfy the triangle inequality when S, and the other
 switching costs too, does not have a numerical value.";
+
+IsSwitchingCostConsistent::usage =
+"IsSwitchingCostConsistent[List of switching costs] is True if all switching costs satisfy the triangle inequality. If some switching costs are symbolic, then it returns the consistency conditions."
+
+AltFlowOp::usage =
+"AltFlowOp[j][list] returns the alternative: j@@list ==0 || j@@Reverse@list ==0.";
+
+FlowSplitting::usage =
+"FlowSplitting[AT][UndirectedEdge[a, b]] returns the splitting that start with {a,b}.";
+
+FlowGathering::usage=
+"FlowGathering[auxTriples_List][x_] returns the triples that end with x.";
+
+IneqSwitch::usage =
+"IneqSwitch[u, switchingCosts][{v,e1,e2}] returns the optimality condition at the vertex v related to switching from e1 to e2. Namely,
+u[{v, e1}] <= u[{v, e2}] + switchingCosts[{v, e1, e2}]"
+
+AltSwitch::usage =
+"AltSwitch[jt,u,switchingCosts][{v,e1,e2}] returns the complementarity condition:
+(jt[{v, e1, e2}] == 0) || (u[{v, e2}] - u[{v, e1}] + switchingCosts[{v, e1, e2}] == 0)"
+
+DataToEquations::usage = "DataToEquations[Data] returns the equations, \
+inequalities, and alternatives associated to the Data. "
+
+NumberVectorQ::usage =
+"NumberVectorQ[j] returns True if the vector j is numeric."
+
+GetKirchhoffMatrix::usage = "GetKirchhoffMatrix[d2e] returns the \
+entry current vector, Kirchhoff matrix, (critical congestion) cost \
+function, and the variables in the order corresponding to the Kirchhoff matrix."
+
+MFGPreprocessing::usage =
+"MFGPreprocessing[Eqs] returns the association Eqs with the preliminary solution \"InitRules\" and corresponding 'reduced' \"NewSystem\"."
+
+CriticalCongestionSolver::usage =
+  "CriticalCongestionSolver[Eqs] returns Eqs with an association \"AssoCritical\" with rules to
+the solution to the critical congestion case";
+
+MFGSystemSolver::usage =
+"MFGSystemSolver[Eqs][edgeEquations] returns the
+association with rules to the solution";
+
+DNFSolveStep::usage =
+"DNFSolveStep[{EE,NN,OR}, rules] takes a grouped system and some Association of rules (a partial solution). It returns the result of applying DNFReduce.";
+
+SystemToTriple::usage =
+"SystemToTriple[sys] returns a triple {equalities, inequalities, alternatives} from sys.
+The input should be a system of equations, inequalities and (simple) alternatives."
+
+TripleStep::usage =
+"TripleStep[{{EE,NN,OR},Rules}] returns {{NewEE, NewNN, NewOR}, NewRules}, where NewRules contain the solutions to all the equalities found in the system after replacing Rules in {EE,NN,OR}."
+
+TripleClean::usage =
+"TripleClean[{{EE,NN,OR},Rules}] composes TripleStep until it reaches a fixed point, that is, {{True,NewNN,NewOR},NewRules} such that replacement of NewRules in NewNN and NewOR do not produce equalities."
+
+Data2Equations::usage = "Data2Equations is a backward-compatibility alias for DataToEquations.";
+FinalStep::usage = "FinalStep is a backward-compatibility alias for DNFSolveStep.";
+
+Begin["`Private`"];
+
+(* --- Switching cost consistency --- *)
 
 ConsistentSwitchingCosts[sc_][{a_, b_, c_} -> S_] :=
     Module[ {origin, bounds},
@@ -20,8 +81,6 @@ ConsistentSwitchingCosts[sc_][{a_, b_, c_} -> S_] :=
         ]
     ];
 
-IsSwitchingCostConsistent::usage =
-"IsSwitchingCostConsistent[List of switching costs] is True if all switching costs satisfy the triangle inequality. If some switching costs are symbolic, then it returns the consistency conditions."
 IsSwitchingCostConsistent[switchingCosts_] :=
     And @@ Simplify[ConsistentSwitchingCosts[switchingCosts] /@ switchingCosts]
 
@@ -30,35 +89,21 @@ IsSwitchingCostConsistent[switchingCosts_] :=
 TransitionsAt[G_, k_] :=
     Insert[k,2] /@ Permutations[AdjacencyList[G, k], {2}]
 
-AltFlowOp::usage =
-"AltFlowOp[j][list] returns the alternative: j@@list ==0 || j@@Reverse@list ==0.";
 AltFlowOp[j_][list_]:=
 	j@@list==0||j@@Reverse@list==0;
 
-FlowSplitting::usage =
-"FlowSplitting[AT][UndirectedEdge[a, b]] returns the splitting that start with {a,b}.";
 FlowSplitting[auxTriples_List][x_] := Select[auxTriples, MatchQ[#,{Sequence@@x,__}]&] ;
 
-FlowGathering::usage=
-"FlowGathering[auxTriples_List][x_] returns the triples that end with x.";
 FlowGathering[auxTriples_List][x_] := Select[auxTriples, MatchQ[#,{__,Sequence@@x}]&]
 
-IneqSwitch::usage =
-"IneqSwitch[u, switchingCosts][{v,e1,e2}] returns the optimality condition at the vertex v related to switching from e1 to e2. Namely,
-u[{v, e1}] <= u[{v, e2}] + switchingCosts[{v, e1, e2}]"
 IneqSwitch[u_,Switching_Association][r_,i_,w_] := u[r,i] <= u[w,i]+Switching[{r,i,w}];
 
-AltSwitch::usage =
-"AltSwitch[jt,u,switchingCosts][{v,e1,e2}] returns the complementarity condition:
-(jt[{v, e1, e2}] == 0) || (u[{v, e2}] - u[{v, e1}] + switchingCosts[{v, e1, e2}] == 0)"
 AltSwitch[j_, u_, Switching_][r_, i_, w_] :=
     (j[r,i,w] == 0) ||
     (u[r,i] == u[w,i] + Switching[{r,i,w}]);
 
 (* --- DataToEquations: main converter --- *)
 
-DataToEquations::usage = "DataToEquations[Data] returns the equations, \
-inequalities, and alternatives associated to the Data. "
 DataToEquations[Data_Association] :=
     Module[ {verticesList, adjacencyMatrix, entryVerticesFlows, exitVerticesCosts,
     	switchingCosts, graph, entryVertices, auxEntryVertices,
@@ -205,8 +250,6 @@ DataToEquations[Data_Association] :=
 
 (* --- Utility --- *)
 
-NumberVectorQ::usage =
-"NumberVectorQ[j] returns True if the vector j is numeric."
 NumberVectorQ[j_] :=
     And @@ (NumberQ /@ j);
 
@@ -224,9 +267,6 @@ RoundValues[x_Association] :=
 
 (* --- GetKirchhoffMatrix --- *)
 
-GetKirchhoffMatrix::usage = "GetKirchhoffMatrix[d2e] returns the \
-entry current vector, Kirchhoff matrix, (critical congestion) cost \
-function, and the variables in the order corresponding to the Kirchhoff matrix."
 GetKirchhoffMatrix[Eqs_] :=
     Module[ {Kirchhoff, EqEntryIn = Lookup[Eqs, "EqEntryIn", True],
       BalanceGatheringFlows =
@@ -252,8 +292,6 @@ GetKirchhoffMatrix[Eqs_] :=
 
 (* --- MFGPreprocessing --- *)
 
-MFGPreprocessing::usage =
-"MFGPreprocessing[Eqs] returns the association Eqs with the preliminary solution \"InitRules\" and corresponding 'reduced' \"NewSystem\"."
 MFGPreprocessing[Eqs_] :=
     Module[ {InitRules, RuleBalanceGatheringFlows, EqEntryIn,
       RuleEntryOut, RuleExitFlowsIn, RuleExitValues,
@@ -319,14 +357,10 @@ MFGPreprocessing[Eqs_] :=
 
 (* --- CriticalCongestionSolver --- *)
 
-CriticalCongestionSolver::usage =
-  "CriticalCongestionSolver[Eqs] returns Eqs with an association \"AssoCritical\" with rules to
-the solution to the critical congestion case";
-
 CriticalCongestionSolver[$Failed] := $Failed
 
 CriticalCongestionSolver[Eqs_] :=
-    Module[ {PreEqs, js, AssoCritical, time, temp},
+    Module[ {PreEqs, js, AssoCritical, time, temp, status},
     	ClearSolveCache[];
     	If[KeyExistsQ[Eqs,"InitRules"],
     		PreEqs = Eqs,
@@ -337,14 +371,19 @@ CriticalCongestionSolver[Eqs_] :=
         ];
         js = Lookup[PreEqs, "js", $Failed];
         AssoCritical = MFGSystemSolver[PreEqs][AssociationThread[js, 0 js]];
-        Join[PreEqs, Association["AssoCritical"-> AssoCritical]]
+        (* Feasibility check: any flow variable with negative numeric value *)
+        status = If[AssoCritical === Null, "Infeasible",
+            Module[{flowKeys, flowVals},
+                flowKeys = Select[Keys[AssoCritical], MatchQ[#, _j] &];
+                flowVals = Lookup[AssoCritical, flowKeys];
+                If[flowVals === {} || Min[Select[flowVals, NumericQ]] < 0, "Infeasible", "Feasible"]
+            ]
+        ];
+        Join[PreEqs, <|"AssoCritical" -> AssoCritical, "Status" -> status|>]
     ];
 
 (* --- MFGSystemSolver --- *)
 
-MFGSystemSolver::usage =
-"MFGSystemSolver[Eqs][edgeEquations] returns the
-association with rules to the solution";
 MFGSystemSolver[Eqs_][approxJs_] :=
     Module[ {NewSystem, InitRules, pickOne, vars, System, Ncpc,
         costpluscurrents, us, js, jts, jjtsR, usR, time, temp,
@@ -368,7 +407,11 @@ MFGSystemSolver[Eqs_][approxJs_] :=
 
         (* Retrieve some equalities from the inequalities: group by transition flow *)
         temp = MFGPrintTemporary["MFGSS: Selecting inequalities by transition flow..."];
-        {time, ineqsByTransition} = AbsoluteTiming[Select[NewSystem[[2]], Function[exp, !FreeQ[#][exp]]]&/@jts];
+        If[NewSystem[[2]] === True,
+            ineqsByTransition = ConstantArray[True, Length[jts]];
+            time = 0.,
+            {time, ineqsByTransition} = AbsoluteTiming[Select[NewSystem[[2]], Function[exp, !FreeQ[#][exp]]]&/@jts]
+        ];
         NotebookDelete[temp];
         MFGPrint["MFGSS: Selecting inequalities by transition flow took ", time, " seconds. ", Length[ineqsByTransition]];
         temp = MFGPrintTemporary["MFGSS: Simplifying inequalities by transition flow..."];
@@ -425,9 +468,6 @@ MFGSystemSolver[Eqs_][approxJs_] :=
 
 (* --- DNFSolveStep --- *)
 
-DNFSolveStep::usage =
-"DNFSolveStep[{EE,NN,OR}, rules] takes a grouped system and some Association of rules (a partial solution). It returns the result of applying DNFReduce.";
-
 DNFSolveStep[{{EE_?BooleanQ, NN_?BooleanQ, OR_?BooleanQ}, rules_}] :=
     {{EE, NN, OR}, rules}
 
@@ -459,10 +499,6 @@ DNFSolveStep[{{EE_, NN_, OO_}, rules_}] :=
 
 (* --- SystemToTriple: decompose into equalities, inequalities, alternatives --- *)
 
-SystemToTriple::usage =
-"SystemToTriple[sys] returns a triple {equalities, inequalities, alternatives} from sys.
-The input should be a system of equations, inequalities and (simple) alternatives."
-
 SystemToTriple[True] = Table[True, 3]
 
 SystemToTriple[False] = Table[False, 3]
@@ -486,9 +522,6 @@ SystemToTriple[system_] :=
          {True, system, True}];
 
 (* --- TripleStep / TripleClean: fixed-point simplification --- *)
-
-TripleStep::usage =
-"TripleStep[{{EE,NN,OR},Rules}] returns {{NewEE, NewNN, NewOR}, NewRules}, where NewRules contain the solutions to all the equalities found in the system after replacing Rules in {EE,NN,OR}."
 
 TripleStep[{{EEs_, NNs_, ORs_}, rules_List}] :=
     TripleStep[{{EEs, NNs, ORs}, Association@rules}]
@@ -520,10 +553,10 @@ TripleStep[{{EEs_, NNs_, ORs_}, rules_Association}] :=
     {{EE, NN, OR}, newrules}
     ];
 
-TripleClean::usage =
-"TripleClean[{{EE,NN,OR},Rules}] composes TripleStep until it reaches a fixed point, that is, {{True,NewNN,NewOR},NewRules} such that replacement of NewRules in NewNN and NewOR do not produce equalities."
 TripleClean[{{EE_, NN_, OR_}, rules_}] := FixedPoint[TripleStep, {{EE, NN, OR}, rules}];
 
 (* --- Backward compatibility aliases --- *)
 Data2Equations = DataToEquations;
 FinalStep = DNFSolveStep;
+
+End[];
