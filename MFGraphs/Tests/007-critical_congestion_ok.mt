@@ -1,6 +1,6 @@
 (* Wolfram Language Test file *)
 Test[
-	MFGEquations = Data2Equations[DataG[7] /. {I1 -> 11, U1 -> 0, U2 -> 10}];
+	MFGEquations = DataToEquations[GetExampleData[7] /. {I1 -> 11, U1 -> 0, U2 -> 10}];
     CriticalCongestionSolver[MFGEquations]["AssoCritical"]
 	,
 	(*currents result*)

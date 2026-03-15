@@ -9,13 +9,13 @@ DNFReduce[xp, sys, elem] is the 3-argument form that processes a single element
 from a conjunction: if elem is an equality, solve and substitute into xp and sys;
 otherwise, absorb elem into xp and continue with sys.";
 
-ReplaceSolution::usage =
-"ReplaceSolution[xp, sol] substitutes the Rule sol into the expression xp.
+SubstituteSolution::usage =
+"SubstituteSolution[xp, sol] substitutes the Rule sol into the expression xp.
 If the result has Head And, it simplifies the first conjunct.
 Otherwise, it simplifies the whole expression.";
 
-RemoveDuplicates::usage =
-"RemoveDuplicates[xp] sorts (by SimplifyCount) and then DeleteDuplicates.
+DeduplicateByComplexity::usage =
+"DeduplicateByComplexity[xp] sorts (by SimplifyCount) and then DeleteDuplicates.
 For example, (A && B) || (B && A) becomes (A && B) only after sorting.";
 
 ClearSolveCache::usage =
@@ -77,7 +77,7 @@ DNFReduce[xp_, And[fst_, rst_]] :=
                         accumulated = Or[accumulated, r],   (* Or[False, x] -> x automatically *)
                         {b, List @@ fst}
                     ];
-                    If[accumulated === False, False, RemoveDuplicates[accumulated]]
+                    If[accumulated === False, False, DeduplicateByComplexity[accumulated]]
                 ],
                 "dnfAndOr"
             ],
@@ -99,7 +99,7 @@ DNFReduce[xp_, Or[fst_, scd_]] :=
           result1 === False && result2 === False, False,
           result1 === False, result2,
           result2 === False, result1,
-          True, RemoveDuplicates@(Or @@ {result1, result2})
+          True, DeduplicateByComplexity@(Or @@ {result1, result2})
         ]
       ]
     ]
@@ -115,10 +115,10 @@ DNFReduce[xp_, rst_, fst_Equal] :=
         If[ newfst === False,
             False,
             fsol = First@CachedSolve@newfst;
-            newxp = ReplaceSolution[xp, fsol];
+            newxp = SubstituteSolution[xp, fsol];
             If[ newxp === False,
                 False,
-                newrst = ReplaceSolution[rst, fsol];
+                newrst = SubstituteSolution[rst, fsol];
                 DNFReduce[newxp && fst, newrst]
             ]
         ]
@@ -127,11 +127,11 @@ DNFReduce[xp_, rst_, fst_Equal] :=
 (* Default: absorb the element into xp and continue with rst *)
 DNFReduce[xp_, rst_, fst_] := DNFReduce[xp && fst, rst]
 
-(* --- ReplaceSolution --- *)
+(* --- SubstituteSolution --- *)
 
-ReplaceSolution[rst_?BooleanQ, sol_] := rst
+SubstituteSolution[rst_?BooleanQ, sol_] := rst
 
-ReplaceSolution[rst_, sol_] :=
+SubstituteSolution[rst_, sol_] :=
     With[{newrst = rst /. sol},
         If[ Head[newrst] === And,
             And[Simplify@First@newrst, Rest@newrst],
@@ -139,12 +139,16 @@ ReplaceSolution[rst_, sol_] :=
         ]
     ]
 
-(* --- RemoveDuplicates --- *)
+(* --- DeduplicateByComplexity --- *)
 
 sortByComplexity = SortBy[Simplify`SimplifyCount];
 
-RemoveDuplicates[xp_And] := DeleteDuplicates[sortByComplexity[xp]];
+DeduplicateByComplexity[xp_And] := DeleteDuplicates[sortByComplexity[xp]];
 
-RemoveDuplicates[xp_Or] := DeleteDuplicates[sortByComplexity[xp]];
+DeduplicateByComplexity[xp_Or] := DeleteDuplicates[sortByComplexity[xp]];
 
-RemoveDuplicates[xp_] := xp
+DeduplicateByComplexity[xp_] := xp
+
+(* --- Backward compatibility aliases --- *)
+RemoveDuplicates = DeduplicateByComplexity;
+ReplaceSolution = SubstituteSolution;

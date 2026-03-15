@@ -43,9 +43,6 @@ FlowGathering::usage=
 "FlowGathering[auxTriples_List][x_] returns the triples that end with x.";
 FlowGathering[auxTriples_List][x_] := Select[auxTriples, MatchQ[#,{__,Sequence@@x}]&]
 
-IncomingEdges[FG_][k_] :=
-    {k, #1} & /@ IncidenceList[FG, k];
-
 IneqSwitch::usage =
 "IneqSwitch[u, switchingCosts][{v,e1,e2}] returns the optimality condition at the vertex v related to switching from e1 to e2. Namely,
 u[{v, e1}] <= u[{v, e2}] + switchingCosts[{v, e1, e2}]"
@@ -58,11 +55,11 @@ AltSwitch[j_, u_, Switching_][r_, i_, w_] :=
     (j[r,i,w] == 0) ||
     (u[r,i] == u[w,i] + Switching[{r,i,w}]);
 
-(* --- Data2Equations: main converter --- *)
+(* --- DataToEquations: main converter --- *)
 
-Data2Equations::usage = "Data2Equations[Data] returns the equations, \
+DataToEquations::usage = "DataToEquations[Data] returns the equations, \
 inequalities, and alternatives associated to the Data. "
-Data2Equations[Data_Association] :=
+DataToEquations[Data_Association] :=
     Module[ {verticesList, adjacencyMatrix, entryVerticesFlows, exitVerticesCosts,
     	switchingCosts, graph, entryVertices, auxEntryVertices,
       exitVertices, auxExitVertices, entryEdges, exitEdges,
@@ -238,7 +235,7 @@ GetKirchhoffMatrix[Eqs_] :=
        Lookup[Eqs, "BalanceSplittingFlows", {}],
       RuleExitFlowsIn = Lookup[Eqs, "RuleExitFlowsIn", {}],
       RuleEntryOut = Lookup[Eqs, "RuleEntryOut", {}], BM, KM, vars,
-      CostArgs = Lookup[Eqs, "CostArgs", <||>], cost, CCost},
+      cost, CCost},
         Kirchhoff = Join[EqEntryIn, (# == 0 & /@ (BalanceGatheringFlows + BalanceSplittingFlows))];
         Kirchhoff = Kirchhoff /. Join[RuleExitFlowsIn, RuleEntryOut];
         (* Extract all flow variables from the Kirchhoff system *)
@@ -375,7 +372,7 @@ MFGSystemSolver[Eqs_][approxJs_] :=
         NotebookDelete[temp];
         MFGPrint["MFGSS: Selecting inequalities by transition flow took ", time, " seconds. ", Length[ineqsByTransition]];
         temp = MFGPrintTemporary["MFGSS: Simplifying inequalities by transition flow..."];
-        {time, ineqsByTransition}= AbsoluteTiming[RemoveDuplicates[Simplify/@ineqsByTransition]];
+        {time, ineqsByTransition}= AbsoluteTiming[DeduplicateByComplexity[Simplify/@ineqsByTransition]];
         NotebookDelete[temp];
         MFGPrint["MFGSS: Simplifying inequalities by transition flow took ", time, " seconds. "];
 
@@ -383,7 +380,7 @@ MFGSystemSolver[Eqs_][approxJs_] :=
 		NewSystem = SystemToTriple[And@@NewSystem];
 		{NewSystem,InitRules} = TripleClean[{NewSystem,InitRules}];
 
-		{NewSystem, InitRules} = FinalStep[{NewSystem, InitRules}];
+		{NewSystem, InitRules} = DNFSolveStep[{NewSystem, InitRules}];
 
         System = BooleanConvert[NewSystem[[3]]]&&NewSystem[[2]];
         MFGPrint["BooleanConvert done. Simplifying..."];
@@ -426,21 +423,21 @@ MFGSystemSolver[Eqs_][approxJs_] :=
         InitRules
     ];
 
-(* --- FinalStep --- *)
+(* --- DNFSolveStep --- *)
 
-FinalStep::usage =
-"FinalStep[{EE,NN,OR}, rules] takes a grouped system and some Association of rules (a partial solution). It returns the result of applying DNFReduce.";
+DNFSolveStep::usage =
+"DNFSolveStep[{EE,NN,OR}, rules] takes a grouped system and some Association of rules (a partial solution). It returns the result of applying DNFReduce.";
 
-FinalStep[{{EE_?BooleanQ, NN_?BooleanQ, OR_?BooleanQ}, rules_}] :=
+DNFSolveStep[{{EE_?BooleanQ, NN_?BooleanQ, OR_?BooleanQ}, rules_}] :=
     {{EE, NN, OR}, rules}
 
-FinalStep[{{EE_, NN_, OO_}, rules_}] :=
+DNFSolveStep[{{EE_, NN_, OO_}, rules_}] :=
     Module[ {NewSystem, newrules, sorted = True, time, temp},
         {NewSystem, newrules} = TripleClean[{{EE, NN, OO}, rules}];
         If[NewSystem[[3]] === True,
             Return[{NewSystem, newrules}, Module],
             MFGPrint["Final: ", Length/@NewSystem];
-            sorted = RemoveDuplicates[NewSystem[[3]]];
+            sorted = DeduplicateByComplexity[NewSystem[[3]]];
         ];
         temp = MFGPrintTemporary["Final: Iterative DNF conversion on " , Length[sorted]," disjunctions..."];
         {time, NewSystem} = AbsoluteTiming[DNFReduce[And @@ Most[NewSystem], sorted]];
@@ -526,3 +523,7 @@ TripleStep[{{EEs_, NNs_, ORs_}, rules_Association}] :=
 TripleClean::usage =
 "TripleClean[{{EE,NN,OR},Rules}] composes TripleStep until it reaches a fixed point, that is, {{True,NewNN,NewOR},NewRules} such that replacement of NewRules in NewNN and NewOR do not produce equalities."
 TripleClean[{{EE_, NN_, OR_}, rules_}] := FixedPoint[TripleStep, {{EE, NN, OR}, rules}];
+
+(* --- Backward compatibility aliases --- *)
+Data2Equations = DataToEquations;
+FinalStep = DNFSolveStep;

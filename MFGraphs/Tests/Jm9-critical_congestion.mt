@@ -3,7 +3,7 @@
 
 Test[
 	Quiet[
-		d2e = Data2Equations[DataG["Jamaratv9"] /. {I1 -> 130, I2 -> 128, U1 -> 20, U2 -> 100, U3 -> 0}];
+		d2e = DataToEquations[GetExampleData["Jamaratv9"] /. {I1 -> 130, I2 -> 128, U1 -> 20, U2 -> 100, U3 -> 0}];
 		result = CriticalCongestionSolver[d2e]["AssoCritical"];
 		Min[Select[Values[result], NumericQ]] < 0
 	]

@@ -66,7 +66,7 @@ This generates `Results/bottleneck_report.md` with detailed call counts and timi
 
 ### 2. TripleClean fixed-point iteration
 
-`TripleClean` in `D2E2.m` repeatedly calls `TripleStep` until convergence. Each step calls `Solve` on the equality subsystem. Called multiple times per solver invocation (once in `MFGPreprocessing`, again in `MFGSystemSolver`).
+`TripleClean` in `DataToEquations.m` repeatedly calls `TripleStep` until convergence. Each step calls `Solve` on the equality subsystem. Called multiple times per solver invocation (once in `MFGPreprocessing`, again in `MFGSystemSolver`).
 
 **Impact**: 5-10 iterations typical; each iteration involves symbolic solve of increasing complexity.
 
@@ -120,10 +120,10 @@ Added `CachedGradientProjection` that caches the PseudoInverse matrix and reuses
 
 **File**: `MFGraphs/NonLinearSolver.m`
 
-Added `PrecomputeM[jMin, jMax, edge, nPoints]` that builds an `InterpolatingFunction` from a grid of `FindRoot` evaluations. `FastIntegratedMass` and `FastCost` use this interpolation instead of per-point `FindRoot` calls.
+Added `PrecomputeM[jMin, jMax, edge, nPoints]` that builds an `InterpolatingFunction` from a grid of `FindRoot` evaluations. `FastIntegratedMass` and `FastIntegratedMass` use this interpolation instead of per-point `FindRoot` calls.
 
 - `nPoints` controls grid resolution (default 50)
-- Users can switch between exact (`Cost`/`IntegratedMass`) and fast (`FastCost`/`FastIntegratedMass`) versions
+- Users can switch between exact (`Cost`/`IntegratedMass`) and fast (`FastIntegratedMass`/`FastIntegratedMass`) versions
 
 **Expected impact**: Large speedup for NIntegrate-heavy iterations; slight numerical approximation controlled by grid resolution.
 
@@ -137,7 +137,7 @@ The And-Or distribution case (`DNFReduce[xp_, And[fst_Or, rst_]]`) previously ev
 
 ### Optimization 6: TripleStep Solve memoization
 
-**File**: `MFGraphs/D2E2.m`
+**File**: `MFGraphs/DataToEquations.m`
 
 Both overloads of `TripleStep` called `Solve` directly. Replaced with `CachedSolve` (already defined in `DNFReduce.m`) so that identical equality systems encountered within a single `MFGSystemSolver` invocation (between `ClearSolveCache` calls) are solved only once.
 
@@ -173,7 +173,7 @@ Benchmark results are exported as CSV and JSON with these fields:
 | Solver | CriticalCongestion/NonLinearSolver/Monotone |
 | NumVertices | Graph vertex count |
 | NumEdges | Graph edge count |
-| D2ETime | Data2Equations wall time (seconds) |
+| D2ETime | DataToEquations wall time (seconds) |
 | SolveTime | Solver wall time (seconds) |
 | SolveMemory | Peak memory delta (bytes) |
 | Status | OK/TIMEOUT/FAILED/SKIPPED |

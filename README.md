@@ -25,10 +25,10 @@ Requires Mathematica 12.0 or later.
 << MFGraphs`
 
 (* Pick a built-in test case: a 4-vertex "attraction" network *)
-Data = DataG[12] /. {I1 -> 100, U1 -> 0};
+Data = GetExampleData[12] /. {I1 -> 100, U1 -> 0};
 
 (* Convert network data to equations *)
-d2e = Data2Equations[Data];
+d2e = DataToEquations[Data];
 
 (* Solve the critical congestion case (all flows start at zero) *)
 result = CriticalCongestionSolver[d2e];
@@ -68,8 +68,8 @@ Symbolic values (e.g., `I1`, `U1`, `S1`) can be used and substituted later with 
 Solves the special case where all edge flows are zero. This is typically the fastest solver and serves as the starting point for the non-linear solver.
 
 ```mathematica
-Data = DataG[7] /. {I1 -> 50, U1 -> 0, U2 -> 0};
-d2e = Data2Equations[Data];
+Data = GetExampleData[7] /. {I1 -> 50, U1 -> 0, U2 -> 0};
+d2e = DataToEquations[Data];
 result = CriticalCongestionSolver[d2e];
 result["AssoCritical"]
 ```
@@ -82,8 +82,8 @@ Iteratively solves the full non-linear problem using fixed-point iteration. Uses
 (* Define the potential function V and parameters before solving *)
 V = Function[{x, edge}, 0.5 Sin[2 Pi (x + 1/4)]^2];
 
-Data = DataG[12] /. {I1 -> 100, U1 -> 0};
-d2e = Data2Equations[Data];
+Data = GetExampleData[12] /. {I1 -> 100, U1 -> 0};
+d2e = DataToEquations[Data];
 
 (* Solve iteratively (default: up to 15 iterations) *)
 result = NonLinearSolver[d2e];
@@ -107,7 +107,7 @@ result = NonLinearSolver[d2e, "MaxIterations" -> 30];
 An ODE-based solver using gradient flow on the Kirchhoff matrix.
 
 ```mathematica
-Data = DataG[3] /. {I1 -> 80, U1 -> 0};
+Data = GetExampleData[3] /. {I1 -> 80, U1 -> 0};
 solution = MonotoneSolverFromData[Data]
 ```
 
@@ -144,9 +144,9 @@ Switching costs model the price agents pay when transitioning between edges at a
 
 ```mathematica
 (* Y-network with switching costs *)
-Data = DataG[8] /. {I1 -> 100, U1 -> 0, U2 -> 0,
+Data = GetExampleData[8] /. {I1 -> 100, U1 -> 0, U2 -> 0,
                      S1 -> 2, S2 -> 3, S3 -> 2, S4 -> 1, S5 -> 3, S6 -> 1};
-d2e = Data2Equations[Data];
+d2e = DataToEquations[Data];
 
 (* Verify switching costs satisfy triangle inequality *)
 IsSwitchingCostConsistent[Normal @ d2e["SwitchingCosts"]]
@@ -155,7 +155,7 @@ IsSwitchingCostConsistent[Normal @ d2e["SwitchingCosts"]]
 
 ## Built-in examples
 
-Use `DataG[key]` to load predefined test cases:
+Use `GetExampleData[key]` to load predefined test cases:
 
 | Key | Network |
 |---|---|
@@ -213,18 +213,18 @@ V = Function[{x, edge}, 0.5 Sin[2 Pi (x + 1/4)]^2];
 MFGraphs/
   MFGraphs.m              Package loader, verbose flag, MFGPrint helpers
   DNFReduce.m             Boolean algebra (disjunctive normal form reduction)
-  D2E2.m                  Data-to-equations converter and critical congestion solver
+  DataToEquations.m                  Data-to-equations converter and critical congestion solver
   NonLinearSolver.m       Iterative non-linear solver and Hamiltonian framework
   Monotone.m              Monotone operator (ODE-based) solver
   Examples/
-    ExamplesData.m         Built-in test cases and DataG function
+    ExamplesData.m         Built-in test cases and GetExampleData function
   Kernel/
     init.m                 Paclet initialization
 ```
 
 ## Examples
 
-All examples are reproducible by running the code in this README using the `DataG[key]` function, which provides 34 built-in test cases. See the [Built-in examples](#built-in-examples) table for available keys.
+All examples are reproducible by running the code in this README using the `GetExampleData[key]` function, which provides 34 built-in test cases. See the [Built-in examples](#built-in-examples) table for available keys.
 
 ## End-to-end example
 
@@ -234,10 +234,10 @@ A complete workflow for a Braess-paradox network with congestion:
 << MFGraphs`
 
 (* Load the Braess congestion example *)
-Data = DataG["Braess congest"];
+Data = GetExampleData["Braess congest"];
 
 (* Convert to equations *)
-d2e = Data2Equations[Data];
+d2e = DataToEquations[Data];
 
 (* View the constructed graph *)
 d2e["auxiliaryGraph"]

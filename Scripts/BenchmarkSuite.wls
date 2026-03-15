@@ -106,9 +106,9 @@ BenchmarkCase[key_] :=
     Print["\n--- Case: ", key, " (tier: ", tier, ") ---"];
 
     (* Load data *)
-    data = Quiet @ Check[DataG[key], $Failed];
+    data = Quiet @ Check[GetExampleData[key], $Failed];
     If[data === $Failed,
-      Print["  FAILED to load DataG[", key, "]"];
+      Print["  FAILED to load GetExampleData[", key, "]"];
       Return[{<|"Key" -> ToString[key], "Tier" -> tier, "Solver" -> "ALL",
                "Status" -> "FAILED", "Timestamp" -> DateString[]|>}]
     ];
@@ -119,13 +119,13 @@ BenchmarkCase[key_] :=
     ];
 
     (* Convert to equations (timed separately) *)
-    Print["  Running Data2Equations..."];
-    d2eResult = SafeExecute[Data2Equations[data], timeout];
+    Print["  Running DataToEquations..."];
+    d2eResult = SafeExecute[DataToEquations[data], timeout];
     Print["    D2E Status: ", d2eResult["Status"],
           " | Time: ", FormatTime[d2eResult["Time"]], "s"];
 
     If[d2eResult["Status"] =!= "OK",
-      Return[{<|"Key" -> ToString[key], "Tier" -> tier, "Solver" -> "Data2Equations",
+      Return[{<|"Key" -> ToString[key], "Tier" -> tier, "Solver" -> "DataToEquations",
                "D2ETime" -> d2eResult["Time"], "Status" -> d2eResult["Status"],
                "Timestamp" -> DateString[]|>}]
     ];

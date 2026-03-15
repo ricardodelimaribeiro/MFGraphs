@@ -12,7 +12,7 @@ InitProfile[] := (
   $ProfileTimings = <|
     "DNFReduce" -> 0., "DNFReduce_Solve" -> 0., "DNFReduce_Reduce" -> 0.,
     "DNFReduce_Simplify" -> 0., "TripleStep" -> 0., "TripleClean" -> 0.,
-    "FinalStep" -> 0., "BooleanConvert" -> 0.,
+    "DNFSolveStep" -> 0., "BooleanConvert" -> 0.,
     "GradientProjection" -> 0., "PseudoInverse" -> 0.,
     "FindRoot" -> 0., "NIntegrate" -> 0.,
     "MFGSystemSolver" -> 0., "MFGPreprocessing" -> 0.
@@ -20,7 +20,7 @@ InitProfile[] := (
   $ProfileCounts = <|
     "DNFReduce" -> 0, "DNFReduce_Solve" -> 0, "DNFReduce_Reduce" -> 0,
     "DNFReduce_Simplify" -> 0, "TripleStep" -> 0, "TripleClean" -> 0,
-    "FinalStep" -> 0, "BooleanConvert" -> 0,
+    "DNFSolveStep" -> 0, "BooleanConvert" -> 0,
     "GradientProjection" -> 0, "PseudoInverse" -> 0,
     "FindRoot" -> 0, "NIntegrate" -> 0,
     "MFGSystemSolver" -> 0, "MFGPreprocessing" -> 0
@@ -86,7 +86,7 @@ ProfileReportMarkdown[] :=
 $InProfileDNFReduce = False;
 $InProfileTripleStep = False;
 $InProfileTripleClean = False;
-$InProfileFinalStep = False;
+$InProfileDNFSolveStep = False;
 $InProfileGradProj = False;
 
 InstallProfileWrappers[] :=

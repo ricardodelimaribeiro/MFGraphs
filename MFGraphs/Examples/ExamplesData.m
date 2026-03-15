@@ -406,31 +406,34 @@
 ];
 
 
-(* --- DataG: construct an Association from a test case --- *)
+(* --- GetExampleData: construct an Association from a test case --- *)
 
-DataG::usage =
-"DataG[n] returns an Association with keys \"Vertices List\", \"Adjacency Matrix\",
+GetExampleData::usage =
+"GetExampleData[n] returns an Association with keys \"Vertices List\", \"Adjacency Matrix\",
 \"Entrance Vertices and Flows\", \"Exit Vertices and Terminal Costs\", and \"Switching Costs\"
 from the test case test[n].
 Supports test cases with 5 fields (basic), 6 fields (+cost function 'a'), or 7 fields (+alpha).";
 
-$DataGFieldNames5 = {
+$ExampleDataFields5 = {
     "Vertices List",
     "Adjacency Matrix",
     "Entrance Vertices and Flows",
     "Exit Vertices and Terminal Costs",
     "Switching Costs"};
 
-$DataGFieldNames6 = Join[$DataGFieldNames5, {"a"}];
+$ExampleDataFields6 = Join[$ExampleDataFields5, {"a"}];
 
-$DataGFieldNames7 = Join[$DataGFieldNames6, {"alpha"}];
+$ExampleDataFields7 = Join[$ExampleDataFields6, {"alpha"}];
 
-DataG[n_] :=
+GetExampleData[n_] :=
     With[{data = test[n]},
         Switch[Length[data],
-            5, AssociationThread[$DataGFieldNames5, data],
-            6, AssociationThread[$DataGFieldNames6, data],
-            7, AssociationThread[$DataGFieldNames7, data],
-            _, (Print["DataG: unexpected number of fields (", Length[data], ") for test case ", n]; $Failed)
+            5, AssociationThread[$ExampleDataFields5, data],
+            6, AssociationThread[$ExampleDataFields6, data],
+            7, AssociationThread[$ExampleDataFields7, data],
+            _, (Print["GetExampleData: unexpected number of fields (", Length[data], ") for test case ", n]; $Failed)
         ]
     ]
+
+(* --- Backward compatibility alias --- *)
+DataG = GetExampleData;
