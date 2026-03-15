@@ -12,17 +12,15 @@ InitProfile[] := (
   $ProfileTimings = <|
     "DNFReduce" -> 0., "DNFReduce_Solve" -> 0., "DNFReduce_Reduce" -> 0.,
     "DNFReduce_Simplify" -> 0., "TripleStep" -> 0., "TripleClean" -> 0.,
-    "DNFSolveStep" -> 0., "BooleanConvert" -> 0.,
+    "DNFSolveStep" -> 0.,
     "GradientProjection" -> 0., "PseudoInverse" -> 0.,
-    "FindRoot" -> 0., "NIntegrate" -> 0.,
     "MFGSystemSolver" -> 0., "MFGPreprocessing" -> 0.
   |>;
   $ProfileCounts = <|
     "DNFReduce" -> 0, "DNFReduce_Solve" -> 0, "DNFReduce_Reduce" -> 0,
     "DNFReduce_Simplify" -> 0, "TripleStep" -> 0, "TripleClean" -> 0,
-    "DNFSolveStep" -> 0, "BooleanConvert" -> 0,
+    "DNFSolveStep" -> 0,
     "GradientProjection" -> 0, "PseudoInverse" -> 0,
-    "FindRoot" -> 0, "NIntegrate" -> 0,
     "MFGSystemSolver" -> 0, "MFGPreprocessing" -> 0
   |>;
   $ProfileExtras = <|
@@ -82,22 +80,20 @@ ProfileReportMarkdown[] :=
 
 (* --- Instrumentation via DownValues wrapping --- *)
 
-(* Flag to prevent recursive instrumentation *)
+(* Flags to prevent recursive instrumentation *)
 $InProfileDNFReduce = False;
 $InProfileTripleStep = False;
 $InProfileTripleClean = False;
 $InProfileDNFSolveStep = False;
 $InProfileGradProj = False;
+$InProfileMFGSystemSolver = False;
 
 InstallProfileWrappers[] :=
   Module[{},
     Print["Installing profiling wrappers..."];
 
     (* --- Wrap DNFReduce --- *)
-    (* Save original definitions *)
     $OriginalDNFReduceDV = DownValues[DNFReduce];
-
-    (* Prepend a profiling catch-all that delegates to the originals *)
     DownValues[DNFReduce] = Join[
       {
         HoldPattern[DNFReduce[xp_, arg_]] :>
@@ -109,7 +105,6 @@ InstallProfileWrappers[] :=
               $ProfileExtras["DNFReduce_CurrentDepth"]
             ];
             t = AbsoluteTime[];
-            (* Temporarily restore originals to avoid infinite recursion *)
             Block[{$InProfileDNFReduce = True},
               With[{savedDV = DownValues[DNFReduce]},
                 DownValues[DNFReduce] = $OriginalDNFReduceDV;
@@ -147,6 +142,50 @@ InstallProfileWrappers[] :=
       $OriginalTripleStepDV
     ];
 
+    (* --- Wrap TripleClean --- *)
+    $OriginalTripleCleanDV = DownValues[TripleClean];
+    DownValues[TripleClean] = Join[
+      {
+        HoldPattern[TripleClean[arg_]] :>
+          Module[{res, t},
+            $ProfileCounts["TripleClean"]++;
+            t = AbsoluteTime[];
+            Block[{$InProfileTripleClean = True},
+              With[{savedDV = DownValues[TripleClean]},
+                DownValues[TripleClean] = $OriginalTripleCleanDV;
+                res = TripleClean[arg];
+                DownValues[TripleClean] = savedDV;
+              ]
+            ];
+            $ProfileTimings["TripleClean"] += AbsoluteTime[] - t;
+            res
+          ] /; !TrueQ[$InProfileTripleClean]
+      },
+      $OriginalTripleCleanDV
+    ];
+
+    (* --- Wrap DNFSolveStep --- *)
+    $OriginalDNFSolveStepDV = DownValues[DNFSolveStep];
+    DownValues[DNFSolveStep] = Join[
+      {
+        HoldPattern[DNFSolveStep[arg_]] :>
+          Module[{res, t},
+            $ProfileCounts["DNFSolveStep"]++;
+            t = AbsoluteTime[];
+            Block[{$InProfileDNFSolveStep = True},
+              With[{savedDV = DownValues[DNFSolveStep]},
+                DownValues[DNFSolveStep] = $OriginalDNFSolveStepDV;
+                res = DNFSolveStep[arg];
+                DownValues[DNFSolveStep] = savedDV;
+              ]
+            ];
+            $ProfileTimings["DNFSolveStep"] += AbsoluteTime[] - t;
+            res
+          ] /; !TrueQ[$InProfileDNFSolveStep]
+      },
+      $OriginalDNFSolveStepDV
+    ];
+
     (* --- Wrap GradientProjection --- *)
     $OriginalGradProjDV = DownValues[GradientProjection];
     DownValues[GradientProjection] = Join[
@@ -169,6 +208,28 @@ InstallProfileWrappers[] :=
       $OriginalGradProjDV
     ];
 
+    (* --- Wrap MFGSystemSolver --- *)
+    $OriginalMFGSystemSolverDV = DownValues[MFGSystemSolver];
+    DownValues[MFGSystemSolver] = Join[
+        {
+            HoldPattern[MFGSystemSolver[Eqs_][approxJs_]] :>
+                Module[{res, t},
+                    $ProfileCounts["MFGSystemSolver"]++;
+                    t = AbsoluteTime[];
+                    Block[{$InProfileMFGSystemSolver = True},
+                        With[{savedDV = DownValues[MFGSystemSolver]},
+                            DownValues[MFGSystemSolver] = $OriginalMFGSystemSolverDV;
+                            res = MFGSystemSolver[Eqs][approxJs];
+                            DownValues[MFGSystemSolver] = savedDV;
+                        ]
+                    ];
+                    $ProfileTimings["MFGSystemSolver"] += AbsoluteTime[] - t;
+                    res
+                ] /; !TrueQ[$InProfileMFGSystemSolver]
+        },
+        $OriginalMFGSystemSolverDV
+    ];
+
     Print["Profiling wrappers installed."];
   ];
 
@@ -176,19 +237,23 @@ UninstallProfileWrappers[] :=
   Module[{},
     If[ValueQ[$OriginalDNFReduceDV], DownValues[DNFReduce] = $OriginalDNFReduceDV];
     If[ValueQ[$OriginalTripleStepDV], DownValues[TripleStep] = $OriginalTripleStepDV];
+    If[ValueQ[$OriginalTripleCleanDV], DownValues[TripleClean] = $OriginalTripleCleanDV];
+    If[ValueQ[$OriginalDNFSolveStepDV], DownValues[DNFSolveStep] = $OriginalDNFSolveStepDV];
     If[ValueQ[$OriginalGradProjDV], DownValues[GradientProjection] = $OriginalGradProjDV];
+    If[ValueQ[$OriginalMFGSystemSolverDV], DownValues[MFGSystemSolver] = $OriginalMFGSystemSolverDV];
     Print["Profiling wrappers removed."];
   ];
 
-(* --- Lightweight timing wrappers for built-ins via Block --- *)
-(* These are used by wrapping specific solver calls rather than globally redefining *)
+(* --- Profiled solver convenience wrappers --- *)
 
 ProfiledCriticalCongestion[d2e_] :=
-  Module[{result, t0, tPreprocess, tSolve},
+  Module[{result, t0},
     InitProfile[];
+    InstallProfileWrappers[];
     t0 = AbsoluteTime[];
     result = CriticalCongestionSolver[d2e];
-    $ProfileTimings["MFGPreprocessing"] = AbsoluteTime[] - t0;
+    $ProfileTimings["CriticalCongestionSolver_Total"] = AbsoluteTime[] - t0;
+    UninstallProfileWrappers[];
     result
   ];
 

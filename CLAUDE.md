@@ -58,6 +58,8 @@ NonLinearSolver[criticalResult]  or  MonotoneSolverFromData[data]
 4. `NonLinearSolver.wl` — Iterative fixed-point solver (`NonLinearSolver`) using Hamiltonian framework (up to 15 iterations)
 5. `Monotone.wl` — ODE-based gradient flow solver on Kirchhoff matrix using `NDSolve`
 
+Each submodule uses `Begin["`Private`"]` / `End[]` to isolate internal helpers. Public symbols (those with `::usage`) are declared before `Begin` and live in the `MFGraphs`` context. Internal symbols like `$SolveCache`, `CachedSolve`, `TransitionsAt`, etc. are in `MFGraphs`Private``.
+
 ### Inner solver pipeline (DataToEquations.wl)
 
 The critical congestion solver has a multi-stage pipeline inside `DataToEquations.wl`:
@@ -84,9 +86,11 @@ The system is decomposed into a triple `{EE, NN, OR}` by `SystemToTriple`:
 
 ## Solver outputs
 
-- `CriticalCongestionSolver` returns an association with key `"AssoCritical"` — the zero-flow equilibrium
-- `NonLinearSolver` returns an association with key `"AssoNonCritical"` — the general congestion solution
+- `CriticalCongestionSolver` returns an association with keys `"AssoCritical"` (zero-flow equilibrium) and `"Status"` (`"Feasible"` or `"Infeasible"`)
+- `NonLinearSolver` returns an association with keys `"AssoNonCritical"` (general congestion solution) and `"Status"`
+- Check feasibility with `IsFeasible[result]` — returns `True` if `result["Status"] === "Feasible"`
 - Check solution validity with `IsNonLinearSolution[result]`
+- When `"Status"` is `"Infeasible"`, flow variables (`j[...]`) contain negative values indicating the problem has no feasible non-negative flow solution
 
 ## Key solver parameters (set before calling `NonLinearSolver`)
 

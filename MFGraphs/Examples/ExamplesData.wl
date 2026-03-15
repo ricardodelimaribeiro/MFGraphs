@@ -1,3 +1,16 @@
+(* Wolfram Language package *)
+(* Built-in test cases for MFGraphs *)
+
+GetExampleData::usage =
+"GetExampleData[n] returns an Association with keys \"Vertices List\", \"Adjacency Matrix\",
+\"Entrance Vertices and Flows\", \"Exit Vertices and Terminal Costs\", and \"Switching Costs\"
+from the test case test[n].
+Supports test cases with 5 fields (basic), 6 fields (+cost function 'a'), or 7 fields (+alpha).";
+
+DataG::usage = "DataG is a backward-compatibility alias for GetExampleData.";
+
+Begin["`Private`"];
+
 		eme=3;
         ene=3;
         test = Association[
@@ -408,12 +421,6 @@
 
 (* --- GetExampleData: construct an Association from a test case --- *)
 
-GetExampleData::usage =
-"GetExampleData[n] returns an Association with keys \"Vertices List\", \"Adjacency Matrix\",
-\"Entrance Vertices and Flows\", \"Exit Vertices and Terminal Costs\", and \"Switching Costs\"
-from the test case test[n].
-Supports test cases with 5 fields (basic), 6 fields (+cost function 'a'), or 7 fields (+alpha).";
-
 $ExampleDataFields5 = {
     "Vertices List",
     "Adjacency Matrix",
@@ -437,3 +444,5 @@ GetExampleData[n_] :=
 
 (* --- Backward compatibility alias --- *)
 DataG = GetExampleData;
+
+End[];

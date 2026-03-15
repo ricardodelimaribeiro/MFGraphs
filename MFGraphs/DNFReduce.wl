@@ -22,6 +22,11 @@ ClearSolveCache::usage =
 "ClearSolveCache[] clears the internal caches used by CachedSolve and CachedReduce.
 Call this between different problem instances to prevent stale results.";
 
+RemoveDuplicates::usage = "RemoveDuplicates is a backward-compatibility alias for DeduplicateByComplexity.";
+ReplaceSolution::usage = "ReplaceSolution is a backward-compatibility alias for SubstituteSolution.";
+
+Begin["`Private`"];
+
 (* --- Memoization caches --- *)
 
 $SolveCache = <||>;
@@ -152,3 +157,5 @@ DeduplicateByComplexity[xp_] := xp
 (* --- Backward compatibility aliases --- *)
 RemoveDuplicates = DeduplicateByComplexity;
 ReplaceSolution = SubstituteSolution;
+
+End[];
