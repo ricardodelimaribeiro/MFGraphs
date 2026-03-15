@@ -127,9 +127,6 @@ DNFReduce[xp_, rst_, fst_Equal] :=
 (* Default: absorb the element into xp and continue with rst *)
 DNFReduce[xp_, rst_, fst_] := DNFReduce[xp && fst, rst]
 
-(* --- Backward-compatible alias --- *)
-ZAnd = DNFReduce;
-
 (* --- ReplaceSolution --- *)
 
 ReplaceSolution[rst_?BooleanQ, sol_] := rst
@@ -144,10 +141,10 @@ ReplaceSolution[rst_, sol_] :=
 
 (* --- RemoveDuplicates --- *)
 
-SortOp = SortBy[Simplify`SimplifyCount];
+sortByComplexity = SortBy[Simplify`SimplifyCount];
 
-RemoveDuplicates[xp_And] := DeleteDuplicates[SortOp[xp]];
+RemoveDuplicates[xp_And] := DeleteDuplicates[sortByComplexity[xp]];
 
-RemoveDuplicates[xp_Or] := DeleteDuplicates[SortOp[xp]];
+RemoveDuplicates[xp_Or] := DeleteDuplicates[sortByComplexity[xp]];
 
 RemoveDuplicates[xp_] := xp

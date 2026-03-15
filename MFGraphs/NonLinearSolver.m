@@ -5,15 +5,15 @@ Clear[H, Cost];
 
 (* --- Options --- *)
 
-Options[NonLinear] = {"MaxIterations" -> 15, "Tolerance" -> 0};
+Options[NonLinearSolver] = {"MaxIterations" -> 15, "Tolerance" -> 0};
 
-(* --- NonLinear: main iterative solver --- *)
+(* --- NonLinearSolver: main iterative solver --- *)
 
-NonLinear::usage =
-    "NonLinear[Eqs] takes an association resulting from Data2Equations and returns an approximation to the solution of the non-critical congestion case with alpha = value, specified by alpha[edge_] := value.
+NonLinearSolver::usage =
+    "NonLinearSolver[Eqs] takes an association resulting from Data2Equations and returns an approximation to the solution of the non-critical congestion case with alpha = value, specified by alpha[edge_] := value.
 Options: \"MaxIterations\" (default 15), \"Tolerance\" (default 0). When Tolerance > 0, iteration stops early when the infinity-norm change in flow variables between consecutive steps falls below the given tolerance.";
 
-NonLinear[Eqs_, OptionsPattern[]] :=
+NonLinearSolver[Eqs_, OptionsPattern[]] :=
     Module[ {AssoCritical, PreEqs = Eqs, AssoNonCritical, NonCriticalList, js,
              MaxIter = OptionValue["MaxIterations"], tol = OptionValue["Tolerance"]},
         If[ KeyExistsQ[PreEqs, "AssoCritical"],
@@ -26,13 +26,13 @@ NonLinear[Eqs_, OptionsPattern[]] :=
         NonCriticalList = If[ tol > 0 && js =!= {},
             (* Tolerance-based stopping: compare consecutive flow vectors *)
             NestWhileList[
-                NonLinearStep[PreEqs],
+                nonLinearStep[PreEqs],
                 AssoNonCritical,
                 (Norm[N[Values[KeyTake[#2, js]] - Values[KeyTake[#1, js]]], Infinity] > tol)&,
                 2, MaxIter
             ],
             (* Default: exact fixed-point check (stops when consecutive results are identical) *)
-            FixedPointList[NonLinearStep[PreEqs], AssoNonCritical, MaxIter]
+            FixedPointList[nonLinearStep[PreEqs], AssoNonCritical, MaxIter]
         ];
         MFGPrint["Iterated ", Length[NonCriticalList]-1, " times out of ", MaxIter];
         AssoCritical = Lookup[PreEqs, "AssoCritical", NonCriticalList[[2]]];
@@ -40,9 +40,9 @@ NonLinear[Eqs_, OptionsPattern[]] :=
         Join[PreEqs, Association[{"AssoCritical" -> AssoCritical, "AssoNonCritical" -> AssoNonCritical}]]
     ];
 
-(* --- NonLinearStep: single iteration --- *)
+(* --- nonLinearStep: single iteration --- *)
 
-NonLinearStep[Eqs_][approxSol_] :=
+nonLinearStep[Eqs_][approxSol_] :=
     Module[ {approxJs, approx, js, Nrhs, Nlhs, Newlhs, Newrhs},
         js = Lookup[Eqs, "js", $Failed];
         Nrhs = Lookup[Eqs, "Nrhs", $Failed];
@@ -139,14 +139,14 @@ M[j_?NumericQ, x_?NumericQ, edge_] :=
         Values@First@FindRoot[H[x, -j m^(alpha[edge] - 1), m, edge], {m, 1}]
     ];
 
-IntM[j_?NumericQ, edge_] :=
+IntegratedMass[j_?NumericQ, edge_] :=
     If[ PossibleZeroQ[j],
         0,
         j NIntegrate[M[j, x, edge]^(alpha[edge] - 1), {x, 0, 1}] // Quiet
     ];
 
 Cost[j_, edge_] :=
-    IntM[j, edge];
+    IntegratedMass[j, edge];
 
 (* --- Interpolation-based M for faster Cost evaluation --- *)
 
@@ -177,21 +177,21 @@ PrecomputeM[jMin_?NumericQ, jMax_?NumericQ, edge_, nPoints_Integer:50] :=
     Interpolation[flatData, InterpolationOrder -> 3]
   ];
 
-FastIntM::usage =
-"FastIntM[interpM, j, edge] computes IntM using a precomputed interpolation of M.
+FastIntegratedMass::usage =
+"FastIntegratedMass[interpM, j, edge] computes IntegratedMass using a precomputed interpolation of M.
 interpM should be the result of PrecomputeM.";
 
-FastIntM[interpM_, j_?NumericQ, edge_] :=
+FastIntegratedMass[interpM_, j_?NumericQ, edge_] :=
   If[PossibleZeroQ[j], 0,
     j NIntegrate[interpM[j, x]^(alpha[edge]-1), {x, 0, 1}] // Quiet
   ];
 
 FastCost[interpM_, j_, edge_] :=
-  FastIntM[interpM, j, edge];
+  FastIntegratedMass[interpM, j, edge];
 
 (* --- Plotting utilities --- *)
 
-plotM[Eqs_Association, string_String, pair_List] :=
+PlotMassDensity[Eqs_Association, string_String, pair_List] :=
     Module[ {jays, sol, edge},
         sol = Eqs[string];
         jays = Eqs["SignedFlows"][pair] /. sol;
@@ -201,10 +201,10 @@ plotM[Eqs_Association, string_String, pair_List] :=
          GridLines -> Automatic]
     ];
 
-plotMs[Eqs_, string_] :=
-    plotM[Eqs, string, #] & /@ Eqs["EL"]
+PlotMassDensities[Eqs_, string_] :=
+    PlotMassDensity[Eqs, string, #] & /@ Eqs["EL"]
 
-plotU[Eqs_Association, string_String, pair_List] :=
+PlotValueFunction[Eqs_Association, string_String, pair_List] :=
     Module[ {sol, edge},
         sol = Eqs[string];
         edge = UndirectedEdge@@pair;
@@ -212,5 +212,5 @@ plotU[Eqs_Association, string_String, pair_List] :=
          GridLines -> Automatic]
     ];
 
-plotUs[Eqs_, string_] :=
-    plotU[Eqs, string, #] & /@ Eqs["BEL"]
+PlotValueFunctions[Eqs_, string_] :=
+    PlotValueFunction[Eqs, string, #] & /@ Eqs["BEL"]

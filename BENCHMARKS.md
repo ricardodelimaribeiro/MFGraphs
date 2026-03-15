@@ -52,7 +52,7 @@ This generates `Results/bottleneck_report.md` with detailed call counts and timi
 
 1. **CriticalCongestionSolver** -- Symbolic solver for the zero-flow case. Uses `Solve`, `Reduce`, `DNFReduce` (disjunctive normal form), and `TripleClean` (fixed-point simplification).
 
-2. **NonLinear** -- Iterative fixed-point solver for general congestion. Calls `MFGSystemSolver` up to 15 times per solve, with `FindRoot`/`NIntegrate` for Hamiltonian cost evaluation.
+2. **NonLinearSolver** -- Iterative fixed-point solver for general congestion. Calls `MFGSystemSolver` up to 15 times per solve, with `FindRoot`/`NIntegrate` for Hamiltonian cost evaluation.
 
 3. **MonotoneSolver** -- ODE-based gradient flow using `NDSolve` with `GradientProjection` (PseudoInverse-based).
 
@@ -78,9 +78,9 @@ This generates `Results/bottleneck_report.md` with detailed call counts and timi
 
 ### 4. Per-point FindRoot/NIntegrate
 
-`M[j, x, edge]` in `NonLinearSolver.m` calls `FindRoot` for every (j, x) evaluation point. `IntM` wraps this in `NIntegrate`, which samples M at many points. Called per-edge, per-iteration of `NonLinear`.
+`M[j, x, edge]` in `NonLinearSolver.m` calls `FindRoot` for every (j, x) evaluation point. `IntegratedMass` wraps this in `NIntegrate`, which samples M at many points. Called per-edge, per-iteration of `NonLinearSolver`.
 
-**Impact**: Significant for problems with many edges and many NonLinear iterations.
+**Impact**: Significant for problems with many edges and many `NonLinearSolver` iterations.
 
 ## Optimizations implemented
 
@@ -116,14 +116,14 @@ Added `CachedGradientProjection` that caches the PseudoInverse matrix and reuses
 
 **Expected impact**: Significant speedup for larger graphs where PseudoInverse dominates.
 
-### Optimization 4: M interpolation for NonLinear solver
+### Optimization 4: M interpolation for NonLinearSolver
 
 **File**: `MFGraphs/NonLinearSolver.m`
 
-Added `PrecomputeM[jMin, jMax, edge, nPoints]` that builds an `InterpolatingFunction` from a grid of `FindRoot` evaluations. `FastIntM` and `FastCost` use this interpolation instead of per-point `FindRoot` calls.
+Added `PrecomputeM[jMin, jMax, edge, nPoints]` that builds an `InterpolatingFunction` from a grid of `FindRoot` evaluations. `FastIntegratedMass` and `FastCost` use this interpolation instead of per-point `FindRoot` calls.
 
 - `nPoints` controls grid resolution (default 50)
-- Users can switch between exact (`Cost`/`IntM`) and fast (`FastCost`/`FastIntM`) versions
+- Users can switch between exact (`Cost`/`IntegratedMass`) and fast (`FastCost`/`FastIntegratedMass`) versions
 
 **Expected impact**: Large speedup for NIntegrate-heavy iterations; slight numerical approximation controlled by grid resolution.
 
@@ -143,13 +143,13 @@ Both overloads of `TripleStep` called `Solve` directly. Replaced with `CachedSol
 
 **Expected impact**: Modest reduction in `Solve` calls during multi-step `TripleClean` fixed-point iteration.
 
-### Optimization 7: NonLinear tolerance-based early stopping
+### Optimization 7: NonLinearSolver tolerance-based early stopping
 
 **File**: `MFGraphs/NonLinearSolver.m`
 
-Added `"Tolerance" -> 0` option to `NonLinear`. When `Tolerance > 0`, iteration switches from `FixedPointList` (exact equality on Associations, rarely fires for floating-point results) to `NestWhileList` with a norm-based stopping condition: stops when the infinity-norm change in flow variables between consecutive iterations is below the tolerance.
+Added `"Tolerance" -> 0` option to `NonLinearSolver`. When `Tolerance > 0`, iteration switches from `FixedPointList` (exact equality on Associations, rarely fires for floating-point results) to `NestWhileList` with a norm-based stopping condition: stops when the infinity-norm change in flow variables between consecutive iterations is below the tolerance.
 
-**Usage**: `NonLinear[d2e, "Tolerance" -> 10^-6]`
+**Usage**: `NonLinearSolver[d2e, "Tolerance" -> 10^-6]`
 
 **Expected impact**: Significant savings when problems converge in fewer than `MaxIterations` steps; previously all 15 iterations ran regardless of numerical convergence.
 
@@ -170,7 +170,7 @@ Benchmark results are exported as CSV and JSON with these fields:
 |-------|-------------|
 | Key | Test case identifier |
 | Tier | small/medium/large/vlarge |
-| Solver | CriticalCongestion/NonLinear/Monotone |
+| Solver | CriticalCongestion/NonLinearSolver/Monotone |
 | NumVertices | Graph vertex count |
 | NumEdges | Graph edge count |
 | D2ETime | Data2Equations wall time (seconds) |

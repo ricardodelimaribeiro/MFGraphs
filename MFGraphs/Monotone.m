@@ -7,41 +7,34 @@ Hess::usage =
 "Hess[j] returns a numeric diagonal matrix with the reciprocals of the elements in the (numeric) vector j.";
 Hess[j_?NumberVectorQ] := DiagonalMatrix[1/# & /@ j];
 
-H2[j_?NumberVectorQ] := DiagonalMatrix[1/#^2 & /@ j];
-
-H3[j_?NumberVectorQ] := DiagonalMatrix[1/#^(1/4) & /@ j];
-
-InvH::usage =
-"InvH[j] returns a diagonal matrix with the (numeric) vector j. This is the inverse of the matrix Hess[j].";
-InvH[j_?NumberVectorQ] := DiagonalMatrix[j];
+InverseHessian::usage =
+"InverseHessian[j] returns a diagonal matrix with the (numeric) vector j. This is the inverse of the matrix Hess[j].";
+InverseHessian[j_?NumberVectorQ] := DiagonalMatrix[j];
 
 NumberMatrixQ::usage =
 "NumberMatrixQ[A] returns True if the elements of the matrix A are numeric.";
 NumberMatrixQ[A_] := NumberVectorQ@Flatten@A;
 
-InvAHA::usage =
-"InvAHA[j, A, At] returns the product A . InvH[j] . At.";
-InvAHA[x_?NumberVectorQ, A_, At_] := A . InvH[x] . At;
-InvAHA[x_?NumberVectorQ, A_] := A . InvH[x] . Transpose[A];
+HessianSandwich::usage =
+"HessianSandwich[j, A, At] returns the product A . InverseHessian[j] . At.";
+HessianSandwich[x_?NumberVectorQ, A_, At_] := A . InverseHessian[x] . At;
+HessianSandwich[x_?NumberVectorQ, A_] := A . InverseHessian[x] . Transpose[A];
 
 (* --- GradientProjection: projected gradient operator --- *)
 
 GradientProjection::usage =
 "GradientProjection[x, A, dim, At] returns the projected gradient operator matrix.
-This is InvH[x] . (I - At . PseudoInverse[A . InvH[x] . At] . A . InvH[x]).";
+This is InverseHessian[x] . (I - At . PseudoInverse[A . InverseHessian[x] . At] . A . InverseHessian[x]).";
 
 GradientProjection[x_?NumberVectorQ, A_, dim_, At_] :=
-  InvH[x] . (IdentityMatrix[dim] - At . PseudoInverse[InvAHA[x, A, At]] . A . InvH[x]);
+  InverseHessian[x] . (IdentityMatrix[dim] - At . PseudoInverse[HessianSandwich[x, A, At]] . A . InverseHessian[x]);
 
 GradientProjection[x_?NumberVectorQ, A_] :=
 	Module[{dim, At},
 		dim = Length[x];
 		At = Transpose[A];
-		InvH[x] . (IdentityMatrix[dim] - At . PseudoInverse[InvAHA[x, A, At]] . A . InvH[x])
+		InverseHessian[x] . (IdentityMatrix[dim] - At . PseudoInverse[HessianSandwich[x, A, At]] . A . InverseHessian[x])
 	];
-
-(* Backward-compatible alias *)
-GG = GradientProjection;
 
 (* --- CachedGradientProjection: caches PseudoInverse when x changes slowly --- *)
 
@@ -52,7 +45,7 @@ cache should be a held Symbol containing <|\"x\" -> ..., \"pi\" -> ...|> or Null
 
 CachedGradientProjection[x_?NumberVectorQ, K_, dim_, At_, cache_Symbol, tol_:10^-6] :=
   Module[{invH, AinvHAt, pi},
-    invH = InvH[x];
+    invH = InverseHessian[x];
     If[cache =!= Null && Norm[x - cache["x"], Infinity] < tol,
       (* Reuse cached PseudoInverse *)
       invH . (IdentityMatrix[dim] - At . cache["pi"] . K . invH),

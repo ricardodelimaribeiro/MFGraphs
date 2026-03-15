@@ -303,7 +303,7 @@ MFGPreprocessing[Eqs_] :=
         NewSystem =
          MapThread[
           And, {{True, IneqJts && IneqJs, AltFlows && AltTransitionFlows && AltOptCond},
-           Sys2Triple[IneqSwitchingByVertex]}
+           SystemToTriple[IneqSwitchingByVertex]}
          ];
         temp = MFGPrintTemporary["TripleClean will work on\n", NewSystem, "\nwith: ", InitRules];
         {time,{NewSystem, InitRules}} = AbsoluteTiming@TripleClean[{NewSystem, InitRules}];
@@ -380,7 +380,7 @@ MFGSystemSolver[Eqs_][approxJs_] :=
         MFGPrint["MFGSS: Simplifying inequalities by transition flow took ", time, " seconds. "];
 
 		NewSystem[[2]]=(And@@ineqsByTransition);
-		NewSystem = Sys2Triple[And@@NewSystem];
+		NewSystem = SystemToTriple[And@@NewSystem];
 		{NewSystem,InitRules} = TripleClean[{NewSystem,InitRules}];
 
 		{NewSystem, InitRules} = FinalStep[{NewSystem, InitRules}];
@@ -389,7 +389,7 @@ MFGSystemSolver[Eqs_][approxJs_] :=
         MFGPrint["BooleanConvert done. Simplifying..."];
         System = Simplify[And@@NewSystem];
         MFGPrint["Simplifying done. TripleClean..."];
-        {System, InitRules} = TripleClean[{Sys2Triple[System], InitRules}];
+        {System, InitRules} = TripleClean[{SystemToTriple[System], InitRules}];
         System = And@@System;
         Which[System === False,
             Print["MFGSS: There is no solution!"];
@@ -454,23 +454,23 @@ FinalStep[{{EE_, NN_, OO_}, rules_}] :=
         ];
         MFGPrint["Final: Reducing (each alternative), returned ", Length@NewSystem," of them, ","took ", time, " seconds to terminate."];
         NewSystem = BooleanConvert@NewSystem;
-        NewSystem = Sys2Triple[NewSystem];
+        NewSystem = SystemToTriple[NewSystem];
         {NewSystem, newrules} = TripleClean[{NewSystem, newrules}];
         MFGPrint["Now: ", TimeObject[Now], " The new rules are: ", newrules, Length/@NewSystem];
         {NewSystem, newrules}
     ];
 
-(* --- Sys2Triple: decompose into equalities, inequalities, alternatives --- *)
+(* --- SystemToTriple: decompose into equalities, inequalities, alternatives --- *)
 
-Sys2Triple::usage =
-"Sys2Triple[sys] returns a triple {equalities, inequalities, alternatives} from sys.
+SystemToTriple::usage =
+"SystemToTriple[sys] returns a triple {equalities, inequalities, alternatives} from sys.
 The input should be a system of equations, inequalities and (simple) alternatives."
 
-Sys2Triple[True] = Table[True, 3]
+SystemToTriple[True] = Table[True, 3]
 
-Sys2Triple[False] = Table[False, 3]
+SystemToTriple[False] = Table[False, 3]
 
-Sys2Triple[system_] :=
+SystemToTriple[system_] :=
     Which[
      Head[system] === And,
       Module[ {groups, EE, OR, NN},
@@ -517,8 +517,8 @@ TripleStep[{{EEs_, NNs_, ORs_}, rules_Association}] :=
     newrules = Expand /@ Join[rules /. newrules, Association@newrules];
     NN = Expand /@ (NNs /. newrules);
     OR = Expand /@ (ORs /. newrules);
-    {NNE, NN, NNO} = Sys2Triple[NN];
-    {ORE, ORN, OR} = Sys2Triple[OR];
+    {NNE, NN, NNO} = SystemToTriple[NN];
+    {ORE, ORN, OR} = SystemToTriple[OR];
     EE = NNE && ORE;
     {{EE, NN, OR}, newrules}
     ];

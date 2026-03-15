@@ -45,13 +45,13 @@ BenchmarkOneSolver[key_, tier_String, solverName_String, d2e_Association, timeou
     result = Switch[solverName,
       "CriticalCongestion",
         SafeExecute[CriticalCongestionSolver[d2e], timeout],
-      "NonLinear",
+      "NonLinearSolver",
         Module[{critResult},
-          (* NonLinear needs critical solution first *)
+          (* NonLinearSolver needs critical solution first *)
           critResult = SafeExecute[CriticalCongestionSolver[d2e], timeout];
           If[critResult["Status"] === "OK",
             Block[{V = Function[{x, edge}, 0]},
-              SafeExecute[NonLinear[critResult["Result"]], timeout]
+              SafeExecute[NonLinearSolver[critResult["Result"]], timeout]
             ],
             <|"Time" -> 0, "Memory" -> 0, "Status" -> "SKIPPED",
               "Result" -> "Critical solver failed"|>
@@ -67,7 +67,7 @@ BenchmarkOneSolver[key_, tier_String, solverName_String, d2e_Association, timeou
     If[result["Status"] === "OK" && AssociationQ[result["Result"]],
       residual = Switch[solverName,
         "CriticalCongestion", ComputeResidual[result["Result"], "AssoCritical"],
-        "NonLinear", ComputeResidual[result["Result"], "AssoNonCritical"],
+        "NonLinearSolver", ComputeResidual[result["Result"], "AssoNonCritical"],
         "Monotone", Missing["N/A"],
         _, Missing["N/A"]
       ]
@@ -137,7 +137,7 @@ BenchmarkCase[key_] :=
       BenchmarkOneSolver[key, tier, "CriticalCongestion", d2e, timeout]];
 
     AppendTo[results,
-      BenchmarkOneSolver[key, tier, "NonLinear", d2e, timeout]];
+      BenchmarkOneSolver[key, tier, "NonLinearSolver", d2e, timeout]];
 
     AppendTo[results,
       BenchmarkOneSolver[key, tier, "Monotone", d2e, timeout]];
