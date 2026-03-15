@@ -86,7 +86,7 @@ Data = DataG[12] /. {I1 -> 100, U1 -> 0};
 d2e = Data2Equations[Data];
 
 (* Solve iteratively (default: up to 15 iterations) *)
-result = NonLinear[d2e];
+result = NonLinearSolver[d2e];
 
 (* Check the solution *)
 IsNonLinearSolution[result]
@@ -99,7 +99,7 @@ Options:
 - `"MaxIterations"` (default `15`) — maximum number of fixed-point iterations
 
 ```mathematica
-result = NonLinear[d2e, "MaxIterations" -> 30];
+result = NonLinearSolver[d2e, "MaxIterations" -> 30];
 ```
 
 ### Monotone operator solver
@@ -123,19 +123,19 @@ solution = MonotoneSolverFromData[Data, "TimeSteps" -> 200]
 After solving with the non-linear solver, plot mass densities and value functions on each edge:
 
 ```mathematica
-result = NonLinear[d2e];
+result = NonLinearSolver[d2e];
 
 (* Plot mass density M on a specific edge *)
-plotM[result, "AssoNonCritical", {1, 2}]
+PlotMassDensity[result, "AssoNonCritical", {1, 2}]
 
 (* Plot all mass densities *)
-plotMs[result, "AssoNonCritical"]
+PlotMassDensities[result, "AssoNonCritical"]
 
 (* Plot value function U on a specific edge *)
-plotU[result, "AssoNonCritical", {1, 2}]
+PlotValueFunction[result, "AssoNonCritical", {1, 2}]
 
 (* Plot all value functions *)
-plotUs[result, "AssoNonCritical"]
+PlotValueFunctions[result, "AssoNonCritical"]
 ```
 
 ## Switching costs
@@ -194,7 +194,7 @@ $MFGraphsVerbose = False;
 
 ### Hamiltonian parameters
 
-The non-linear solver uses a Hamiltonian framework. Override these before calling `NonLinear`:
+The non-linear solver uses a Hamiltonian framework. Override these before calling `NonLinearSolver`:
 
 ```mathematica
 (* Congestion exponent (default: 1) *)
@@ -249,12 +249,12 @@ critical["AssoCritical"]
 (* Define potential and solve the non-linear case *)
 V = Function[{x, edge}, 0];
 
-nonlinear = NonLinear[critical];
+nonlinear = NonLinearSolver[critical];
 IsNonLinearSolution[nonlinear]
 
 (* Plot the results *)
-GraphicsGrid[Partition[plotMs[nonlinear, "AssoNonCritical"], 3]]
-GraphicsGrid[Partition[plotUs[nonlinear, "AssoNonCritical"], 3]]
+GraphicsGrid[Partition[PlotMassDensities[nonlinear, "AssoNonCritical"], 3]]
+GraphicsGrid[Partition[PlotValueFunctions[nonlinear, "AssoNonCritical"], 3]]
 ```
 
 ## License

@@ -55,7 +55,7 @@ NonLinear[criticalResult]  or  MonotoneSolverFromData[data]
 1. `Examples/ExamplesData.m` — 34 built-in test cases via `DataG[key]`
 2. `DNFReduce.m` — Boolean algebra solver (disjunctive normal form reduction with Solve/Reduce memoization and branch pruning)
 3. `D2E2.m` — Core converter: network topology → equations; implements `Data2Equations`, `CriticalCongestionSolver`, `MFGSystemSolver`, `TripleClean`
-4. `NonLinearSolver.m` — Iterative fixed-point solver using Hamiltonian framework (up to 15 iterations)
+4. `NonLinearSolver.m` — Iterative fixed-point solver (`NonLinearSolver`) using Hamiltonian framework (up to 15 iterations)
 5. `Monotone.m` — ODE-based gradient flow solver on Kirchhoff matrix using `NDSolve`
 
 ### Inner solver pipeline (D2E2.m)
@@ -71,7 +71,7 @@ CriticalCongestionSolver
     → FinalStep          — calls DNFReduce on the Or-branch, then TripleClean on result
 ```
 
-The system is decomposed into a triple `{EE, NN, OR}`:
+The system is decomposed into a triple `{EE, NN, OR}` by `SystemToTriple`:
 - **EE** — equalities (solved and substituted by `TripleStep`)
 - **NN** — inequalities (non-negative flows, switching bounds)
 - **OR** — disjunctions (complementarity conditions from optimality)
@@ -80,15 +80,15 @@ The system is decomposed into a triple `{EE, NN, OR}`:
 
 ### Solver chain
 
-`NonLinear` expects the output of `CriticalCongestionSolver` as input (it reads the `"AssoCritical"` key). The benchmark suite follows this chain: `Data2Equations → CriticalCongestionSolver → NonLinear`.
+`NonLinearSolver` expects the output of `CriticalCongestionSolver` as input (it reads the `"AssoCritical"` key). The benchmark suite follows this chain: `Data2Equations → CriticalCongestionSolver → NonLinearSolver`.
 
 ## Solver outputs
 
 - `CriticalCongestionSolver` returns an association with key `"AssoCritical"` — the zero-flow equilibrium
-- `NonLinear` returns an association with key `"AssoNonCritical"` — the general congestion solution
+- `NonLinearSolver` returns an association with key `"AssoNonCritical"` — the general congestion solution
 - Check solution validity with `IsNonLinearSolution[result]`
 
-## Key solver parameters (set before calling `NonLinear`)
+## Key solver parameters (set before calling `NonLinearSolver`)
 
 ```mathematica
 $MFGraphsVerbose = False     (* suppress timing/progress messages — default is False *)

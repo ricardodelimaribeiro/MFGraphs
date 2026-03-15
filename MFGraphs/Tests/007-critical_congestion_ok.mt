@@ -1,5 +1,4 @@
 (* Wolfram Language Test file *)
-Get["ExamplesData.m"];
 Test[
 	MFGEquations = Data2Equations[DataG[7] /. {I1 -> 11, U1 -> 0, U2 -> 10}];
     CriticalCongestionSolver[MFGEquations]["AssoCritical"]
@@ -9,5 +8,5 @@ Test[
 	(*vertices indices notation*)
 	<|u[en1, 1] -> 43/2, u[1, en1] -> 43/2, u[ex3, 3] -> 0, u[ex4, 4] -> 10, u[3, ex3] -> 0, u[4, ex4] -> 10, u[1, 2] -> 21/2, u[2, 3] -> 0, u[2, 4] -> 10, u[2, 1] -> 43/2, u[3, 2] -> 21/2, u[4, 2] -> 21/2, j[en1, 1] -> 11, j[1, en1] -> 0, j[ex3, 3] -> 0, j[ex4, 4] -> 0, j[3, ex3] -> 21/2, j[4, ex4] -> 1/2, j[1, 2] -> 11, j[2, 3] -> 21/2, j[2, 4] -> 1/2, j[2, 1] -> 0, j[3, 2] -> 0, j[4, 2] -> 0, j[2, 1, en1] -> 0, j[en1, 1, 2] -> 11, j[1, 2, 3] -> 21/2, j[1, 2, 4] -> 1/2, j[3, 2, 1] -> 0, j[3, 2, 4] -> 0, j[4, 2, 1] -> 0, j[4, 2, 3] -> 0, j[2, 3, ex3] -> 21/2, j[ex3, 3, 2] -> 0, j[2, 4, ex4] -> 1/2, j[ex4, 4, 2] -> 0|>
     ,
-    TestID -> "split with solution"
+    TestID -> "Case 7: Y-network asymmetric exits"
 ]

@@ -192,10 +192,10 @@ ProfiledCriticalCongestion[d2e_] :=
     result
   ];
 
-ProfiledNonLinear[eqs_] :=
+ProfiledNonLinearSolver[eqs_] :=
   Module[{result},
     Block[{V = Function[{x, edge}, 0]},
-      result = NonLinear[eqs]
+      result = NonLinearSolver[eqs]
     ];
     result
   ];
