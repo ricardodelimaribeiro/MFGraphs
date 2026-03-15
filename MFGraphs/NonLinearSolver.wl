@@ -10,7 +10,7 @@ Options[NonLinearSolver] = {"MaxIterations" -> 15, "Tolerance" -> 0};
 (* --- NonLinearSolver: main iterative solver --- *)
 
 NonLinearSolver::usage =
-    "NonLinearSolver[Eqs] takes an association resulting from Data2Equations and returns an approximation to the solution of the non-critical congestion case with alpha = value, specified by alpha[edge_] := value.
+    "NonLinearSolver[Eqs] takes an association resulting from DataToEquations and returns an approximation to the solution of the non-critical congestion case with alpha = value, specified by alpha[edge_] := value.
 Options: \"MaxIterations\" (default 15), \"Tolerance\" (default 0). When Tolerance > 0, iteration stops early when the infinity-norm change in flow variables between consecutive steps falls below the given tolerance.";
 
 NonLinearSolver[Eqs_, OptionsPattern[]] :=
@@ -186,9 +186,6 @@ FastIntegratedMass[interpM_, j_?NumericQ, edge_] :=
     j NIntegrate[interpM[j, x]^(alpha[edge]-1), {x, 0, 1}] // Quiet
   ];
 
-FastCost[interpM_, j_, edge_] :=
-  FastIntegratedMass[interpM, j, edge];
-
 (* --- Plotting utilities --- *)
 
 PlotMassDensity[Eqs_Association, string_String, pair_List] :=
@@ -202,7 +199,7 @@ PlotMassDensity[Eqs_Association, string_String, pair_List] :=
     ];
 
 PlotMassDensities[Eqs_, string_] :=
-    PlotMassDensity[Eqs, string, #] & /@ Eqs["EL"]
+    PlotMassDensity[Eqs, string, #] & /@ Lookup[Eqs, "pairs", {}]
 
 PlotValueFunction[Eqs_Association, string_String, pair_List] :=
     Module[ {sol, edge},
@@ -213,4 +210,4 @@ PlotValueFunction[Eqs_Association, string_String, pair_List] :=
     ];
 
 PlotValueFunctions[Eqs_, string_] :=
-    PlotValueFunction[Eqs, string, #] & /@ Eqs["BEL"]
+    PlotValueFunction[Eqs, string, #] & /@ Lookup[Eqs, "pairs", {}]

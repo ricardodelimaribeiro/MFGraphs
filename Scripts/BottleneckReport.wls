@@ -40,7 +40,7 @@ Do[
     Print["\n=== Profiling: ", label, " (case ", key, ") ==="];
 
     (* Load and prepare data *)
-    data = DataG[key];
+    data = GetExampleData[key];
     If[params =!= {}, data = data /. params];
 
     (* Initialize profiling *)
@@ -50,7 +50,7 @@ Do[
     (* Profile CriticalCongestionSolver *)
     Print["  Running CriticalCongestionSolver..."];
     t0 = AbsoluteTime[];
-    d2e = Data2Equations[data];
+    d2e = DataToEquations[data];
     critResult = Quiet @ Check[CriticalCongestionSolver[d2e], $Failed];
     totalTime = AbsoluteTime[] - t0;
     Print["  Total time: ", NumberForm[totalTime, {6, 3}], "s"];

@@ -67,7 +67,7 @@ MonotoneSolverFromData::usage =
 Options: \"TimeSteps\" (default 100), \"UseCachedGradient\" (default True).";
 MonotoneSolverFromData[Data_, opts:OptionsPattern[]] :=
 	Module[{d2e},
-		d2e = Data2Equations[Data];
+		d2e = DataToEquations[Data];
 		MonotoneSolver[d2e, opts]
 	];
 

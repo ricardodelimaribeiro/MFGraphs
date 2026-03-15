@@ -36,7 +36,7 @@ ConjunctsPerDisjunct[expr_Or] := Length /@ (List @@ expr) /. {n_Integer :> n, x_
 ConjunctsPerDisjunct[expr_And] := {Length[expr]};
 ConjunctsPerDisjunct[_] := {1};
 
-(* Extract the system that FinalStep would pass to DNFReduce *)
+(* Extract the system that DNFSolveStep would pass to DNFReduce *)
 ExtractDNFInput[eqs_Association] :=
   Module[{preEqs, newSystem, initRules, sorted, xp},
     (* Run preprocessing to get the system *)
@@ -47,7 +47,7 @@ ExtractDNFInput[eqs_Association] :=
     initRules = Lookup[preEqs, "InitRules", <||>];
     newSystem = Lookup[preEqs, "NewSystem", {True, True, True}];
 
-    (* Simulate what MFGSystemSolver does before FinalStep: *)
+    (* Simulate what MFGSystemSolver does before DNFSolveStep: *)
     (* Apply zero-flow (critical congestion) substitution *)
     Module[{js, approxJs, costpluscurrents, Ncpc},
       js = Lookup[preEqs, "js", {}];
@@ -61,11 +61,11 @@ ExtractDNFInput[eqs_Association] :=
     (* TripleClean *)
     {newSystem, initRules} = TripleClean[{newSystem, initRules}];
 
-    (* Build the arguments that FinalStep passes to DNFReduce *)
+    (* Build the arguments that DNFSolveStep passes to DNFReduce *)
     If[newSystem[[3]] === True,
       (* No disjunctions — nothing interesting to compare *)
       {True, True, initRules, "trivial"},
-      sorted = RemoveDuplicates[newSystem[[3]]];
+      sorted = DeduplicateByComplexity[newSystem[[3]]];
       xp = And @@ Most[newSystem];
       {xp, sorted, initRules, "nontrivial"}
     ]
@@ -85,9 +85,9 @@ CompareMethods[key_, params_] :=
     Print["--- Case: ", key, " ---"];
 
     (* Load data and build equations *)
-    data = DataG[key];
+    data = GetExampleData[key];
     If[params =!= {}, data = data /. params];
-    d2e = Data2Equations[data];
+    d2e = DataToEquations[data];
     ClearSolveCache[];
 
     (* Extract the input that would go to DNFReduce *)
