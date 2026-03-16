@@ -22,7 +22,8 @@ This is InverseHessian[x] . (I - At . PseudoInverse[A . InverseHessian[x] . At] 
 CachedGradientProjection::usage =
 "CachedGradientProjection[x, K, dim, At, cache] is a version of GradientProjection
 that caches the PseudoInverse result and reuses it when x has not changed significantly.
-cache should be a 1-element list containing <|\"x\" -> ..., \"pi\" -> ...|> or Null.";
+cache must be a symbol holding a 1-element list {Null} or {<|\"x\" -> ..., \"pi\" -> ...|>}.
+The function has the HoldAll attribute so that cache is passed by reference.";
 
 MonotoneSolverFromData::usage =
 "MonotoneSolverFromData[Data] solves the MFG problem from raw Data using the monotone operator method.
@@ -41,6 +42,9 @@ Options[MonotoneSolver] = Options[MonotoneSolverFromData];
 Options[MonotoneSolverODE] = {"TimeSteps" -> 100, "UseCachedGradient" -> True};
 
 Begin["`Private`"];
+
+(* HoldAll so that the cache argument (a mutable list) is passed by reference *)
+SetAttributes[CachedGradientProjection, HoldAll];
 
 (* --- Matrix utilities --- *)
 
@@ -66,19 +70,52 @@ GradientProjection[x_?NumberVectorQ, A_] :=
 	];
 
 (* --- CachedGradientProjection: caches PseudoInverse when x changes slowly --- *)
+(* HoldAll keeps cache as the caller's symbol so part-assignment works. *)
+(* Other arguments are force-evaluated via Module initializers. *)
 
-CachedGradientProjection[x_?NumberVectorQ, K_, dim_, At_, cache_List, tol_:10^-6] :=
-  Module[{invH, AinvHAt, pi},
-    invH = InverseHessian[x];
-    If[cache[[1]] =!= Null && Norm[x - cache[[1]]["x"], Infinity] < tol,
+CachedGradientProjection[x_, K_, dim_, At_, cache_, tol_:10^-6] :=
+  Module[{xVal = x, KVal = K, dimVal = dim, AtVal = At, tolVal = tol,
+          invH, AinvHAt, pi},
+    invH = InverseHessian[xVal];
+    If[cache[[1]] =!= Null && Norm[xVal - cache[[1]]["x"], Infinity] < tolVal,
       (* Reuse cached PseudoInverse *)
-      invH . (IdentityMatrix[dim] - At . cache[[1]]["pi"] . K . invH),
+      invH . (IdentityMatrix[dimVal] - AtVal . cache[[1]]["pi"] . KVal . invH),
       (* Recompute PseudoInverse and cache *)
-      AinvHAt = K . invH . At;
+      AinvHAt = KVal . invH . AtVal;
       pi = PseudoInverse[AinvHAt];
-      cache[[1]] = <|"x" -> x, "pi" -> pi|>;
-      invH . (IdentityMatrix[dim] - At . pi . K . invH)
+      cache[[1]] = <|"x" -> xVal, "pi" -> pi|>;
+      invH . (IdentityMatrix[dimVal] - AtVal . pi . KVal . invH)
     ]
+  ];
+
+(* --- BuildMonotoneField: lifted edge-cost field on Kirchhoff variables --- *)
+(* Returns {jj, fieldFn} where fieldFn[x_?NumberVectorQ] gives S^T . c(S . x). *)
+
+BuildMonotoneField[d2e_Association] :=
+  Module[{B, K, cost, jj, halfPairs, signedFlows, rules, substituted, S, fieldFn},
+    {B, K, cost, jj} = GetKirchhoffMatrix[d2e];
+    If[Length[jj] === 0, Return[{jj, (0 * # &)}, Module]];
+    halfPairs = List @@@ Lookup[d2e, "edgeList", {}];
+    If[Length[halfPairs] === 0, Return[{jj, (0 * # &)}, Module]];
+    signedFlows = Lookup[d2e, "SignedFlows", <||>];
+    rules = Join[
+      Lookup[d2e, "RuleBalanceGatheringFlows", <||>],
+      Lookup[d2e, "RuleExitFlowsIn", <||>],
+      Lookup[d2e, "RuleEntryOut", <||>]
+    ];
+    (* Substitute rules into signed flows to get expressions in jj *)
+    substituted = (signedFlows[#] & /@ halfPairs) /. rules;
+    (* S is the sparse coefficient matrix: signed_edge_flows = S . jj *)
+    S = Last @ CoefficientArrays[substituted, jj];
+    fieldFn[x_?NumberVectorQ] := Module[{q, c},
+      q = S . x;
+      c = MapThread[
+        If[PossibleZeroQ[#1], 0., Sign[#1] Cost[#1, #2]] &,
+        {q, halfPairs}
+      ];
+      Transpose[S] . c
+    ];
+    {jj, fieldFn}
   ];
 
 (* --- MonotoneSolver --- *)
@@ -97,44 +134,36 @@ MonotoneSolver[d2e_, opts:OptionsPattern[]] :=
 			MFGPrint["MonotoneSolver: Degenerate case (no flow variables), skipping."];
 			Return[<|"Message" -> "Degenerate case"|>, Module]
 		];
-		cc[j_?NumberVectorQ] := cost[j];
-		(* Guard: check if FindInstance succeeds *)
+		(* Build the lifted edge-cost field *)
+		{jj, cc} = BuildMonotoneField[d2e];
+		(* Find numerically interior feasible seed *)
 		result = Quiet @ Check[
-			First@FindInstance[K . jj == B && And @@ ((# > 0) & /@ jj), jj],
+			First @ FindInstance[K . jj == B && And @@ ((# >= 10^-8) & /@ jj), jj, Reals],
 			$Failed
 		];
 		If[result === $Failed,
 			MFGPrint["MonotoneSolver: FindInstance failed, returning null solution."];
 			Return[Null, Module]
 		];
-		x0 = jj /. result;
+		x0 = N[jj /. result];
+		(* No edges → zero cost field → feasible point is already the solution *)
+		If[Length[Lookup[d2e, "edgeList", {}]] === 0,
+			Return[AssociationThread[jj, x0], Module]
+		];
 		MonotoneSolverODE[x0, K, jj, cc, FilterRules[{opts}, Options[MonotoneSolverODE]]]
 	];
 
 MonotoneSolverODE[x0_, K_, jj_, cc_, opts:OptionsPattern[]] :=
-	Module[{At, dim, sol, x, xx, n, useCache, cachedX, cachedPI, gradFn},
+	Module[{At, dim, sol, x, xx, n, useCache, piCache, gradFn},
 		n = OptionValue["TimeSteps"];
 		useCache = OptionValue["UseCachedGradient"];
 		At = Transpose[K];
 		dim = Length[x0];
 
 		If[useCache,
-			(* Inline caching via Module variables (avoids part-assignment on
-			   function arguments, which fails in Wolfram Language). *)
-			cachedX = None;
-			cachedPI = None;
-			gradFn[xv_?NumberVectorQ] :=
-				Module[{invH, AinvHAt, pi},
-					invH = InverseHessian[xv];
-					If[cachedX =!= None && Norm[xv - cachedX, Infinity] < 10^-6,
-						invH . (IdentityMatrix[dim] - At . cachedPI . K . invH),
-						AinvHAt = K . invH . At;
-						pi = PseudoInverse[AinvHAt];
-						cachedX = xv;
-						cachedPI = pi;
-						invH . (IdentityMatrix[dim] - At . pi . K . invH)
-					]
-				],
+			(* CachedGradientProjection has HoldAll; piCache is passed by reference *)
+			piCache = {Null};
+			gradFn[xv_?NumberVectorQ] := CachedGradientProjection[xv, K, dim, At, piCache],
 			(* Use original uncached version *)
 			gradFn[xv_?NumberVectorQ] := GradientProjection[xv, K, dim, At]
 		];
