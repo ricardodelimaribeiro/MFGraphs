@@ -127,7 +127,7 @@ getEntranceFlowsAtTime[data_Association, d2e_Association, t_] :=
     ]
 
 (* Get exit cost values at terminal time from the data *)
-getTerminalCostValues[data_Association, d2e_Association] :=
+getTerminalCostValues[data_Association] :=
     Module[{terminalCostFn, exitVerticesCosts, exitVertices},
         terminalCostFn = Lookup[data, "Terminal Cost Function", None];
         exitVerticesCosts = Lookup[data, "Exit Vertices and Terminal Costs", {}];
@@ -191,7 +191,7 @@ backwardPass[d2e_Association, data_Association, timeGrid_List,
 
         (* Terminal step: solve at t_N with original terminal costs *)
         MFGPrint["Backward pass: step ", Nt, "/", Nt, " (t = ", timeGrid[[Nt + 1]], ")"];
-        exitCostValues = getTerminalCostValues[data, d2e];
+        exitCostValues = getTerminalCostValues[data];
         entranceFlowValues = getEntranceFlowsAtTime[data, d2e, timeGrid[[Nt + 1]]];
         approxJs = AssociationThread[js, 0 js];
 
@@ -309,7 +309,7 @@ assembleResult[timeGrid_List, valueField_List, flowField_List,
 (* ============================================================ *)
 
 TimeDependentSolver[data_Association, opts:OptionsPattern[]] :=
-    Module[{d2e, T, Nt, dt, timeGrid,
+    Module[{d2e, T, Nt, timeGrid,
             maxIter, tol, spatialIter, returnShape,
             massField, valueField, flowField, prevFlowField,
             residual = Infinity, converged = False, iteration = 0,
@@ -335,7 +335,6 @@ TimeDependentSolver[data_Association, opts:OptionsPattern[]] :=
         (* Time discretization *)
         T = data["Time Horizon"];
         Nt = Lookup[data, "Time Steps", 10];
-        dt = N[T / Nt];
         timeGrid = N @ Subdivide[0, T, Nt];
 
         (* Build spatial structure once *)
