@@ -19,19 +19,24 @@ Test[
 ]
 
 Test[
-    Block[{V = Function[{x, edge}, 0],
-           alpha = Function[edge, 1],
-           g = Function[{m, edge}, -1/m^2]},
-        Module[{data, d2e, result},
-            data = GetExampleData[3] /. {I1 -> 2, U1 -> 0};
-            d2e = DataToEquations[data];
-            result = Quiet[NonLinearSolver[d2e, "MaxIterations" -> 2, "ReturnShape" -> "Standard"]];
-            Lookup[result, {"Solver", "ResultKind", "Feasibility", "Message"}] ===
-                {"NonLinear", "Success", "Feasible", None} &&
-            AssociationQ[result["AssoNonCritical"]] &&
-            result["Solution"] === result["AssoNonCritical"] &&
-            IsFeasible[result]
-        ]
+    Module[{data, d2e, result},
+        data = GetExampleData[3] /. {I1 -> 2, U1 -> 0};
+        d2e = DataToEquations[data];
+        result = Quiet[
+            NonLinearSolver[
+                d2e,
+                "MaxIterations" -> 2,
+                "ReturnShape" -> "Standard",
+                "PotentialFunction" -> Function[{x, edge}, 0],
+                "CongestionExponentFunction" -> Function[edge, 1],
+                "InteractionFunction" -> Function[{m, edge}, -1/m^2]
+            ]
+        ];
+        Lookup[result, {"Solver", "ResultKind", "Feasibility", "Message"}] ===
+            {"NonLinear", "Success", "Feasible", None} &&
+        AssociationQ[result["AssoNonCritical"]] &&
+        result["Solution"] === result["AssoNonCritical"] &&
+        IsFeasible[result]
     ]
     ,
     True
@@ -40,17 +45,22 @@ Test[
 ]
 
 Test[
-    Block[{V = Function[{x, edge}, 0],
-           alpha = Function[edge, 1],
-           g = Function[{m, edge}, -1/m^2]},
-        Module[{data, result},
-            data = GetExampleData[3] /. {I1 -> 80, U1 -> 0};
-            result = Quiet[MonotoneSolverFromData[data, "TimeSteps" -> 20, "ReturnShape" -> "Standard"]];
-            Lookup[result, {"Solver", "ResultKind", "Message"}] ===
-                {"Monotone", "Success", None} &&
-            AssociationQ[result["AssoMonotone"]] &&
-            result["Solution"] === result["AssoMonotone"]
-        ]
+    Module[{data, result},
+        data = GetExampleData[3] /. {I1 -> 80, U1 -> 0};
+        result = Quiet[
+            MonotoneSolverFromData[
+                data,
+                "TimeSteps" -> 20,
+                "ReturnShape" -> "Standard",
+                "PotentialFunction" -> Function[{x, edge}, 0],
+                "CongestionExponentFunction" -> Function[edge, 1],
+                "InteractionFunction" -> Function[{m, edge}, -1/m^2]
+            ]
+        ];
+        Lookup[result, {"Solver", "ResultKind", "Message"}] ===
+            {"Monotone", "Success", None} &&
+        AssociationQ[result["AssoMonotone"]] &&
+        result["Solution"] === result["AssoMonotone"]
     ]
     ,
     True
@@ -80,17 +90,21 @@ Test[
 ]
 
 Test[
-    Block[{V = Function[{x, edge}, 0],
-           alpha = Function[edge, 1],
-           g = Function[{m, edge}, -1/m^2]},
-        Module[{data, result},
-            data = GetExampleData[3] /. {I1 -> 0, U1 -> 0};
-            result = Quiet[MonotoneSolverFromData[data, "ReturnShape" -> "Standard"]];
-            Lookup[result, {"Solver", "ResultKind", "Message"}] ===
-                {"Monotone", "Failure", "SeedFindInstanceFailed"} &&
-            result["Solution"] === Missing["NotAvailable"] &&
-            result["AssoMonotone"] === Missing["NotAvailable"]
-        ]
+    Module[{data, result},
+        data = GetExampleData[3] /. {I1 -> 0, U1 -> 0};
+        result = Quiet[
+            MonotoneSolverFromData[
+                data,
+                "ReturnShape" -> "Standard",
+                "PotentialFunction" -> Function[{x, edge}, 0],
+                "CongestionExponentFunction" -> Function[edge, 1],
+                "InteractionFunction" -> Function[{m, edge}, -1/m^2]
+            ]
+        ];
+        Lookup[result, {"Solver", "ResultKind", "Message"}] ===
+            {"Monotone", "Failure", "SeedFindInstanceFailed"} &&
+        result["Solution"] === Missing["NotAvailable"] &&
+        result["AssoMonotone"] === Missing["NotAvailable"]
     ]
     ,
     True

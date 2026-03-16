@@ -6,7 +6,9 @@ Test[
     NameQ["MFGraphs`DataToEquations"] && NameQ["MFGraphs`CriticalCongestionSolver"] &&
     NameQ["MFGraphs`NonLinearSolver"] && NameQ["MFGraphs`MonotoneSolverFromData"] &&
     NameQ["MFGraphs`GetExampleData"] && NameQ["MFGraphs`DNFReduce"] &&
-    NameQ["MFGraphs`GetKirchhoffLinearSystem"]
+    NameQ["MFGraphs`GetKirchhoffLinearSystem"] && NameQ["MFGraphs`V"] &&
+    NameQ["MFGraphs`alpha"] && NameQ["MFGraphs`g"] &&
+    NameQ["MFGraphs`WithHamiltonianFunctions"]
     ,
     True
     ,
@@ -32,4 +34,34 @@ Test[
     True
     ,
     TestID -> "Package loading: backward compatibility aliases"
+]
+
+Test[
+    {
+        V[0, UndirectedEdge[1, 2]],
+        alpha[UndirectedEdge[1, 2]],
+        g[2, UndirectedEdge[1, 2]]
+    } ===
+    {0, 1, -1/4}
+    ,
+    True
+    ,
+    TestID -> "Package loading: default Hamiltonian hooks"
+]
+
+Test[
+    WithHamiltonianFunctions[
+        Function[{x, edge}, x + 3],
+        Function[edge, 2],
+        Function[{m, edge}, -3 m],
+        {
+            V[2, UndirectedEdge[1, 2]],
+            alpha[UndirectedEdge[1, 2]],
+            g[2, UndirectedEdge[1, 2]]
+        }
+    ] === {5, 2, -6}
+    ,
+    True
+    ,
+    TestID -> "Package loading: temporary Hamiltonian overrides"
 ]

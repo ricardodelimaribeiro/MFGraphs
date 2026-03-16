@@ -18,11 +18,13 @@ $TestSuites = <|
         "infeasible-status.mt",
         "monotone-monotonicity.mt",
         "monotone-solver.mt",
-        "solver-contracts.mt"
+        "solver-contracts.mt",
+        "time-dependent-data.mt"
     },
     "slow" -> {
         "J9F-critical_congestion.mt",
-        "Jm9-critical_congestion.mt"
+        "Jm9-critical_congestion.mt",
+        "time-dependent-solver.mt"
     }
 |>;
 $TestSuites["all"] = Join[$TestSuites["fast"], $TestSuites["slow"]];

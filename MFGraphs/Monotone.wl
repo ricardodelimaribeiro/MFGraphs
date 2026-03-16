@@ -28,12 +28,16 @@ The function has the HoldAll attribute so that cache is passed by reference.";
 MonotoneSolverFromData::usage =
 "MonotoneSolverFromData[Data] solves the MFG problem from raw Data using the monotone operator method.
 Options: \"TimeSteps\" (default 100), \"UseCachedGradient\" (default True), \
-\"ReturnShape\" (default \"Legacy\"; use \"Standard\" for a normalized solver-result association).";
+\"ReturnShape\" (default \"Legacy\"; use \"Standard\" for a normalized solver-result association), \
+\"PotentialFunction\", \"CongestionExponentFunction\", and \"InteractionFunction\" \
+(default Automatic, meaning use the current global MFGraphs` definitions of V, alpha, and g).";
 
 MonotoneSolver::usage =
 "MonotoneSolver[d2e] solves the MFG problem using the monotone operator method.
 Options: \"TimeSteps\" (default 100), \"UseCachedGradient\" (default True), \
-\"ReturnShape\" (default \"Legacy\"; use \"Standard\" for a normalized solver-result association).";
+\"ReturnShape\" (default \"Legacy\"; use \"Standard\" for a normalized solver-result association), \
+\"PotentialFunction\", \"CongestionExponentFunction\", and \"InteractionFunction\" \
+(default Automatic, meaning use the current global MFGraphs` definitions of V, alpha, and g).";
 
 MonotoneSolverODE::usage =
 "MonotoneSolverODE[x0, K, jj, cc] solves the gradient flow ODE from initial condition x0.
@@ -48,7 +52,10 @@ MonotoneSolver::seedfail =
 Options[MonotoneSolverFromData] = {
     "TimeSteps" -> 100,
     "UseCachedGradient" -> True,
-    "ReturnShape" -> "Legacy"
+    "ReturnShape" -> "Legacy",
+    "PotentialFunction" -> Automatic,
+    "CongestionExponentFunction" -> Automatic,
+    "InteractionFunction" -> Automatic
 };
 Options[MonotoneSolver] = Options[MonotoneSolverFromData];
 Options[MonotoneSolverODE] = {"TimeSteps" -> 100, "UseCachedGradient" -> True};
@@ -139,68 +146,78 @@ MonotoneSolverFromData[Data_, opts:OptionsPattern[]] :=
 	];
 
 MonotoneSolver[d2e_, opts:OptionsPattern[]] :=
-	Module[{B, K, jj, cc, x0, result, returnShape, solution, missingSolution},
-		returnShape = OptionValue["ReturnShape"];
-		missingSolution = Missing["NotAvailable"];
-		{B, K, jj} = GetKirchhoffLinearSystem[d2e];
-		(* Guard: skip MonotoneSolver for degenerate cases with no flow variables *)
-		If[Length[jj] === 0,
-			Message[MonotoneSolver::degenerate];
-			Return[
+	Module[{potentialFunction, congestionExponentFunction, interactionFunction},
+		potentialFunction = OptionValue["PotentialFunction"];
+		congestionExponentFunction = OptionValue["CongestionExponentFunction"];
+		interactionFunction = OptionValue["InteractionFunction"];
+		WithHamiltonianFunctions[
+			potentialFunction,
+			congestionExponentFunction,
+			interactionFunction,
+			Module[{B, K, jj, cc, x0, result, returnShape, solution, missingSolution},
+				returnShape = OptionValue["ReturnShape"];
+				missingSolution = Missing["NotAvailable"];
+				{B, K, jj} = GetKirchhoffLinearSystem[d2e];
+				(* Guard: skip MonotoneSolver for degenerate cases with no flow variables *)
+				If[Length[jj] === 0,
+					Message[MonotoneSolver::degenerate];
+					Return[
+						If[returnShape === "Standard",
+							MakeSolverResult[
+								"Monotone",
+								"Degenerate",
+								Missing["NotApplicable"],
+								"DegenerateCase",
+								missingSolution,
+								<|"AssoMonotone" -> missingSolution|>
+							],
+							<|"Message" -> "Degenerate case"|>
+						],
+						Module
+					]
+				];
+				(* Build the lifted edge-cost field *)
+				{jj, cc} = BuildMonotoneField[d2e];
+				(* Find numerically interior feasible seed *)
+				result = Quiet @ Check[
+					First @ FindInstance[K . jj == B && And @@ ((# >= 10^-8) & /@ jj), jj, Reals],
+					$Failed
+				];
+				If[result === $Failed,
+					Message[MonotoneSolver::seedfail];
+					Return[
+						If[returnShape === "Standard",
+							MakeSolverResult[
+								"Monotone",
+								"Failure",
+								Missing["NotApplicable"],
+								"SeedFindInstanceFailed",
+								missingSolution,
+								<|"AssoMonotone" -> missingSolution|>
+							],
+							Null
+						],
+						Module
+					]
+				];
+				x0 = N[jj /. result];
+				(* No edges → zero cost field → feasible point is already the solution *)
+				solution = If[Length[Lookup[d2e, "edgeList", {}]] === 0,
+					AssociationThread[jj, x0],
+					MonotoneSolverODE[x0, K, jj, cc, FilterRules[{opts}, Options[MonotoneSolverODE]]]
+				];
 				If[returnShape === "Standard",
 					MakeSolverResult[
 						"Monotone",
-						"Degenerate",
+						"Success",
 						Missing["NotApplicable"],
-						"DegenerateCase",
-						missingSolution,
-						<|"AssoMonotone" -> missingSolution|>
+						None,
+						solution,
+						<|"AssoMonotone" -> solution|>
 					],
-					<|"Message" -> "Degenerate case"|>
-				],
-				Module
+					solution
+				]
 			]
-		];
-		(* Build the lifted edge-cost field *)
-		{jj, cc} = BuildMonotoneField[d2e];
-		(* Find numerically interior feasible seed *)
-		result = Quiet @ Check[
-			First @ FindInstance[K . jj == B && And @@ ((# >= 10^-8) & /@ jj), jj, Reals],
-			$Failed
-		];
-		If[result === $Failed,
-			Message[MonotoneSolver::seedfail];
-			Return[
-				If[returnShape === "Standard",
-					MakeSolverResult[
-						"Monotone",
-						"Failure",
-						Missing["NotApplicable"],
-						"SeedFindInstanceFailed",
-						missingSolution,
-						<|"AssoMonotone" -> missingSolution|>
-					],
-					Null
-				],
-				Module
-			]
-		];
-		x0 = N[jj /. result];
-		(* No edges → zero cost field → feasible point is already the solution *)
-		solution = If[Length[Lookup[d2e, "edgeList", {}]] === 0,
-			AssociationThread[jj, x0],
-			MonotoneSolverODE[x0, K, jj, cc, FilterRules[{opts}, Options[MonotoneSolverODE]]]
-		];
-		If[returnShape === "Standard",
-			MakeSolverResult[
-				"Monotone",
-				"Success",
-				Missing["NotApplicable"],
-				None,
-				solution,
-				<|"AssoMonotone" -> solution|>
-			],
-			solution
 		]
 	];
 
