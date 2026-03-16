@@ -1,3 +1,5 @@
+(* ::Package:: *)
+
 (* Wolfram Language package *)
 (* Built-in test cases for MFGraphs *)
 
@@ -38,9 +40,7 @@ S16::usage = "Symbolic parameter: switching cost 16.";
 
 Begin["`Private`"];
 
-		eme=3;
-        ene=3;
-        test = Association[
+		test = Association[
     (* One vertex *)
     1 -> {
         (*VL=*){1},
