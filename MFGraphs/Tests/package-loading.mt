@@ -15,7 +15,8 @@ Test[
 (* Test: Private symbols are NOT in MFGraphs` context *)
 Test[
     !NameQ["MFGraphs`$SolveCache"] && !NameQ["MFGraphs`$ReduceCache"] &&
-    !NameQ["MFGraphs`sortByComplexity"] && !NameQ["MFGraphs`TransitionsAt"]
+    !NameQ["MFGraphs`sortByComplexity"] && !NameQ["MFGraphs`TransitionsAt"] &&
+    !NameQ["MFGraphs`BuildMonotoneField"]
     ,
     True
     ,
