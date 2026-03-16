@@ -17,7 +17,7 @@ Get[FileNameJoin[{Directory[], "Scripts", "ProfileInstrument.wls"}]];
 
 (* --- Configuration --- *)
 $CaseToProfile = 7;
-$SolverToProfile = "NonLinearSolver";
+$SolverToProfile = "CriticalCongestion";
 
 (* --- Main execution --- *)
 Module[{tier, timeout, data, d2eResult, d2e, solverResult, report},
@@ -47,21 +47,16 @@ Module[{tier, timeout, data, d2eResult, d2e, solverResult, report},
 
   (* Run solver with profiling *)
   Print["  Running ", $SolverToProfile, " with profiling..."];
-
-  critResult = SafeExecute[CriticalCongestionSolver[d2e], timeout];
-  If[critResult["Status"] =!= "OK",
-      Print["CriticalCongestionSolver failed. Aborting."];
-      Quit[];
-  ];
   
   InitProfile[];
+  InstallProfileWrappers[];
 
-  Print["Entering profiled NonLinearSolver block..."];
-  solverResult = Block[{V = Function[{x, edge}, 0]},
-      SafeExecute[NonLinearSolver[critResult["Result"]], timeout]
-  ];
-  Print["...left profiled NonLinearSolver block."];
+  Print["Entering profiled CriticalCongestionSolver block..."];
+  solverResult = SafeExecute[CriticalCongestionSolver[d2e], timeout];
+  Print["...left profiled CriticalCongestionSolver block."];
   
+  UninstallProfileWrappers[];
+
   Print["    Solver Status: ", solverResult["Status"]];
   Print["    Total Time: ", FormatTime[solverResult["Time"]], "s"];
   Print[];

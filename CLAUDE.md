@@ -125,3 +125,7 @@ Symbolic parameters (e.g., `I1`, `U1`, `S1`) can be used and substituted with `/
 **Important**: Call `ClearSolveCache[]` between different problem instances to prevent stale cached results.
 
 Performance history is tracked in `DNF_PERFORMANCE_HISTORY.md`. When making changes to `DNFReduce.wl`, run `CompareDNF.wls` with `--tag` to record the impact.
+
+## Git workflow
+
+**Never commit directly to `master`.** All changes must be made on a new branch and merged via pull request.
