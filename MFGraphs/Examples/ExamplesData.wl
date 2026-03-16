@@ -9,6 +9,33 @@ Supports test cases with 5 fields (basic), 6 fields (+cost function 'a'), or 7 f
 
 DataG::usage = "DataG is a backward-compatibility alias for GetExampleData.";
 
+(* Declare symbolic parameters in the MFGraphs` context so that user-level
+   substitution rules like {I1 -> 100, U1 -> 0} match the symbols returned
+   by GetExampleData. Without these declarations the symbols end up in
+   MFGraphs`Private` and substitution silently fails. *)
+I1::usage = "Symbolic parameter: input flow at entrance 1.";
+I2::usage = "Symbolic parameter: input flow at entrance 2.";
+I3::usage = "Symbolic parameter: input flow at entrance 3.";
+U1::usage = "Symbolic parameter: terminal cost at exit 1.";
+U2::usage = "Symbolic parameter: terminal cost at exit 2.";
+U3::usage = "Symbolic parameter: terminal cost at exit 3.";
+S1::usage  = "Symbolic parameter: switching cost 1.";
+S2::usage  = "Symbolic parameter: switching cost 2.";
+S3::usage  = "Symbolic parameter: switching cost 3.";
+S4::usage  = "Symbolic parameter: switching cost 4.";
+S5::usage  = "Symbolic parameter: switching cost 5.";
+S6::usage  = "Symbolic parameter: switching cost 6.";
+S7::usage  = "Symbolic parameter: switching cost 7.";
+S8::usage  = "Symbolic parameter: switching cost 8.";
+S9::usage  = "Symbolic parameter: switching cost 9.";
+S10::usage = "Symbolic parameter: switching cost 10.";
+S11::usage = "Symbolic parameter: switching cost 11.";
+S12::usage = "Symbolic parameter: switching cost 12.";
+S13::usage = "Symbolic parameter: switching cost 13.";
+S14::usage = "Symbolic parameter: switching cost 14.";
+S15::usage = "Symbolic parameter: switching cost 15.";
+S16::usage = "Symbolic parameter: switching cost 16.";
+
 Begin["`Private`"];
 
 		eme=3;

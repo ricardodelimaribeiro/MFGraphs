@@ -112,16 +112,29 @@ MonotoneSolver[d2e_, opts:OptionsPattern[]] :=
 	];
 
 MonotoneSolverODE[x0_, K_, jj_, cc_, opts:OptionsPattern[]] :=
-	Module[{At, dim, sol, x, xx, n, useCache, piCache, gradFn},
+	Module[{At, dim, sol, x, xx, n, useCache, cachedX, cachedPI, gradFn},
 		n = OptionValue["TimeSteps"];
 		useCache = OptionValue["UseCachedGradient"];
 		At = Transpose[K];
 		dim = Length[x0];
 
 		If[useCache,
-			(* Use cached version to avoid redundant PseudoInverse calls *)
-			piCache = {Null};
-			gradFn[xv_?NumberVectorQ] := CachedGradientProjection[xv, K, dim, At, piCache],
+			(* Inline caching via Module variables (avoids part-assignment on
+			   function arguments, which fails in Wolfram Language). *)
+			cachedX = None;
+			cachedPI = None;
+			gradFn[xv_?NumberVectorQ] :=
+				Module[{invH, AinvHAt, pi},
+					invH = InverseHessian[xv];
+					If[cachedX =!= None && Norm[xv - cachedX, Infinity] < 10^-6,
+						invH . (IdentityMatrix[dim] - At . cachedPI . K . invH),
+						AinvHAt = K . invH . At;
+						pi = PseudoInverse[AinvHAt];
+						cachedX = xv;
+						cachedPI = pi;
+						invH . (IdentityMatrix[dim] - At . pi . K . invH)
+					]
+				],
 			(* Use original uncached version *)
 			gradFn[xv_?NumberVectorQ] := GradientProjection[xv, K, dim, At]
 		];
