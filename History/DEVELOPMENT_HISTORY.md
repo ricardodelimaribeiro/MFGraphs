@@ -401,7 +401,7 @@ This is Mathematica's version of the global variable problem, and it's especiall
 | 2022 | ~50 | D2E2 refinement, ZAnd investigation |
 | 2023 | ~5 | Minimal activity |
 | 2024 | ~15 | Monotone solver, D2E2 consolidation |
-| Mar 2026 | ~180 | 18 PRs, full professionalization |
+| Mar 2026 | ~190 | 20 PRs, full professionalization + time-dependent solver |
 | **Total** | **~521** | |
 
 ### File evolution
@@ -425,10 +425,65 @@ This is Mathematica's version of the global variable problem, and it's especiall
 | #10–12 | Cleanup + naming + .wl extension | 574 KB removed, modern conventions |
 | #13–17 | Context hygiene + solver fixes | 3 emergency fixes in 24 hours |
 | #18 | Solver contracts + test runner | Standardized interfaces |
+| #19 | Time-dependent solver + Hamiltonian hooks | Dynamic extension, public modeling hooks |
+| #20 | Development history document | Institutional memory, project narrative |
 
 ---
 
-## 9. Epilogue: The Shape of Research Software
+## 9. Further Development: A Sense of Direction
+
+The package is now much stronger than it was in early 2026, but its most interesting work is still ahead. The current architecture suggests a clear set of next steps:
+
+### 1. Complete the time-dependent solver
+
+PR #19 added a real time-dependent module, but the forward pass is still a phase-1 approximation: it reuses flow data as a proxy for mass rather than solving the full transport update. The most important mathematical development task is to evolve this into a genuine backward-forward scheme with a proper mass propagation step and validation against cases with known qualitative behavior.
+
+### 2. Turn calibration into a first-class workflow
+
+MFGraphs now exposes the modeling ingredients (`V`, `alpha`, `g`, switching costs, exit costs, entry currents), but calibration is still mostly manual. A natural next milestone is a reproducible calibration pipeline:
+- fit parameters from observed edge flows, turn counts, or destination shares,
+- compare scenarios against held-out data,
+- make Jamarat-style or transport-terminal case studies easy to reproduce.
+
+This would move the package from "solver library" toward "applied modeling tool."
+
+### 3. Promote visualization into the public API
+
+The getting-started workbook now contains useful solution graphics, density plots, and flow summaries. These should eventually become package functions rather than notebook-local helpers. A public visualization layer would make the package much easier to use in exploratory and operational settings.
+
+### 4. Push scalability further
+
+The DNFReduce memoization work was transformative, but symbolic branching remains the core computational risk for large networks with many switching costs. The next performance frontier is likely:
+- more sparse linear-algebra structure in preprocessing,
+- stronger reuse across repeated scenario solves,
+- better decomposition of large routing problems into subproblems.
+
+### 5. Tighten the public modeling interface
+
+The package has moved away from hidden global state and toward explicit options, but the transition is not complete. A useful cleanup direction is to make the core modeling inputs fully declarative: one consistent way to specify Hamiltonians, terminal costs, switching penalties, solver tolerances, and return shapes across all solver families.
+
+### 6. Build scenario-oriented examples
+
+The most compelling applications are no longer toy graphs but operational case studies: Jamarat crowd routing, Braess-style traffic paradoxes, and controlled branching networks. The next documentation leap would be a set of scenario notebooks or scripts that show:
+- how to define a realistic network,
+- how to calibrate inputs,
+- how to compare policies,
+- how to visualize the resulting equilibria.
+
+### 7. Add continuous regression infrastructure
+
+The package now has meaningful tests and a test runner. The next engineering step is automation:
+- run the fast suite on every change,
+- track benchmark regressions over time,
+- keep the performance history updated with measured data rather than one-off runs.
+
+This would protect the gains from March 2026 instead of relying on memory and discipline.
+
+Taken together, these tasks point in a coherent direction: MFGraphs is no longer just a repository of symbolic experiments. The interesting future is to turn it into a calibrated, scenario-driven, performant MFG toolkit for network routing problems.
+
+---
+
+## 10. Epilogue: The Shape of Research Software
 
 MFGraphs follows a pattern common to academic software projects:
 

@@ -124,9 +124,16 @@ NetEdgeFlows[d2e_Association, solution_Association, pairs_: Automatic] :=
         ]
     ];
 
+vertexPropertyMap[entryVertices_, exitVertices_, internalVertices_, entryVal_, exitVal_, internalVal_] :=
+    Join[
+        AssociationThread[entryVertices, ConstantArray[entryVal, Length[entryVertices]]],
+        AssociationThread[exitVertices, ConstantArray[exitVal, Length[exitVertices]]],
+        AssociationThread[internalVertices, ConstantArray[internalVal, Length[internalVertices]]]
+    ];
+
 NetworkVisualData[d2e_Association] :=
-    Module[{graph, layoutGraph, coords, coordArray, extent, entryVertices,
-      exitVertices, internalVertices, vertexColors, vertexSizes, vertexRadii},
+    Module[{graph, layoutGraph, coords, coordArray, extent,
+      entryVertices, exitVertices, internalVertices},
         graph = Lookup[d2e, "graph", Graph[{}]];
         layoutGraph = Graph[graph, GraphLayout -> "SpringElectricalEmbedding"];
         coords = AssociationThread[VertexList[layoutGraph], N @ GraphEmbedding[layoutGraph]];
@@ -139,27 +146,15 @@ NetworkVisualData[d2e_Association] :=
         entryVertices = Lookup[d2e, "entryVertices", {}];
         exitVertices = Lookup[d2e, "exitVertices", {}];
         internalVertices = Complement[VertexList[graph], entryVertices, exitVertices];
-        vertexColors = Join[
-            AssociationThread[entryVertices, ConstantArray[RGBColor[0.22, 0.6, 0.3], Length[entryVertices]]],
-            AssociationThread[exitVertices, ConstantArray[RGBColor[0.82, 0.27, 0.2], Length[exitVertices]]],
-            AssociationThread[internalVertices, ConstantArray[GrayLevel[0.75], Length[internalVertices]]]
-        ];
-        vertexSizes = Join[
-            AssociationThread[entryVertices, ConstantArray[0.34, Length[entryVertices]]],
-            AssociationThread[exitVertices, ConstantArray[0.34, Length[exitVertices]]],
-            AssociationThread[internalVertices, ConstantArray[0.28, Length[internalVertices]]]
-        ];
-        vertexRadii = Join[
-            AssociationThread[entryVertices, ConstantArray[0.045 extent, Length[entryVertices]]],
-            AssociationThread[exitVertices, ConstantArray[0.045 extent, Length[exitVertices]]],
-            AssociationThread[internalVertices, ConstantArray[0.035 extent, Length[internalVertices]]]
-        ];
         <|
             "graph" -> graph,
             "coords" -> coords,
-            "vertexColors" -> vertexColors,
-            "vertexSizes" -> vertexSizes,
-            "vertexRadii" -> vertexRadii
+            "vertexColors" -> vertexPropertyMap[entryVertices, exitVertices, internalVertices,
+                RGBColor[0.22, 0.6, 0.3], RGBColor[0.82, 0.27, 0.2], GrayLevel[0.75]],
+            "vertexSizes" -> vertexPropertyMap[entryVertices, exitVertices, internalVertices,
+                0.34, 0.34, 0.28],
+            "vertexRadii" -> vertexPropertyMap[entryVertices, exitVertices, internalVertices,
+                0.045 extent, 0.045 extent, 0.035 extent]
         |>
     ];
 
