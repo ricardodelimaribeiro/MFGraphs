@@ -116,10 +116,11 @@ DNFReduce[xp_, leq_] := xp && leq
 
 (* Equality: solve, substitute into both xp and rst, recurse *)
 DNFReduce[xp_, rst_, fst_Equal] :=
-    Module[{newfst = Simplify@fst, fsol, newxp, newrst},
+    Module[{newfst = Simplify@fst, fsol, sol, newxp, newrst},
         If[ newfst === False,
             False,
-            fsol = First@CachedSolve@newfst;
+            sol = Quiet[CachedSolve@newfst];
+            fsol = If[MatchQ[sol, {{__Rule}, ___}], First[sol], {}];
             newxp = SubstituteSolution[xp, fsol];
             If[ newxp === False,
                 False,

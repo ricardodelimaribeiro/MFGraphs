@@ -462,6 +462,9 @@ MFGSystemSolver[Eqs_][approxJs_] :=
             True,
          	MFGPrint["MFGSS: System is ", System]
          ];
+        (* Resolve transitive rule chains, e.g. j[2,4] -> j[1,2,4]+j[3,2,4]
+           with j[1,2,4] -> 50 becomes j[2,4] -> 50 *)
+        InitRules = Expand /@ FixedPoint[Function[r, ReplaceAll[r] /@ r], InitRules, 10];
         InitRules = Join[KeyTake[InitRules, us], KeyTake[InitRules, js], KeyTake[InitRules, jts]];
         InitRules
     ];
@@ -523,6 +526,12 @@ SystemToTriple[system_] :=
 
 (* --- TripleStep / TripleClean: fixed-point simplification --- *)
 
+(* SafeFirstSolve: returns a list of Rules from CachedSolve, or {} on failure *)
+SafeFirstSolve[eq_] := Module[{sol},
+    sol = Quiet[CachedSolve[eq]];
+    If[MatchQ[sol, {{__Rule}, ___}], First[sol], {}]
+];
+
 TripleStep[{{EEs_, NNs_, ORs_}, rules_List}] :=
     TripleStep[{{EEs, NNs, ORs}, Association@rules}]
 
@@ -531,7 +540,7 @@ TripleStep[{{EE_?BooleanQ, NN_?BooleanQ, OR_?BooleanQ}, rules_Association}] :=
 
 TripleStep[{{EE_, NN_?TrueQ, OR_?TrueQ}, rules_Association}] :=
     Module[ {newrules = {}},
-        newrules = First@CachedSolve[EE /. rules] // Quiet;
+        newrules = SafeFirstSolve[EE /. rules];
         newrules = Join[rules /. newrules, Association@newrules];
         {{True, NN, OR}, Expand /@ newrules}
     ];
@@ -542,7 +551,7 @@ TripleStep[{{True, NNs_, ORs_}, rules_Association}] :=
 TripleStep[{{EEs_, NNs_, ORs_}, rules_Association}] :=
 	Module[{EE = EEs /. rules, NN, OR, NNE, NNO, ORE, ORN, newrules ={}},
 	If[ EE =!= True && EE =!= False,
-    	newrules = First@CachedSolve[EE] // Quiet
+    	newrules = SafeFirstSolve[EE]
     ];
     newrules = Expand /@ Join[rules /. newrules, Association@newrules];
     NN = Expand /@ (NNs /. newrules);

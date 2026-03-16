@@ -29,8 +29,6 @@ interpM should be the result of PrecomputeM.";
 IsFeasible::usage =
 "IsFeasible[result] returns True if result[\"Status\"] is \"Feasible\".";
 
-Clear[H, Cost];
-
 Options[NonLinearSolver] = {"MaxIterations" -> 15, "Tolerance" -> 0};
 
 Begin["`Private`"];
