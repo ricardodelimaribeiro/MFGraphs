@@ -5,7 +5,8 @@
 Test[
     NameQ["MFGraphs`DataToEquations"] && NameQ["MFGraphs`CriticalCongestionSolver"] &&
     NameQ["MFGraphs`NonLinearSolver"] && NameQ["MFGraphs`MonotoneSolverFromData"] &&
-    NameQ["MFGraphs`GetExampleData"] && NameQ["MFGraphs`DNFReduce"]
+    NameQ["MFGraphs`GetExampleData"] && NameQ["MFGraphs`DNFReduce"] &&
+    NameQ["MFGraphs`GetKirchhoffLinearSystem"]
     ,
     True
     ,
@@ -16,7 +17,7 @@ Test[
 Test[
     !NameQ["MFGraphs`$SolveCache"] && !NameQ["MFGraphs`$ReduceCache"] &&
     !NameQ["MFGraphs`sortByComplexity"] && !NameQ["MFGraphs`TransitionsAt"] &&
-    !NameQ["MFGraphs`BuildMonotoneField"]
+    !NameQ["MFGraphs`BuildMonotoneField"] && !NameQ["MFGraphs`MakeSolverResult"]
     ,
     True
     ,

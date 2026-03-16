@@ -19,6 +19,29 @@ MFGPrintTemporary::usage =
 "MFGPrintTemporary[args___] prints a temporary message only when $MFGraphsVerbose is True.";
 MFGPrintTemporary[args___] := If[$MFGraphsVerbose, PrintTemporary[args], Null];
 
+Begin["`Private`"];
+
+MakeSolverResult[
+    solver_String,
+    resultKind_String,
+    feasibility_,
+    message_,
+    solution_,
+    extraAssoc_: <||>
+] :=
+    Join[
+        <|
+            "Solver" -> solver,
+            "ResultKind" -> resultKind,
+            "Feasibility" -> feasibility,
+            "Message" -> message,
+            "Solution" -> solution
+        |>,
+        extraAssoc
+    ];
+
+End[];
+
 (* Load submodules in dependency order *)
 Get["MFGraphs`Examples`ExamplesData`"];
 Get["MFGraphs`DNFReduce`"];
