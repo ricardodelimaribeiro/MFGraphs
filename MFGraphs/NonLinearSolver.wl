@@ -6,7 +6,10 @@
 NonLinearSolver::usage =
     "NonLinearSolver[Eqs] takes an association resulting from DataToEquations and returns an approximation to the solution of the non-critical congestion case with alpha = value, specified by alpha[edge_] := value.
 Options: \"MaxIterations\" (default 15), \"Tolerance\" (default 0), \"ReturnShape\" \
-(default \"Legacy\"; use \"Standard\" to add normalized solver-result keys). When Tolerance > 0, iteration stops early when the infinity-norm change in flow variables between consecutive steps falls below the given tolerance.";
+(default \"Legacy\"; use \"Standard\" to add normalized solver-result keys), \
+\"PotentialFunction\", \"CongestionExponentFunction\", and \"InteractionFunction\" \
+(default Automatic, meaning use the current global MFGraphs` definitions of V, alpha, and g). \
+When Tolerance > 0, iteration stops early when the infinity-norm change in flow variables between consecutive steps falls below the given tolerance.";
 
 IsNonLinearSolution::usage =
 "IsNonLinearSolution[Eqs] extracts AssoNonCritical and checks equations and inequalities. The right and left hand sides of the nonlinear equations are shown with the sup-norm of the difference."
@@ -14,6 +17,18 @@ IsNonLinearSolution::usage =
 H::usage =
 "H[xi, p, m, edge] is the Hamiltonian function for the edges.
 edge is a directed edge from the graph."
+
+V::usage =
+"V[x, edge] is the along-edge potential term in the Hamiltonian. Lower values make locations on an edge more attractive to agents. The default is 0.";
+
+alpha::usage =
+"alpha[edge] is the edge-dependent congestion exponent used in the Hamiltonian. The default is 1.";
+
+g::usage =
+"g[m, edge] is the edge-dependent interaction term as a function of density m. The default is -1/m^2.";
+
+WithHamiltonianFunctions::usage =
+"WithHamiltonianFunctions[vFun, alphaFun, gFun, expr] temporarily overrides the public MFGraphs Hamiltonian ingredients V, alpha, and g while evaluating expr. Any argument may be Automatic to keep the current definition.";
 
 U::usage =
 "U[x, edge, Eqs, sol] computes the value function at position x on the given edge."
@@ -34,66 +49,102 @@ IsFeasible::usage =
 Options[NonLinearSolver] = {
     "MaxIterations" -> 15,
     "Tolerance" -> 0,
-    "ReturnShape" -> "Legacy"
+    "ReturnShape" -> "Legacy",
+    "PotentialFunction" -> Automatic,
+    "CongestionExponentFunction" -> Automatic,
+    "InteractionFunction" -> Automatic
 };
+
+SetAttributes[WithHamiltonianFunctions, HoldRest];
+
+WithHamiltonianFunctions[vFun_:Automatic, alphaFun_:Automatic, gFun_:Automatic, expr_] :=
+    Block[{V, alpha, g},
+        If[vFun =!= Automatic, V = vFun];
+        If[alphaFun =!= Automatic, alpha = alphaFun];
+        If[gFun =!= Automatic, g = gFun];
+        expr
+    ];
+
+(* --- Hamiltonian and related functions --- *)
+
+(* Default congestion exponent *)
+alpha[edge_] := 1
+
+(* Default interaction potential *)
+g[m_, edge_] := -1/m^2
+
+(* Default baseline: zero potential on every edge. *)
+V[x_, edge_] := 0
+
+H = Function[{xi, p, m, edge}, p^2/(2 m^alpha[edge]) + V[xi, edge] - g[m, edge]];
 
 Begin["`Private`"];
 
 (* --- NonLinearSolver: main iterative solver --- *)
 
 NonLinearSolver[Eqs_, OptionsPattern[]] :=
-    Module[ {AssoCritical, PreEqs = Eqs, AssoNonCritical, NonCriticalList, js,
+    Module[ {potentialFunction, congestionExponentFunction, interactionFunction},
+        potentialFunction = OptionValue["PotentialFunction"];
+        congestionExponentFunction = OptionValue["CongestionExponentFunction"];
+        interactionFunction = OptionValue["InteractionFunction"];
+        WithHamiltonianFunctions[
+            potentialFunction,
+            congestionExponentFunction,
+            interactionFunction,
+            Module[ {AssoCritical, PreEqs = Eqs, AssoNonCritical, NonCriticalList, js,
              MaxIter = OptionValue["MaxIterations"], tol = OptionValue["Tolerance"],
              returnShape = OptionValue["ReturnShape"], status, flowKeys, flowVals,
              resultKind, message, solution},
-        If[ KeyExistsQ[PreEqs, "AssoCritical"],
-            (* If there is already an approximation for the non-congestion case, use it *)
-            AssoNonCritical = Lookup[PreEqs, "AssoNonCritical", PreEqs["AssoCritical"]],
-            PreEqs = MFGPreprocessing[PreEqs];
-            AssoNonCritical = AssociationThread[Lookup[PreEqs, "js", {}], 0 Lookup[PreEqs, "js", {}]]
-        ];
-        js = Lookup[PreEqs, "js", {}];
-        NonCriticalList = If[ tol > 0 && js =!= {},
-            (* Tolerance-based stopping: compare consecutive flow vectors *)
-            NestWhileList[
-                nonLinearStep[PreEqs],
-                AssoNonCritical,
-                (Norm[N[Values[KeyTake[#2, js]] - Values[KeyTake[#1, js]]], Infinity] > tol)&,
-                2, MaxIter
-            ],
-            (* Default: exact fixed-point check (stops when consecutive results are identical) *)
-            FixedPointList[nonLinearStep[PreEqs], AssoNonCritical, MaxIter]
-        ];
-        MFGPrint["Iterated ", Length[NonCriticalList]-1, " times out of ", MaxIter];
-        AssoCritical = Lookup[PreEqs, "AssoCritical", NonCriticalList[[2]]];
-        AssoNonCritical = NonCriticalList // Last;
-        (* Feasibility check on the non-linear solution *)
-        If[AssoNonCritical === Null,
-            status = "Infeasible",
-            flowKeys = Select[Keys[AssoNonCritical], MatchQ[#, _j] &];
-            flowVals = Lookup[AssoNonCritical, flowKeys];
-            status = If[flowVals === {} || Min[Select[flowVals, NumericQ]] < 0, "Infeasible", "Feasible"]
-        ];
-        If[returnShape === "Standard",
-            resultKind = If[AssoNonCritical === Null, "Failure", "Success"];
-            message = If[AssoNonCritical === Null, "NoSolution", None];
-            solution = If[AssociationQ[AssoNonCritical], AssoNonCritical, Missing["NotAvailable"]];
-            Join[
-                PreEqs,
-                MakeSolverResult[
-                    "NonLinear",
-                    resultKind,
-                    status,
-                    message,
-                    solution,
-                    <|
-                        "AssoCritical" -> AssoCritical,
-                        "AssoNonCritical" -> AssoNonCritical,
-                        "Status" -> status
-                    |>
+                If[ KeyExistsQ[PreEqs, "AssoCritical"],
+                    (* If there is already an approximation for the non-congestion case, use it *)
+                    AssoNonCritical = Lookup[PreEqs, "AssoNonCritical", PreEqs["AssoCritical"]],
+                    PreEqs = MFGPreprocessing[PreEqs];
+                    AssoNonCritical = AssociationThread[Lookup[PreEqs, "js", {}], 0 Lookup[PreEqs, "js", {}]]
+                ];
+                js = Lookup[PreEqs, "js", {}];
+                NonCriticalList = If[ tol > 0 && js =!= {},
+                    (* Tolerance-based stopping: compare consecutive flow vectors *)
+                    NestWhileList[
+                        nonLinearStep[PreEqs],
+                        AssoNonCritical,
+                        (Norm[N[Values[KeyTake[#2, js]] - Values[KeyTake[#1, js]]], Infinity] > tol)&,
+                        2, MaxIter
+                    ],
+                    (* Default: exact fixed-point check (stops when consecutive results are identical) *)
+                    FixedPointList[nonLinearStep[PreEqs], AssoNonCritical, MaxIter]
+                ];
+                MFGPrint["Iterated ", Length[NonCriticalList]-1, " times out of ", MaxIter];
+                AssoCritical = Lookup[PreEqs, "AssoCritical", NonCriticalList[[2]]];
+                AssoNonCritical = NonCriticalList // Last;
+                (* Feasibility check on the non-linear solution *)
+                If[AssoNonCritical === Null,
+                    status = "Infeasible",
+                    flowKeys = Select[Keys[AssoNonCritical], MatchQ[#, _j] &];
+                    flowVals = Lookup[AssoNonCritical, flowKeys];
+                    status = If[flowVals === {} || Min[Select[flowVals, NumericQ]] < 0, "Infeasible", "Feasible"]
+                ];
+                If[returnShape === "Standard",
+                    resultKind = If[AssoNonCritical === Null, "Failure", "Success"];
+                    message = If[AssoNonCritical === Null, "NoSolution", None];
+                    solution = If[AssociationQ[AssoNonCritical], AssoNonCritical, Missing["NotAvailable"]];
+                    Join[
+                        PreEqs,
+                        MakeSolverResult[
+                            "NonLinear",
+                            resultKind,
+                            status,
+                            message,
+                            solution,
+                            <|
+                                "AssoCritical" -> AssoCritical,
+                                "AssoNonCritical" -> AssoNonCritical,
+                                "Status" -> status
+                            |>
+                        ]
+                    ],
+                    Join[PreEqs, <|"AssoCritical" -> AssoCritical, "AssoNonCritical" -> AssoNonCritical, "Status" -> status|>]
                 ]
-            ],
-            Join[PreEqs, <|"AssoCritical" -> AssoCritical, "AssoNonCritical" -> AssoNonCritical, "Status" -> status|>]
+            ]
         ]
     ];
 
@@ -158,18 +209,100 @@ IsNonLinearSolution[Eqs_] :=
         N@assoc
     ];
 
-(* --- Hamiltonian and related functions --- *)
-
-(* Default congestion exponent *)
-alpha[edge_] := 1
-
-(* Default interaction potential *)
-g[m_, edge_] := -1/m^2
-
-(* Potential function - users should override V[x, edge] for specific problems *)
-(* Default: V = Function[{x, edge}, W[x, A]] where W[y,a] = a Sin[2 Pi (y+1/4)]^2 *)
-
-H = Function[{xi, p, m, edge}, p^2/(2 m^alpha[edge]) + V[xi, edge] - g[m, edge]];
+(* Density recovery is the numerically delicate step in the non-linear solver.
+   Retry with bounded positive mass and higher precision before falling back. *)
+SolveMassRoot[j_?NumericQ, x_?NumericQ, edge_] :=
+    Module[{attempts, logAttempts, rule, value, wp, guess, accuracyGoal, precisionGoal,
+      xVal, jVal, lowerBound, upperBound},
+        attempts = {
+            {MachinePrecision, 1., 8, 8},
+            {MachinePrecision, 0.25, 8, 8},
+            {MachinePrecision, 4., 8, 8},
+            {30, 1., 12, 12},
+            {30, 0.25, 12, 12},
+            {30, 4., 12, 12},
+            {50, 1., 16, 16}
+        };
+        logAttempts = {
+            {MachinePrecision, -2., 8, 8},
+            {MachinePrecision, 0., 8, 8},
+            {MachinePrecision, 2., 8, 8},
+            {30, -2., 12, 12},
+            {30, 0., 12, 12},
+            {30, 2., 12, 12},
+            {50, 0., 16, 16}
+        };
+        lowerBound = 10^-10;
+        upperBound = 10^6;
+        Do[
+            {wp, guess, accuracyGoal, precisionGoal} = attempt;
+            xVal = SetPrecision[x, wp];
+            jVal = SetPrecision[j, wp];
+            rule = Quiet[
+                FindRoot[
+                    SetPrecision[MFGraphs`H[xVal, -jVal m^(MFGraphs`alpha[edge] - 1), m, edge], wp],
+                    {m, SetPrecision[guess, wp], SetPrecision[lowerBound, wp], SetPrecision[upperBound, wp]},
+                    WorkingPrecision -> wp,
+                    AccuracyGoal -> accuracyGoal,
+                    PrecisionGoal -> precisionGoal,
+                    MaxIterations -> 100
+                ],
+                {
+                    FindRoot::precw,
+                    FindRoot::lstol,
+                    FindRoot::reged,
+                    FindRoot::cvmit,
+                    FindRoot::jsing,
+                    FindRoot::nlnum,
+                    FindRoot::frsec
+                }
+            ];
+            If[MatchQ[rule, {_Rule..}],
+                value = m /. rule;
+                If[
+                    NumericQ[value] &&
+                    TrueQ[Im[N[value]] == 0] &&
+                    TrueQ[Re[N[value]] > 0] &&
+                    Not[PossibleZeroQ[N[value] - lowerBound]] &&
+                    Not[PossibleZeroQ[N[value] - upperBound]],
+                    Return[N[Re[value]]]
+                ]
+            ],
+            {attempt, attempts}
+        ];
+        Do[
+            {wp, guess, accuracyGoal, precisionGoal} = attempt;
+            xVal = SetPrecision[x, wp];
+            jVal = SetPrecision[j, wp];
+            rule = Quiet[
+                FindRoot[
+                    SetPrecision[MFGraphs`H[xVal, -jVal Exp[y]^(MFGraphs`alpha[edge] - 1), Exp[y], edge], wp],
+                    {y, SetPrecision[guess, wp]},
+                    WorkingPrecision -> wp,
+                    AccuracyGoal -> accuracyGoal,
+                    PrecisionGoal -> precisionGoal,
+                    MaxIterations -> 100
+                ],
+                {
+                    FindRoot::precw,
+                    FindRoot::lstol,
+                    FindRoot::reged,
+                    FindRoot::cvmit,
+                    FindRoot::jsing,
+                    FindRoot::nlnum,
+                    FindRoot::frsec
+                }
+            ];
+            If[MatchQ[rule, {_Rule..}],
+                value = Exp[y /. rule];
+                If[NumericQ[value] && TrueQ[Im[N[value]] == 0] && TrueQ[Re[N[value]] > 0],
+                    Return[N[Re[value]]]
+                ]
+            ],
+            {attempt, logAttempts}
+        ];
+        0.
+    ];
 
 U[x_?NumericQ , edge_, Eqs_Association, sol_] :=
     Module[ {jay, uT},
@@ -178,20 +311,20 @@ U[x_?NumericQ , edge_, Eqs_Association, sol_] :=
         uT = uT/.sol;
         If[ PossibleZeroQ[jay],
             uT,
-            uT - jay NIntegrate[M[jay, y, edge]^(alpha[edge] - 1), {y, 0, x}]
+            uT - jay NIntegrate[M[jay, y, edge]^(MFGraphs`alpha[edge] - 1), {y, 0, x}]
         ]
     ]
 
 M[j_?NumericQ, x_?NumericQ, edge_] :=
     If[ PossibleZeroQ[j],
         0.,
-        Values@First@FindRoot[H[x, -j m^(alpha[edge] - 1), m, edge], {m, 1}]
+        SolveMassRoot[j, x, edge]
     ];
 
 IntegratedMass[j_?NumericQ, edge_] :=
     If[ PossibleZeroQ[j],
         0,
-        j NIntegrate[M[j, x, edge]^(alpha[edge] - 1), {x, 0, 1}] // Quiet
+        j NIntegrate[M[j, x, edge]^(MFGraphs`alpha[edge] - 1), {x, 0, 1}] // Quiet
     ];
 
 Cost[j_, edge_] :=
@@ -205,10 +338,7 @@ PrecomputeM[jMin_?NumericQ, jMax_?NumericQ, edge_, nPoints_Integer:50] :=
     xVals = Subdivide[0., 1., nPoints];
     mGrid = Table[
       If[PossibleZeroQ[jv], 0.,
-        Quiet @ Check[
-          Values @ First @ FindRoot[H[xv, -jv m^(alpha[edge]-1), m, edge], {m, 1}],
-          0.
-        ]
+        SolveMassRoot[jv, xv, edge]
       ],
       {jv, jVals}, {xv, xVals}
     ];
@@ -223,7 +353,7 @@ PrecomputeM[jMin_?NumericQ, jMax_?NumericQ, edge_, nPoints_Integer:50] :=
 
 FastIntegratedMass[interpM_, j_?NumericQ, edge_] :=
   If[PossibleZeroQ[j], 0,
-    j NIntegrate[interpM[j, x]^(alpha[edge]-1), {x, 0, 1}] // Quiet
+    j NIntegrate[interpM[j, x]^(MFGraphs`alpha[edge]-1), {x, 0, 1}] // Quiet
   ];
 
 (* --- Plotting utilities --- *)
