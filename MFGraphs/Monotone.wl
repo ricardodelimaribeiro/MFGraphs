@@ -27,17 +27,29 @@ The function has the HoldAll attribute so that cache is passed by reference.";
 
 MonotoneSolverFromData::usage =
 "MonotoneSolverFromData[Data] solves the MFG problem from raw Data using the monotone operator method.
-Options: \"TimeSteps\" (default 100), \"UseCachedGradient\" (default True).";
+Options: \"TimeSteps\" (default 100), \"UseCachedGradient\" (default True), \
+\"ReturnShape\" (default \"Legacy\"; use \"Standard\" for a normalized solver-result association).";
 
 MonotoneSolver::usage =
 "MonotoneSolver[d2e] solves the MFG problem using the monotone operator method.
-Options: \"TimeSteps\" (default 100), \"UseCachedGradient\" (default True).";
+Options: \"TimeSteps\" (default 100), \"UseCachedGradient\" (default True), \
+\"ReturnShape\" (default \"Legacy\"; use \"Standard\" for a normalized solver-result association).";
 
 MonotoneSolverODE::usage =
 "MonotoneSolverODE[x0, K, jj, cc] solves the gradient flow ODE from initial condition x0.
 Options: \"TimeSteps\" (default 100), \"UseCachedGradient\" (default True).";
 
-Options[MonotoneSolverFromData] = {"TimeSteps" -> 100, "UseCachedGradient" -> True};
+MonotoneSolver::degenerate =
+"Degenerate case: no flow variables were found, so the monotone solver was skipped.";
+
+MonotoneSolver::seedfail =
+"Failed to find an interior feasible seed for the monotone ODE solve.";
+
+Options[MonotoneSolverFromData] = {
+    "TimeSteps" -> 100,
+    "UseCachedGradient" -> True,
+    "ReturnShape" -> "Legacy"
+};
 Options[MonotoneSolver] = Options[MonotoneSolverFromData];
 Options[MonotoneSolverODE] = {"TimeSteps" -> 100, "UseCachedGradient" -> True};
 
@@ -92,8 +104,8 @@ CachedGradientProjection[x_, K_, dim_, At_, cache_, tol_:10^-6] :=
 (* Returns {jj, fieldFn} where fieldFn[x_?NumberVectorQ] gives S^T . c(S . x). *)
 
 BuildMonotoneField[d2e_Association] :=
-  Module[{B, K, cost, jj, halfPairs, signedFlows, rules, substituted, S, fieldFn},
-    {B, K, cost, jj} = GetKirchhoffMatrix[d2e];
+  Module[{B, K, jj, halfPairs, signedFlows, rules, substituted, S, fieldFn},
+    {B, K, jj} = GetKirchhoffLinearSystem[d2e];
     If[Length[jj] === 0, Return[{jj, (0 * # &)}, Module]];
     halfPairs = List @@@ Lookup[d2e, "edgeList", {}];
     If[Length[halfPairs] === 0, Return[{jj, (0 * # &)}, Module]];
@@ -127,12 +139,27 @@ MonotoneSolverFromData[Data_, opts:OptionsPattern[]] :=
 	];
 
 MonotoneSolver[d2e_, opts:OptionsPattern[]] :=
-	Module[{B, K, cost, jj, cc, x0, result},
-		{B, K, cost, jj} = GetKirchhoffMatrix[d2e];
+	Module[{B, K, jj, cc, x0, result, returnShape, solution, missingSolution},
+		returnShape = OptionValue["ReturnShape"];
+		missingSolution = Missing["NotAvailable"];
+		{B, K, jj} = GetKirchhoffLinearSystem[d2e];
 		(* Guard: skip MonotoneSolver for degenerate cases with no flow variables *)
 		If[Length[jj] === 0,
-			MFGPrint["MonotoneSolver: Degenerate case (no flow variables), skipping."];
-			Return[<|"Message" -> "Degenerate case"|>, Module]
+			Message[MonotoneSolver::degenerate];
+			Return[
+				If[returnShape === "Standard",
+					MakeSolverResult[
+						"Monotone",
+						"Degenerate",
+						Missing["NotApplicable"],
+						"DegenerateCase",
+						missingSolution,
+						<|"AssoMonotone" -> missingSolution|>
+					],
+					<|"Message" -> "Degenerate case"|>
+				],
+				Module
+			]
 		];
 		(* Build the lifted edge-cost field *)
 		{jj, cc} = BuildMonotoneField[d2e];
@@ -142,15 +169,39 @@ MonotoneSolver[d2e_, opts:OptionsPattern[]] :=
 			$Failed
 		];
 		If[result === $Failed,
-			MFGPrint["MonotoneSolver: FindInstance failed, returning null solution."];
-			Return[Null, Module]
+			Message[MonotoneSolver::seedfail];
+			Return[
+				If[returnShape === "Standard",
+					MakeSolverResult[
+						"Monotone",
+						"Failure",
+						Missing["NotApplicable"],
+						"SeedFindInstanceFailed",
+						missingSolution,
+						<|"AssoMonotone" -> missingSolution|>
+					],
+					Null
+				],
+				Module
+			]
 		];
 		x0 = N[jj /. result];
 		(* No edges → zero cost field → feasible point is already the solution *)
-		If[Length[Lookup[d2e, "edgeList", {}]] === 0,
-			Return[AssociationThread[jj, x0], Module]
+		solution = If[Length[Lookup[d2e, "edgeList", {}]] === 0,
+			AssociationThread[jj, x0],
+			MonotoneSolverODE[x0, K, jj, cc, FilterRules[{opts}, Options[MonotoneSolverODE]]]
 		];
-		MonotoneSolverODE[x0, K, jj, cc, FilterRules[{opts}, Options[MonotoneSolverODE]]]
+		If[returnShape === "Standard",
+			MakeSolverResult[
+				"Monotone",
+				"Success",
+				Missing["NotApplicable"],
+				None,
+				solution,
+				<|"AssoMonotone" -> solution|>
+			],
+			solution
+		]
 	];
 
 MonotoneSolverODE[x0_, K_, jj_, cc_, opts:OptionsPattern[]] :=

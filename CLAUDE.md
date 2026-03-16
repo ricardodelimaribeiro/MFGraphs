@@ -14,6 +14,10 @@ All scripts use `wolframscript` and must be run from the repository root:
 # Run full benchmark suite (validates all 31+ test cases)
 wolframscript -file Scripts/BenchmarkSuite.wls
 
+# Run curated regression suites
+wolframscript -file Scripts/RunTests.wls fast
+wolframscript -file Scripts/RunTests.wls slow
+
 # Run only a specific tier: small, medium, large, or vlarge
 wolframscript -file Scripts/BenchmarkSuite.wls small
 
@@ -86,9 +90,13 @@ The system is decomposed into a triple `{EE, NN, OR}` by `SystemToTriple`:
 
 ## Solver outputs
 
-- `CriticalCongestionSolver` returns an association with keys `"AssoCritical"` (zero-flow equilibrium) and `"Status"` (`"Feasible"` or `"Infeasible"`)
-- `NonLinearSolver` returns an association with keys `"AssoNonCritical"` (general congestion solution) and `"Status"`
-- Check feasibility with `IsFeasible[result]` — returns `True` if `result["Status"] === "Feasible"`
+- By default, solvers keep their legacy return format.
+- `CriticalCongestionSolver` legacy output includes `"AssoCritical"` (zero-flow equilibrium) and `"Status"` (`"Feasible"` or `"Infeasible"`)
+- `NonLinearSolver` legacy output includes `"AssoNonCritical"` (general congestion solution) and `"Status"`
+- `MonotoneSolver` / `MonotoneSolverFromData` legacy output is a bare solution association, `Null`, or a degenerate message association
+- Add `"ReturnShape" -> "Standard"` to any solver call to receive a normalized envelope with `"Solver"`, `"ResultKind"`, `"Feasibility"`, `"Message"`, and `"Solution"`
+- Standard results retain the solver-specific payload key when available: `"AssoCritical"`, `"AssoNonCritical"`, or `"AssoMonotone"`
+- Check feasibility with `IsFeasible[result]` — it accepts both legacy `"Status"` and standardized `"Feasibility"`
 - Check solution validity with `IsNonLinearSolution[result]`
 - When `"Status"` is `"Infeasible"`, flow variables (`j[...]`) contain negative values indicating the problem has no feasible non-negative flow solution
 

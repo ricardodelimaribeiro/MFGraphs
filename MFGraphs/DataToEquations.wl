@@ -37,14 +37,20 @@ NumberVectorQ::usage =
 
 GetKirchhoffMatrix::usage = "GetKirchhoffMatrix[d2e] returns the \
 entry current vector, Kirchhoff matrix, (critical congestion) cost \
-function, and the variables in the order corresponding to the Kirchhoff matrix."
+function placeholder, and the variables in the order corresponding to the Kirchhoff matrix. \
+The third slot is retained for backward compatibility and should not be used by new code."
+
+GetKirchhoffLinearSystem::usage =
+"GetKirchhoffLinearSystem[d2e] returns the entry current vector, Kirchhoff matrix, \
+and the variables in the order corresponding to the Kirchhoff matrix.";
 
 MFGPreprocessing::usage =
 "MFGPreprocessing[Eqs] returns the association Eqs with the preliminary solution \"InitRules\" and corresponding 'reduced' \"NewSystem\"."
 
 CriticalCongestionSolver::usage =
   "CriticalCongestionSolver[Eqs] returns Eqs with an association \"AssoCritical\" with rules to
-the solution to the critical congestion case";
+the solution to the critical congestion case. Option: \"ReturnShape\" (default \"Legacy\"); \
+use \"Standard\" to add normalized solver-result keys.";
 
 MFGSystemSolver::usage =
 "MFGSystemSolver[Eqs][edgeEquations] returns the
@@ -65,6 +71,12 @@ TripleClean::usage =
 
 Data2Equations::usage = "Data2Equations is a backward-compatibility alias for DataToEquations.";
 FinalStep::usage = "FinalStep is a backward-compatibility alias for DNFSolveStep.";
+
+DataToEquations::switchingcosts =
+"Switching costs are inconsistent.";
+
+MFGSystemSolver::nosolution =
+"There is no feasible symbolic solution for the current system.";
 
 Begin["`Private`"];
 
@@ -173,7 +185,7 @@ DataToEquations[Data_Association] :=
         ];
         consistentCosts = IsSwitchingCostConsistent[Normal@SwitchingCosts];
         Which[consistentCosts === False,
-            Print["Switching costs are inconsistent!"];
+            Message[DataToEquations::switchingcosts];
             Return[ $Failed, Module],
          consistentCosts =!= True,
          MFGPrint["Switching costs conditions are ", consistentCosts]
@@ -267,7 +279,7 @@ RoundValues[x_Association] :=
 
 (* --- GetKirchhoffMatrix --- *)
 
-GetKirchhoffMatrix[Eqs_] :=
+GetKirchhoffLinearSystem[Eqs_] :=
     Module[ {Kirchhoff, EqEntryIn = Lookup[Eqs, "EqEntryIn", True],
       BalanceGatheringFlows =
        Lookup[Eqs, "BalanceGatheringFlows", {}],
@@ -282,12 +294,22 @@ GetKirchhoffMatrix[Eqs_] :=
         vars = Select[Variables[Kirchhoff /. Equal -> List], MatchQ[#, j[_,_,_] | j[_,_]] &];
         If[Length[vars] === 0,
           (* Degenerate case: no flow variables *)
-          {0, 0, <||>, {}},
+          {0, 0, {}},
           {BM, KM} = CoefficientArrays[Kirchhoff, vars];
-          cost = AssociationThread[vars, (0 &) /@ vars];
-          CCost = cost /@ vars /. MapThread[Rule, {vars, #}] &;
-          {-BM, KM, CCost, vars}
+          {-BM, KM, vars}
         ]
+    ];
+
+GetKirchhoffMatrix[Eqs_] :=
+    Module[{B, K, vars, cost, CCost},
+        {B, K, vars} = GetKirchhoffLinearSystem[Eqs];
+        If[Length[vars] === 0,
+            Return[{B, K, <||>, vars}, Module]
+        ];
+        (* The third slot is a legacy zero-cost placeholder retained only for compatibility. *)
+        cost = AssociationThread[vars, (0 &) /@ vars];
+        CCost = cost /@ vars /. MapThread[Rule, {vars, #}] &;
+        {B, K, CCost, vars}
     ];
 
 (* --- MFGPreprocessing --- *)
@@ -357,10 +379,14 @@ MFGPreprocessing[Eqs_] :=
 
 (* --- CriticalCongestionSolver --- *)
 
-CriticalCongestionSolver[$Failed] := $Failed
+Options[CriticalCongestionSolver] = {"ReturnShape" -> "Legacy"};
 
-CriticalCongestionSolver[Eqs_] :=
-    Module[ {PreEqs, js, AssoCritical, time, temp, status},
+CriticalCongestionSolver[$Failed, ___] := $Failed
+
+CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
+    Module[ {PreEqs, js, AssoCritical, time, temp, status, returnShape,
+        resultKind, message, solution},
+        returnShape = OptionValue["ReturnShape"];
     	ClearSolveCache[];
     	If[KeyExistsQ[Eqs,"InitRules"],
     		PreEqs = Eqs,
@@ -379,7 +405,23 @@ CriticalCongestionSolver[Eqs_] :=
                 If[flowVals === {} || Min[Select[flowVals, NumericQ]] < 0, "Infeasible", "Feasible"]
             ]
         ];
-        Join[PreEqs, <|"AssoCritical" -> AssoCritical, "Status" -> status|>]
+        If[returnShape === "Standard",
+            resultKind = If[AssoCritical === Null, "Failure", "Success"];
+            message = If[AssoCritical === Null, "NoSolution", None];
+            solution = If[AssociationQ[AssoCritical], AssoCritical, Missing["NotAvailable"]];
+            Join[
+                PreEqs,
+                MakeSolverResult[
+                    "CriticalCongestion",
+                    resultKind,
+                    status,
+                    message,
+                    solution,
+                    <|"AssoCritical" -> AssoCritical, "Status" -> status|>
+                ]
+            ],
+            Join[PreEqs, <|"AssoCritical" -> AssoCritical, "Status" -> status|>]
+        ]
     ];
 
 (* --- MFGSystemSolver --- *)
@@ -401,7 +443,7 @@ MFGSystemSolver[Eqs_][approxJs_] :=
         NewSystem = NewSystem /. Ncpc;
 
         If[And@@((#===False)&/@NewSystem),
-        	Print["MFGSS: There is no solution!"];
+        	Message[MFGSystemSolver::nosolution];
             Return[Null,Module]
         ];
 
@@ -432,7 +474,7 @@ MFGSystemSolver[Eqs_][approxJs_] :=
         {System, InitRules} = TripleClean[{SystemToTriple[System], InitRules}];
         System = And@@System;
         Which[System === False,
-            Print["MFGSS: There is no solution!"];
+            Message[MFGSystemSolver::nosolution];
             Return[Null,Module],
             System =!= True,
             MFGPrint["MFGSS: (Possibly) Multiple solutions:\n", System];

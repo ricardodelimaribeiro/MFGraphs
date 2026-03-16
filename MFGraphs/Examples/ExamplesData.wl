@@ -11,6 +11,9 @@ Supports test cases with 5 fields (basic), 6 fields (+cost function 'a'), or 7 f
 
 DataG::usage = "DataG is a backward-compatibility alias for GetExampleData.";
 
+GetExampleData::badfields =
+"Unexpected number of fields (`1`) for test case `2`.";
+
 (* Declare symbolic parameters in the MFGraphs` context so that user-level
    substitution rules like {I1 -> 100, U1 -> 0} match the symbols returned
    by GetExampleData. Without these declarations the symbols end up in
@@ -465,7 +468,7 @@ GetExampleData[n_] :=
             5, AssociationThread[$ExampleDataFields5, data],
             6, AssociationThread[$ExampleDataFields6, data],
             7, AssociationThread[$ExampleDataFields7, data],
-            _, (Print["GetExampleData: unexpected number of fields (", Length[data], ") for test case ", n]; $Failed)
+            _, (Message[GetExampleData::badfields, Length[data], n]; $Failed)
         ]
     ]
 

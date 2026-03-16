@@ -5,7 +5,8 @@
 
 NonLinearSolver::usage =
     "NonLinearSolver[Eqs] takes an association resulting from DataToEquations and returns an approximation to the solution of the non-critical congestion case with alpha = value, specified by alpha[edge_] := value.
-Options: \"MaxIterations\" (default 15), \"Tolerance\" (default 0). When Tolerance > 0, iteration stops early when the infinity-norm change in flow variables between consecutive steps falls below the given tolerance.";
+Options: \"MaxIterations\" (default 15), \"Tolerance\" (default 0), \"ReturnShape\" \
+(default \"Legacy\"; use \"Standard\" to add normalized solver-result keys). When Tolerance > 0, iteration stops early when the infinity-norm change in flow variables between consecutive steps falls below the given tolerance.";
 
 IsNonLinearSolution::usage =
 "IsNonLinearSolution[Eqs] extracts AssoNonCritical and checks equations and inequalities. The right and left hand sides of the nonlinear equations are shown with the sup-norm of the difference."
@@ -27,9 +28,14 @@ FastIntegratedMass::usage =
 interpM should be the result of PrecomputeM.";
 
 IsFeasible::usage =
-"IsFeasible[result] returns True if result[\"Status\"] is \"Feasible\".";
+"IsFeasible[result] returns True if a solver result is feasible, checking legacy \
+\"Status\" or standardized \"Feasibility\" keys.";
 
-Options[NonLinearSolver] = {"MaxIterations" -> 15, "Tolerance" -> 0};
+Options[NonLinearSolver] = {
+    "MaxIterations" -> 15,
+    "Tolerance" -> 0,
+    "ReturnShape" -> "Legacy"
+};
 
 Begin["`Private`"];
 
@@ -37,7 +43,9 @@ Begin["`Private`"];
 
 NonLinearSolver[Eqs_, OptionsPattern[]] :=
     Module[ {AssoCritical, PreEqs = Eqs, AssoNonCritical, NonCriticalList, js,
-             MaxIter = OptionValue["MaxIterations"], tol = OptionValue["Tolerance"]},
+             MaxIter = OptionValue["MaxIterations"], tol = OptionValue["Tolerance"],
+             returnShape = OptionValue["ReturnShape"], status, flowKeys, flowVals,
+             resultKind, message, solution},
         If[ KeyExistsQ[PreEqs, "AssoCritical"],
             (* If there is already an approximation for the non-congestion case, use it *)
             AssoNonCritical = Lookup[PreEqs, "AssoNonCritical", PreEqs["AssoCritical"]],
@@ -60,13 +68,31 @@ NonLinearSolver[Eqs_, OptionsPattern[]] :=
         AssoCritical = Lookup[PreEqs, "AssoCritical", NonCriticalList[[2]]];
         AssoNonCritical = NonCriticalList // Last;
         (* Feasibility check on the non-linear solution *)
-        Module[{status, flowKeys, flowVals},
-            If[AssoNonCritical === Null,
-                status = "Infeasible",
-                flowKeys = Select[Keys[AssoNonCritical], MatchQ[#, _j] &];
-                flowVals = Lookup[AssoNonCritical, flowKeys];
-                status = If[flowVals === {} || Min[Select[flowVals, NumericQ]] < 0, "Infeasible", "Feasible"]
-            ];
+        If[AssoNonCritical === Null,
+            status = "Infeasible",
+            flowKeys = Select[Keys[AssoNonCritical], MatchQ[#, _j] &];
+            flowVals = Lookup[AssoNonCritical, flowKeys];
+            status = If[flowVals === {} || Min[Select[flowVals, NumericQ]] < 0, "Infeasible", "Feasible"]
+        ];
+        If[returnShape === "Standard",
+            resultKind = If[AssoNonCritical === Null, "Failure", "Success"];
+            message = If[AssoNonCritical === Null, "NoSolution", None];
+            solution = If[AssociationQ[AssoNonCritical], AssoNonCritical, Missing["NotAvailable"]];
+            Join[
+                PreEqs,
+                MakeSolverResult[
+                    "NonLinear",
+                    resultKind,
+                    status,
+                    message,
+                    solution,
+                    <|
+                        "AssoCritical" -> AssoCritical,
+                        "AssoNonCritical" -> AssoNonCritical,
+                        "Status" -> status
+                    |>
+                ]
+            ],
             Join[PreEqs, <|"AssoCritical" -> AssoCritical, "AssoNonCritical" -> AssoNonCritical, "Status" -> status|>]
         ]
     ];
@@ -228,6 +254,7 @@ PlotValueFunctions[Eqs_, string_] :=
 
 (* --- Feasibility check --- *)
 
-IsFeasible[result_Association] := Lookup[result, "Status", "Unknown"] === "Feasible";
+IsFeasible[result_Association] :=
+    Lookup[result, "Feasibility", Lookup[result, "Status", "Unknown"]] === "Feasible";
 
 End[];

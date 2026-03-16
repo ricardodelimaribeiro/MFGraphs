@@ -37,6 +37,11 @@ result = CriticalCongestionSolver[d2e];
 result["AssoCritical"]
 ```
 
+Solver return shapes:
+- By default, solver calls keep their legacy return format.
+- Add `"ReturnShape" -> "Standard"` to receive a normalized association with keys `"Solver"`, `"ResultKind"`, `"Feasibility"`, `"Message"`, and `"Solution"`.
+- Standard results also retain the solver-specific payload key when available: `"AssoCritical"`, `"AssoNonCritical"`, or `"AssoMonotone"`.
+
 ## Defining a network
 
 A network is an `Association` with five required keys:
@@ -72,6 +77,9 @@ Data = GetExampleData[7] /. {I1 -> 50, U1 -> 0, U2 -> 0};
 d2e = DataToEquations[Data];
 result = CriticalCongestionSolver[d2e];
 result["AssoCritical"]
+
+standard = CriticalCongestionSolver[d2e, "ReturnShape" -> "Standard"];
+standard["Solution"]
 ```
 
 ### Non-linear (general congestion) solver
@@ -93,6 +101,9 @@ IsNonLinearSolution[result]
 
 (* Access the solution *)
 result["AssoNonCritical"]
+
+standard = NonLinearSolver[d2e, "ReturnShape" -> "Standard"];
+standard["Solution"]
 ```
 
 Options:
@@ -111,11 +122,29 @@ Data = GetExampleData[3] /. {I1 -> 80, U1 -> 0};
 solution = MonotoneSolverFromData[Data]
 ```
 
+Standardized result envelope:
+
+```mathematica
+standard = MonotoneSolverFromData[Data, "ReturnShape" -> "Standard"];
+standard["AssoMonotone"]
+```
+
 Options:
 - `"TimeSteps"` (default `100`) — number of ODE integration steps
+- `"ReturnShape"` (default `"Legacy"`) — set to `"Standard"` for the normalized result envelope
 
 ```mathematica
 solution = MonotoneSolverFromData[Data, "TimeSteps" -> 200]
+```
+
+## Running tests
+
+Use the suite runner for the common regression sets:
+
+```bash
+wolframscript -file Scripts/RunTests.wls fast
+wolframscript -file Scripts/RunTests.wls slow
+wolframscript -file Scripts/RunTests.wls all
 ```
 
 ## Plotting
