@@ -462,7 +462,9 @@ MFGSystemSolver[Eqs_][approxJs_] :=
             {time, ineqsByTransition} = AbsoluteTiming[
               If[Length[jts] >= $MFGraphsParallelThreshold,
                 (If[$KernelCount === 0, LaunchKernels[]];
-                 ParallelMap[Function[jt, Select[NewSystem[[2]], !FreeQ[jt][#]&]], jts]),
+                 With[{ineqs = NewSystem[[2]]},
+                   ParallelMap[Function[jt, Select[ineqs, !FreeQ[jt][#]&]], jts]
+                 ]),
                 Select[NewSystem[[2]], Function[exp, !FreeQ[#][exp]]]&/@jts
               ]
             ]
