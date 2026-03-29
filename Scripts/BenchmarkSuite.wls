@@ -19,12 +19,23 @@ $MFGraphsVerbose = False;
 Get[FileNameJoin[{Directory[], "Scripts", "BenchmarkHelpers.wls"}]];
 
 (* --- Parse command-line arguments --- *)
-$SelectedTier = If[Length[$ScriptCommandLine] >= 2,
-  $ScriptCommandLine[[2]],
-  "all"
+(* Support: wolframscript -file Scripts/BenchmarkSuite.wls [tier] [--tag "description"] *)
+Module[{args = Rest[$ScriptCommandLine], tagPos},
+  tagPos = FirstPosition[args, "--tag", Missing[], {1}];
+  If[MissingQ[tagPos],
+    $HistoryTag = None;
+    $SelectedTier = SelectFirst[args, !StringStartsQ[#, "--"]&, "all"],
+    (* has --tag *)
+    $HistoryTag = If[Length[args] >= First[tagPos] + 1,
+      args[[First[tagPos] + 1]], "untagged"];
+    $SelectedTier = SelectFirst[args[[;; First[tagPos] - 1]],
+      !StringStartsQ[#, "--"]&, "all"]
+  ]
 ];
 
 Print["Selected tier: ", $SelectedTier];
+If[$HistoryTag =!= None, Print["History tag:   ", $HistoryTag]];
+Print["Subkernels:    ", $KernelCount, " (of ", $ProcessorCount, " processors)"];
 Print[];
 
 (* --- Determine which cases to run --- *)
@@ -173,3 +184,90 @@ ExportResultsJSON[$AllResults, $LatestJSON];
 PrintResultsSummary[$AllResults];
 
 Print["\nBenchmark suite completed at ", DateString[]];
+
+(* --- Append to PARALLEL_PERFORMANCE_HISTORY.md if --tag was given --- *)
+If[$HistoryTag =!= None,
+  Module[{histPath, commitResult, commitHash, date, tier, rows, tierRows,
+          entry, lines, existingContent, insertPos},
+
+    histPath = FileNameJoin[{Directory[], "PARALLEL_PERFORMANCE_HISTORY.md"}];
+    commitResult = RunProcess[{"git", "rev-parse", "--short", "HEAD"}];
+    commitHash = StringTrim[commitResult["StandardOutput"]];
+    date = DateString[{"Year", "-", "Month", "-", "Day"}];
+
+    (* Build per-tier tables *)
+    tier = $SelectedTier;
+    rows = Select[$AllResults, #["Tier"] === tier || tier === "all"&];
+
+    (* Group by case key *)
+    BuildTierTable[tierName_] := Module[{tierRows2, caseKeys, tableLines},
+      tierRows2 = Select[$AllResults, #["Tier"] === tierName &];
+      If[Length[tierRows2] === 0, Return[""]];
+      caseKeys = DeleteDuplicates[#["Key"] & /@ tierRows2];
+      tableLines = {"#### Tier: " <> tierName, "",
+        "| Case | D2E (s) | CritSolver (s) | NLSolver (s) | Total (s) | Status |",
+        "|------|---------|---------------|-------------|-----------|--------|"};
+      Do[
+        Module[{caseRows, d2eT, critT, nlT, totalT, status},
+          caseRows = Select[tierRows2, #["Key"] === k &];
+          d2eT = SelectFirst[caseRows, True&, <||>]["D2ETime"];
+          critT = SelectFirst[Select[caseRows, #["Solver"] === "CriticalCongestion"&], True&, <||>];
+          nlT  = SelectFirst[Select[caseRows, #["Solver"] === "NonLinearSolver"&],   True&, <||>];
+          d2eT   = If[NumericQ[d2eT], NumberForm[d2eT,   {6,3}], "—"];
+          critST = If[KeyExistsQ[critT, "SolveTime"] && NumericQ[critT["SolveTime"]], NumberForm[critT["SolveTime"], {6,3}], "—"];
+          nlST   = If[KeyExistsQ[nlT,   "SolveTime"] && NumericQ[nlT["SolveTime"]],   NumberForm[nlT["SolveTime"],   {6,3}], "—"];
+          totalN = Plus @@ Select[{
+            If[NumericQ[critT["SolveTime"]], critT["SolveTime"], 0],
+            If[NumericQ[nlT["SolveTime"]],   nlT["SolveTime"],   0]
+          }, NumericQ];
+          totalT = If[totalN > 0, NumberForm[totalN, {6,3}], "—"];
+          status = SelectFirst[caseRows, True&, <||>]["Status"];
+          AppendTo[tableLines,
+            "| " <> k <> " | " <> ToString[d2eT] <> " | " <> ToString[critST] <> " | " <>
+            ToString[nlST] <> " | " <> ToString[totalT] <> " | " <> ToString[status] <> " |"]
+        ],
+        {k, caseKeys}
+      ];
+      StringRiffle[tableLines, "\n"]
+    ];
+
+    tiers = If[$SelectedTier === "all",
+      Keys[$BenchmarkTiers],
+      {$SelectedTier}
+    ];
+    tierTables = StringRiffle[
+      Select[BuildTierTable /@ tiers, StringLength[#] > 0&],
+      "\n\n"
+    ];
+
+    entry = StringRiffle[{
+      "### " <> date <> " \[LongDash] " <> $HistoryTag,
+      "",
+      "**Commit:** `" <> commitHash <> "`",
+      "**Date:** " <> DateString[],
+      "**Kernels:** " <> ToString[$KernelCount],
+      "",
+      tierTables,
+      "",
+      "#### Rationale",
+      "_" <> $HistoryTag <> "_",
+      "",
+      "#### Changes",
+      "_TODO_",
+      "",
+      "#### Interpretation",
+      "_TODO_",
+      ""
+    }, "\n"];
+
+    (* Insert before the "## Future entries" section *)
+    existingContent = Import[histPath, "Text"];
+    insertPos = StringPosition[existingContent, "## Future entries"];
+    If[Length[insertPos] > 0,
+      existingContent = StringInsert[existingContent, entry <> "\n---\n\n", insertPos[[1,1]]],
+      existingContent = existingContent <> "\n---\n\n" <> entry
+    ];
+    Export[histPath, existingContent, "Text"];
+    Print["History entry appended to PARALLEL_PERFORMANCE_HISTORY.md (tag: ", $HistoryTag, ")"];
+  ]
+];
