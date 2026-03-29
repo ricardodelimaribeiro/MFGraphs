@@ -213,18 +213,19 @@ If[$HistoryTag =!= None,
           d2eT = SelectFirst[caseRows, True&, <||>]["D2ETime"];
           critT = SelectFirst[Select[caseRows, #["Solver"] === "CriticalCongestion"&], True&, <||>];
           nlT  = SelectFirst[Select[caseRows, #["Solver"] === "NonLinearSolver"&],   True&, <||>];
-          d2eT   = If[NumericQ[d2eT], NumberForm[d2eT,   {6,3}], "—"];
-          critST = If[KeyExistsQ[critT, "SolveTime"] && NumericQ[critT["SolveTime"]], NumberForm[critT["SolveTime"], {6,3}], "—"];
-          nlST   = If[KeyExistsQ[nlT,   "SolveTime"] && NumericQ[nlT["SolveTime"]],   NumberForm[nlT["SolveTime"],   {6,3}], "—"];
+          fmtT[t_] := If[NumericQ[t], ToString[Round[N[t], 0.001]], "—"];
+          d2eT   = fmtT[d2eT];
+          critST = fmtT[If[KeyExistsQ[critT, "SolveTime"], critT["SolveTime"], Missing[]]];
+          nlST   = fmtT[If[KeyExistsQ[nlT,   "SolveTime"], nlT["SolveTime"],   Missing[]]];
           totalN = Plus @@ Select[{
-            If[NumericQ[critT["SolveTime"]], critT["SolveTime"], 0],
-            If[NumericQ[nlT["SolveTime"]],   nlT["SolveTime"],   0]
+            If[KeyExistsQ[critT, "SolveTime"] && NumericQ[critT["SolveTime"]], critT["SolveTime"], 0],
+            If[KeyExistsQ[nlT,   "SolveTime"] && NumericQ[nlT["SolveTime"]],   nlT["SolveTime"],   0]
           }, NumericQ];
-          totalT = If[totalN > 0, NumberForm[totalN, {6,3}], "—"];
+          totalT = If[totalN > 0, fmtT[totalN], "—"];
           status = SelectFirst[caseRows, True&, <||>]["Status"];
           AppendTo[tableLines,
-            "| " <> k <> " | " <> ToString[d2eT] <> " | " <> ToString[critST] <> " | " <>
-            ToString[nlST] <> " | " <> ToString[totalT] <> " | " <> ToString[status] <> " |"]
+            "| " <> k <> " | " <> d2eT <> " | " <> critST <> " | " <>
+            nlST <> " | " <> totalT <> " | " <> ToString[status] <> " |"]
         ],
         {k, caseKeys}
       ];

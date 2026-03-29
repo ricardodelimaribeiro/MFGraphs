@@ -347,11 +347,10 @@ MFGPreprocessing[Eqs_] :=
         AssociateTo[InitRules, RuleExitValues];
 
         temp = MFGPrintTemporary["Simplifying inequalities involving Switching Costs...", IneqSwitchingByVertex];
-        If[$KernelCount === 0, LaunchKernels[]];
         With[{items = IneqSwitchingByVertex /. InitRules},
           {time, IneqSwitchingByVertex} = AbsoluteTiming[
             And @@ If[Length[items] >= $MFGraphsParallelThreshold,
-              ParallelMap[Simplify, items],
+              (If[$KernelCount === 0, LaunchKernels[]]; ParallelMap[Simplify, items]),
               Simplify /@ items
             ]
           ]
@@ -456,14 +455,14 @@ MFGSystemSolver[Eqs_][approxJs_] :=
         ];
 
         (* Retrieve some equalities from the inequalities: group by transition flow *)
-        If[$KernelCount === 0, LaunchKernels[]];
         temp = MFGPrintTemporary["MFGSS: Selecting inequalities by transition flow..."];
         If[NewSystem[[2]] === True,
             ineqsByTransition = ConstantArray[True, Length[jts]];
             time = 0.,
             {time, ineqsByTransition} = AbsoluteTiming[
               If[Length[jts] >= $MFGraphsParallelThreshold,
-                ParallelMap[Function[jt, Select[NewSystem[[2]], !FreeQ[jt][#]&]], jts],
+                (If[$KernelCount === 0, LaunchKernels[]];
+                 ParallelMap[Function[jt, Select[NewSystem[[2]], !FreeQ[jt][#]&]], jts]),
                 Select[NewSystem[[2]], Function[exp, !FreeQ[#][exp]]]&/@jts
               ]
             ]
@@ -474,7 +473,8 @@ MFGSystemSolver[Eqs_][approxJs_] :=
         {time, ineqsByTransition} = AbsoluteTiming[
           DeduplicateByComplexity[
             If[Length[ineqsByTransition] >= $MFGraphsParallelThreshold,
-              ParallelMap[Simplify, ineqsByTransition],
+              (If[$KernelCount === 0, LaunchKernels[]];
+               ParallelMap[Simplify, ineqsByTransition]),
               Simplify /@ ineqsByTransition
             ]
           ]
