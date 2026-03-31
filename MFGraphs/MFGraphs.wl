@@ -30,7 +30,29 @@ MFGPrintTemporary::usage =
 "MFGPrintTemporary[args___] prints a temporary message only when $MFGraphsVerbose is True.";
 MFGPrintTemporary[args___] := If[$MFGraphsVerbose, PrintTemporary[args], Null];
 
+EnsureParallelKernels::usage =
+"EnsureParallelKernels[] launches parallel subkernels if none are running.";
+EnsureParallelKernels[] := If[$KernelCount === 0, LaunchKernels[]];
+
+MFGParallelMap::usage =
+"MFGParallelMap[f, list] applies f to each element of list, using ParallelMap
+when Length[list] >= $MFGraphsParallelThreshold, otherwise Map.";
+MFGParallelMap[f_, list_List] :=
+    If[Length[list] >= $MFGraphsParallelThreshold,
+        (EnsureParallelKernels[]; ParallelMap[f, list]),
+        f /@ list
+    ];
+
 Begin["`Private`"];
+
+CheckFlowFeasibility[Null] := "Infeasible";
+CheckFlowFeasibility[assoc_Association] :=
+    Module[{flowKeys, flowVals},
+        flowKeys = Select[Keys[assoc], MatchQ[#, _j] &];
+        flowVals = Lookup[assoc, flowKeys];
+        If[flowVals === {} || Min[Select[flowVals, NumericQ]] < 0,
+            "Infeasible", "Feasible"]
+    ];
 
 MakeSolverResult[
     solver_String,

@@ -119,9 +119,7 @@ NonLinearSolver[Eqs_, OptionsPattern[]] :=
                 (* Feasibility check on the non-linear solution *)
                 If[AssoNonCritical === Null,
                     status = "Infeasible",
-                    flowKeys = Select[Keys[AssoNonCritical], MatchQ[#, _j] &];
-                    flowVals = Lookup[AssoNonCritical, flowKeys];
-                    status = If[flowVals === {} || Min[Select[flowVals, NumericQ]] < 0, "Infeasible", "Feasible"]
+                    status = CheckFlowFeasibility[AssoNonCritical]
                 ];
                 If[returnShape === "Standard",
                     resultKind = If[AssoNonCritical === Null, "Failure", "Success"];
@@ -336,7 +334,7 @@ PrecomputeM[jMin_?NumericQ, jMax_?NumericQ, edge_, nPoints_Integer:50] :=
   Module[{jVals, xVals, mGrid, flatData},
     jVals = Subdivide[jMin, jMax, nPoints];
     xVals = Subdivide[0., 1., nPoints];
-    If[$KernelCount === 0, LaunchKernels[]];
+    EnsureParallelKernels[];
     If[!TrueQ[$MFGraphsParallelReady],
       DistributeDefinitions["MFGraphs`", "MFGraphs`Private`"];
       $MFGraphsParallelReady = True
