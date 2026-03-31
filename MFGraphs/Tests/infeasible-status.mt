@@ -39,3 +39,22 @@ Test[
     ,
     TestID -> "IsFeasible: case 12 is feasible"
 ]
+
+(* Test: MFGSystemSolver short-circuits as soon as the reduced system is infeasible *)
+Test[
+    Quiet[
+        fakeSystem = <|
+            "us" -> {},
+            "js" -> {},
+            "jts" -> {fakeJT},
+            "InitRules" -> <||>,
+            "NewSystem" -> {True, False, True},
+            "costpluscurrents" -> <||>
+        |>;
+        MFGSystemSolver[fakeSystem][<||>] === Null
+    ]
+    ,
+    True
+    ,
+    TestID -> "MFGSystemSolver: early exit when inequality block is False"
+]
