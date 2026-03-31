@@ -59,9 +59,9 @@ SetAttributes[WithHamiltonianFunctions, HoldRest];
 
 WithHamiltonianFunctions[vFun_:Automatic, alphaFun_:Automatic, gFun_:Automatic, expr_] :=
     Block[{V, alpha, g},
-        If[vFun =!= Automatic, V = vFun];
-        If[alphaFun =!= Automatic, alpha = alphaFun];
-        If[gFun =!= Automatic, g = gFun];
+        V     = If[vFun     =!= Automatic, vFun,     Function[{x, edge}, 0]];
+        alpha = If[alphaFun =!= Automatic, alphaFun, 1&];
+        g     = If[gFun     =!= Automatic, gFun,     Function[{m, edge}, -1/m^2]];
         expr
     ];
 
@@ -338,7 +338,7 @@ PrecomputeM[jMin_?NumericQ, jMax_?NumericQ, edge_, nPoints_Integer:50] :=
     xVals = Subdivide[0., 1., nPoints];
     If[$KernelCount === 0, LaunchKernels[]];
     If[!TrueQ[$MFGraphsParallelReady],
-      ParallelNeeds["MFGraphs`"];
+      DistributeDefinitions["MFGraphs`", "MFGraphs`Private`"];
       $MFGraphsParallelReady = True
     ];
     mGrid = ParallelTable[
