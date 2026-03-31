@@ -147,7 +147,7 @@ BuildMonotoneStateData[d2e_Association] :=
    a minimal state dimension and lossless reconstruction of the full j[...] state. *)
 BuildReducedKirchhoffCoordinates[d2e_Association, basePoint_:Automatic] :=
   Module[{stateData, KM, jj, S, nullBasis, basisMatrix, dim, baseVec, edgeOffset,
-      edgeBasis, invisibleDim},
+      edgeBasis, invisibleDim, signedEdgeRows},
     stateData = BuildMonotoneStateData[d2e];
     KM = stateData["KM"];
     jj = stateData["FullVariables"];
@@ -166,12 +166,22 @@ BuildReducedKirchhoffCoordinates[d2e_Association, basePoint_:Automatic] :=
       ],
       True, N @ basePoint
     ];
-    edgeOffset = If[ListQ[baseVec] && VectorQ[baseVec, NumericQ],
-      N @ (S . baseVec),
-      Missing["NotAvailable"]
+    signedEdgeRows = If[ArrayQ[S], First @ Dimensions[S], 0];
+    edgeOffset = If[signedEdgeRows === 0,
+      {},
+      If[ListQ[baseVec] && VectorQ[baseVec, NumericQ],
+        N @ (S . baseVec),
+        Missing["NotAvailable"]
+      ]
     ];
-    edgeBasis = If[MatrixQ[basisMatrix], N @ (S . basisMatrix), Missing["NotAvailable"]];
-    invisibleDim = Length[NullSpace[Join[Normal[KM], Normal[S]]]];
+    edgeBasis = If[signedEdgeRows === 0,
+      ConstantArray[0., {0, dim}],
+      If[MatrixQ[basisMatrix], N @ (S . basisMatrix), Missing["NotAvailable"]]
+    ];
+    invisibleDim = If[signedEdgeRows === 0,
+      Length[NullSpace[Normal[KM]]],
+      Length[NullSpace[Join[Normal[KM], Normal[S]]]]
+    ];
     <|
       "BasePoint" -> baseVec,
       "BasisMatrix" -> basisMatrix,

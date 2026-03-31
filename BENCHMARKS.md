@@ -23,11 +23,21 @@ Run a specific tier only:
 
 ```bash
 wolframscript -file Scripts/BenchmarkSuite.wls small
-wolframscript -file Scripts/BenchmarkSuite.wls medium
+wolframscript -file Scripts/BenchmarkSuite.wls core
+wolframscript -file Scripts/BenchmarkSuite.wls stress
 wolframscript -file Scripts/BenchmarkSuite.wls large
 ```
 
-Results are exported to `Results/benchmark_latest.csv` and `Results/benchmark_latest.json`, plus timestamped copies.
+`medium` is kept as a backward-compatible alias for `core`.
+
+Run a specific case with a custom timeout:
+
+```bash
+wolframscript -file Scripts/BenchmarkSuite.wls medium case=7 timeout=3600
+wolframscript -file Scripts/BenchmarkSuite.wls medium case=8 timeout=3600
+```
+
+Results are exported to `Results/benchmark_latest.csv` and `Results/benchmark_latest.json`, plus timestamped copies. Timestamped benchmark filenames now include seconds, and the suite rewrites the current run's exports after each completed case so partial progress is preserved if a later case is interrupted.
 
 ### Bottleneck profiling
 
@@ -44,7 +54,8 @@ This generates `Results/bottleneck_report.md` with detailed call counts and timi
 | Tier | Cases | Timeout | Description |
 |------|-------|---------|-------------|
 | small | 1-6, 27 | 60s | Linear chains, simple cycle |
-| medium | 7-15, 17-18, 104, triangle, Paper | 300s | Y-networks, triangles, switching costs |
+| core | 9, 10, 12, 14, 15, 18, Paper | 300s | Stable representative cases for routine benchmarking |
+| stress | 7, 8, 11, 17, 104, triangle-with-two-exits | 1800s | Symmetry-heavy or solver-stress cases; opt in explicitly |
 | large | 13, 19-23, Braess variants, Jamaratv9, Grid0303 | 900s | Multi-entrance/exit, larger graphs |
 | vlarge | Grid1020 | 1800s | 200-vertex grid (symbolic solvers may not terminate) |
 
@@ -169,7 +180,7 @@ Benchmark results are exported as CSV and JSON with these fields:
 | Field | Description |
 |-------|-------------|
 | Key | Test case identifier |
-| Tier | small/medium/large/vlarge |
+| Tier | small/core/stress/large/vlarge |
 | Solver | CriticalCongestion/NonLinearSolver/Monotone |
 | NumVertices | Graph vertex count |
 | NumEdges | Graph edge count |
@@ -177,7 +188,8 @@ Benchmark results are exported as CSV and JSON with these fields:
 | SolveTime | Solver wall time (seconds) |
 | SolveMemory | Peak memory delta (bytes) |
 | Status | OK/TIMEOUT/FAILED/SKIPPED |
-| Residual | Infinity-norm of equation residual |
+| Residual | Infinity-norm of the shared Kirchhoff residual (comparable across all stationary solvers) |
+| EquationResidual | Infinity-norm of the equation residual for CriticalCongestion/NonLinearSolver; not available for Monotone |
 
 ## Recommendations for future work
 
