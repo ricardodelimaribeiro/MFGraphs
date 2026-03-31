@@ -120,10 +120,10 @@ $TierTimeouts = <|
 
 (* --- Results formatting --- *)
 
-FormatTime[t_?NumericQ] := NumberForm[t, {6, 3}];
+FormatTime[t_?NumericQ] := ToString[CForm[N[t]]];
 FormatTime[_] := "N/A";
 
-FormatMemoryMB[bytes_?NumericQ] := NumberForm[bytes / 1024.^2, {6, 1}];
+FormatMemoryMB[bytes_?NumericQ] := ToString[CForm[N[bytes / 1024.^2]]];
 FormatMemoryMB[_] := "N/A";
 
 (* --- Export helpers --- *)
