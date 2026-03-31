@@ -61,10 +61,11 @@ NonLinearSolver[criticalResult]  or  MonotoneSolverFromData[data]
 
 **Module load order** (defined in `MFGraphs.wl`):
 1. `Examples/ExamplesData.wl` — 34 built-in test cases via `GetExampleData[key]`
-2. `DNFReduce.wl` — Boolean algebra solver (disjunctive normal form reduction with Solve/Reduce memoization and branch pruning)
+2. `DNFReduce.wl` — Boolean algebra solver (disjunctive normal form reduction with Solve/Reduce memoization, branch pruning, and post-reduction via `ReduceDisjuncts`/`SubsumptionPrune`)
 3. `DataToEquations.wl` — Core converter: network topology → equations; implements `DataToEquations`, `CriticalCongestionSolver`, `MFGSystemSolver`, `TripleClean`
 4. `NonLinearSolver.wl` — Iterative fixed-point solver (`NonLinearSolver`) using Hamiltonian framework (up to 15 iterations)
 5. `Monotone.wl` — ODE-based gradient flow solver on Kirchhoff matrix using `NDSolve`
+6. `TimeDependentSolver.wl` — Time-dependent MFG solver using backward-forward sweep on discretized time grid
 
 Each submodule uses `Begin["`Private`"]` / `End[]` to isolate internal helpers. Public symbols (those with `::usage`) are declared before `Begin` and live in the `MFGraphs`` context. Internal symbols like `$SolveCache`, `CachedSolve`, `TransitionsAt`, etc. are in `MFGraphs`Private``.
 
@@ -133,10 +134,31 @@ Symbolic parameters (e.g., `I1`, `U1`, `S1`) can be used and substituted with `/
 - **Solver-aware memoization**: `CachedSolve`/`CachedReduce` hash inputs (SHA256) to avoid redundant symbolic computation
 - **Branch pruning**: prunes false branches early to avoid exponential blowup
 - **And-Or early exit**: when distributing over Or-branches sequentially, stops immediately if any branch leaves `xp` unchanged (meaning `xp` already satisfies the disjunction)
+- **Post-reduction via `ReduceDisjuncts`**: after DNFReduce produces disjuncts, `ReduceDisjuncts` removes redundant branches. For small output (≤ `$ReduceDisjunctsThreshold`, default 200) it uses `Reduce[Or @@ branches, Reals]`; for larger output it first applies `SubsumptionPrune` (pairwise implication checks) to eliminate subsumed branches, then `Reduce` on the survivors
 
 **Important**: Call `ClearSolveCache[]` between different problem instances to prevent stale cached results.
 
 Performance history is tracked in `DNF_PERFORMANCE_HISTORY.md`. When making changes to `DNFReduce.wl`, run `CompareDNF.wls` with `--tag` to record the impact.
+
+## Parallelization
+
+Several independent operations are parallelized using `ParallelMap`/`ParallelTable` when the workload exceeds `$MFGraphsParallelThreshold` (default 6). Parallel kernels are launched lazily (only when a parallel path is actually taken).
+
+Key parameters:
+```mathematica
+$MFGraphsParallelThreshold = 6       (* minimum list length to trigger parallel dispatch *)
+$MFGraphsParallelReady = False       (* set True after DistributeDefinitions to subkernels *)
+$ReduceDisjunctsThreshold = 200      (* disjunct count cutoff: Full Reduce vs Subsumption *)
+```
+
+Parallelized sites: `Simplify` over switching-cost inequalities, `Select`/`Simplify` over transition flows, `Reduce` over Or-branches in `DNFSolveStep`, and `SolveMassRoot` grid in `PrecomputeM`.
+
+**WL parallel gotchas**:
+- `Function` is `HoldAll` — use `With[{val = expr}, Function[..., ...val...]]` to inject values before dispatch to subkernels
+- `ParallelNeeds["pkg`"]` is a no-op if the context already exists; use `DistributeDefinitions` instead
+- `Block[{sym}]` clears all `DownValues` — provide explicit defaults when wrapping solver parameters
+
+Parallel performance is tracked in `PARALLEL_PERFORMANCE_HISTORY.md`. Use `BenchmarkSuite.wls --tag "description"` to record entries.
 
 ## Git workflow
 
