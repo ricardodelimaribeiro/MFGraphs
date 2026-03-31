@@ -553,8 +553,14 @@ DNFSolveStep[{{EE_, NN_, OO_}, rules_}] :=
         MFGPrint["Final: Iterative DNF conversion on " , Length[sorted]," disjunctions took ", time, " seconds to terminate."];
         If[Head[NewSystem] === Or,
 	        MFGPrint["Final: Reducing (each alternative)... ", Length[NewSystem] ," of them."];
-        	{time, NewSystem} = AbsoluteTiming[Reduce[#,Reals]&/@NewSystem];
-        	NewSystem = Simplify[NewSystem],
+        	{time, NewSystem} = AbsoluteTiming[
+        	  If[Length[NewSystem] >= $MFGraphsParallelThreshold,
+        	    (If[$KernelCount === 0, LaunchKernels[]];
+        	     ParallelMap[Function[branch, Reduce[branch, Reals]], List @@ NewSystem]),
+        	    Reduce[#, Reals]& /@ NewSystem
+        	  ]
+        	];
+        	NewSystem = Simplify[Or @@ NewSystem],
         	{time,NewSystem} = AbsoluteTiming@Reduce[NewSystem, Reals]
         ];
         MFGPrint["Final: Reducing (each alternative), returned ", Length@NewSystem," of them, ","took ", time, " seconds to terminate."];
