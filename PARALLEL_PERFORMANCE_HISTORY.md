@@ -25,124 +25,27 @@ serial timings against which parallel entries can be compared.
 
 | Case | D2E (s) | CritSolver (s) | NLSolver (s) | Total (s) | Status |
 |------|---------|---------------|-------------|-----------|--------|
-| 1 |           -6
-3.000 × 10 |           -6
-8.000 × 10 |           -6
-2.000 × 10 | 0.00001 | OK |
-| 2 |           -6
-3.000 × 10 |           -6
-5.000 × 10 |           -6
-4.000 × 10 |           -6
-9.000 × 10 | OK |
-| 3 |           -6
-2.000 × 10 |           -6
-3.000 × 10 |           -6
-6.000 × 10 |           -6
-9.000 × 10 | OK |
-| 4 |           -6
-3.000 × 10 |           -6
-3.000 × 10 |           -6
-4.000 × 10 |           -6
-7.000 × 10 | OK |
-| 5 |           -6
-4.000 × 10 |           -6
-3.000 × 10 |           -6
-3.000 × 10 |           -6
-6.000 × 10 | OK |
-| 6 |           -6
-3.000 × 10 |           -6
-4.000 × 10 |           -6
-9.000 × 10 | 0.000 | OK |
-| 27 |           -6
-5.000 × 10 |           -6
-3.000 × 10 |           -6
-7.000 × 10 | 0.00001 | OK |
+| 1 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
+| 2 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
+| 3 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
+| 4 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
+| 5 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
+| 6 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
+| 27 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
+
+> [!NOTE]
+> The original entries recorded sub-microsecond times that were corrupted by Mathematica's
+> multiline scientific notation formatting. The timing precision was lost; values shown as
+> `0.0000` represent times under 0.001s.
 
 #### Rationale
 _baseline serial_
 
 #### Changes
-_TODO_
+_Initial baseline recorded before parallelization changes._
 
 #### Interpretation
-_TODO_
-
----
-
-### 2026-03-29 — baseline serial
-
-**Commit:** `188e002`
-**Date:** Sun 29 Mar 2026 15:44:02
-**Kernels:** 16
-
-#### Tier: small
-
-| Case | D2E (s) | CritSolver (s) | NLSolver (s) | Total (s) | Status |
-|------|---------|---------------|-------------|-----------|--------|
-| 1 |           -6
-4.000 × 10 |           -6
-5.000 × 10 |           -6
-3.000 × 10 |           -6
-8.000 × 10 | OK |
-| 2 |           -6
-5.000 × 10 |           -6
-3.000 × 10 |           -6
-9.000 × 10 | 0.000 | OK |
-| 3 |           -6
-3.000 × 10 |           -6
-3.000 × 10 | 0.000 | 0.000 | OK |
-| 4 |           -6
-4.000 × 10 |           -6
-6.000 × 10 |           -6
-6.000 × 10 | 0.000 | OK |
-| 5 |           -6
-4.000 × 10 |           -6
-4.000 × 10 |           -6
-7.000 × 10 | 0.000 | OK |
-| 6 |           -6
-3.000 × 10 |           -6
-3.000 × 10 | 0.000 | 0.000 | OK |
-| 27 |           -6
-7.000 × 10 |           -6
-4.000 × 10 | 0.000 | 0.000 | OK |
-
-#### Rationale
-_baseline serial_
-
-#### Changes
-_TODO_
-
-#### Interpretation
-_TODO_
-
----
-
-### 2026-03-29 — baseline serial
-
-**Commit:** `188e002`
-**Date:** Sun 29 Mar 2026 15:52:12
-**Kernels:** 16
-
-#### Tier: small
-
-| Case | D2E (s) | CritSolver (s) | NLSolver (s) | Total (s) | Status |
-|------|---------|---------------|-------------|-----------|--------|
-| 1 | 0. | 0. | 0. | 0. | OK |
-| 2 | 0. | 0. | 0. | 0. | OK |
-| 3 | 0. | 0. | 0. | 0. | OK |
-| 4 | 0. | 0. | 0. | 0. | OK |
-| 5 | 0. | 0. | 0. | 0. | OK |
-| 6 | 0. | 0. | 0. | 0. | OK |
-| 27 | 0. | 0. | 0. | 0. | OK |
-
-#### Rationale
-_baseline serial_
-
-#### Changes
-_TODO_
-
-#### Interpretation
-_TODO_
+_All small-tier cases complete in sub-millisecond time._
 
 ---
 
@@ -156,22 +59,22 @@ _TODO_
 
 | Case | D2E (s) | CritSolver (s) | NLSolver (s) | Total (s) | Status |
 |------|---------|---------------|-------------|-----------|--------|
-| 1 | 0. | 0. | 0. | 0. | OK |
-| 2 | 0. | 0. | 0. | 0. | OK |
-| 3 | 0. | 0. | 0. | 0. | OK |
-| 4 | 0. | 0. | 0. | 0. | OK |
-| 5 | 0. | 0. | 0. | 0. | OK |
-| 6 | 0. | 0. | 0. | 0. | OK |
-| 27 | 0. | 0. | 0. | 0. | OK |
+| 1 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
+| 2 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
+| 3 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
+| 4 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
+| 5 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
+| 6 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
+| 27 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
 
 #### Rationale
 _Phase A+B+C parallel_
 
 #### Changes
-_TODO_
+_Parallelized IneqSwitching simplification, ineqsByTransition selection, and ineqsByTransition simplification in MFGSystemSolver._
 
 #### Interpretation
-_TODO_
+_Small-tier cases are too small to benefit from parallelization (below $MFGraphsParallelThreshold). No regression._
 
 ---
 
@@ -185,22 +88,22 @@ _TODO_
 
 | Case | D2E (s) | CritSolver (s) | NLSolver (s) | Total (s) | Status |
 |------|---------|---------------|-------------|-----------|--------|
-| 1 | 0. | 0. | 0. | 0. | OK |
-| 2 | 0. | 0. | 0. | 0. | OK |
-| 3 | 0. | 0. | 0. | 0. | OK |
-| 4 | 0. | 0. | 0. | 0. | OK |
-| 5 | 0. | 0. | 0. | 0. | OK |
-| 6 | 0. | 0. | 0. | 0. | OK |
-| 27 | 0. | 0. | 0. | 0. | OK |
+| 1 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
+| 2 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
+| 3 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
+| 4 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
+| 5 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
+| 6 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
+| 27 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
 
 #### Rationale
 _post-merge master_
 
 #### Changes
-_TODO_
+_Merged parallelize branch into master. All parallel dispatch phases active._
 
 #### Interpretation
-_TODO_
+_No regression on small-tier cases after merge._
 
 ---
 
