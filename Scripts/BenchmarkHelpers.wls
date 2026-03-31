@@ -139,8 +139,9 @@ ExportResultsCSV[results_List, path_String] :=
   ];
 
 ExportResultsJSON[results_List, path_String] :=
-  Module[{},
-    Export[path, results, "JSON"];
+  Module[{cleanResults},
+    cleanResults = results /. _Missing -> Null;
+    Export[path, cleanResults, "JSON"];
     Print["Results exported to ", path];
   ];
 

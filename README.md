@@ -18,6 +18,10 @@ Get["/path/to/MFGraphs/MFGraphs/MFGraphs.wl"]
 
 Requires Mathematica 12.0 or later.
 
+## Documentation
+
+Full API documentation is available in [API_REFERENCE.md](API_REFERENCE.md). This document is automatically generated from the package's `::usage` metadata.
+
 ## Quick start
 
 ```mathematica
@@ -147,6 +151,8 @@ wolframscript -file Scripts/RunTests.wls slow
 wolframscript -file Scripts/RunTests.wls all
 ```
 
+Tests are also automatically executed on every commit and Pull Request via GitHub Actions.
+
 ## Plotting
 
 After solving with the non-linear solver, plot mass densities and value functions on each edge:
@@ -249,6 +255,18 @@ MFGraphs/
     ExamplesData.wl        Built-in test cases and GetExampleData function
   Kernel/
     init.m                 Paclet initialization
+Scripts/
+  RunTests.wls             Test suite runner
+  GenerateDocs.wls         Automated API documentation generator
+  BenchmarkSuite.wls       Performance benchmarking tool
+```
+
+### Maintenance
+
+To regenerate the API documentation:
+```bash
+wolframscript -file Scripts/GenerateDocs.wls
+```
 ```
 
 ## Examples

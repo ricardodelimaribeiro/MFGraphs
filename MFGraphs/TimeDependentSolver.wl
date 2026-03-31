@@ -1,5 +1,15 @@
 (* Wolfram Language package *)
-(* Time-dependent MFG solver: backward-forward sweep on a time-discretized grid *)
+(*
+   TimeDependentSolver: Non-stationary MFG solver using backward-forward sweeps.
+   
+   Theoretical Basis:
+   - "First-order mean-field games on networks and Wardrop equilibrium" (Al Saleh et al., 2024)
+   
+   This module solves time-dependent Mean Field Games by discretizing the time horizon 
+   and iteratively solving the Hamilton-Jacobi-Bellman (HJB) equation backward in time 
+   and the Fokker-Planck (FPK) equation forward in time. This decoupling allows 
+   leveraging the stationary solvers at each time step.
+*)
 
 (* --- Public API declarations --- *)
 
