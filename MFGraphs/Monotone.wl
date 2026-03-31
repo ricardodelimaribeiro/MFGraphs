@@ -116,6 +116,80 @@ CachedGradientProjection[x_, KM_, dim_, At_, cache_, tol_:10^-6] :=
     ]
   ];
 
+(* --- BuildMonotoneStateData: shared linear state for MonotoneSolver --- *)
+
+BuildMonotoneStateData[d2e_Association] :=
+  Module[{B, KM, jj, halfPairs, signedFlows, rules, substituted, S},
+    {B, KM, jj} = GetKirchhoffLinearSystem[d2e];
+    halfPairs = List @@@ Lookup[d2e, "edgeList", {}];
+    If[Length[jj] === 0 || Length[halfPairs] === 0,
+      S = SparseArray[{}, {Length[halfPairs], Length[jj]}],
+      signedFlows = Lookup[d2e, "SignedFlows", <||>];
+      rules = Join[
+        Lookup[d2e, "RuleBalanceGatheringFlows", <||>],
+        Lookup[d2e, "RuleExitFlowsIn", <||>],
+        Lookup[d2e, "RuleEntryOut", <||>]
+      ];
+      substituted = (signedFlows[#] & /@ halfPairs) /. rules;
+      S = Last @ CoefficientArrays[substituted, jj]
+    ];
+    <|
+      "B" -> B,
+      "KM" -> KM,
+      "FullVariables" -> jj,
+      "HalfPairs" -> halfPairs,
+      "SignedEdgeMatrix" -> S
+    |>
+  ];
+
+(* Exact affine reduction x = x0 + N . theta for the Kirchhoff manifold.
+   This does not yet implement the paper's edge-current reduction, but it gives
+   a minimal state dimension and lossless reconstruction of the full j[...] state. *)
+BuildReducedKirchhoffCoordinates[d2e_Association, basePoint_:Automatic] :=
+  Module[{stateData, KM, jj, S, nullBasis, basisMatrix, dim, baseVec, edgeOffset,
+      edgeBasis, invisibleDim},
+    stateData = BuildMonotoneStateData[d2e];
+    KM = stateData["KM"];
+    jj = stateData["FullVariables"];
+    S = stateData["SignedEdgeMatrix"];
+    nullBasis = NullSpace[Normal[KM]];
+    basisMatrix = If[nullBasis === {},
+      ConstantArray[0., {Length[jj], 0}],
+      N @ Transpose[nullBasis]
+    ];
+    dim = If[MatrixQ[basisMatrix], Last @ Dimensions[basisMatrix], 0];
+    baseVec = Which[
+      basePoint === Automatic && Length[jj] === 0, {},
+      basePoint === Automatic, Quiet @ Check[
+        N @ LeastSquares[N @ Normal[KM], N @ stateData["B"]],
+        Missing["NotAvailable"]
+      ],
+      True, N @ basePoint
+    ];
+    edgeOffset = If[ListQ[baseVec] && VectorQ[baseVec, NumericQ],
+      N @ (S . baseVec),
+      Missing["NotAvailable"]
+    ];
+    edgeBasis = If[MatrixQ[basisMatrix], N @ (S . basisMatrix), Missing["NotAvailable"]];
+    invisibleDim = Length[NullSpace[Join[Normal[KM], Normal[S]]]];
+    <|
+      "BasePoint" -> baseVec,
+      "BasisMatrix" -> basisMatrix,
+      "StateDimension" -> dim,
+      "FullDimension" -> Length[jj],
+      "CostInvisibleDimension" -> invisibleDim,
+      "SignedEdgeOffset" -> edgeOffset,
+      "SignedEdgeBasis" -> edgeBasis,
+      "FullVariables" -> jj
+    |>
+  ];
+
+ReducedKirchhoffVector[reduced_Association, theta_?NumberVectorQ] :=
+  reduced["BasePoint"] + reduced["BasisMatrix"] . theta;
+
+ReducedKirchhoffAssociation[reduced_Association, theta_?NumberVectorQ] :=
+  AssociationThread[reduced["FullVariables"], ReducedKirchhoffVector[reduced, theta]];
+
 (* --- BuildMonotoneField: lifted edge-cost field on Kirchhoff variables --- *)
 (* 
    This function constructs the vector field for the HRF method by "lifting" 
@@ -127,21 +201,13 @@ CachedGradientProjection[x_, KM_, dim_, At_, cache_, tol_:10^-6] :=
 *)
 
 BuildMonotoneField[d2e_Association] :=
-  Module[{B, KM, jj, halfPairs, signedFlows, rules, substituted, S, fieldFn},
-    {B, KM, jj} = GetKirchhoffLinearSystem[d2e];
+  Module[{stateData, jj, halfPairs, S, fieldFn},
+    stateData = BuildMonotoneStateData[d2e];
+    jj = stateData["FullVariables"];
     If[Length[jj] === 0, Return[{jj, (0 * # &)}, Module]];
-    halfPairs = List @@@ Lookup[d2e, "edgeList", {}];
+    halfPairs = stateData["HalfPairs"];
     If[Length[halfPairs] === 0, Return[{jj, (0 * # &)}, Module]];
-    signedFlows = Lookup[d2e, "SignedFlows", <||>];
-    rules = Join[
-      Lookup[d2e, "RuleBalanceGatheringFlows", <||>],
-      Lookup[d2e, "RuleExitFlowsIn", <||>],
-      Lookup[d2e, "RuleEntryOut", <||>]
-    ];
-    (* Substitute rules into signed flows to get expressions in jj *)
-    substituted = (signedFlows[#] & /@ halfPairs) /. rules;
-    (* S is the sparse coefficient matrix: signed_edge_flows = S . jj *)
-    S = Last @ CoefficientArrays[substituted, jj];
+    S = stateData["SignedEdgeMatrix"];
     fieldFn[x_?NumberVectorQ] := Module[{q, c},
       q = S . x;
       c = MapThread[
@@ -170,25 +236,30 @@ MonotoneSolver[d2e_, opts:OptionsPattern[]] :=
 			potentialFunction,
 			congestionExponentFunction,
 			interactionFunction,
-			Module[{B, KM, jj, cc, x0, result, returnShape, solution, missingSolution},
-				returnShape = OptionValue["ReturnShape"];
-				missingSolution = Missing["NotAvailable"];
-				{B, KM, jj} = GetKirchhoffLinearSystem[d2e];
-				(* Guard: skip MonotoneSolver for degenerate cases with no flow variables *)
-				If[Length[jj] === 0,
-					Message[MonotoneSolver::degenerate];
-					Return[
-						If[returnShape === "Standard",
-							MakeSolverResult[
-								"Monotone",
-								"Degenerate",
-								Missing["NotApplicable"],
-								"DegenerateCase",
-								missingSolution,
-								<|"AssoMonotone" -> missingSolution|>
+				Module[{stateData, reducedState, B, KM, jj, cc, x0, result, returnShape, solution,
+				    missingSolution, comparisonData, reducedMetadata},
+					returnShape = OptionValue["ReturnShape"];
+					missingSolution = Missing["NotAvailable"];
+					stateData = BuildMonotoneStateData[d2e];
+					B = stateData["B"];
+					KM = stateData["KM"];
+					jj = stateData["FullVariables"];
+					(* Guard: skip MonotoneSolver for degenerate cases with no flow variables *)
+					If[Length[jj] === 0,
+						Message[MonotoneSolver::degenerate];
+						Return[
+							If[returnShape === "Standard",
+								comparisonData = BuildSolverComparisonData[d2e, missingSolution];
+								MakeSolverResult[
+									"Monotone",
+									"Degenerate",
+									Missing["NotApplicable"],
+									"DegenerateCase",
+									missingSolution,
+									Join[comparisonData, <|"AssoMonotone" -> missingSolution|>]
+								],
+								<|"Message" -> "Degenerate case"|>
 							],
-							<|"Message" -> "Degenerate case"|>
-						],
 						Module
 					]
 				];
@@ -199,20 +270,21 @@ MonotoneSolver[d2e_, opts:OptionsPattern[]] :=
 					First @ FindInstance[KM . jj == B && And @@ ((# >= 10^-8) & /@ jj), jj, Reals],
 					$Failed
 				];
-				If[result === $Failed,
-					Message[MonotoneSolver::seedfail];
-					Return[
-						If[returnShape === "Standard",
-							MakeSolverResult[
-								"Monotone",
-								"Failure",
-								Missing["NotApplicable"],
-								"SeedFindInstanceFailed",
-								missingSolution,
-								<|"AssoMonotone" -> missingSolution|>
+					If[result === $Failed,
+						Message[MonotoneSolver::seedfail];
+						Return[
+							If[returnShape === "Standard",
+								comparisonData = BuildSolverComparisonData[d2e, missingSolution];
+								MakeSolverResult[
+									"Monotone",
+									"Failure",
+									Missing["NotApplicable"],
+									"SeedFindInstanceFailed",
+									missingSolution,
+									Join[comparisonData, <|"AssoMonotone" -> missingSolution|>]
+								],
+								Null
 							],
-							Null
-						],
 						Module
 					]
 				];
@@ -220,19 +292,26 @@ MonotoneSolver[d2e_, opts:OptionsPattern[]] :=
 				(* No edges → zero cost field → feasible point is already the solution *)
 				solution = If[Length[Lookup[d2e, "edgeList", {}]] === 0,
 					AssociationThread[jj, x0],
-					MonotoneSolverODE[x0, KM, jj, cc, FilterRules[{opts}, Options[MonotoneSolverODE]]]
-				];
-				If[returnShape === "Standard",
-					MakeSolverResult[
-						"Monotone",
-						"Success",
-						Missing["NotApplicable"],
-						None,
-						solution,
-						<|"AssoMonotone" -> solution|>
-					],
-					solution
-				]
+						MonotoneSolverODE[x0, KM, jj, cc, FilterRules[{opts}, Options[MonotoneSolverODE]]]
+					];
+					If[returnShape === "Standard",
+						reducedState = BuildReducedKirchhoffCoordinates[d2e, x0];
+						comparisonData = BuildSolverComparisonData[d2e, solution];
+						reducedMetadata = <|
+							"ReducedStateDimension" -> reducedState["StateDimension"],
+							"FullStateDimension" -> reducedState["FullDimension"],
+							"CostInvisibleDimension" -> reducedState["CostInvisibleDimension"]
+						|>;
+						MakeSolverResult[
+							"Monotone",
+							"Success",
+							Missing["NotApplicable"],
+							None,
+							solution,
+							Join[comparisonData, reducedMetadata, <|"AssoMonotone" -> solution|>]
+						],
+						solution
+					]
 			]
 		]
 	];
