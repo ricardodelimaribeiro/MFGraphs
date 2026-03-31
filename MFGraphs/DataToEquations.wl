@@ -347,7 +347,14 @@ MFGPreprocessing[Eqs_] :=
         AssociateTo[InitRules, RuleExitValues];
 
         temp = MFGPrintTemporary["Simplifying inequalities involving Switching Costs...", IneqSwitchingByVertex];
-        {time, IneqSwitchingByVertex} = AbsoluteTiming[And @@ (Simplify /@ ( IneqSwitchingByVertex /. InitRules))];
+        With[{items = IneqSwitchingByVertex /. InitRules},
+          {time, IneqSwitchingByVertex} = AbsoluteTiming[
+            And @@ If[Length[items] >= $MFGraphsParallelThreshold,
+              (If[$KernelCount === 0, LaunchKernels[]]; ParallelMap[Simplify, items]),
+              Simplify /@ items
+            ]
+          ]
+        ];
         NotebookDelete[temp];
         MFGPrint["Switching costs simplified in ", time, " seconds."];
         EqBalanceSplittingFlows = EqBalanceSplittingFlows /. InitRules;
@@ -452,12 +459,28 @@ MFGSystemSolver[Eqs_][approxJs_] :=
         If[NewSystem[[2]] === True,
             ineqsByTransition = ConstantArray[True, Length[jts]];
             time = 0.,
-            {time, ineqsByTransition} = AbsoluteTiming[Select[NewSystem[[2]], Function[exp, !FreeQ[#][exp]]]&/@jts]
+            {time, ineqsByTransition} = AbsoluteTiming[
+              If[Length[jts] >= $MFGraphsParallelThreshold,
+                (If[$KernelCount === 0, LaunchKernels[]];
+                 With[{ineqs = NewSystem[[2]]},
+                   ParallelMap[Function[jt, Select[ineqs, !FreeQ[jt][#]&]], jts]
+                 ]),
+                Select[NewSystem[[2]], Function[exp, !FreeQ[#][exp]]]&/@jts
+              ]
+            ]
         ];
         NotebookDelete[temp];
         MFGPrint["MFGSS: Selecting inequalities by transition flow took ", time, " seconds. ", Length[ineqsByTransition]];
         temp = MFGPrintTemporary["MFGSS: Simplifying inequalities by transition flow..."];
-        {time, ineqsByTransition}= AbsoluteTiming[DeduplicateByComplexity[Simplify/@ineqsByTransition]];
+        {time, ineqsByTransition} = AbsoluteTiming[
+          DeduplicateByComplexity[
+            If[Length[ineqsByTransition] >= $MFGraphsParallelThreshold,
+              (If[$KernelCount === 0, LaunchKernels[]];
+               ParallelMap[Simplify, ineqsByTransition]),
+              Simplify /@ ineqsByTransition
+            ]
+          ]
+        ];
         NotebookDelete[temp];
         MFGPrint["MFGSS: Simplifying inequalities by transition flow took ", time, " seconds. "];
 

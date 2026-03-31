@@ -11,6 +11,17 @@ $MFGraphsVerbose::usage =
 Set $MFGraphsVerbose = False to suppress output. Default is True.";
 $MFGraphsVerbose = False;
 
+$MFGraphsParallelThreshold::usage =
+"$MFGraphsParallelThreshold controls the minimum list length before ParallelMap or
+ParallelTable is used instead of Map or Table. Default is 6. Set to Infinity to
+disable all parallelism.";
+$MFGraphsParallelThreshold = 6;
+
+$MFGraphsParallelReady::usage =
+"$MFGraphsParallelReady is True after ParallelNeeds[\"MFGraphs`\"] has been called on
+all subkernels. Reset to False (e.g. after LaunchKernels[]) to force re-initialization.";
+$MFGraphsParallelReady = False;
+
 MFGPrint::usage =
 "MFGPrint[args___] prints args only when $MFGraphsVerbose is True.";
 MFGPrint[args___] := If[$MFGraphsVerbose, Print[args]];

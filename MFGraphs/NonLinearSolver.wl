@@ -336,7 +336,12 @@ PrecomputeM[jMin_?NumericQ, jMax_?NumericQ, edge_, nPoints_Integer:50] :=
   Module[{jVals, xVals, mGrid, flatData},
     jVals = Subdivide[jMin, jMax, nPoints];
     xVals = Subdivide[0., 1., nPoints];
-    mGrid = Table[
+    If[$KernelCount === 0, LaunchKernels[]];
+    If[!TrueQ[$MFGraphsParallelReady],
+      ParallelNeeds["MFGraphs`"];
+      $MFGraphsParallelReady = True
+    ];
+    mGrid = ParallelTable[
       If[PossibleZeroQ[jv], 0.,
         SolveMassRoot[jv, xv, edge]
       ],
