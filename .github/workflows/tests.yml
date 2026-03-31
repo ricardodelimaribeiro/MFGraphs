@@ -6,15 +6,37 @@ on:
   pull_request:
     branches: [ master ]
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    environment:
+      name: wolfram-ci
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Wolfram Engine
-        uses: miRoox/wolfram-action@v1
+      - name: Validate Wolfram environment secrets
+        env:
+          WOLFRAM_CI_ID: ${{ secrets.WOLFRAM_CI_ID }}
+          WOLFRAM_CI_PASS: ${{ secrets.WOLFRAM_CI_PASS }}
+        run: |
+          if [ -z "$WOLFRAM_CI_ID" ]; then
+            echo "::error::Missing environment secret WOLFRAM_CI_ID on environment 'wolfram-ci'"
+            exit 1
+          fi
+          if [ -z "$WOLFRAM_CI_PASS" ]; then
+            echo "::error::Missing environment secret WOLFRAM_CI_PASS on environment 'wolfram-ci'"
+            exit 1
+          fi
 
       - name: Run Fast Test Suite
-        run: wolframscript -file Scripts/RunTests.wls fast
+        uses: miRoox/wolfram-action@v1
+        with:
+          file: Scripts/RunTests.wls
+          args: fast
+        env:
+          WOLFRAM_ID: ${{ secrets.WOLFRAM_CI_ID }}
+          WOLFRAM_PASS: ${{ secrets.WOLFRAM_CI_PASS }}
