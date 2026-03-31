@@ -6,24 +6,29 @@ on:
   pull_request:
     branches: [ master ]
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
-    env:
-      WOLFRAM_ID: ${{ secrets.WOLFRAM_ID }}
-      WOLFRAM_PASS: ${{ secrets.WOLFRAM_PASS }}
+    environment:
+      name: wolfram-ci
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Validate Wolfram secrets
+      - name: Validate Wolfram environment secrets
+        env:
+          WOLFRAM_CI_ID: ${{ secrets.WOLFRAM_CI_ID }}
+          WOLFRAM_CI_PASS: ${{ secrets.WOLFRAM_CI_PASS }}
         run: |
-          if [ -z "$WOLFRAM_ID" ]; then
-            echo "::error::Missing repository secret WOLFRAM_ID"
+          if [ -z "$WOLFRAM_CI_ID" ]; then
+            echo "::error::Missing environment secret WOLFRAM_CI_ID on environment 'wolfram-ci'"
             exit 1
           fi
-          if [ -z "$WOLFRAM_PASS" ]; then
-            echo "::error::Missing repository secret WOLFRAM_PASS"
+          if [ -z "$WOLFRAM_CI_PASS" ]; then
+            echo "::error::Missing environment secret WOLFRAM_CI_PASS on environment 'wolfram-ci'"
             exit 1
           fi
 
@@ -32,3 +37,6 @@ jobs:
         with:
           file: Scripts/RunTests.wls
           args: fast
+        env:
+          WOLFRAM_ID: ${{ secrets.WOLFRAM_CI_ID }}
+          WOLFRAM_PASS: ${{ secrets.WOLFRAM_CI_PASS }}
