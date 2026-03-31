@@ -1,8 +1,10 @@
-#!/usr/bin/env wolframscript
-(* BenchmarkSuite.wls -- Main benchmark runner for MFGraphs *)
 (* Usage: wolframscript -file Scripts/BenchmarkSuite.wls [tier] *)
 (* tier: "small", "medium", "large", "vlarge", or "all" (default: "all") *)
 
+(* :!CodeAnalysis::Disable::SuspiciousSessionSymbol::Print *)
+
+(* :!CodeAnalysis::BeginBlock:: *)
+(* :!CodeAnalysis::Disable::SuspiciousSessionSymbol:: *)
 Print["MFGraphs Benchmark Suite"];
 Print["========================"];
 Print["Date: ", DateString[]];
@@ -271,4 +273,5 @@ If[$HistoryTag =!= None,
     Export[histPath, existingContent, "Text"];
     Print["History entry appended to PARALLEL_PERFORMANCE_HISTORY.md (tag: ", $HistoryTag, ")"];
   ]
+(* :!CodeAnalysis::EndBlock:: *)
 ];

@@ -1,6 +1,12 @@
 (* Wolfram Language package *)
-(* Disjunctive normal form reduction for systems of equations/inequalities *)
-(* Solves equalities by substitution and reduces Or-branches *)
+(* 
+   DNFReduce: Symbolic logic reduction for MFG systems. 
+   
+   This module handles the combinatorial complexity of network Mean Field Games 
+   by converting constraints into Disjunctive Normal Form (DNF). it simplifies 
+   systems by solving equalities via substitution and pruning redundant 
+   logical branches through subsumption checking.
+*)
 
 DNFReduce::usage =
 "DNFReduce[xp, sys] converts the system xp && sys into disjunctive normal form
@@ -54,12 +60,12 @@ CachedSolve[eq_] :=
     ]
   ];
 
-CachedReduce[expr_, domain_] :=
+CachedReduce[expr_, vars_, domain_] :=
   Module[{key, result},
-    key = Hash[{expr, domain}, "SHA256"];
+    key = Hash[{expr, vars, domain}, "SHA256"];
     If[KeyExistsQ[$ReduceCache, key],
       $ReduceCache[key],
-      result = Reduce[expr, domain];
+      result = Reduce[expr, vars, domain];
       $ReduceCache[key] = result;
       result
     ]
@@ -105,7 +111,7 @@ DNFReduce[xp_, And[fst_, rst_]] :=
 (* Disjunction: reduce each branch independently, prune False results *)
 DNFReduce[xp_, Or[fst_, scd_]] :=
     Module[{rfst, result1, result2},
-      rfst = CachedReduce[fst, Reals];
+      rfst = CachedReduce[fst, Variables[fst], Reals];
       result1 = DNFReduce[xp, rfst];
       (* Short-circuit: if first branch already covers xp, skip second *)
       If[result1 === xp,
@@ -175,18 +181,22 @@ SubsumptionPrune[branches_List, perCheckTimeout_:2] :=
       Do[
         If[!keep[[j]], Continue[]];
         (* Does branch i imply branch j? If so, j is redundant. *)
-        result = Quiet@TimeConstrained[
-          Reduce[Implies[branches[[i]], branches[[j]]], Reals],
-          perCheckTimeout, $TimedOut
+        Module[{impl = Implies[branches[[i]], branches[[j]]]},
+          result = Quiet@TimeConstrained[
+            Reduce[impl, Variables[impl], Reals],
+            perCheckTimeout, $TimedOut
+          ]
         ];
         If[result === True,
           keep[[j]] = False;
           Continue[]
         ];
         (* Does branch j imply branch i? If so, i is redundant. *)
-        result = Quiet@TimeConstrained[
-          Reduce[Implies[branches[[j]], branches[[i]]], Reals],
-          perCheckTimeout, $TimedOut
+        Module[{impl = Implies[branches[[j]], branches[[i]]]},
+          result = Quiet@TimeConstrained[
+            Reduce[impl, Variables[impl], Reals],
+            perCheckTimeout, $TimedOut
+          ]
         ];
         If[result === True,
           keep[[i]] = False;
@@ -211,7 +221,7 @@ ReduceDisjuncts[expr_Or] :=
     If[n <= $ReduceDisjunctsThreshold,
       (* Small: Full Reduce can handle it directly *)
       {time, reduced} = AbsoluteTiming[
-        Quiet@TimeConstrained[Reduce[expr, Reals], 120, $TimedOut]
+        Quiet@TimeConstrained[Reduce[expr, Variables[expr], Reals], 120, $TimedOut]
       ];
       If[reduced === $TimedOut,
         MFGPrint["ReduceDisjuncts: Full Reduce timed out, falling back to subsumption"];
@@ -227,7 +237,7 @@ ReduceDisjuncts[expr_Or] :=
         (* Survivors are small enough for Reduce *)
         Module[{r2, t2},
           {t2, r2} = AbsoluteTiming[
-            Quiet@TimeConstrained[Reduce[Or @@ reduced, Reals], 120, $TimedOut]
+            Quiet@TimeConstrained[Reduce[Or @@ reduced, Variables[Or @@ reduced], Reals], 120, $TimedOut]
           ];
           If[r2 =!= $TimedOut,
             MFGPrint["ReduceDisjuncts: Reduce on survivors -> ",
