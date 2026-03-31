@@ -66,6 +66,57 @@ CheckFlowFeasibility[assoc_Association] :=
             "Infeasible", "Feasible"]
     ];
 
+SelectFlowAssociation[assoc_Association] :=
+    Association @ KeySelect[assoc, MatchQ[#, _j] &];
+
+BuildSolverComparisonData[Eqs_Association, solution_] :=
+    Module[{missing, flowAssoc, edgeList, edgePairs, signedFlowRules, signedExprs,
+         signedVals, B, KM, jj, jjVals, residual},
+        missing = Missing["NotAvailable"];
+        edgeList = Lookup[Eqs, "edgeList", {}];
+        If[!AssociationQ[solution],
+            Return[
+                <|
+                    "ComparableEdges" -> edgeList,
+                    "FlowAssociation" -> missing,
+                    "SignedEdgeFlows" -> missing,
+                    "ComparableFlowVector" -> missing,
+                    "KirchhoffResidual" -> missing
+                |>,
+                Module
+            ]
+        ];
+        flowAssoc = SelectFlowAssociation[solution];
+        edgePairs = List @@@ edgeList;
+        signedFlowRules = Lookup[Eqs, "SignedFlows", <||>];
+        signedExprs =
+            (If[KeyExistsQ[signedFlowRules, #], signedFlowRules[#], missing] & /@ edgePairs) /.
+                Join[
+                    Lookup[Eqs, "RuleBalanceGatheringFlows", <||>],
+                    Lookup[Eqs, "RuleExitFlowsIn", <||>],
+                    Lookup[Eqs, "RuleEntryOut", <||>]
+                ];
+        signedVals = Quiet @ Check[signedExprs /. flowAssoc, missing];
+        If[!ListQ[signedVals] || !VectorQ[signedVals, NumericQ],
+            signedVals = missing
+        ];
+        {B, KM, jj} = MFGraphs`GetKirchhoffLinearSystem[Eqs];
+        jjVals = Lookup[flowAssoc, jj, missing];
+        residual =
+            If[ListQ[jjVals] && VectorQ[jjVals, NumericQ],
+                N @ Norm[KM . jjVals - B, Infinity],
+                missing
+            ];
+        <|
+            "ComparableEdges" -> edgeList,
+            "FlowAssociation" -> flowAssoc,
+            "SignedEdgeFlows" ->
+                If[signedVals === missing, missing, AssociationThread[edgeList, signedVals]],
+            "ComparableFlowVector" -> signedVals,
+            "KirchhoffResidual" -> residual
+        |>
+    ];
+
 MakeSolverResult[
     solver_String,
     resultKind_String,
