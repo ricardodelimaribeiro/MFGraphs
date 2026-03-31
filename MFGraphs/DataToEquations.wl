@@ -394,9 +394,9 @@ MFGPreprocessing[Eqs_] :=
         NotebookDelete[temp];
         MFGPrint["Balance equations solved in ", time, " seconds."];
         With[{ineqTriple = SystemToTriple[IneqSwitchingByVertex]},
-            NewSystem = {ineqTriple[[1]], IneqJts && IneqJs && ineqTriple
-                [[2]], AltFlows && AltTransitionFlows && AltOptCond && ineqTriple[[3]]
-                }
+            NewSystem = {ineqTriple[[1]] && EqGeneral,
+                IneqJts && IneqJs && ineqTriple[[2]],
+                AltFlows && AltTransitionFlows && AltOptCond && ineqTriple[[3]]}
         ];
         temp = MFGPrintTemporary["TripleClean will work on\n", NewSystem,
              "\nwith: ", InitRules];
@@ -404,14 +404,6 @@ MFGPreprocessing[Eqs_] :=
             {NewSystem, InitRules}];
         NotebookDelete[temp];
         MFGPrint["TripleClean took ", time, " seconds."];
-        NewSystem[[1]] = EqGeneral;
-        temp = MFGPrintTemporary["TripleClean again (with some more equalities)..."
-            ];
-        {time, {NewSystem, InitRules}} = AbsoluteTiming @ TripleClean[
-            {NewSystem, InitRules}];
-        NotebookDelete[temp];
-        MFGPrint["TripleClean again (with some more equalities) took ",
-             time, " seconds."];
         ModuleVarsNames = {"InitRules", "NewSystem"};
         ModulesVars = {InitRules, NewSystem};
         Join[Eqs, AssociationThread[ModuleVarsNames, ModulesVars]]
@@ -507,14 +499,19 @@ MFGSystemSolver[Eqs_][approxJs_] :=
             ,
             {time, ineqsByTransition} =
                 AbsoluteTiming[
-                    With[{ineqs = NewSystem[[2]]},
-                        MFGParallelMap[
-                            Function[jt,
-                                Select[ineqs, !FreeQ[jt][#]&]
-                            ]
-                            ,
-                            jts
-                        ]
+                    Module[{ineqList, index},
+                        ineqList = If[Head[NewSystem[[2]]] === And,
+                            List @@ NewSystem[[2]], {NewSystem[[2]]}];
+                        index = Association[# -> {} & /@ jts];
+                        Do[
+                            Do[
+                                If[!FreeQ[ineq, jt],
+                                    index[jt] = Append[index[jt], ineq]],
+                                {jt, jts}
+                            ],
+                            {ineq, ineqList}
+                        ];
+                        (If[# === {}, True, And @@ #]&) /@ Values[index]
                     ]
                 ]
         ];
