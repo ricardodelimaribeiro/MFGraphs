@@ -48,11 +48,25 @@ EnsureParallelKernels[] := If[$KernelCount === 0, LaunchKernels[]];
 
 MFGParallelMap::usage =
 "MFGParallelMap[f, list] applies f to each element of list, using ParallelMap
-when Length[list] >= $MFGraphsParallelThreshold, otherwise Map.";
+when Length[list] >= $MFGraphsParallelThreshold (and kernels are already running)
+or Length[list] >= $MFGraphsParallelLaunchThreshold (when kernels must be launched).
+This avoids paying ~3s kernel launch overhead for small workloads.";
+
+$MFGraphsParallelLaunchThreshold::usage =
+"$MFGraphsParallelLaunchThreshold is the minimum list length required to justify
+launching parallel subkernels. Only applies when $KernelCount === 0. Default is 50.";
+$MFGraphsParallelLaunchThreshold = 50;
+
 MFGParallelMap[f_, list_List] :=
-    If[Length[list] >= $MFGraphsParallelThreshold,
-        (EnsureParallelKernels[]; ParallelMap[f, list]),
-        f /@ list
+    Module[{threshold},
+        threshold = If[$KernelCount === 0,
+            $MFGraphsParallelLaunchThreshold,
+            $MFGraphsParallelThreshold
+        ];
+        If[Length[list] >= threshold,
+            (EnsureParallelKernels[]; ParallelMap[f, list]),
+            f /@ list
+        ]
     ];
 
 Begin["`Private`"];
