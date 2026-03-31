@@ -1,5 +1,14 @@
 (* Wolfram Language package *)
-(* Monotone operator solver for Mean Field Games on networks *)
+(*
+   Monotone: Numerical solver for Multi-Population Wardrop Equilibrium.
+   
+   Theoretical Basis:
+   - "Hessian Riemannian Flow For Multi-Population Wardrop Equilibrium" (Bakaryan et al., 2025)
+   
+   This module implements an efficient numerical solver using the Hessian Riemannian Flow (HRF) 
+   method. It reformulates the equilibrium problem as a distributed optimization problem 
+   projected onto the manifold defined by flow conservation constraints.
+*)
 
 (* --- Public API declarations --- *)
 
@@ -20,7 +29,7 @@ GradientProjection::usage =
 This is InverseHessian[x] . (I - At . PseudoInverse[A . InverseHessian[x] . At] . A . InverseHessian[x]).";
 
 CachedGradientProjection::usage =
-"CachedGradientProjection[x, K, dim, At, cache] is a version of GradientProjection
+"CachedGradientProjection[x, KM, dim, At, cache] is a version of GradientProjection
 that caches the PseudoInverse result and reuses it when x has not changed significantly.
 cache must be a symbol holding a 1-element list {Null} or {<|\"x\" -> ..., \"pi\" -> ...|>}.
 The function has the HoldAll attribute so that cache is passed by reference.";
@@ -40,7 +49,7 @@ Options: \"TimeSteps\" (default 100), \"UseCachedGradient\" (default True), \
 (default Automatic, meaning use the current global MFGraphs` definitions of V, alpha, and g).";
 
 MonotoneSolverODE::usage =
-"MonotoneSolverODE[x0, K, jj, cc] solves the gradient flow ODE from initial condition x0.
+"MonotoneSolverODE[x0, KM, jj, cc] solves the gradient flow ODE from initial condition x0.
 Options: \"TimeSteps\" (default 100), \"UseCachedGradient\" (default True).";
 
 MonotoneSolver::degenerate =
@@ -92,27 +101,34 @@ GradientProjection[x_?NumberVectorQ, A_] :=
 (* HoldAll keeps cache as the caller's symbol so part-assignment works. *)
 (* Other arguments are force-evaluated via Module initializers. *)
 
-CachedGradientProjection[x_, K_, dim_, At_, cache_, tol_:10^-6] :=
-  Module[{xVal = x, KVal = K, dimVal = dim, AtVal = At, tolVal = tol,
+CachedGradientProjection[x_, KM_, dim_, At_, cache_, tol_:10^-6] :=
+  Module[{xVal = x, KMVal = KM, dimVal = dim, AtVal = At, tolVal = tol,
           invH, AinvHAt, pi},
     invH = InverseHessian[xVal];
     If[cache[[1]] =!= Null && Norm[xVal - cache[[1]]["x"], Infinity] < tolVal,
       (* Reuse cached PseudoInverse *)
-      invH . (IdentityMatrix[dimVal] - AtVal . cache[[1]]["pi"] . KVal . invH),
+      invH . (IdentityMatrix[dimVal] - AtVal . cache[[1]]["pi"] . KMVal . invH),
       (* Recompute PseudoInverse and cache *)
-      AinvHAt = KVal . invH . AtVal;
+      AinvHAt = KMVal . invH . AtVal;
       pi = PseudoInverse[AinvHAt];
       cache[[1]] = <|"x" -> xVal, "pi" -> pi|>;
-      invH . (IdentityMatrix[dimVal] - AtVal . pi . KVal . invH)
+      invH . (IdentityMatrix[dimVal] - AtVal . pi . KMVal . invH)
     ]
   ];
 
 (* --- BuildMonotoneField: lifted edge-cost field on Kirchhoff variables --- *)
-(* Returns {jj, fieldFn} where fieldFn[x_?NumberVectorQ] gives S^T . c(S . x). *)
+(* 
+   This function constructs the vector field for the HRF method by "lifting" 
+   microscopic edge costs to the reduced transition-flow space (the ϑ vector 
+   from the HRF paper).
+   
+   Returns {jj, fieldFn} where fieldFn[x_?NumberVectorQ] gives S^T . c(S . x). 
+   Here S is the sparsity matrix mapping transition flows to signed edge flows.
+*)
 
 BuildMonotoneField[d2e_Association] :=
-  Module[{B, K, jj, halfPairs, signedFlows, rules, substituted, S, fieldFn},
-    {B, K, jj} = GetKirchhoffLinearSystem[d2e];
+  Module[{B, KM, jj, halfPairs, signedFlows, rules, substituted, S, fieldFn},
+    {B, KM, jj} = GetKirchhoffLinearSystem[d2e];
     If[Length[jj] === 0, Return[{jj, (0 * # &)}, Module]];
     halfPairs = List @@@ Lookup[d2e, "edgeList", {}];
     If[Length[halfPairs] === 0, Return[{jj, (0 * # &)}, Module]];
@@ -154,10 +170,10 @@ MonotoneSolver[d2e_, opts:OptionsPattern[]] :=
 			potentialFunction,
 			congestionExponentFunction,
 			interactionFunction,
-			Module[{B, K, jj, cc, x0, result, returnShape, solution, missingSolution},
+			Module[{B, KM, jj, cc, x0, result, returnShape, solution, missingSolution},
 				returnShape = OptionValue["ReturnShape"];
 				missingSolution = Missing["NotAvailable"];
-				{B, K, jj} = GetKirchhoffLinearSystem[d2e];
+				{B, KM, jj} = GetKirchhoffLinearSystem[d2e];
 				(* Guard: skip MonotoneSolver for degenerate cases with no flow variables *)
 				If[Length[jj] === 0,
 					Message[MonotoneSolver::degenerate];
@@ -180,7 +196,7 @@ MonotoneSolver[d2e_, opts:OptionsPattern[]] :=
 				{jj, cc} = BuildMonotoneField[d2e];
 				(* Find numerically interior feasible seed *)
 				result = Quiet @ Check[
-					First @ FindInstance[K . jj == B && And @@ ((# >= 10^-8) & /@ jj), jj, Reals],
+					First @ FindInstance[KM . jj == B && And @@ ((# >= 10^-8) & /@ jj), jj, Reals],
 					$Failed
 				];
 				If[result === $Failed,
@@ -204,7 +220,7 @@ MonotoneSolver[d2e_, opts:OptionsPattern[]] :=
 				(* No edges → zero cost field → feasible point is already the solution *)
 				solution = If[Length[Lookup[d2e, "edgeList", {}]] === 0,
 					AssociationThread[jj, x0],
-					MonotoneSolverODE[x0, K, jj, cc, FilterRules[{opts}, Options[MonotoneSolverODE]]]
+					MonotoneSolverODE[x0, KM, jj, cc, FilterRules[{opts}, Options[MonotoneSolverODE]]]
 				];
 				If[returnShape === "Standard",
 					MakeSolverResult[
@@ -221,19 +237,19 @@ MonotoneSolver[d2e_, opts:OptionsPattern[]] :=
 		]
 	];
 
-MonotoneSolverODE[x0_, K_, jj_, cc_, opts:OptionsPattern[]] :=
+MonotoneSolverODE[x0_, KM_, jj_, cc_, opts:OptionsPattern[]] :=
 	Module[{At, dim, sol, x, xx, n, useCache, piCache, gradFn},
 		n = OptionValue["TimeSteps"];
 		useCache = OptionValue["UseCachedGradient"];
-		At = Transpose[K];
+		At = Transpose[KM];
 		dim = Length[x0];
 
 		If[useCache,
 			(* CachedGradientProjection has HoldAll; piCache is passed by reference *)
 			piCache = {Null};
-			gradFn[xv_?NumberVectorQ] := CachedGradientProjection[xv, K, dim, At, piCache],
+			gradFn[xv_?NumberVectorQ] := CachedGradientProjection[xv, KM, dim, At, piCache],
 			(* Use original uncached version *)
-			gradFn[xv_?NumberVectorQ] := GradientProjection[xv, K, dim, At]
+			gradFn[xv_?NumberVectorQ] := GradientProjection[xv, KM, dim, At]
 		];
 
 		sol = NDSolve[

@@ -1,4 +1,13 @@
 (* Wolfram Language Package *)
+(*
+   MFGraphs: A Wolfram Language package for Mean Field Games on Networks.
+   
+   Main Components:
+   - DataToEquations: Symbolic graph-to-equation converter.
+   - NonLinearSolver: Iterative solver for general congestion.
+   - Monotone: Hessian Riemannian Flow numerical solver.
+   - DNFReduce: Symbolic logical reduction engine.
+*)
 
 (* Created by the Wolfram Workbench May 5, 2020 *)
 (* To distribute, use ideas from https://community.wolfram.com/groups/-/m/t/214901 *)
@@ -24,11 +33,14 @@ $MFGraphsParallelReady = False;
 
 MFGPrint::usage =
 "MFGPrint[args___] prints args only when $MFGraphsVerbose is True.";
+(* :!CodeAnalysis::BeginBlock:: *)
+(* :!CodeAnalysis::Disable::SuspiciousSessionSymbol:: *)
 MFGPrint[args___] := If[$MFGraphsVerbose, Print[args]];
 
 MFGPrintTemporary::usage =
 "MFGPrintTemporary[args___] prints a temporary message only when $MFGraphsVerbose is True.";
 MFGPrintTemporary[args___] := If[$MFGraphsVerbose, PrintTemporary[args], Null];
+(* :!CodeAnalysis::EndBlock:: *)
 
 EnsureParallelKernels::usage =
 "EnsureParallelKernels[] launches parallel subkernels if none are running.";

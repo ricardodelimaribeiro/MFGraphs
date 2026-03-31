@@ -1,4 +1,15 @@
-(*Wolfram Language package*)
+(* Wolfram Language package *)
+(*
+   DataToEquations: Converts network topological data into Mean Field Game (MFG) equations.
+   
+   Theoretical Basis:
+   - "First-order mean-field games on networks and Wardrop equilibrium" (Al Saleh et al., 2024)
+   - "Hessian Riemannian Flow For Multi-Population Wardrop Equilibrium" (Bakaryan et al., 2025)
+
+   This module constructs the symbolic system of equations (Hamilton-Jacobi, Fokker-Planck, 
+   and Vertex-Transition constraints) required to find stationary Wardrop equilibria 
+   on directed/undirected networks with congestion.
+*)
 
 (* --- Public API declarations --- *)
 
@@ -283,6 +294,16 @@ GetKirchhoffLinearSystem[Eqs_] :=
         Lookup[Eqs, "BalanceSplittingFlows", {}], RuleExitFlowsIn = Lookup[Eqs,
          "RuleExitFlowsIn", {}], RuleEntryOut = Lookup[Eqs, "RuleEntryOut", {
         }], BM, KM, vars, cost, CCost},
+        (* 
+           Construct the linear system ensuring flow conservation.
+           Clever Cancellation: By summing BalanceGatheringFlows and BalanceSplittingFlows 
+           for each edge, the internal edge-flow variables j(u,v) cancel out algebraically.
+           This leaves a system of equations purely in terms of transition flows j(u,v,w).
+           
+           This reduction is critical for the Hessian Riemannian Flow (HRF) solver, 
+           as it provides a minimal, independent coordinate basis (the state vector ϑ 
+           in the HRF paper) while ensuring Kirchhoff's law is satisfied by construction.
+        *)
         Kirchhoff = Join[EqEntryIn, (# == 0& /@ (BalanceGatheringFlows
              + BalanceSplittingFlows))];
         Kirchhoff = Kirchhoff /. Join[RuleExitFlowsIn, RuleEntryOut];
@@ -467,7 +488,9 @@ MFGSystemSolver[Eqs_][approxJs_] :=
              time, " seconds."];
         InitRules = Expand /@ (InitRules /. Ncpc);
         NewSystem = NewSystem /. Ncpc;
-        If[And @@ ((# === False)& /@ NewSystem),
+        (* Any False component makes the full {equalities, inequalities, alternatives}
+           triple infeasible, so stop before attempting inequality bucketing. *)
+        If[MemberQ[NewSystem, False],
             Message[MFGSystemSolver::nosolution];
             Return[Null, Module]
         ];

@@ -1,5 +1,14 @@
 (* Wolfram Language package *)
-(* Iterative solver for the non-critical (general) congestion case *)
+(*
+   NonLinearSolver: Iterative solver for the non-critical (general) congestion case.
+   
+   Theoretical Basis:
+   - "First-order mean-field games on networks and Wardrop equilibrium" (Al Saleh et al., 2024)
+   
+   This solver handles Mean Field Games where the congestion strength alpha is not necessarily 
+   equal to 1. It employs a fixed-point iteration (or NestWhile with tolerance) to resolve 
+   non-linear coupling between density and value functions.
+*)
 
 (* --- Public API declarations --- *)
 
@@ -207,8 +216,15 @@ IsNonLinearSolution[Eqs_] :=
         N@assoc
     ];
 
-(* Density recovery is the numerically delicate step in the non-linear solver.
-   Retry with bounded positive mass and higher precision before falling back. *)
+(* 
+   Density recovery (M[j, x, edge]): Numerically solves the Hamilton-Jacobi equation 
+   to find the agent distribution m corresponding to a given flow j and location x.
+   
+   This implements the "Current Method" or "Mass-Root Discovery" step described 
+   in Section 3 of the Al Saleh et al. paper. This step is numerically delicate; 
+   it uses multiple attempts with varying starting guesses and precisions 
+   to ensure convergence to a positive real mass value. 
+*)
 SolveMassRoot[j_?NumericQ, x_?NumericQ, edge_] :=
     Module[{attempts, logAttempts, rule, value, wp, guess, accuracyGoal, precisionGoal,
       xVal, jVal, lowerBound, upperBound},

@@ -1,6 +1,9 @@
 #!/usr/bin/env wolframscript
 (* BenchmarkHelpers.wls -- Helper functions for the MFGraphs benchmark suite *)
 
+(* :!CodeAnalysis::BeginBlock:: *)
+(* :!CodeAnalysis::Disable::SuspiciousSessionSymbol:: *)
+
 (* --- Safe execution wrapper --- *)
 
 SafeExecute::usage =
