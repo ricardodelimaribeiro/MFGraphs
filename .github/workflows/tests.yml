@@ -9,12 +9,26 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      WOLFRAM_ID: ${{ secrets.WOLFRAM_ID }}
+      WOLFRAM_PASS: ${{ secrets.WOLFRAM_PASS }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Wolfram Engine
-        uses: miRoox/wolfram-action@v1
+      - name: Validate Wolfram secrets
+        run: |
+          if [ -z "$WOLFRAM_ID" ]; then
+            echo "::error::Missing repository secret WOLFRAM_ID"
+            exit 1
+          fi
+          if [ -z "$WOLFRAM_PASS" ]; then
+            echo "::error::Missing repository secret WOLFRAM_PASS"
+            exit 1
+          fi
 
       - name: Run Fast Test Suite
-        run: wolframscript -file Scripts/RunTests.wls fast
+        uses: miRoox/wolfram-action@v1
+        with:
+          file: Scripts/RunTests.wls
+          args: fast
