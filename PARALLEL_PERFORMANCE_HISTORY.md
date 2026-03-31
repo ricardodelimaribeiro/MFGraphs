@@ -175,6 +175,35 @@ _TODO_
 
 ---
 
+### 2026-03-31 — post-merge master
+
+**Commit:** `6fd0415`
+**Date:** Tue 31 Mar 2026 12:10:16
+**Kernels:** 16
+
+#### Tier: small
+
+| Case | D2E (s) | CritSolver (s) | NLSolver (s) | Total (s) | Status |
+|------|---------|---------------|-------------|-----------|--------|
+| 1 | 0. | 0. | 0. | 0. | OK |
+| 2 | 0. | 0. | 0. | 0. | OK |
+| 3 | 0. | 0. | 0. | 0. | OK |
+| 4 | 0. | 0. | 0. | 0. | OK |
+| 5 | 0. | 0. | 0. | 0. | OK |
+| 6 | 0. | 0. | 0. | 0. | OK |
+| 27 | 0. | 0. | 0. | 0. | OK |
+
+#### Rationale
+_post-merge master_
+
+#### Changes
+_TODO_
+
+#### Interpretation
+_TODO_
+
+---
+
 ## Future entries (template)
 
 ```markdown
