@@ -1,6 +1,6 @@
 # BooleanConvert vs DNFReduce Comparison
 
-Generated: Tue 10 Mar 2026 10:50:50
+Generated: Tue 31 Mar 2026 13:58:23
 Mathematica: 14.3.0 for Mac OS X ARM (64-bit) (July 8, 2025)
 
 ## Summary
