@@ -103,7 +103,7 @@ NonLinearSolver[Eqs_, OptionsPattern[]] :=
             Module[ {AssoCritical, PreEqs = Eqs, AssoNonCritical, NonCriticalList, js,
              MaxIter = OptionValue["MaxIterations"], tol = OptionValue["Tolerance"],
              returnShape = OptionValue["ReturnShape"], status, flowKeys, flowVals,
-             resultKind, message, solution},
+             resultKind, message, solution, comparisonData},
                 If[ KeyExistsQ[PreEqs, "AssoCritical"],
                     (* If there is already an approximation for the non-congestion case, use it *)
                     AssoNonCritical = Lookup[PreEqs, "AssoNonCritical", PreEqs["AssoCritical"]],
@@ -134,6 +134,7 @@ NonLinearSolver[Eqs_, OptionsPattern[]] :=
                     resultKind = If[AssoNonCritical === Null, "Failure", "Success"];
                     message = If[AssoNonCritical === Null, "NoSolution", None];
                     solution = If[AssociationQ[AssoNonCritical], AssoNonCritical, Missing["NotAvailable"]];
+                    comparisonData = BuildSolverComparisonData[PreEqs, solution];
                     Join[
                         PreEqs,
                         MakeSolverResult[
@@ -142,11 +143,11 @@ NonLinearSolver[Eqs_, OptionsPattern[]] :=
                             status,
                             message,
                             solution,
-                            <|
+                            Join[comparisonData, <|
                                 "AssoCritical" -> AssoCritical,
                                 "AssoNonCritical" -> AssoNonCritical,
                                 "Status" -> status
-                            |>
+                            |>]
                         ]
                     ],
                     Join[PreEqs, <|"AssoCritical" -> AssoCritical, "AssoNonCritical" -> AssoNonCritical, "Status" -> status|>]

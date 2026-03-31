@@ -1,5 +1,5 @@
-(* Usage: wolframscript -file Scripts/BenchmarkSuite.wls [tier] *)
-(* tier: "small", "medium", "large", "vlarge", or "all" (default: "all") *)
+(* Usage: wolframscript -file Scripts/BenchmarkSuite.wls [tier] [case=key] [timeout=seconds] [tag=label] *)
+(* tier: "small", "core", "stress", "large", "vlarge", legacy "medium", or "all" (default: "all") *)
 
 (* :!CodeAnalysis::Disable::SuspiciousSessionSymbol::Print *)
 
@@ -21,64 +21,103 @@ $MFGraphsVerbose = False;
 Get[FileNameJoin[{Directory[], "Scripts", "BenchmarkHelpers.wls"}]];
 
 (* --- Parse command-line arguments --- *)
-(* Support: wolframscript -file Scripts/BenchmarkSuite.wls [tier] [--tag "description"] *)
-Module[{args = Rest[$ScriptCommandLine], tagPos},
-  tagPos = FirstPosition[args, "--tag", Missing[], {1}];
-  If[MissingQ[tagPos],
-    $HistoryTag = None;
-    $SelectedTier = SelectFirst[args, !StringStartsQ[#, "--"]&, "all"],
-    (* has --tag *)
-    $HistoryTag = If[Length[args] >= First[tagPos] + 1,
-      args[[First[tagPos] + 1]], "untagged"];
-    $SelectedTier = SelectFirst[args[[;; First[tagPos] - 1]],
-      !StringStartsQ[#, "--"]&, "all"]
-  ]
+(* Support: wolframscript -file Scripts/BenchmarkSuite.wls [tier] [case=key] [timeout=seconds] [tag=description] *)
+NormalizeCaseArg[arg_String] := If[StringMatchQ[arg, NumberString], ToExpression[arg], arg];
+NormalizeCaseArg[arg_] := arg;
+
+$HistoryTag = None;
+$SelectedTier = "all";
+$SelectedCase = All;
+$TimeoutOverride = Automatic;
+
+Module[{args = Rest[$ScriptCommandLine], i = 1, arg, parsedTimeout},
+  While[i <= Length[args],
+    arg = args[[i]];
+    Switch[arg,
+      "--tag",
+        i++;
+        $HistoryTag = If[i <= Length[args], args[[i]], "untagged"],
+      "--case",
+        i++;
+        If[i <= Length[args], $SelectedCase = NormalizeCaseArg[args[[i]]]],
+      "--timeout",
+        i++;
+        If[i <= Length[args],
+          parsedTimeout = Quiet @ Check[ToExpression[args[[i]]], $Failed];
+          If[NumericQ[parsedTimeout] && parsedTimeout > 0,
+            $TimeoutOverride = parsedTimeout
+          ]
+        ],
+      _ /; StringStartsQ[arg, "case="],
+        $SelectedCase = NormalizeCaseArg[StringDrop[arg, StringLength["case="]]],
+      _ /; StringStartsQ[arg, "timeout="],
+        parsedTimeout = Quiet @ Check[ToExpression[StringDrop[arg, StringLength["timeout="]]], $Failed];
+        If[NumericQ[parsedTimeout] && parsedTimeout > 0,
+          $TimeoutOverride = parsedTimeout
+        ],
+      _ /; StringStartsQ[arg, "tag="],
+        $HistoryTag = StringDrop[arg, StringLength["tag="]],
+      _,
+        If[!StringStartsQ[arg, "--"], $SelectedTier = arg]
+    ];
+    i++;
+  ];
 ];
 
+$RequestedTier = $SelectedTier;
+$SelectedTier = Lookup[$BenchmarkTierAliases, $SelectedTier, $SelectedTier];
+
 Print["Selected tier: ", $SelectedTier];
+If[$RequestedTier =!= $SelectedTier, Print["Requested alias: ", $RequestedTier]];
+If[$SelectedCase =!= All, Print["Selected case: ", $SelectedCase]];
+If[NumericQ[$TimeoutOverride], Print["Timeout override: ", $TimeoutOverride, "s"]];
 If[$HistoryTag =!= None, Print["History tag:   ", $HistoryTag]];
 Print["Subkernels:    ", $KernelCount, " (of ", $ProcessorCount, " processors)"];
 Print[];
 
 (* --- Determine which cases to run --- *)
-$CasesToRun = If[$SelectedTier === "all",
-  Flatten[Values[$BenchmarkTiers]],
-  Lookup[$BenchmarkTiers, $SelectedTier, {}]
+$CasesToRun = If[$SelectedCase =!= All,
+  {$SelectedCase},
+  If[$SelectedTier === "all",
+    Flatten[Lookup[$BenchmarkTiers, $DefaultBenchmarkTiers]],
+    Lookup[$BenchmarkTiers, $SelectedTier, {}]
+  ]
 ];
 
 GetTier[key_] := SelectFirst[Keys[$BenchmarkTiers], MemberQ[$BenchmarkTiers[#], key] &, "unknown"];
 
 (* --- Benchmark a single case with a single solver --- *)
 
-BenchmarkOneSolver[key_, tier_String, solverName_String, d2e_Association, timeout_Integer] :=
-  Module[{result, meta, residual = Missing["N/A"]},
+BenchmarkOneSolver[key_, tier_String, solverName_String, d2e_Association, timeout_?NumericQ] :=
+  Module[{result, meta, residual = Missing["N/A"], equationResidual = Missing["N/A"]},
     meta = GraphMetadata[d2e];
     Print["  Solver: ", solverName, " (timeout: ", timeout, "s)"];
 
     result = Switch[solverName,
       "CriticalCongestion",
-        SafeExecute[CriticalCongestionSolver[d2e], timeout],
+        SafeExecute[CriticalCongestionSolver[d2e, "ReturnShape" -> "Standard"], timeout],
       "NonLinearSolver",
         Module[{critResult},
           (* NonLinearSolver needs critical solution first *)
-          critResult = SafeExecute[CriticalCongestionSolver[d2e], timeout];
+          critResult = SafeExecute[CriticalCongestionSolver[d2e, "ReturnShape" -> "Standard"], timeout];
           If[critResult["Status"] === "OK",
             Block[{V = Function[{x, edge}, 0]},
-              SafeExecute[NonLinearSolver[critResult["Result"]], timeout]
+              SafeExecute[NonLinearSolver[critResult["Result"], "ReturnShape" -> "Standard"], timeout]
             ],
             <|"Time" -> 0, "Memory" -> 0, "Status" -> "SKIPPED",
               "Result" -> "Critical solver failed"|>
           ]
         ],
       "Monotone",
-        SafeExecute[MonotoneSolver[d2e], timeout],
+        SafeExecute[MonotoneSolver[d2e, "ReturnShape" -> "Standard"], timeout],
       _,
         <|"Time" -> 0, "Memory" -> 0, "Status" -> "SKIPPED", "Result" -> "Unknown solver"|>
     ];
 
     (* Compute residual for successful solves *)
     If[result["Status"] === "OK" && AssociationQ[result["Result"]],
-      residual = Switch[solverName,
+      residual = Lookup[result["Result"], "KirchhoffResidual", Missing["N/A"]];
+      equationResidual = Switch[solverName,
         "CriticalCongestion", ComputeResidual[result["Result"], "AssoCritical"],
         "NonLinearSolver", ComputeResidual[result["Result"], "AssoNonCritical"],
         "Monotone", Missing["N/A"],
@@ -104,8 +143,21 @@ BenchmarkOneSolver[key_, tier_String, solverName_String, d2e_Association, timeou
       "SolveMemory" -> result["Memory"],
       "Status" -> result["Status"],
       "Residual" -> residual,
+      "EquationResidual" -> equationResidual,
       "Timestamp" -> DateString[]
     |>
+  ];
+
+CaseStatusSummary[caseRows_List] :=
+  Module[{badRows},
+    badRows = Select[caseRows, Lookup[#, "Status", "UNKNOWN"] =!= "OK" &];
+    If[badRows === {},
+      "OK",
+      StringRiffle[
+        (Lookup[#, "Solver", "Unknown"] <> ":" <> ToString[Lookup[#, "Status", "UNKNOWN"]]) & /@ badRows,
+        ", "
+      ]
+    ]
   ];
 
 (* --- Benchmark a single case across all applicable solvers --- *)
@@ -113,7 +165,7 @@ BenchmarkOneSolver[key_, tier_String, solverName_String, d2e_Association, timeou
 BenchmarkCase[key_] :=
   Module[{tier, timeout, data, d2eResult, d2e, results = {}, params},
     tier = GetTier[key];
-    timeout = Lookup[$TierTimeouts, tier, 300];
+    timeout = If[NumericQ[$TimeoutOverride], $TimeoutOverride, Lookup[$TierTimeouts, tier, 300]];
     params = GetParams[key];
 
     Print["\n--- Case: ", key, " (tier: ", tier, ") ---"];
@@ -165,22 +217,29 @@ BenchmarkCase[key_] :=
 
 Print["Running benchmarks for ", Length[$CasesToRun], " cases...\n"];
 
-$AllResults = Flatten[BenchmarkCase /@ $CasesToRun];
-
 (* --- Export results --- *)
 $ResultsDir = FileNameJoin[{Directory[], "Results"}];
 If[!DirectoryQ[$ResultsDir], CreateDirectory[$ResultsDir]];
 
-$Timestamp = DateString[{"Year", "Month", "Day", "-", "Hour", "Minute"}];
+$Timestamp = DateString[{"Year", "Month", "Day", "-", "Hour", "Minute", "Second"}];
 $CSVPath = FileNameJoin[{$ResultsDir, "benchmark_" <> $Timestamp <> ".csv"}];
 $JSONPath = FileNameJoin[{$ResultsDir, "benchmark_" <> $Timestamp <> ".json"}];
 $LatestCSV = FileNameJoin[{$ResultsDir, "benchmark_latest.csv"}];
 $LatestJSON = FileNameJoin[{$ResultsDir, "benchmark_latest.json"}];
 
-ExportResultsCSV[$AllResults, $CSVPath];
-ExportResultsJSON[$AllResults, $JSONPath];
-ExportResultsCSV[$AllResults, $LatestCSV];
-ExportResultsJSON[$AllResults, $LatestJSON];
+ExportBenchmarkSnapshot[results_List] := Module[{},
+  ExportResultsCSV[results, $CSVPath];
+  ExportResultsJSON[results, $JSONPath];
+  ExportResultsCSV[results, $LatestCSV];
+  ExportResultsJSON[results, $LatestJSON];
+];
+
+$AllResults = {};
+Do[
+  $AllResults = Join[$AllResults, BenchmarkCase[key]];
+  ExportBenchmarkSnapshot[$AllResults],
+  {key, $CasesToRun}
+];
 
 (* --- Print summary --- *)
 PrintResultsSummary[$AllResults];
@@ -207,27 +266,30 @@ If[$HistoryTag =!= None,
       If[Length[tierRows2] === 0, Return[""]];
       caseKeys = DeleteDuplicates[#["Key"] & /@ tierRows2];
       tableLines = {"#### Tier: " <> tierName, "",
-        "| Case | D2E (s) | CritSolver (s) | NLSolver (s) | Total (s) | Status |",
-        "|------|---------|---------------|-------------|-----------|--------|"};
+        "| Case | D2E (s) | CritSolver (s) | NLSolver (s) | Monotone (s) | Total (s) | Case Status |",
+        "|------|---------|---------------|-------------|--------------|-----------|-------------|"};
       Do[
-        Module[{caseRows, d2eT, critT, nlT, totalT, status},
+        Module[{caseRows, d2eT, critT, nlT, monoT, totalT, caseStatus},
           caseRows = Select[tierRows2, #["Key"] === k &];
           d2eT = SelectFirst[caseRows, True&, <||>]["D2ETime"];
           critT = SelectFirst[Select[caseRows, #["Solver"] === "CriticalCongestion"&], True&, <||>];
-          nlT  = SelectFirst[Select[caseRows, #["Solver"] === "NonLinearSolver"&],   True&, <||>];
+          nlT  = SelectFirst[Select[caseRows, #["Solver"] === "NonLinearSolver"&], True&, <||>];
+          monoT = SelectFirst[Select[caseRows, #["Solver"] === "Monotone"&], True&, <||>];
           fmtT[t_] := If[NumericQ[t], ToString[CForm[N[t]]], "—"];
           d2eT   = fmtT[d2eT];
           critST = fmtT[If[KeyExistsQ[critT, "SolveTime"], critT["SolveTime"], Missing[]]];
-          nlST   = fmtT[If[KeyExistsQ[nlT,   "SolveTime"], nlT["SolveTime"],   Missing[]]];
+          nlST   = fmtT[If[KeyExistsQ[nlT, "SolveTime"], nlT["SolveTime"], Missing[]]];
+          monoST = fmtT[If[KeyExistsQ[monoT, "SolveTime"], monoT["SolveTime"], Missing[]]];
           totalN = Plus @@ Select[{
             If[KeyExistsQ[critT, "SolveTime"] && NumericQ[critT["SolveTime"]], critT["SolveTime"], 0],
-            If[KeyExistsQ[nlT,   "SolveTime"] && NumericQ[nlT["SolveTime"]],   nlT["SolveTime"],   0]
+            If[KeyExistsQ[nlT, "SolveTime"] && NumericQ[nlT["SolveTime"]], nlT["SolveTime"], 0],
+            If[KeyExistsQ[monoT, "SolveTime"] && NumericQ[monoT["SolveTime"]], monoT["SolveTime"], 0]
           }, NumericQ];
           totalT = If[totalN > 0, fmtT[totalN], "—"];
-          status = SelectFirst[caseRows, True&, <||>]["Status"];
+          caseStatus = CaseStatusSummary[caseRows];
           AppendTo[tableLines,
             "| " <> k <> " | " <> d2eT <> " | " <> critST <> " | " <>
-            nlST <> " | " <> totalT <> " | " <> ToString[status] <> " |"]
+            nlST <> " | " <> monoST <> " | " <> totalT <> " | " <> caseStatus <> " |"]
         ],
         {k, caseKeys}
       ];
@@ -235,7 +297,7 @@ If[$HistoryTag =!= None,
     ];
 
     tiers = If[$SelectedTier === "all",
-      Keys[$BenchmarkTiers],
+      $DefaultBenchmarkTiers,
       {$SelectedTier}
     ];
     tierTables = StringRiffle[
@@ -256,10 +318,10 @@ If[$HistoryTag =!= None,
       "_" <> $HistoryTag <> "_",
       "",
       "#### Changes",
-      "_TODO_",
+      "_Describe the code or benchmark configuration change being measured in this run._",
       "",
       "#### Interpretation",
-      "_TODO_",
+      "_Summarize the main performance signal, regressions, or follow-up actions from this run._",
       ""
     }, "\n"];
 

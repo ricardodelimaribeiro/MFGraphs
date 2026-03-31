@@ -90,6 +90,18 @@ $DefaultParams = {
 
 (* Per-case overrides: empty list means already numeric *)
 $CaseParams = <|
+  7 -> {I1 -> 80, U1 -> 0, U2 -> 10},
+  8 -> {I1 -> 100, U1 -> 0, U2 -> 10, S1 -> 2, S2 -> 3, S3 -> 2, S4 -> 1, S5 -> 3, S6 -> 1},
+  9 -> {I1 -> 100, I2 -> 40, U1 -> 0},
+  10 -> {I1 -> 100, I2 -> 40, U1 -> 0, S1 -> 2, S2 -> 3, S3 -> 2, S4 -> 1, S5 -> 3, S6 -> 1},
+  12 -> {I1 -> 80, U1 -> 0},
+  14 -> {I1 -> 80, U1 -> 0, S1 -> 2, S2 -> 1},
+  15 -> {I1 -> 80, I2 -> 40, U1 -> 0, S1 -> 2, S2 -> 1},
+  17 -> {I1 -> 80, U1 -> 0, U2 -> 10, S1 -> 2, S2 -> 1},
+  18 -> {I1 -> 80, U1 -> 0, S1 -> 2, S2 -> 1},
+  104 -> {I1 -> 80, I2 -> 40},
+  "triangle with two exits" -> {I1 -> 80, U1 -> 0, U2 -> 10},
+  "Paper example" -> {I1 -> 80, I2 -> 40, S1 -> 2, S2 -> 1, S3 -> 3, S4 -> 1},
   13 -> {},
   "Braess split" -> {},
   "Braess congest" -> {},
@@ -106,17 +118,24 @@ GetParams[key_] := Lookup[$CaseParams, key, $DefaultParams];
 
 $BenchmarkTiers = <|
   "small" -> {1, 2, 3, 4, 5, 6, 27},
-  "medium" -> {7, 8, 9, 10, 11, 12, 14, 15, 17, 18, 104,
-               "triangle with two exits", "Paper example"},
+  "core" -> {9, 10, 12, 14, 15, 18, "Paper example"},
+  "stress" -> {7, 8, 11, 17, 104, "triangle with two exits"},
   "large" -> {13, 19, 20, 21, 22, 23, "Jamaratv9",
               "Braess split", "Braess congest", "New Braess",
               "Big Braess split", "Big Braess congest", "Grid0303"},
   "vlarge" -> {"Grid1020"}
 |>;
 
+$BenchmarkTierAliases = <|
+  "medium" -> "core"
+|>;
+
+$DefaultBenchmarkTiers = {"small", "core", "large", "vlarge"};
+
 $TierTimeouts = <|
   "small" -> 60,
-  "medium" -> 300,
+  "core" -> 300,
+  "stress" -> 1800,
   "large" -> 900,
   "vlarge" -> 1800
 |>;
@@ -169,6 +188,6 @@ PrintResultsSummary[results_List] :=
         ];
         Print[];
       ],
-      {tier, {"small", "medium", "large", "vlarge"}}
+      {tier, {"small", "core", "stress", "large", "vlarge"}}
     ];
   ];

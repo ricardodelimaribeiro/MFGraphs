@@ -426,7 +426,7 @@ CriticalCongestionSolver[$Failed, ___] :=
 
 CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
     Module[{PreEqs, js, AssoCritical, time, temp, status, returnShape,
-         resultKind, message, solution},
+         resultKind, message, solution, comparisonData},
         returnShape = OptionValue["ReturnShape"];
         ClearSolveCache[];
         If[KeyExistsQ[Eqs, "InitRules"],
@@ -461,9 +461,10 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
                     ,
                     Missing["NotAvailable"]
                 ];
+            comparisonData = BuildSolverComparisonData[PreEqs, solution];
             Join[PreEqs, MakeSolverResult["CriticalCongestion", resultKind,
-                 status, message, solution, <|"AssoCritical" -> AssoCritical, "Status"
-                 -> status|>]]
+                 status, message, solution, Join[comparisonData, <|"AssoCritical" -> AssoCritical, "Status"
+                 -> status|>]]]
             ,
             Join[PreEqs, <|"AssoCritical" -> AssoCritical, "Status" ->
                  status|>]
