@@ -213,7 +213,7 @@ If[$HistoryTag =!= None,
           d2eT = SelectFirst[caseRows, True&, <||>]["D2ETime"];
           critT = SelectFirst[Select[caseRows, #["Solver"] === "CriticalCongestion"&], True&, <||>];
           nlT  = SelectFirst[Select[caseRows, #["Solver"] === "NonLinearSolver"&],   True&, <||>];
-          fmtT[t_] := If[NumericQ[t], StringReplace[ToString[NumberForm[N[t], {10, 4}, ExponentFunction -> (Null &)]], " " -> ""], "—"];
+          fmtT[t_] := If[NumericQ[t], ToString[CForm[N[t]]], "—"];
           d2eT   = fmtT[d2eT];
           critST = fmtT[If[KeyExistsQ[critT, "SolveTime"], critT["SolveTime"], Missing[]]];
           nlST   = fmtT[If[KeyExistsQ[nlT,   "SolveTime"], nlT["SolveTime"],   Missing[]]];

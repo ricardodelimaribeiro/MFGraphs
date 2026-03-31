@@ -25,18 +25,42 @@ serial timings against which parallel entries can be compared.
 
 | Case | D2E (s) | CritSolver (s) | NLSolver (s) | Total (s) | Status |
 |------|---------|---------------|-------------|-----------|--------|
-| 1 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
-| 2 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
-| 3 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
-| 4 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
-| 5 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
-| 6 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
-| 27 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
+| 1 | 3.000 × 10^-6 | 8.000 × 10^-6 | 2.000 × 10^-6 | 0.00001 | OK |
+| 2 | 3.000 × 10^-6 | 5.000 × 10^-6 | 4.000 × 10^-6 | 9.000 × 10^-6 | OK |
+| 3 | 2.000 × 10^-6 | 3.000 × 10^-6 | 6.000 × 10^-6 | 9.000 × 10^-6 | OK |
+| 4 | 3.000 × 10^-6 | 3.000 × 10^-6 | 4.000 × 10^-6 | 7.000 × 10^-6 | OK |
+| 5 | 4.000 × 10^-6 | 3.000 × 10^-6 | 3.000 × 10^-6 | 6.000 × 10^-6 | OK |
+| 6 | 3.000 × 10^-6 | 4.000 × 10^-6 | 9.000 × 10^-6 | 0.000 | OK |
+| 27 | 5.000 × 10^-6 | 3.000 × 10^-6 | 7.000 × 10^-6 | 0.00001 | OK |
 
-> [!NOTE]
-> The original entries recorded sub-microsecond times that were corrupted by Mathematica's
-> multiline scientific notation formatting. The timing precision was lost; values shown as
-> `0.0000` represent times under 0.001s.
+#### Rationale
+_baseline serial_
+
+#### Changes
+_TODO_
+
+#### Interpretation
+_TODO_
+
+---
+
+### 2026-03-29 — baseline serial
+
+**Commit:** `188e002`
+**Date:** Sun 29 Mar 2026 15:44:02
+**Kernels:** 16
+
+#### Tier: small
+
+| Case | D2E (s) | CritSolver (s) | NLSolver (s) | Total (s) | Status |
+|------|---------|---------------|-------------|-----------|--------|
+| 1 | 4.000 × 10^-6 | 5.000 × 10^-6 | 3.000 × 10^-6 | 8.000 × 10^-6 | OK |
+| 2 | 5.000 × 10^-6 | 3.000 × 10^-6 | 9.000 × 10^-6 | 0.000 | OK |
+| 3 | 3.000 × 10^-6 | 3.000 × 10^-6 | 0.000 | 0.000 | OK |
+| 4 | 4.000 × 10^-6 | 6.000 × 10^-6 | 6.000 × 10^-6 | 0.000 | OK |
+| 5 | 4.000 × 10^-6 | 4.000 × 10^-6 | 7.000 × 10^-6 | 0.000 | OK |
+| 6 | 3.000 × 10^-6 | 3.000 × 10^-6 | 0.000 | 0.000 | OK |
+| 27 | 7.000 × 10^-6 | 4.000 × 10^-6 | 0.000 | 0.000 | OK |
 
 #### Rationale
 _baseline serial_
@@ -47,63 +71,34 @@ _Initial baseline recorded before parallelization changes._
 #### Interpretation
 _All small-tier cases complete in sub-millisecond time._
 
----
 
-### 2026-03-31 — Phase A+B+C parallel
 
-**Commit:** `0015297`
-**Date:** Tue 31 Mar 2026 12:05:01
+### 2026-03-31 — post-simplify baseline
+
+**Commit:** `78114db`
+**Date:** Tue 31 Mar 2026 15:20:56
 **Kernels:** 16
 
 #### Tier: small
 
 | Case | D2E (s) | CritSolver (s) | NLSolver (s) | Total (s) | Status |
 |------|---------|---------------|-------------|-----------|--------|
-| 1 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
-| 2 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
-| 3 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
-| 4 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
-| 5 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
-| 6 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
-| 27 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
+| 1 | 3.e-6 | 4.e-6 | 2.e-6 | 6.e-6 | OK |
+| 2 | 4.e-6 | 4.e-6 | 3.e-6 | 7.e-6 | OK |
+| 3 | 3.e-6 | 5.e-6 | 4.e-6 | 9.e-6 | OK |
+| 4 | 4.e-6 | 3.e-6 | 4.e-6 | 7.e-6 | OK |
+| 5 | 4.e-6 | 6.e-6 | 3.e-6 | 9.e-6 | OK |
+| 6 | 4.e-6 | 3.e-6 | 5.e-6 | 8.000000000000001e-6 | OK |
+| 27 | 6.e-6 | 4.e-6 | 4.e-6 | 8.e-6 | OK |
 
 #### Rationale
-_Phase A+B+C parallel_
+_post-simplify baseline_
 
 #### Changes
-_Parallelized IneqSwitching simplification, ineqsByTransition selection, and ineqsByTransition simplification in MFGSystemSolver._
+_TODO_
 
 #### Interpretation
-_Small-tier cases are too small to benefit from parallelization (below $MFGraphsParallelThreshold). No regression._
-
----
-
-### 2026-03-31 — post-merge master
-
-**Commit:** `6fd0415`
-**Date:** Tue 31 Mar 2026 12:10:16
-**Kernels:** 16
-
-#### Tier: small
-
-| Case | D2E (s) | CritSolver (s) | NLSolver (s) | Total (s) | Status |
-|------|---------|---------------|-------------|-----------|--------|
-| 1 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
-| 2 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
-| 3 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
-| 4 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
-| 5 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
-| 6 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
-| 27 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | OK |
-
-#### Rationale
-_post-merge master_
-
-#### Changes
-_Merged parallelize branch into master. All parallel dispatch phases active._
-
-#### Interpretation
-_No regression on small-tier cases after merge._
+_TODO_
 
 ---
 
