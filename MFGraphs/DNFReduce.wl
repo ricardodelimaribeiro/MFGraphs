@@ -22,6 +22,17 @@ ClearSolveCache::usage =
 "ClearSolveCache[] clears the internal caches used by CachedSolve and CachedReduce.
 Call this between different problem instances to prevent stale results.";
 
+ReduceDisjuncts::usage =
+"ReduceDisjuncts[expr] reduces the number of disjuncts in a DNF expression by
+removing subsumed branches. For small expressions (<= $ReduceDisjunctsThreshold
+disjuncts) uses Reduce directly; for larger expressions uses subsumption pruning
+followed by Reduce on the survivors.";
+
+$ReduceDisjunctsThreshold::usage =
+"$ReduceDisjunctsThreshold controls the cutoff between Full Reduce and Subsumption
+strategies in ReduceDisjuncts. Default is 200.";
+$ReduceDisjunctsThreshold = 200;
+
 RemoveDuplicates::usage = "RemoveDuplicates is a backward-compatibility alias for DeduplicateByComplexity.";
 ReplaceSolution::usage = "ReplaceSolution is a backward-compatibility alias for SubstituteSolution.";
 
@@ -149,11 +160,87 @@ SubstituteSolution[rst_, sol_] :=
 
 sortByComplexity = SortBy[Simplify`SimplifyCount];
 
-DeduplicateByComplexity[xp_And] := DeleteDuplicates[sortByComplexity[xp]];
-
-DeduplicateByComplexity[xp_Or] := DeleteDuplicates[sortByComplexity[xp]];
+DeduplicateByComplexity[xp_] := DeleteDuplicates[sortByComplexity[xp]] /; MatchQ[Head[xp], And|Or]
 
 DeduplicateByComplexity[xp_] := xp
+
+(* --- Subsumption pruning --- *)
+(* Remove branch j if some branch i implies it (i.e., i is more general). *)
+
+SubsumptionPrune[branches_List, perCheckTimeout_:2] :=
+  Module[{n = Length[branches], keep, result},
+    keep = ConstantArray[True, n];
+    Do[
+      If[!keep[[i]], Continue[]];
+      Do[
+        If[!keep[[j]], Continue[]];
+        (* Does branch i imply branch j? If so, j is redundant. *)
+        result = Quiet@TimeConstrained[
+          Reduce[Implies[branches[[i]], branches[[j]]], Reals],
+          perCheckTimeout, $TimedOut
+        ];
+        If[result === True,
+          keep[[j]] = False;
+          Continue[]
+        ];
+        (* Does branch j imply branch i? If so, i is redundant. *)
+        result = Quiet@TimeConstrained[
+          Reduce[Implies[branches[[j]], branches[[i]]], Reals],
+          perCheckTimeout, $TimedOut
+        ];
+        If[result === True,
+          keep[[i]] = False;
+          Break[]
+        ],
+        {j, i + 1, n}
+      ],
+      {i, 1, n}
+    ];
+    Pick[branches, keep]
+  ];
+
+(* --- ReduceDisjuncts: tiered post-reduction of DNF output --- *)
+
+ReduceDisjuncts[expr_] := expr /; Head[expr] =!= Or
+
+ReduceDisjuncts[expr_Or] :=
+  Module[{branches, n, reduced, time},
+    branches = List @@ expr;
+    n = Length[branches];
+    MFGPrint["ReduceDisjuncts: ", n, " disjuncts, ", LeafCount[expr], " leaves"];
+    If[n <= $ReduceDisjunctsThreshold,
+      (* Small: Full Reduce can handle it directly *)
+      {time, reduced} = AbsoluteTiming[
+        Quiet@TimeConstrained[Reduce[expr, Reals], 120, $TimedOut]
+      ];
+      If[reduced === $TimedOut,
+        MFGPrint["ReduceDisjuncts: Full Reduce timed out, falling back to subsumption"];
+        reduced = SubsumptionPrune[branches];
+        reduced = Or @@ reduced,
+        MFGPrint["ReduceDisjuncts: Full Reduce ", n, " -> ",
+          If[Head[reduced] === Or, Length[reduced], 1], " in ", time, "s"]
+      ],
+      (* Large: subsumption first, then Reduce on survivors *)
+      {time, reduced} = AbsoluteTiming[SubsumptionPrune[branches]];
+      MFGPrint["ReduceDisjuncts: Subsumption ", n, " -> ", Length[reduced], " in ", time, "s"];
+      If[Length[reduced] > 1 && Length[reduced] <= $ReduceDisjunctsThreshold,
+        (* Survivors are small enough for Reduce *)
+        Module[{r2, t2},
+          {t2, r2} = AbsoluteTiming[
+            Quiet@TimeConstrained[Reduce[Or @@ reduced, Reals], 120, $TimedOut]
+          ];
+          If[r2 =!= $TimedOut,
+            MFGPrint["ReduceDisjuncts: Reduce on survivors -> ",
+              If[Head[r2] === Or, Length[r2], 1], " in ", t2, "s"];
+            reduced = r2,
+            reduced = Or @@ reduced
+          ]
+        ],
+        reduced = Or @@ reduced
+      ]
+    ];
+    reduced
+  ];
 
 (* --- Backward compatibility aliases --- *)
 RemoveDuplicates = DeduplicateByComplexity;

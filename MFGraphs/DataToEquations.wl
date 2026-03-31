@@ -22,12 +22,12 @@ FlowGathering::usage=
 "FlowGathering[auxTriples_List][x_] returns the triples that end with x.";
 
 IneqSwitch::usage =
-"IneqSwitch[u, switchingCosts][{v,e1,e2}] returns the optimality condition at the vertex v related to switching from e1 to e2. Namely,
-u[{v, e1}] <= u[{v, e2}] + switchingCosts[{v, e1, e2}]"
+"IneqSwitch[u, switchingCosts][v, e1, e2] returns the optimality condition at the vertex v related to switching from e1 to e2. Namely,
+u[v, e1] <= u[v, e2] + switchingCosts[{v, e1, e2}]"
 
 AltSwitch::usage =
-"AltSwitch[jt,u,switchingCosts][{v,e1,e2}] returns the complementarity condition:
-(jt[{v, e1, e2}] == 0) || (u[{v, e2}] - u[{v, e1}] + switchingCosts[{v, e1, e2}] == 0)"
+"AltSwitch[j, u, switchingCosts][v, e1, e2] returns the complementarity condition:
+(j[v, e1, e2] == 0) || (u[v, e1] == u[e2, e1] + switchingCosts[{v, e1, e2}])"
 
 DataToEquations::usage = "DataToEquations[Data] returns the equations, \
 inequalities, and alternatives associated to the Data. "
@@ -191,8 +191,8 @@ DataToEquations[Data_Association] :=
          MFGPrint["Switching costs conditions are ", consistentCosts]
         ];
 
-        IneqJs = And @@ (# >= 0 & /@ Join[js]);
-        IneqJts = And @@ (# >= 0 & /@ Join[jts]);
+        IneqJs = And @@ (# >= 0 & /@ js);
+        IneqJts = And @@ (# >= 0 & /@ jts);
         AltFlows = And@@(AltFlowOp[j]/@auxPairs);
         AltTransitionFlows = And@@(AltFlowOp[j]/@auxTriples);
         splittingPairs = Join[inAuxEntryPairs, inAuxExitPairs, pairs];
@@ -262,8 +262,7 @@ DataToEquations[Data_Association] :=
 
 (* --- Utility --- *)
 
-NumberVectorQ[j_] :=
-    And @@ (NumberQ /@ j);
+NumberVectorQ[j_] := VectorQ[j, NumberQ];
 
 RoundValues[x_?NumberQ] :=
     Round[x, 10^-10]
@@ -349,10 +348,7 @@ MFGPreprocessing[Eqs_] :=
         temp = MFGPrintTemporary["Simplifying inequalities involving Switching Costs...", IneqSwitchingByVertex];
         With[{items = IneqSwitchingByVertex /. InitRules},
           {time, IneqSwitchingByVertex} = AbsoluteTiming[
-            And @@ If[Length[items] >= $MFGraphsParallelThreshold,
-              (If[$KernelCount === 0, LaunchKernels[]]; ParallelMap[Simplify, items]),
-              Simplify /@ items
-            ]
+            And @@ MFGParallelMap[Simplify, items]
           ]
         ];
         NotebookDelete[temp];
@@ -404,14 +400,7 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
         ];
         js = Lookup[PreEqs, "js", $Failed];
         AssoCritical = MFGSystemSolver[PreEqs][AssociationThread[js, 0 js]];
-        (* Feasibility check: any flow variable with negative numeric value *)
-        status = If[AssoCritical === Null, "Infeasible",
-            Module[{flowKeys, flowVals},
-                flowKeys = Select[Keys[AssoCritical], MatchQ[#, _j] &];
-                flowVals = Lookup[AssoCritical, flowKeys];
-                If[flowVals === {} || Min[Select[flowVals, NumericQ]] < 0, "Infeasible", "Feasible"]
-            ]
-        ];
+        status = CheckFlowFeasibility[AssoCritical];
         If[returnShape === "Standard",
             resultKind = If[AssoCritical === Null, "Failure", "Success"];
             message = If[AssoCritical === Null, "NoSolution", None];
@@ -460,12 +449,8 @@ MFGSystemSolver[Eqs_][approxJs_] :=
             ineqsByTransition = ConstantArray[True, Length[jts]];
             time = 0.,
             {time, ineqsByTransition} = AbsoluteTiming[
-              If[Length[jts] >= $MFGraphsParallelThreshold,
-                (If[$KernelCount === 0, LaunchKernels[]];
-                 With[{ineqs = NewSystem[[2]]},
-                   ParallelMap[Function[jt, Select[ineqs, !FreeQ[jt][#]&]], jts]
-                 ]),
-                Select[NewSystem[[2]], Function[exp, !FreeQ[#][exp]]]&/@jts
+              With[{ineqs = NewSystem[[2]]},
+                MFGParallelMap[Function[jt, Select[ineqs, !FreeQ[jt][#]&]], jts]
               ]
             ]
         ];
@@ -474,11 +459,7 @@ MFGSystemSolver[Eqs_][approxJs_] :=
         temp = MFGPrintTemporary["MFGSS: Simplifying inequalities by transition flow..."];
         {time, ineqsByTransition} = AbsoluteTiming[
           DeduplicateByComplexity[
-            If[Length[ineqsByTransition] >= $MFGraphsParallelThreshold,
-              (If[$KernelCount === 0, LaunchKernels[]];
-               ParallelMap[Simplify, ineqsByTransition]),
-              Simplify /@ ineqsByTransition
-            ]
+            MFGParallelMap[Simplify, ineqsByTransition]
           ]
         ];
         NotebookDelete[temp];
@@ -490,8 +471,7 @@ MFGSystemSolver[Eqs_][approxJs_] :=
 
 		{NewSystem, InitRules} = DNFSolveStep[{NewSystem, InitRules}];
 
-        System = BooleanConvert[NewSystem[[3]]]&&NewSystem[[2]];
-        MFGPrint["BooleanConvert done. Simplifying..."];
+        MFGPrint["Simplifying system..."];
         System = Simplify[And@@NewSystem];
         MFGPrint["Simplifying done. TripleClean..."];
         {System, InitRules} = TripleClean[{SystemToTriple[System], InitRules}];
@@ -551,19 +531,10 @@ DNFSolveStep[{{EE_, NN_, OO_}, rules_}] :=
         {time, NewSystem} = AbsoluteTiming[DNFReduce[And @@ Most[NewSystem], sorted]];
         NotebookDelete[temp];
         MFGPrint["Final: Iterative DNF conversion on " , Length[sorted]," disjunctions took ", time, " seconds to terminate."];
-        If[Head[NewSystem] === Or,
-	        MFGPrint["Final: Reducing (each alternative)... ", Length[NewSystem] ," of them."];
-        	{time, NewSystem} = AbsoluteTiming[
-        	  If[Length[NewSystem] >= $MFGraphsParallelThreshold,
-        	    (If[$KernelCount === 0, LaunchKernels[]];
-        	     ParallelMap[Function[branch, Reduce[branch, Reals]], List @@ NewSystem]),
-        	    Reduce[#, Reals]& /@ NewSystem
-        	  ]
-        	];
-        	NewSystem = Simplify[Or @@ NewSystem],
-        	{time,NewSystem} = AbsoluteTiming@Reduce[NewSystem, Reals]
-        ];
-        MFGPrint["Final: Reducing (each alternative), returned ", Length@NewSystem," of them, ","took ", time, " seconds to terminate."];
+        {time, NewSystem} = AbsoluteTiming[ReduceDisjuncts[NewSystem]];
+        MFGPrint["Final: ReduceDisjuncts returned ",
+          If[Head[NewSystem] === Or, Length[NewSystem], 1],
+          " disjunct(s) in ", time, " seconds."];
         NewSystem = BooleanConvert@NewSystem;
         NewSystem = SystemToTriple[NewSystem];
         {NewSystem, newrules} = TripleClean[{NewSystem, newrules}];

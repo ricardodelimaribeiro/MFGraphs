@@ -37,6 +37,10 @@ Test tiers by case complexity:
 - **large**: Cases 13, 19–23, Braess variants, Jamaratv9, Grid0303 — 900s timeout
 - **vlarge**: Grid1020 — 1800s timeout (hits RecursionLimit by design)
 
+Expected wall-clock times (on a typical Mac, as of March 2025):
+- `RunTests.wls fast` (38 tests across 9 files): **~27 minutes** — includes solver-contracts and monotone tests which run full CriticalCongestionSolver, NonLinearSolver, and MonotoneSolver (NDSolve) calls
+- `RunTests.wls slow` (3 files): significantly longer due to large-case solvers
+
 Test cases that fail validation due to switching costs not satisfying the triangle inequality are expected failures (the feature is working correctly).
 
 Benchmark results go to `Results/` (CSV, JSON, markdown). These generated files are gitignored except for `Results/compare_dnf.md`.
