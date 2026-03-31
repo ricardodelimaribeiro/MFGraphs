@@ -467,7 +467,9 @@ MFGSystemSolver[Eqs_][approxJs_] :=
              time, " seconds."];
         InitRules = Expand /@ (InitRules /. Ncpc);
         NewSystem = NewSystem /. Ncpc;
-        If[And @@ ((# === False)& /@ NewSystem),
+        (* Any False component makes the reduced system infeasible, so stop
+           before attempting to bucket inequalities by transition flow. *)
+        If[MemberQ[NewSystem, False],
             Message[MFGSystemSolver::nosolution];
             Return[Null, Module]
         ];
