@@ -86,9 +86,17 @@ BenchmarkOneSolver[key_, tier_String, solverName_String, d2e_Association, timeou
       ]
     ];
 
-    Print["    Status: ", result["Status"],
-          " | Time: ", FormatTime[result["Time"]], "s",
-          " | Memory: ", FormatMemoryMB[result["Memory"]], " MB"];
+    (* Verify against reference hashes for CriticalCongestion *)
+    Module[{verification = "N/A"},
+      If[result["Status"] === "OK" && solverName === "CriticalCongestion",
+        verification = VerifySolution[key,
+          Lookup[result["Result"], "AssoCritical", Null]];
+      ];
+      Print["    Status: ", result["Status"],
+            " | Time: ", FormatTime[result["Time"]], "s",
+            " | Memory: ", FormatMemoryMB[result["Memory"]], " MB",
+            If[verification =!= "N/A", " | Ref: " <> verification, ""]];
+    ];
 
     <|
       "Key" -> ToString[key],
@@ -165,22 +173,29 @@ BenchmarkCase[key_] :=
 
 Print["Running benchmarks for ", Length[$CasesToRun], " cases...\n"];
 
-$AllResults = Flatten[BenchmarkCase /@ $CasesToRun];
-
 (* --- Export results --- *)
 $ResultsDir = FileNameJoin[{Directory[], "Results"}];
 If[!DirectoryQ[$ResultsDir], CreateDirectory[$ResultsDir]];
 
-$Timestamp = DateString[{"Year", "Month", "Day", "-", "Hour", "Minute"}];
+$Timestamp = DateString[{"Year", "Month", "Day", "-", "Hour", "Minute", "Second"}];
 $CSVPath = FileNameJoin[{$ResultsDir, "benchmark_" <> $Timestamp <> ".csv"}];
 $JSONPath = FileNameJoin[{$ResultsDir, "benchmark_" <> $Timestamp <> ".json"}];
 $LatestCSV = FileNameJoin[{$ResultsDir, "benchmark_latest.csv"}];
 $LatestJSON = FileNameJoin[{$ResultsDir, "benchmark_latest.json"}];
 
-ExportResultsCSV[$AllResults, $CSVPath];
-ExportResultsJSON[$AllResults, $JSONPath];
-ExportResultsCSV[$AllResults, $LatestCSV];
-ExportResultsJSON[$AllResults, $LatestJSON];
+ExportBenchmarkSnapshot[results_List] := Module[{},
+  ExportResultsCSV[results, $CSVPath];
+  ExportResultsJSON[results, $JSONPath];
+  ExportResultsCSV[results, $LatestCSV];
+  ExportResultsJSON[results, $LatestJSON];
+];
+
+$AllResults = {};
+Do[
+  $AllResults = Join[$AllResults, BenchmarkCase[key]];
+  ExportBenchmarkSnapshot[$AllResults],
+  {key, $CasesToRun}
+];
 
 (* --- Print summary --- *)
 PrintResultsSummary[$AllResults];

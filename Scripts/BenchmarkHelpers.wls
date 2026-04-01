@@ -56,6 +56,47 @@ ComputeResidual[eqs_Association, solKey_String:"AssoNonCritical"] :=
     ]
   ];
 
+(* --- Solution hashing and verification --- *)
+
+$ReferenceHashesPath = FileNameJoin[{Directory[], "MFGraphs", "Tests", "reference_solutions.json"}];
+
+$ReferenceHashes = If[FileExistsQ[$ReferenceHashesPath],
+  Quiet @ Check[
+    Module[{data},
+      data = Import[$ReferenceHashesPath, "RawJSON"];
+      Association[
+        (ToString[#["case"]] -> #) & /@ Lookup[data, "cases", {}]
+      ]
+    ],
+    <||>
+  ],
+  <||>
+];
+
+HashSolution[asso_Association] :=
+  Module[{pairs},
+    pairs = SortBy[
+      KeyValueMap[
+        {ToString[#1, InputForm], If[NumericQ[#2], Round[N[#2], 10^-10], ToString[#2, InputForm]]} &,
+        asso
+      ],
+      First
+    ];
+    Hash[pairs, "SHA256", "HexString"]
+  ];
+
+HashSolution[_] := None;
+
+VerifySolution[caseKey_, asso_] :=
+  Module[{ref, currentHash},
+    ref = Lookup[$ReferenceHashes, ToString[caseKey], None];
+    If[ref === None, Return["NO_REF"]];
+    If[ref["solution_hash"] === None, Return["REF_NO_HASH"]];
+    currentHash = HashSolution[asso];
+    If[currentHash === None, Return["NO_SOLUTION"]];
+    If[currentHash === ref["solution_hash"], "MATCH", "MISMATCH"]
+  ];
+
 (* --- Graph metadata extraction --- *)
 
 GraphMetadata::usage =
@@ -90,6 +131,18 @@ $DefaultParams = {
 
 (* Per-case overrides: empty list means already numeric *)
 $CaseParams = <|
+  7 -> {I1 -> 80, U1 -> 0, U2 -> 10},
+  8 -> {I1 -> 100, U1 -> 0, U2 -> 10, S1 -> 2, S2 -> 3, S3 -> 2, S4 -> 1, S5 -> 3, S6 -> 1},
+  9 -> {I1 -> 100, I2 -> 40, U1 -> 0},
+  10 -> {I1 -> 100, I2 -> 40, U1 -> 0, S1 -> 2, S2 -> 3, S3 -> 2, S4 -> 1, S5 -> 3, S6 -> 1},
+  12 -> {I1 -> 80, U1 -> 0},
+  14 -> {I1 -> 80, U1 -> 0, S1 -> 2, S2 -> 1},
+  15 -> {I1 -> 80, I2 -> 40, U1 -> 0, S1 -> 2, S2 -> 1},
+  17 -> {I1 -> 80, U1 -> 0, U2 -> 10, S1 -> 2, S2 -> 1},
+  18 -> {I1 -> 80, U1 -> 0, S1 -> 2, S2 -> 1},
+  104 -> {I1 -> 80, I2 -> 40},
+  "triangle with two exits" -> {I1 -> 80, U1 -> 0, U2 -> 10},
+  "Paper example" -> {I1 -> 80, I2 -> 40, S1 -> 2, S2 -> 1, S3 -> 3, S4 -> 1},
   13 -> {},
   "Braess split" -> {},
   "Braess congest" -> {},

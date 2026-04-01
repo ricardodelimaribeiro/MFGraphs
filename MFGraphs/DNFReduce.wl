@@ -37,7 +37,7 @@ followed by Reduce on the survivors.";
 $ReduceDisjunctsThreshold::usage =
 "$ReduceDisjunctsThreshold controls the cutoff between Full Reduce and Subsumption
 strategies in ReduceDisjuncts. Default is 200.";
-$ReduceDisjunctsThreshold = 200;
+$ReduceDisjunctsThreshold = 300;
 
 RemoveDuplicates::usage = "RemoveDuplicates is a backward-compatibility alias for DeduplicateByComplexity.";
 ReplaceSolution::usage = "ReplaceSolution is a backward-compatibility alias for SubstituteSolution.";
@@ -163,10 +163,11 @@ SubstituteSolution[rst_, sol_] :=
     ]
 
 (* --- DeduplicateByComplexity --- *)
+(* Sort operands of And/Or for canonical form, then remove duplicates.
+   Sort uses Mathematica's canonical ordering, which is faster than
+   SortBy[SimplifyCount] and provides a unique canonical form. *)
 
-sortByComplexity = SortBy[Simplify`SimplifyCount];
-
-DeduplicateByComplexity[xp_] := DeleteDuplicates[sortByComplexity[xp]] /; MatchQ[Head[xp], And|Or]
+DeduplicateByComplexity[xp_] := DeleteDuplicates[Sort[xp]] /; MatchQ[Head[xp], And|Or]
 
 DeduplicateByComplexity[xp_] := xp
 

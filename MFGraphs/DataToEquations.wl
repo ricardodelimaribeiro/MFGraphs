@@ -195,8 +195,13 @@ DataToEquations[Data_Association] :=
         ];
         IneqJs = And @@ (# >= 0& /@ js);
         IneqJts = And @@ (# >= 0& /@ jts);
-        AltFlows = And @@ (AltFlowOp[j] /@ auxPairs);
-        AltTransitionFlows = And @@ (AltFlowOp[j] /@ auxTriples);
+        (* Use only one representative per symmetric pair/triple to avoid
+           generating duplicate conditions: AltFlowOp[j][{a,b}] and
+           AltFlowOp[j][{b,a}] produce identical Or-conditions. *)
+        AltFlows = And @@ (AltFlowOp[j] /@ Join[
+            inAuxEntryPairs, outAuxExitPairs, halfPairs]);
+        AltTransitionFlows = And @@ (AltFlowOp[j] /@
+            Select[auxTriples, OrderedQ[{First[#], Last[#]}]&]);
         splittingPairs = Join[inAuxEntryPairs, inAuxExitPairs, pairs]
             ;
         BalanceSplittingFlows = (j @@ # - Total[j @@@ FlowSplitting[auxTriples
@@ -615,6 +620,12 @@ DNFSolveStep[{{EE_, NN_, OO_}, rules_}] :=
             ,
             MFGPrint["Final: ", Length /@ NewSystem];
             sorted = DeduplicateByComplexity[NewSystem[[3]]];
+            (* Sort Or-conditions by descending LeafCount: processing
+               larger conditions first lets DNFReduce constrain the
+               system earlier, improving early-exit rates. *)
+            If[Head[sorted] === And,
+                sorted = And @@ SortBy[List @@ sorted, -LeafCount[#] &]
+            ];
         ];
         temp = MFGPrintTemporary["Final: Iterative DNF conversion on ",
              Length[sorted], " disjunctions..."];
