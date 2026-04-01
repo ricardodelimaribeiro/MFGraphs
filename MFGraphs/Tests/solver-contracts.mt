@@ -1,11 +1,11 @@
 (* Wolfram Language Test file *)
-(* Contract tests for the opt-in standardized solver return shape. *)
+(* Contract tests for the standardized stationary-solver return shape. *)
 
 Test[
     Module[{data, d2e, result},
         data = GetExampleData[7] /. {I1 -> 100, U1 -> 0, U2 -> 0};
         d2e = DataToEquations[data];
-        result = Quiet[CriticalCongestionSolver[d2e, "ReturnShape" -> "Standard"]];
+        result = Quiet[CriticalCongestionSolver[d2e]];
         Lookup[result, {"Solver", "ResultKind", "Feasibility", "Message"}] ===
             {"CriticalCongestion", "Success", "Feasible", None} &&
         AssociationQ[result["AssoCritical"]] &&
@@ -29,8 +29,8 @@ Test[
         result = Quiet[
             NonLinearSolver[
                 d2e,
-                "MaxIterations" -> 2,
-                "ReturnShape" -> "Standard",
+                "MaxIterations" -> 20,
+                "Tolerance" -> 10^-8,
                 "PotentialFunction" -> Function[{x, edge}, 0],
                 "CongestionExponentFunction" -> Function[edge, 1],
                 "InteractionFunction" -> Function[{m, edge}, -1/m^2]
@@ -44,6 +44,8 @@ Test[
         AssociationQ[result["SignedEdgeFlows"]] &&
         VectorQ[result["ComparableFlowVector"], NumericQ] &&
         NumericQ[result["KirchhoffResidual"]] &&
+        AssociationQ[result["Convergence"]] &&
+        NumericQ[result["Convergence"]["SolveTime"]] &&
         IsFeasible[result]
     ]
     ,
@@ -58,8 +60,9 @@ Test[
         result = Quiet[
             MonotoneSolverFromData[
                 data,
-                "TimeSteps" -> 20,
-                "ReturnShape" -> "Standard",
+                "ResidualTolerance" -> 10^-6,
+                "MaxTime" -> 10,
+                "MaxSteps" -> 2000,
                 "PotentialFunction" -> Function[{x, edge}, 0],
                 "CongestionExponentFunction" -> Function[edge, 1],
                 "InteractionFunction" -> Function[{m, edge}, -1/m^2]
@@ -73,6 +76,8 @@ Test[
         AssociationQ[result["SignedEdgeFlows"]] &&
         VectorQ[result["ComparableFlowVector"], NumericQ] &&
         NumericQ[result["KirchhoffResidual"]] &&
+        AssociationQ[result["Convergence"]] &&
+        NumericQ[result["Convergence"]["FinalResidual"]] &&
         IntegerQ[result["ReducedStateDimension"]] &&
         IntegerQ[result["FullStateDimension"]]
     ]
@@ -91,11 +96,12 @@ Test[
             "Exit Vertices and Terminal Costs" -> {},
             "Switching Costs" -> {}
         |>;
-        result = Quiet[MonotoneSolverFromData[data, "ReturnShape" -> "Standard"]];
+        result = Quiet[MonotoneSolverFromData[data]];
         Lookup[result, {"Solver", "ResultKind", "Message"}] ===
             {"Monotone", "Degenerate", "DegenerateCase"} &&
         result["Solution"] === Missing["NotAvailable"] &&
-        result["AssoMonotone"] === Missing["NotAvailable"]
+        result["AssoMonotone"] === Missing["NotAvailable"] &&
+        result["Convergence"]["StopReason"] === "DegenerateCase"
     ]
     ,
     True
@@ -109,21 +115,21 @@ Test[
         result = Quiet[
             MonotoneSolverFromData[
                 data,
-                "ReturnShape" -> "Standard",
                 "PotentialFunction" -> Function[{x, edge}, 0],
                 "CongestionExponentFunction" -> Function[edge, 1],
                 "InteractionFunction" -> Function[{m, edge}, -1/m^2]
             ]
         ];
         Lookup[result, {"Solver", "ResultKind", "Message"}] ===
-            {"Monotone", "Failure", "SeedFindInstanceFailed"} &&
-        result["Solution"] === Missing["NotAvailable"] &&
-        result["AssoMonotone"] === Missing["NotAvailable"]
+            {"Monotone", "Success", None} &&
+        result["Convergence"]["StopReason"] === "QuadraticCriticalSolve" &&
+        VectorQ[result["ComparableFlowVector"], NumericQ] &&
+        Max[Abs[result["ComparableFlowVector"]]] < 10^-9
     ]
     ,
     True
     ,
-    TestID -> "Standard return shape: monotone seed failure"
+    TestID -> "Standard return shape: monotone zero-flow critical solve"
 ]
 
 Test[
@@ -144,12 +150,12 @@ Test[
     Module[{data, d2e, critical, nonlinear, monotone, cVec, nVec, mVec},
         data = GetExampleData[3] /. {I1 -> 80, U1 -> 0};
         d2e = DataToEquations[data];
-        critical = Quiet[CriticalCongestionSolver[d2e, "ReturnShape" -> "Standard"]];
+        critical = Quiet[CriticalCongestionSolver[d2e]];
         nonlinear = Quiet[
             NonLinearSolver[
                 d2e,
-                "MaxIterations" -> 2,
-                "ReturnShape" -> "Standard",
+                "MaxIterations" -> 20,
+                "Tolerance" -> 10^-8,
                 "PotentialFunction" -> Function[{x, edge}, 0],
                 "CongestionExponentFunction" -> Function[edge, 1],
                 "InteractionFunction" -> Function[{m, edge}, -1/m^2]
@@ -158,8 +164,9 @@ Test[
         monotone = Quiet[
             MonotoneSolverFromData[
                 data,
-                "TimeSteps" -> 20,
-                "ReturnShape" -> "Standard",
+                "ResidualTolerance" -> 10^-6,
+                "MaxTime" -> 10,
+                "MaxSteps" -> 2000,
                 "PotentialFunction" -> Function[{x, edge}, 0],
                 "CongestionExponentFunction" -> Function[edge, 1],
                 "InteractionFunction" -> Function[{m, edge}, -1/m^2]
@@ -187,13 +194,14 @@ Test[
         {b, k, jj} = GetKirchhoffLinearSystem[d2e];
         seed = First @ FindInstance[k . jj == b && And @@ Thread[jj >= 10^-8], jj, Reals];
         reduced = MFGraphs`Private`BuildReducedKirchhoffCoordinates[d2e, N[jj /. seed]];
-        reduced["StateDimension"] === Length[jj] - MatrixRank[Normal[k]] &&
+        0 <= reduced["StateDimension"] <= Length[jj] - MatrixRank[Normal[k]] &&
         reduced["FullDimension"] === Length[jj] &&
         Max[Abs[k . reduced["BasePoint"] - b]] < 10^-7 &&
-        Dimensions[reduced["BasisMatrix"]] === {Length[jj], reduced["StateDimension"]}
+        Dimensions[reduced["BasisMatrix"]] === {Length[jj], reduced["StateDimension"]} &&
+        reduced["CostInvisibleDimension"] >= 0
     ]
     ,
     True
     ,
-    TestID -> "Monotone reduced state: affine basis matches Kirchhoff dimension"
+    TestID -> "Monotone reduced state: observable basis stays feasible and bounded by the Kirchhoff nullspace"
 ]

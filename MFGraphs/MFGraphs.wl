@@ -147,6 +147,11 @@ MakeSolverResult[
             "Message" -> message,
             "Solution" -> solution
         |>,
+        If[
+            AssociationQ[extraAssoc] && !KeyExistsQ[extraAssoc, "Convergence"],
+            <|"Convergence" -> Missing["NotApplicable"]|>,
+            <||>
+        ],
         extraAssoc
     ];
 

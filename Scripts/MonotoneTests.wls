@@ -26,19 +26,20 @@ Module[{data, d2e, result},
   data = GetExampleData[1] /. {I1 -> 100, U1 -> 0};
   d2e = DataToEquations[data];
   result = MonotoneSolver[d2e];
-  check["Degenerate returns Association", AssociationQ[result]];
+  check["Degenerate returns standardized association",
+    AssociationQ[result] && Lookup[result, "ResultKind", None] === "Degenerate"];
 ];
 
-(* --- Test 2: Linear chain (Case 3), result is an Association with non-negative flows --- *)
+(* --- Test 2: Linear chain (Case 3), result is standardized with non-negative flows --- *)
 Print["--- Linear chain (Case 3) ---"];
 Block[{V = Function[{x, edge}, 0]},
   Module[{data, d2e, result, vals},
     data = GetExampleData[3] /. {I1 -> 80, U1 -> 0};
     d2e = DataToEquations[data];
-    result = MonotoneSolver[d2e];
-    check["Result is Association", AssociationQ[result]];
+    result = MonotoneSolver[d2e, "ResidualTolerance" -> 10^-6, "MaxTime" -> 10, "MaxSteps" -> 2000];
+    check["Result is standardized association", AssociationQ[result]];
     If[AssociationQ[result],
-      vals = Values[result];
+      vals = Values[result["AssoMonotone"]];
       check["All flows numeric", And @@ (NumericQ /@ vals)];
       check["All flows non-negative", And @@ (# >= -10^-6 & /@ vals)];
     ];
@@ -52,13 +53,13 @@ Block[{V = Function[{x, edge}, 0]},
           jj, cachedEdge, uncachedEdge},
     data = GetExampleData[3] /. {I1 -> 80, U1 -> 0};
     d2e = DataToEquations[data];
-    cached = MonotoneSolver[d2e, "UseCachedGradient" -> True];
-    uncached = MonotoneSolver[d2e, "UseCachedGradient" -> False];
+    cached = MonotoneSolver[d2e, "UseCachedProjection" -> True, "ResidualTolerance" -> 10^-6, "MaxTime" -> 10, "MaxSteps" -> 2000];
+    uncached = MonotoneSolver[d2e, "UseCachedProjection" -> False, "ResidualTolerance" -> 10^-6, "MaxTime" -> 10, "MaxSteps" -> 2000];
     check["Both return Associations",
       AssociationQ[cached] && AssociationQ[uncached]];
     If[AssociationQ[cached] && AssociationQ[uncached],
       check["Signed edge flows match within tolerance",
-        Norm[Values[cached] - Values[uncached], Infinity] < 10^-4];
+        Norm[Values[cached["AssoMonotone"]] - Values[uncached["AssoMonotone"]], Infinity] < 10^-4];
     ];
   ];
 ];

@@ -409,15 +409,15 @@ Catch[
 
 #### Rationale
 
-_TODO: Describe why this change was made and what bottleneck it addresses._
+Add a post-reduction `ReduceDisjuncts` pass after `DNFReduce` to shrink logically redundant branches before downstream symbolic solving. The target bottleneck was the large disjunct count that still remained on switching-cost cases even after DNF memoization and short-circuiting.
 
 #### Changes
 
-_TODO: Summarise code changes (diff or pseudocode)._
+Apply `ReduceDisjuncts` to the DNF output after the main reduction step, using the existing thresholded strategies to merge or remove redundant disjuncts before the result is handed back to the solver pipeline.
 
 #### Interpretation
 
-_TODO: Describe which cases improved or regressed and why._
+The post-reduction pass helps exactly where it should: cases 12 and 11 remain the clear wins because they still carry the heaviest redundant branching structure after raw DNF reduction. Smaller cases such as 7, 8, 14, and 20 regress on wall-clock time because the extra simplification work costs more than it saves when the branch set is already small. This makes `ReduceDisjuncts` a good fit for large or highly redundant switching-cost systems, but not a universal win on tiny inputs.
 
 
 ---

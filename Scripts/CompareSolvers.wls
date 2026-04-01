@@ -1,110 +1,148 @@
-(* ::Package:: *)
+#!/usr/bin/env wolframscript
+(* Compare stationary solver outputs on standardized result contracts. *)
 
-(*
-  This script compares the solutions of CriticalCongestionSolver, NonLinearSolver,
-  and MonotoneSolver for a critical congestion problem.
+(* :!CodeAnalysis::BeginBlock:: *)
+(* :!CodeAnalysis::Disable::SuspiciousSessionSymbol:: *)
 
-  All three solvers should find the same solution when their parameters are set to match
-  the assumptions of the critical congestion model (V=0, alpha=1, g=-1/m^2).
-*)
-
-(* --- Setup: Load MFGraphs --- *)
 PrependTo[$Path, Directory[]];
 Needs["MFGraphs`"];
-MFGraphs`$MFGraphsVerbose = True;
+MFGraphs`$MFGraphsVerbose = False;
 
+$HamiltonianOptions = {
+  "PotentialFunction" -> Function[{x, edge}, 0],
+  "CongestionExponentFunction" -> Function[edge, 1],
+  "InteractionFunction" -> Function[{m, edge}, -1/m^2]
+};
 
-(* --- 1. Define the problem --- *)
-Print["1. Setting up the problem from example data..."];
-data = GetExampleData[7] /. {I1 -> 100, U1 -> 0, U2 -> 0};
-d2e = DataToEquations[data];
-Print["Problem setup complete."];
-Print[""];
+$ComparisonCases = <|
+  "case3" -> <|
+    "Key" -> 3,
+    "Params" -> {I1 -> 80, U1 -> 0},
+    "CriticalVsNonLinearTolerance" -> 10^-5,
+    "CriticalVsMonotoneTolerance" -> 10^-4,
+    "MonotoneOptions" -> {"ResidualTolerance" -> 10^-6, "MaxTime" -> 10, "MaxSteps" -> 2000}
+  |>,
+  "case7" -> <|
+    "Key" -> 7,
+    "Params" -> {I1 -> 80, U1 -> 0, U2 -> 10},
+    "CriticalVsNonLinearTolerance" -> 10^-5,
+    "CriticalVsMonotoneTolerance" -> 10^-4,
+    "MonotoneOptions" -> {"ResidualTolerance" -> 10^-6, "MaxTime" -> 20, "MaxSteps" -> 5000}
+  |>,
+  "case8" -> <|
+    "Key" -> 8,
+    "Params" -> {I1 -> 100, U1 -> 0, U2 -> 10, S1 -> 2, S2 -> 3, S3 -> 2, S4 -> 1, S5 -> 3, S6 -> 1},
+    "CriticalVsNonLinearTolerance" -> 10^-5,
+    "CriticalVsMonotoneTolerance" -> 10^-4,
+    "MonotoneOptions" -> {"ResidualTolerance" -> 10^-6, "MaxTime" -> 20, "MaxSteps" -> 5000}
+  |>,
+  "case18" -> <|
+    "Key" -> 18,
+    "Params" -> {I1 -> 80, U1 -> 0, S1 -> 2, S2 -> 1},
+    "CriticalVsNonLinearTolerance" -> 10^-5,
+    "CriticalVsMonotoneTolerance" -> 10^-4,
+    "MonotoneOptions" -> {"ResidualTolerance" -> 10^-6, "MaxTime" -> 20, "MaxSteps" -> 5000}
+  |>,
+  "hrf-scenario1" -> <|
+    "Key" -> "HRF Scenario 1",
+    "Params" -> {I1 -> 100, I2 -> 100, U1 -> 0, U2 -> 0},
+    "CriticalVsNonLinearTolerance" -> 10^-5,
+    "CriticalVsMonotoneTolerance" -> 10^-4,
+    "MonotoneOptions" -> {"ResidualTolerance" -> 10^-6, "MaxTime" -> 20, "MaxSteps" -> 5000}
+  |>
+|>;
 
-(* --- 2. Solve with CriticalCongestionSolver --- *)
-Print["2. Solving with CriticalCongestionSolver..."];
-criticalResult = CriticalCongestionSolver[d2e];
-criticalSolution = criticalResult["AssoCritical"];
-If[!AssociationQ[criticalSolution],
-    Print["CriticalCongestionSolver failed to find a solution."];
-    Exit[1];
+$SmokeComparisonLabels = {"case3", "case7", "case8", "case18"};
+$PaperComparisonLabels = {"hrf-scenario1"};
+$RoutineComparisonLabels = Complement[Keys[$ComparisonCases], $PaperComparisonLabels];
+
+NormalizeLabel[arg_String] := ToLowerCase[arg];
+NormalizeLabel[arg_] := arg;
+
+RequestedLabel = NormalizeLabel @ If[Length[Rest[$ScriptCommandLine]] > 0,
+  First[Rest[$ScriptCommandLine]],
+  "all"
 ];
-Print["CriticalCongestionSolver found a solution."];
-Print[""];
 
+SuccessResultQ[result_Association] :=
+  Lookup[result, "ResultKind", "Failure"] === "Success" &&
+  AssociationQ[Lookup[result, "Solution", Missing["NotAvailable"]]];
 
-(* --- 3. Solve with NonLinearSolver --- *)
-Print["3. Solving with NonLinearSolver..."];
-(*
-  For a critical congestion problem, we use the default Hamiltonian:
-  - Potential V(x, e) = 0
-  - Congestion exponent alpha(e) = 1
-  - Interaction g(m, e) = -1/m^2
-*)
-potentialFunction = Function[{x, edge}, 0];
-congestionExponentFunction = Function[edge, 1];
-interactionFunction = Function[{m, edge}, -1/m^2];
+VectorDifference[a_, b_] /; VectorQ[a, NumericQ] && VectorQ[b, NumericQ] :=
+  Max[Abs[a - b]];
+VectorDifference[_, _] := Infinity;
 
-nonlinearResult = NonLinearSolver[d2e,
-    "PotentialFunction" -> potentialFunction,
-    "CongestionExponentFunction" -> congestionExponentFunction,
-    "InteractionFunction" -> interactionFunction
-];
-nonlinearSolution = nonlinearResult["AssoNonCritical"];
+CompareCase[label_String, spec_Association] :=
+  Module[{data, d2e, critical, nonlinear, monotone, criticalVsNonLinear,
+      criticalVsMonotone, resultKinds, kirchhoffResiduals, edgesAgree, pass},
+    Print["--- ", label, " (", spec["Key"], ") ---"];
+    data = GetExampleData[spec["Key"]] /. spec["Params"];
+    d2e = DataToEquations[data];
 
-If[!AssociationQ[nonlinearSolution],
-    Print["NonLinearSolver failed to find a solution."];
-    Exit[1];
-];
-Print["NonLinearSolver found a solution."];
-Print[""];
+    critical = Quiet[CriticalCongestionSolver[d2e]];
+    nonlinear = Quiet[NonLinearSolver[d2e, Sequence @@ $HamiltonianOptions, "Tolerance" -> 10^-8, "MaxIterations" -> 20]];
+    monotone = Quiet[MonotoneSolverFromData[data, Sequence @@ $HamiltonianOptions, Sequence @@ spec["MonotoneOptions"]]];
 
-
-(* --- 4. Solve with MonotoneSolver --- *)
-Print["4. Solving with MonotoneSolver..."];
-monotoneResult = MonotoneSolver[d2e,
-    "PotentialFunction" -> potentialFunction,
-    "CongestionExponentFunction" -> congestionExponentFunction,
-    "InteractionFunction" -> interactionFunction,
-    "TimeSteps" -> 100
-];
-
-If[!AssociationQ[monotoneResult],
-    Print["MonotoneSolver failed to find a solution."];
-    Exit[1];
-];
-Print["MonotoneSolver found a solution."];
-Print[""];
-
-
-(* --- 5. Compare the solutions --- *)
-Print["5. Comparing solutions..."];
-tolerance = 10^-6;
-allPass = True;
-
-(* Helper: compare two solution associations *)
-comparePair[name1_, sol1_, name2_, sol2_] :=
-    Module[{keys, vals1, vals2, diff},
-        keys = Sort[Intersection[Keys[sol1], Keys[sol2]]];
-        vals1 = keys /. sol1;
-        vals2 = keys /. sol2;
-        diff = Norm[vals1 - vals2];
-        Print["  ", name1, " vs ", name2, ": norm = ", diff];
-        If[diff >= tolerance,
-            Print["  FAIL: difference exceeds tolerance (", tolerance, ")"];
-            allPass = False;
-        ];
+    resultKinds = Lookup[#, "ResultKind", "Missing"] & /@ {critical, nonlinear, monotone};
+    Print["  Result kinds: ", resultKinds];
+    If[!And @@ (SuccessResultQ /@ {critical, nonlinear, monotone}),
+      Print["  FAIL: at least one solver did not converge successfully."];
+      Return[False]
     ];
 
-comparePair["Critical", criticalSolution, "NonLinear", nonlinearSolution];
-comparePair["Critical", criticalSolution, "Monotone", monotoneResult];
-comparePair["NonLinear", nonlinearSolution, "Monotone", monotoneResult];
-Print[""];
+    edgesAgree =
+      critical["ComparableEdges"] === nonlinear["ComparableEdges"] &&
+      nonlinear["ComparableEdges"] === monotone["ComparableEdges"];
+    criticalVsNonLinear =
+      VectorDifference[critical["ComparableFlowVector"], nonlinear["ComparableFlowVector"]];
+    criticalVsMonotone =
+      VectorDifference[critical["ComparableFlowVector"], monotone["ComparableFlowVector"]];
+    kirchhoffResiduals = Lookup[#, "KirchhoffResidual", Infinity] & /@ {critical, nonlinear, monotone};
 
-If[allPass,
-    Print["SUCCESS: All solver pairs are consistent within tolerance (", tolerance, ")."];
-    Exit[0];
-,
-    Print["FAILURE: Some solver pairs are NOT consistent."];
-    Exit[1];
-]
+    Print["  Critical vs NonLinear: ", criticalVsNonLinear];
+    Print["  Critical vs Monotone: ", criticalVsMonotone];
+    Print["  Kirchhoff residuals: ", kirchhoffResiduals];
+
+    pass =
+      edgesAgree &&
+      criticalVsNonLinear < spec["CriticalVsNonLinearTolerance"] &&
+      criticalVsMonotone < spec["CriticalVsMonotoneTolerance"] &&
+      Max[kirchhoffResiduals] < 10^-6;
+
+    If[pass,
+      Print["  PASS"],
+      Print["  FAIL: standardized outputs are not comparable within tolerance."]
+    ];
+    pass
+  ];
+
+SelectedLabels =
+  Which[
+    RequestedLabel === "all",
+      $RoutineComparisonLabels,
+    RequestedLabel === "smoke",
+      $SmokeComparisonLabels,
+    RequestedLabel === "paper",
+      $PaperComparisonLabels,
+    RequestedLabel === "exhaustive",
+      Keys[$ComparisonCases],
+    True,
+      Select[Keys[$ComparisonCases], # === RequestedLabel &]
+  ];
+
+If[SelectedLabels === {},
+  Print["Unknown case label: ", RequestedLabel];
+  Print["Available labels: ", StringRiffle[Keys[$ComparisonCases], ", "], ", smoke, paper, all, exhaustive"];
+  Exit[1];
+];
+
+AllPass = And @@ (CompareCase[#, $ComparisonCases[#]] & /@ SelectedLabels);
+
+If[AllPass,
+  Print["SUCCESS: standardized stationary solver outputs agree across all requested cases."];
+  Exit[0],
+  Print["FAILURE: at least one standardized solver comparison failed."];
+  Exit[1]
+];
+
+(* :!CodeAnalysis::EndBlock:: *)

@@ -56,10 +56,10 @@ result = CriticalCongestionSolver[d2e];
 result["AssoCritical"]
 ```
 
-Solver return shapes:
-- By default, solver calls keep their legacy return format.
-- Add `"ReturnShape" -> "Standard"` to receive a normalized association with keys `"Solver"`, `"ResultKind"`, `"Feasibility"`, `"Message"`, and `"Solution"`.
-- Standard results also retain the solver-specific payload key when available: `"AssoCritical"`, `"AssoNonCritical"`, or `"AssoMonotone"`.
+Stationary solver results are standardized by default. Each solver returns an association
+with keys such as `"Solver"`, `"ResultKind"`, `"Feasibility"`, `"Message"`,
+`"Solution"`, `"ComparableFlowVector"`, `"KirchhoffResidual"`, and the solver-specific
+payload key when available: `"AssoCritical"`, `"AssoNonCritical"`, or `"AssoMonotone"`.
 
 ## Defining a network
 
@@ -96,9 +96,6 @@ Data = GetExampleData[7] /. {I1 -> 50, U1 -> 0, U2 -> 0};
 d2e = DataToEquations[Data];
 result = CriticalCongestionSolver[d2e];
 result["AssoCritical"]
-
-standard = CriticalCongestionSolver[d2e, "ReturnShape" -> "Standard"];
-standard["Solution"]
 ```
 
 ### Non-linear (general congestion) solver
@@ -120,9 +117,6 @@ IsNonLinearSolution[result]
 
 (* Access the solution *)
 result["AssoNonCritical"]
-
-standard = NonLinearSolver[d2e, "ReturnShape" -> "Standard"];
-standard["Solution"]
 ```
 
 Options:
@@ -144,16 +138,19 @@ solution = MonotoneSolverFromData[Data]
 Standardized result envelope:
 
 ```mathematica
-standard = MonotoneSolverFromData[Data, "ReturnShape" -> "Standard"];
-standard["AssoMonotone"]
+result = MonotoneSolverFromData[Data];
+result["AssoMonotone"]
+result["Convergence"]
 ```
 
 Options:
-- `"TimeSteps"` (default `100`) — number of ODE integration steps
-- `"ReturnShape"` (default `"Legacy"`) — set to `"Standard"` for the normalized result envelope
+- `"ResidualTolerance"` (default `10^-6`) — convergence threshold on the reduced monotone flow residual
+- `"MaxTime"` (default `100`) — maximum pseudo-time horizon for the ODE integration
+- `"MaxSteps"` (default `5000`) — maximum `NDSolveValue` step budget
+- `"UseCachedProjection"` (default `True`) — reuse the projected linear solve when the state changes only slightly
 
 ```mathematica
-solution = MonotoneSolverFromData[Data, "TimeSteps" -> 200]
+solution = MonotoneSolverFromData[Data, "ResidualTolerance" -> 10^-6, "MaxTime" -> 20, "MaxSteps" -> 2000]
 ```
 
 ## Running tests
@@ -166,7 +163,8 @@ wolframscript -file Scripts/RunTests.wls slow
 wolframscript -file Scripts/RunTests.wls all
 ```
 
-Tests are also automatically executed on every commit and Pull Request via GitHub Actions.
+GitHub Actions runs the fast suite on Pull Requests and, on trusted branch pushes,
+also runs the slow suite plus smoke checks for benchmarking and stationary-solver comparison.
 
 ## Plotting
 

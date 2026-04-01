@@ -10,7 +10,20 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  report_hygiene:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Check report/history placeholders
+        run: |
+          if rg -n '_TODO_|_Describe the code or benchmark configuration change being measured in this run\\._|_Summarize the main performance signal, regressions, or follow-up actions from this run\\._' DNF_PERFORMANCE_HISTORY.md PARALLEL_PERFORMANCE_HISTORY.md History Results/*.md; then
+            echo "::error::Found placeholder prose in committed report/history files"
+            exit 1
+          fi
+
+  fast_tests:
     runs-on: ubuntu-latest
     environment:
       name: wolfram-ci
@@ -37,6 +50,102 @@ jobs:
         with:
           file: Scripts/RunTests.wls
           args: fast
+        env:
+          WOLFRAM_ID: ${{ secrets.WOLFRAM_CI_ID }}
+          WOLFRAM_PASS: ${{ secrets.WOLFRAM_CI_PASS }}
+
+  slow_tests:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment:
+      name: wolfram-ci
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Validate Wolfram environment secrets
+        env:
+          WOLFRAM_CI_ID: ${{ secrets.WOLFRAM_CI_ID }}
+          WOLFRAM_CI_PASS: ${{ secrets.WOLFRAM_CI_PASS }}
+        run: |
+          if [ -z "$WOLFRAM_CI_ID" ]; then
+            echo "::error::Missing environment secret WOLFRAM_CI_ID on environment 'wolfram-ci'"
+            exit 1
+          fi
+          if [ -z "$WOLFRAM_CI_PASS" ]; then
+            echo "::error::Missing environment secret WOLFRAM_CI_PASS on environment 'wolfram-ci'"
+            exit 1
+          fi
+
+      - name: Run Slow Test Suite
+        uses: miRoox/wolfram-action@v1
+        with:
+          file: Scripts/RunTests.wls
+          args: slow
+        env:
+          WOLFRAM_ID: ${{ secrets.WOLFRAM_CI_ID }}
+          WOLFRAM_PASS: ${{ secrets.WOLFRAM_CI_PASS }}
+
+  benchmark_smoke:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment:
+      name: wolfram-ci
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Validate Wolfram environment secrets
+        env:
+          WOLFRAM_CI_ID: ${{ secrets.WOLFRAM_CI_ID }}
+          WOLFRAM_CI_PASS: ${{ secrets.WOLFRAM_CI_PASS }}
+        run: |
+          if [ -z "$WOLFRAM_CI_ID" ]; then
+            echo "::error::Missing environment secret WOLFRAM_CI_ID on environment 'wolfram-ci'"
+            exit 1
+          fi
+          if [ -z "$WOLFRAM_CI_PASS" ]; then
+            echo "::error::Missing environment secret WOLFRAM_CI_PASS on environment 'wolfram-ci'"
+            exit 1
+          fi
+
+      - name: Run Benchmark Smoke
+        uses: miRoox/wolfram-action@v1
+        with:
+          file: Scripts/BenchmarkSuite.wls
+          args: small case=1 timeout=10
+        env:
+          WOLFRAM_ID: ${{ secrets.WOLFRAM_CI_ID }}
+          WOLFRAM_PASS: ${{ secrets.WOLFRAM_CI_PASS }}
+
+  solver_compare_smoke:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment:
+      name: wolfram-ci
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Validate Wolfram environment secrets
+        env:
+          WOLFRAM_CI_ID: ${{ secrets.WOLFRAM_CI_ID }}
+          WOLFRAM_CI_PASS: ${{ secrets.WOLFRAM_CI_PASS }}
+        run: |
+          if [ -z "$WOLFRAM_CI_ID" ]; then
+            echo "::error::Missing environment secret WOLFRAM_CI_ID on environment 'wolfram-ci'"
+            exit 1
+          fi
+          if [ -z "$WOLFRAM_CI_PASS" ]; then
+            echo "::error::Missing environment secret WOLFRAM_CI_PASS on environment 'wolfram-ci'"
+            exit 1
+          fi
+
+      - name: Run Solver Comparison Smoke
+        uses: miRoox/wolfram-action@v1
+        with:
+          file: Scripts/CompareSolvers.wls
+          args: smoke
         env:
           WOLFRAM_ID: ${{ secrets.WOLFRAM_CI_ID }}
           WOLFRAM_PASS: ${{ secrets.WOLFRAM_CI_PASS }}
