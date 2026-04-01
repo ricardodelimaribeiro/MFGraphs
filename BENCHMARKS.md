@@ -26,15 +26,16 @@ wolframscript -file Scripts/BenchmarkSuite.wls small
 wolframscript -file Scripts/BenchmarkSuite.wls core
 wolframscript -file Scripts/BenchmarkSuite.wls stress
 wolframscript -file Scripts/BenchmarkSuite.wls large
+wolframscript -file Scripts/BenchmarkSuite.wls vlarge
 ```
 
-`medium` is kept as a backward-compatible alias for `core`.
+**Backward compatibility:** `medium` is kept as an alias for `core` but `core` is preferred in new scripts.
 
 Run a specific case with a custom timeout:
 
 ```bash
-wolframscript -file Scripts/BenchmarkSuite.wls medium case=7 timeout=3600
-wolframscript -file Scripts/BenchmarkSuite.wls medium case=8 timeout=3600
+wolframscript -file Scripts/BenchmarkSuite.wls core case=7 timeout=3600
+wolframscript -file Scripts/BenchmarkSuite.wls core case=8 timeout=3600
 ```
 
 Results are exported to `Results/benchmark_latest.csv` and `Results/benchmark_latest.json`, plus timestamped copies. Timestamped benchmark filenames now include seconds, and the suite rewrites the current run's exports after each completed case so partial progress is preserved if a later case is interrupted.
@@ -57,7 +58,9 @@ This generates `Results/bottleneck_report.md` with detailed call counts and timi
 | core | 9, 10, 12, 14, 15, 18, Paper | 300s | Stable representative cases for routine benchmarking |
 | stress | 7, 8, 11, 17, 104, triangle-with-two-exits | 1800s | Symmetry-heavy or solver-stress cases; opt in explicitly |
 | large | 13, 19-23, Braess variants, Jamaratv9, Grid0303 | 900s | Multi-entrance/exit, larger graphs |
-| vlarge | Grid1020 | 1800s | 200-vertex grid (symbolic solvers may not terminate) |
+| vlarge | Grid1020 | 1800s | 200-vertex grid; stress test designed to hit RecursionLimit |
+
+**Note on vlarge tier:** `Grid1020` is a deliberate stress test with 200 vertices and 220 edges. Symbolic solvers may not terminate or may exceed `RecursionLimit` by design. Run this tier to validate solver behavior under resource constraints, not for performance measurement.
 
 ## Solvers benchmarked
 

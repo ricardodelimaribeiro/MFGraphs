@@ -4,6 +4,21 @@ A Wolfram Language package for solving **Mean Field Games on networks** with con
 
 MFGraphs converts network topology (vertices, edges, entry/exit flows, switching costs) into systems of equations, then solves for equilibrium flow distributions and value functions using symbolic and numerical methods.
 
+## Quick Navigation
+
+- [Installation](#installation)
+- [Quick start](#quick-start)
+- [Defining a network](#defining-a-network)
+- [Solvers](#solvers) — CriticalCongestionSolver, NonLinearSolver, MonotoneSolver
+- [Switching costs](#switching-costs)
+- [Built-in examples](#built-in-examples)
+- [Configuration](#configuration)
+- [Package structure](#package-structure)
+- [Running tests](#running-tests)
+- [Plotting results](#plotting)
+
+For developer guidance, see [CLAUDE.md](CLAUDE.md). For troubleshooting, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+
 ## Installation
 
 Clone this repository and load the package in Mathematica:
