@@ -4,11 +4,16 @@
    Usage:
      wolframscript -file Scripts/CompareDNF.wls
      wolframscript -file Scripts/CompareDNF.wls <case_key>
-     wolframscript -file Scripts/CompareDNF.wls --tag "Description of change"
-     wolframscript -file Scripts/CompareDNF.wls <case_key> --tag "Description"
+     wolframscript -file Scripts/CompareDNF.wls --tag "Description of change" \
+       --rationale "Why this change exists" \
+       --changes "What code changed" \
+       --interpretation "How to read the results"
+     wolframscript -file Scripts/CompareDNF.wls <case_key> --tag "Description" \
+       rationale="..." changes="..." interpretation="..."
 
    --tag "..."   Run all cases and append a new entry to DNF_PERFORMANCE_HISTORY.md.
-                 The entry includes the current git commit hash, date, and results table.
+                 The entry includes the current git commit hash, date, results table,
+                 and the supplied rationale / changes / interpretation prose.
 *)
 
 Print["=== BooleanConvert vs DNFReduce Comparison ==="];
@@ -234,28 +239,50 @@ $ComparisonCases = <|
 (* --- CLI argument parsing --- *)
 
 Module[{args = Rest[$ScriptCommandLine], tagPos},
-  (* Find --tag position *)
-  tagPos = FirstPosition[args, "--tag", Missing[], {1}];
-  If[MissingQ[tagPos],
-    $historyTag = None;
-    (* remaining args: first non-flag is the case key *)
-    $requestedCase = SelectFirst[args, !StringStartsQ[#, "--"] &, "all"],
-    (* --tag found: next element is the description *)
-    $historyTag = If[Length[args] >= First[tagPos] + 1,
-      args[[First[tagPos] + 1]],
-      "untagged"
-    ];
-    (* case key: first non-flag arg before --tag *)
-    $requestedCase = SelectFirst[
-      args[[;; First[tagPos] - 1]],
-      !StringStartsQ[#, "--"] &,
-      "all"
+  $historyTag = None;
+  $historyRationale = None;
+  $historyChanges = None;
+  $historyInterpretation = None;
+  $requestedCase = "all";
+  While[Length[args] > 0,
+    Switch[First[args],
+      "--tag",
+        If[Length[args] >= 2, $historyTag = args[[2]]];
+        args = Drop[args, 2],
+      "--rationale",
+        If[Length[args] >= 2, $historyRationale = args[[2]]];
+        args = Drop[args, 2],
+      "--changes",
+        If[Length[args] >= 2, $historyChanges = args[[2]]];
+        args = Drop[args, 2],
+      "--interpretation",
+        If[Length[args] >= 2, $historyInterpretation = args[[2]]];
+        args = Drop[args, 2],
+      _ /; StringStartsQ[First[args], "tag="],
+        $historyTag = StringDrop[First[args], StringLength["tag="]];
+        args = Rest[args],
+      _ /; StringStartsQ[First[args], "rationale="],
+        $historyRationale = StringDrop[First[args], StringLength["rationale="]];
+        args = Rest[args],
+      _ /; StringStartsQ[First[args], "changes="],
+        $historyChanges = StringDrop[First[args], StringLength["changes="]];
+        args = Rest[args],
+      _ /; StringStartsQ[First[args], "interpretation="],
+        $historyInterpretation = StringDrop[First[args], StringLength["interpretation="]];
+        args = Rest[args],
+      _,
+        If[$requestedCase === "all", $requestedCase = First[args]];
+        args = Rest[args]
     ]
-  ]
+  ];
 ];
 
 If[$historyTag =!= None,
   Print["History tag: ", $historyTag];
+  If[MemberQ[{$historyRationale, $historyChanges, $historyInterpretation}, None],
+    Print["History entries require explicit rationale, changes, and interpretation text."];
+    Exit[2]
+  ];
   Print["Will append entry to DNF_PERFORMANCE_HISTORY.md"]
 ];
 
@@ -392,11 +419,11 @@ If[$historyTag =!= None,
       tableRows, "\n\n",
       "\[Dagger] *Equivalence check timed out (60 s); outputs are expected to be equivalent.*\n\n",
       "#### Rationale\n\n",
-      "_TODO: Describe why this change was made and what bottleneck it addresses._\n\n",
+      $historyRationale, "\n\n",
       "#### Changes\n\n",
-      "_TODO: Summarise code changes (diff or pseudocode)._\n\n",
+      $historyChanges, "\n\n",
       "#### Interpretation\n\n",
-      "_TODO: Describe which cases improved or regressed and why._\n\n"
+      $historyInterpretation, "\n\n"
     ];
 
     (* Append to history file *)

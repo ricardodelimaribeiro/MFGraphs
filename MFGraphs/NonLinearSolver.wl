@@ -14,10 +14,11 @@
 
 NonLinearSolver::usage =
     "NonLinearSolver[Eqs] takes an association resulting from DataToEquations and returns an approximation to the solution of the non-critical congestion case with alpha = value, specified by alpha[edge_] := value.
-Options: \"MaxIterations\" (default 15), \"Tolerance\" (default 0), \"ReturnShape\" \
-(default \"Legacy\"; use \"Standard\" to add normalized solver-result keys), \
+Options: \"MaxIterations\" (default 15), \"Tolerance\" (default 0), \
 \"PotentialFunction\", \"CongestionExponentFunction\", and \"InteractionFunction\" \
 (default Automatic, meaning use the current global MFGraphs` definitions of V, alpha, and g). \
+It always returns a standardized solver-result association containing solver metadata, \
+comparison fields, convergence data, and the solver-specific payload keys. \
 When Tolerance > 0, iteration stops early when the infinity-norm change in flow variables between consecutive steps falls below the given tolerance.";
 
 IsNonLinearSolution::usage =
@@ -58,7 +59,6 @@ IsFeasible::usage =
 Options[NonLinearSolver] = {
     "MaxIterations" -> 15,
     "Tolerance" -> 0,
-    "ReturnShape" -> "Legacy",
     "PotentialFunction" -> Automatic,
     "CongestionExponentFunction" -> Automatic,
     "InteractionFunction" -> Automatic
@@ -102,55 +102,106 @@ NonLinearSolver[Eqs_, OptionsPattern[]] :=
             interactionFunction,
             Module[ {AssoCritical, PreEqs = Eqs, AssoNonCritical, NonCriticalList, js,
              MaxIter = OptionValue["MaxIterations"], tol = OptionValue["Tolerance"],
-             returnShape = OptionValue["ReturnShape"], status, flowKeys, flowVals,
-             resultKind, message, solution, comparisonData},
-                If[ KeyExistsQ[PreEqs, "AssoCritical"],
-                    (* If there is already an approximation for the non-congestion case, use it *)
-                    AssoNonCritical = Lookup[PreEqs, "AssoNonCritical", PreEqs["AssoCritical"]],
-                    PreEqs = MFGPreprocessing[PreEqs];
-                    AssoNonCritical = AssociationThread[Lookup[PreEqs, "js", {}], 0 Lookup[PreEqs, "js", {}]]
-                ];
+             status, resultKind, message, solution, comparisonData, convergenceData,
+             flowDelta = Missing["NotAvailable"], iterations, stopReason, solveTime,
+             seedMethod, timingResult},
+                {solveTime, timingResult} = AbsoluteTiming[
+                    If[ KeyExistsQ[PreEqs, "AssoNonCritical"],
+                        AssoNonCritical = PreEqs["AssoNonCritical"];
+                        seedMethod = "ProvidedNonLinearSeed"
+                        ,
+                        If[KeyExistsQ[PreEqs, "AssoCritical"],
+                            AssoNonCritical = PreEqs["AssoCritical"];
+                            seedMethod = "ProvidedCriticalSeed"
+                            ,
+                            PreEqs = CriticalCongestionSolver[PreEqs];
+                            AssoNonCritical = Lookup[PreEqs, "AssoCritical", Null];
+                            seedMethod =
+                                If[AssociationQ[AssoNonCritical],
+                                    "CriticalCongestionSeed",
+                                    "CriticalSeedUnavailable"
+                                ]
+                        ]
+                    ];
                 js = Lookup[PreEqs, "js", {}];
-                NonCriticalList = If[ tol > 0 && js =!= {},
-                    (* Tolerance-based stopping: compare consecutive flow vectors *)
-                    NestWhileList[
-                        nonLinearStep[PreEqs],
-                        AssoNonCritical,
-                        (Norm[N[Values[KeyTake[#2, js]] - Values[KeyTake[#1, js]]], Infinity] > tol)&,
-                        2, MaxIter
-                    ],
-                    (* Default: exact fixed-point check (stops when consecutive results are identical) *)
-                    FixedPointList[nonLinearStep[PreEqs], AssoNonCritical, MaxIter]
+                NonCriticalList =
+                    If[!AssociationQ[AssoNonCritical],
+                        {Null},
+                        If[ tol > 0 && js =!= {},
+                            (* Tolerance-based stopping: compare consecutive flow vectors *)
+                            NestWhileList[
+                                nonLinearStep[PreEqs],
+                                AssoNonCritical,
+                                (Norm[N[Values[KeyTake[#2, js]] - Values[KeyTake[#1, js]]], Infinity] > tol)&,
+                                2, MaxIter
+                            ],
+                            (* Default: exact fixed-point check (stops when consecutive results are identical) *)
+                            FixedPointList[nonLinearStep[PreEqs], AssoNonCritical, MaxIter]
+                        ]
+                    ];
                 ];
                 MFGPrint["Iterated ", Length[NonCriticalList]-1, " times out of ", MaxIter];
-                AssoCritical = Lookup[PreEqs, "AssoCritical", NonCriticalList[[2]]];
+                AssoCritical = Lookup[
+                    PreEqs,
+                    "AssoCritical",
+                    If[Length[NonCriticalList] >= 2, NonCriticalList[[2]], First[NonCriticalList]]
+                ];
                 AssoNonCritical = NonCriticalList // Last;
+                iterations = Max[Length[NonCriticalList] - 1, 0];
+                If[iterations > 0 && js =!= {},
+                    flowDelta = Quiet @ Check[
+                        Norm[
+                            N[Values[KeyTake[NonCriticalList[[-1]], js]] - Values[KeyTake[NonCriticalList[[-2]], js]]],
+                            Infinity
+                        ],
+                        Missing["NotAvailable"]
+                    ]
+                ];
                 (* Feasibility check on the non-linear solution *)
                 If[AssoNonCritical === Null,
                     status = "Infeasible",
                     status = CheckFlowFeasibility[AssoNonCritical]
                 ];
-                If[returnShape === "Standard",
-                    resultKind = If[AssoNonCritical === Null, "Failure", "Success"];
-                    message = If[AssoNonCritical === Null, "NoSolution", None];
-                    solution = If[AssociationQ[AssoNonCritical], AssoNonCritical, Missing["NotAvailable"]];
-                    comparisonData = BuildSolverComparisonData[PreEqs, solution];
-                    Join[
-                        PreEqs,
-                        MakeSolverResult[
-                            "NonLinear",
-                            resultKind,
-                            status,
-                            message,
-                            solution,
-                            Join[comparisonData, <|
-                                "AssoCritical" -> AssoCritical,
-                                "AssoNonCritical" -> AssoNonCritical,
-                                "Status" -> status
-                            |>]
-                        ]
-                    ],
-                    Join[PreEqs, <|"AssoCritical" -> AssoCritical, "AssoNonCritical" -> AssoNonCritical, "Status" -> status|>]
+                stopReason =
+                    Which[
+                        AssoNonCritical === Null, "NoSolution",
+                        tol > 0 && NumericQ[flowDelta] && flowDelta <= tol, "ToleranceMet",
+                        tol > 0, "MaxIterationsReached",
+                        iterations > 0 && NonCriticalList[[-1]] === NonCriticalList[[-2]], "FixedPointReached",
+                        iterations >= MaxIter, "MaxIterationsReached",
+                        True, "IterationStopped"
+                    ];
+                resultKind =
+                    Which[
+                        AssoNonCritical === Null, "Failure",
+                        MemberQ[{"ToleranceMet", "FixedPointReached"}, stopReason], "Success",
+                        True, "NonConverged"
+                    ];
+                message = If[resultKind === "Success", None, stopReason];
+                solution = If[AssociationQ[AssoNonCritical], AssoNonCritical, Missing["NotAvailable"]];
+                comparisonData = BuildSolverComparisonData[PreEqs, solution];
+                convergenceData = <|
+                    "StopReason" -> stopReason,
+                    "FinalResidual" -> flowDelta,
+                    "Iterations" -> iterations,
+                    "SolveTime" -> solveTime,
+                    "SeedMethod" -> seedMethod
+                |>;
+                Join[
+                    PreEqs,
+                    MakeSolverResult[
+                        "NonLinear",
+                        resultKind,
+                        status,
+                        message,
+                        solution,
+                        Join[comparisonData, <|
+                            "AssoCritical" -> AssoCritical,
+                            "AssoNonCritical" -> AssoNonCritical,
+                            "Status" -> status,
+                            "Convergence" -> convergenceData
+                        |>]
+                    ]
                 ]
             ]
         ]

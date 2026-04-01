@@ -68,7 +68,7 @@ This generates `Results/bottleneck_report.md` with detailed call counts and timi
 
 2. **NonLinearSolver** -- Iterative fixed-point solver for general congestion. Calls `MFGSystemSolver` up to 15 times per solve, with `FindRoot`/`NIntegrate` for Hamiltonian cost evaluation.
 
-3. **MonotoneSolver** -- ODE-based gradient flow using `NDSolve` with `GradientProjection` (PseudoInverse-based).
+3. **MonotoneSolver** -- Reduced-coordinate Hessian Riemannian Flow using `NDSolveValue`, explicit convergence metadata, and a cached projected linear solve.
 
 ## Identified bottlenecks
 
@@ -84,11 +84,11 @@ This generates `Results/bottleneck_report.md` with detailed call counts and timi
 
 **Impact**: 5-10 iterations typical; each iteration involves symbolic solve of increasing complexity.
 
-### 3. PseudoInverse in GradientProjection
+### 3. Projected linear solve in MonotoneSolver
 
-`GradientProjection` in `Monotone.wl` computes `PseudoInverse` (O(n^3)) at every ODE evaluation step. For `NDSolve` with 100 time steps and adaptive stepping, this can mean hundreds of PseudoInverse calls with nearly-identical matrices.
+`GradientProjection` in `Monotone.wl` builds the Hessian projection operator at every ODE evaluation step. Even with caching, this remains one of the dominant Monotone costs on larger graphs because the projected linear system must be refactorized whenever the state changes materially.
 
-**Impact**: Dominates MonotoneSolver runtime for larger graphs (Grid0303+).
+**Impact**: Still dominates MonotoneSolver runtime for larger graphs (Grid0303+), even after switching the implementation away from unconditional `PseudoInverse`.
 
 ### 4. Per-point FindRoot/NIntegrate
 
@@ -119,16 +119,16 @@ Added early-exit checks:
 
 **Expected impact**: Avoids exponential blowup on inconsistent branches.
 
-### Optimization 3: PseudoInverse caching in MonotoneSolver
+### Optimization 3: Projection-solve caching in MonotoneSolver
 
 **File**: `MFGraphs/Monotone.wl`
 
-Added `CachedGradientProjection` that caches the PseudoInverse matrix and reuses it when the flow vector `x` hasn't changed beyond a tolerance threshold (default 10^-6).
+Added `CachedGradientProjection` that caches the projected linear solve data and reuses it when the flow vector `x` hasn't changed beyond a tolerance threshold (default 10^-6).
 
-- Controlled by `"UseCachedGradient" -> True` option (default)
-- Set `"UseCachedGradient" -> False` to use the original uncached behavior
+- Controlled by `"UseCachedProjection" -> True` option (default)
+- Set `"UseCachedProjection" -> False` to force a fresh projection solve each time
 
-**Expected impact**: Significant speedup for larger graphs where PseudoInverse dominates.
+**Expected impact**: Significant speedup for larger graphs where the projection build dominates.
 
 ### Optimization 4: M interpolation for NonLinearSolver
 
@@ -192,7 +192,10 @@ Benchmark results are exported as CSV and JSON with these fields:
 | SolveMemory | Peak memory delta (bytes) |
 | Status | OK/TIMEOUT/FAILED/SKIPPED |
 | Residual | Infinity-norm of the shared Kirchhoff residual (comparable across all stationary solvers) |
-| EquationResidual | Infinity-norm of the equation residual for CriticalCongestion/NonLinearSolver; not available for Monotone |
+| EquationResidual | Infinity-norm of the equation residual, computed on the public solver result |
+| StopReason | Convergence stop reason for iterative solvers (`ToleranceMet`, `MaxTimeReached`, etc.) |
+| ConvergenceResidual | Iterative solver convergence residual (separate from Kirchhoff feasibility) |
+| Iterations | Iteration or accepted-step count reported by the solver |
 
 ## Recommendations for future work
 

@@ -44,7 +44,9 @@ GetKirchhoffLinearSystem::usage = "GetKirchhoffLinearSystem[d2e] returns the ent
 MFGPreprocessing::usage = "MFGPreprocessing[Eqs] returns the association Eqs with the preliminary solution \"InitRules\" and corresponding 'reduced' \"NewSystem\"."
 
 CriticalCongestionSolver::usage = "CriticalCongestionSolver[Eqs] returns Eqs with an association \"AssoCritical\" with rules to
-the solution to the critical congestion case. Option: \"ReturnShape\" (default \"Legacy\"); use \"Standard\" to add normalized solver-result keys.";
+the solution to the critical congestion case. It returns a standardized association
+containing solver metadata, feasibility, comparison fields, and the solver-specific
+payload key \"AssoCritical\".";
 
 MFGSystemSolver::usage = "MFGSystemSolver[Eqs][edgeEquations] returns the
 association with rules to the solution";
@@ -411,15 +413,12 @@ MFGPreprocessing[Eqs_] :=
 
 (* --- CriticalCongestionSolver --- *)
 
-Options[CriticalCongestionSolver] = {"ReturnShape" -> "Legacy"};
-
 CriticalCongestionSolver[$Failed, ___] :=
     $Failed
 
-CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
-    Module[{PreEqs, js, AssoCritical, time, temp, status, returnShape,
+CriticalCongestionSolver[Eqs_] :=
+    Module[{PreEqs, js, AssoCritical, time, temp, status,
          resultKind, message, solution, comparisonData},
-        returnShape = OptionValue["ReturnShape"];
         ClearSolveCache[];
         If[KeyExistsQ[Eqs, "InitRules"],
             PreEqs = Eqs
@@ -434,33 +433,28 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
         AssoCritical = MFGSystemSolver[PreEqs][AssociationThread[js, 
             0 js]];
         status = CheckFlowFeasibility[AssoCritical];
-        If[returnShape === "Standard",
-            resultKind =
-                If[AssoCritical === Null,
-                    "Failure"
-                    ,
-                    "Success"
-                ];
-            message =
-                If[AssoCritical === Null,
-                    "NoSolution"
-                    ,
-                    None
-                ];
-            solution =
-                If[AssociationQ[AssoCritical],
-                    AssoCritical
-                    ,
-                    Missing["NotAvailable"]
-                ];
-            comparisonData = BuildSolverComparisonData[PreEqs, solution];
-            Join[PreEqs, MakeSolverResult["CriticalCongestion", resultKind,
-                 status, message, solution, Join[comparisonData, <|"AssoCritical" -> AssoCritical, "Status"
-                 -> status|>]]]
-            ,
-            Join[PreEqs, <|"AssoCritical" -> AssoCritical, "Status" ->
-                 status|>]
-        ]
+        resultKind =
+            If[AssoCritical === Null,
+                "Failure"
+                ,
+                "Success"
+            ];
+        message =
+            If[AssoCritical === Null,
+                "NoSolution"
+                ,
+                None
+            ];
+        solution =
+            If[AssociationQ[AssoCritical],
+                AssoCritical
+                ,
+                Missing["NotAvailable"]
+            ];
+        comparisonData = BuildSolverComparisonData[PreEqs, solution];
+        Join[PreEqs, MakeSolverResult["CriticalCongestion", resultKind,
+             status, message, solution, Join[comparisonData, <|"AssoCritical" -> AssoCritical, "Status"
+             -> status|>]]]
     ];
 
 (* --- MFGSystemSolver --- *)

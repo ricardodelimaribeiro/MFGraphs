@@ -40,7 +40,7 @@ SafeExecute[expr_, timeout_:300] :=
 
 ComputeResidual::usage =
 "ComputeResidual[eqs, solKey] computes the infinity-norm residual from the solver output.
-solKey should be \"AssoCritical\" or \"AssoNonCritical\".";
+solKey should be \"AssoCritical\", \"AssoNonCritical\", or \"AssoMonotone\".";
 
 ComputeResidual[eqs_Association, solKey_String:"AssoNonCritical"] :=
   Module[{sol, nlhs, nrhs},
@@ -101,6 +101,7 @@ $CaseParams = <|
   18 -> {I1 -> 80, U1 -> 0, S1 -> 2, S2 -> 1},
   104 -> {I1 -> 80, I2 -> 40},
   "triangle with two exits" -> {I1 -> 80, U1 -> 0, U2 -> 10},
+  "HRF Scenario 1" -> {I1 -> 100, I2 -> 100, U1 -> 0, U2 -> 0},
   "Paper example" -> {I1 -> 80, I2 -> 40, S1 -> 2, S2 -> 1, S3 -> 3, S4 -> 1},
   13 -> {},
   "Braess split" -> {},
@@ -120,6 +121,7 @@ $BenchmarkTiers = <|
   "small" -> {1, 2, 3, 4, 5, 6, 27},
   "core" -> {9, 10, 12, 14, 15, 18, "Paper example"},
   "stress" -> {7, 8, 11, 17, 104, "triangle with two exits"},
+  "paper" -> {"HRF Scenario 1"},
   "large" -> {13, 19, 20, 21, 22, 23, "Jamaratv9",
               "Braess split", "Braess congest", "New Braess",
               "Big Braess split", "Big Braess congest", "Grid0303"},
@@ -136,6 +138,7 @@ $TierTimeouts = <|
   "small" -> 60,
   "core" -> 300,
   "stress" -> 1800,
+  "paper" -> 1800,
   "large" -> 900,
   "vlarge" -> 1800
 |>;

@@ -371,7 +371,7 @@ JamaratScenario[params_List] :=
     Module[{data, d2e, result, exitPairs, exitFlows},
         data = GetExampleData["Jamaratv9"] /. params;
         d2e = DataToEquations[data];
-        result = Quiet @ CriticalCongestionSolver[d2e, "ReturnShape" -> "Standard"];
+        result = Quiet @ CriticalCongestionSolver[d2e];
         exitPairs = List @@@ Lookup[d2e, "exitEdges", {}];
         exitFlows = If[AssociationQ[result["Solution"]],
             AssociationThread[
@@ -449,10 +449,7 @@ criticalD2E = DataToEquations[criticalData];
 criticalLegacy = CriticalCongestionSolver[criticalD2E];
 criticalLegacy["AssoCritical"];
 
-criticalStandard = CriticalCongestionSolver[
-    criticalD2E,
-    "ReturnShape" -> "Standard"
-];
+criticalStandard = CriticalCongestionSolver[criticalD2E];
 Column[{
     DescribeOutput[
         "Critical solver solution",
@@ -529,7 +526,7 @@ Module[{potentialFunction, congestionExponentFunction, interactionFunction},
     nonlinearResult = NonLinearSolver[
         nonlinearD2E,
         "MaxIterations" -> 5,
-        "ReturnShape" -> "Standard",
+        "Tolerance" -> 10^-8,
         "PotentialFunction" -> potentialFunction,
         "CongestionExponentFunction" -> congestionExponentFunction,
         "InteractionFunction" -> interactionFunction
@@ -599,8 +596,9 @@ Module[{potentialFunction, congestionExponentFunction, interactionFunction},
     };
     monotoneResult = MonotoneSolverFromData[
         monotoneData,
-        "TimeSteps" -> 20,
-        "ReturnShape" -> "Standard",
+        "ResidualTolerance" -> 10^-6,
+        "MaxTime" -> 10,
+        "MaxSteps" -> 2000,
         "PotentialFunction" -> potentialFunction,
         "CongestionExponentFunction" -> congestionExponentFunction,
         "InteractionFunction" -> interactionFunction

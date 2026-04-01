@@ -30,27 +30,34 @@ This is InverseHessian[x] . (I - At . PseudoInverse[A . InverseHessian[x] . At] 
 
 CachedGradientProjection::usage =
 "CachedGradientProjection[x, KM, dim, At, cache] is a version of GradientProjection
-that caches the PseudoInverse result and reuses it when x has not changed significantly.
-cache must be a symbol holding a 1-element list {Null} or {<|\"x\" -> ..., \"pi\" -> ...|>}.
+that caches the projected linear solve and reuses it when x has not changed significantly.
+cache must be a symbol holding a 1-element list {Null} or
+{<|\"x\" -> ..., \"Method\" -> ..., \"Solver\" -> ...|>}.
 The function has the HoldAll attribute so that cache is passed by reference.";
 
 MonotoneSolverFromData::usage =
 "MonotoneSolverFromData[Data] solves the MFG problem from raw Data using the monotone operator method.
-Options: \"TimeSteps\" (default 100), \"UseCachedGradient\" (default True), \
-\"ReturnShape\" (default \"Legacy\"; use \"Standard\" for a normalized solver-result association), \
+Options: \"ResidualTolerance\" (default 10^-6), \"MaxTime\" (default 100), \
+\"MaxSteps\" (default 5000), \"UseCachedProjection\" (default True), \
 \"PotentialFunction\", \"CongestionExponentFunction\", and \"InteractionFunction\" \
-(default Automatic, meaning use the current global MFGraphs` definitions of V, alpha, and g).";
+(default Automatic, meaning use the current global MFGraphs` definitions of V, alpha, and g). \
+It always returns a standardized solver-result association containing solver metadata, \
+comparison fields, convergence data, and the solver-specific payload key \"AssoMonotone\".";
 
 MonotoneSolver::usage =
 "MonotoneSolver[d2e] solves the MFG problem using the monotone operator method.
-Options: \"TimeSteps\" (default 100), \"UseCachedGradient\" (default True), \
-\"ReturnShape\" (default \"Legacy\"; use \"Standard\" for a normalized solver-result association), \
+Options: \"ResidualTolerance\" (default 10^-6), \"MaxTime\" (default 100), \
+\"MaxSteps\" (default 5000), \"UseCachedProjection\" (default True), \
 \"PotentialFunction\", \"CongestionExponentFunction\", and \"InteractionFunction\" \
-(default Automatic, meaning use the current global MFGraphs` definitions of V, alpha, and g).";
+(default Automatic, meaning use the current global MFGraphs` definitions of V, alpha, and g). \
+It always returns a standardized solver-result association containing solver metadata, \
+comparison fields, convergence data, and the solver-specific payload key \"AssoMonotone\".";
 
 MonotoneSolverODE::usage =
-"MonotoneSolverODE[x0, KM, jj, cc] solves the gradient flow ODE from initial condition x0.
-Options: \"TimeSteps\" (default 100), \"UseCachedGradient\" (default True).";
+"MonotoneSolverODE[reducedState, KM, B, cc] solves the reduced Hessian Riemannian
+flow and returns an association with the reconstructed solution and convergence data.
+Options: \"ResidualTolerance\" (default 10^-6), \"MaxTime\" (default 100),
+\"MaxSteps\" (default 5000), and \"UseCachedProjection\" (default True).";
 
 MonotoneSolver::degenerate =
 "Degenerate case: no flow variables were found, so the monotone solver was skipped.";
@@ -58,16 +65,25 @@ MonotoneSolver::degenerate =
 MonotoneSolver::seedfail =
 "Failed to find an interior feasible seed for the monotone ODE solve.";
 
+MonotoneSolver::odefail =
+"The monotone ODE solve failed before a usable partial trajectory was produced.";
+
 Options[MonotoneSolverFromData] = {
-    "TimeSteps" -> 100,
-    "UseCachedGradient" -> True,
-    "ReturnShape" -> "Legacy",
+    "ResidualTolerance" -> 10^-6,
+    "MaxTime" -> 100,
+    "MaxSteps" -> 5000,
+    "UseCachedProjection" -> True,
     "PotentialFunction" -> Automatic,
     "CongestionExponentFunction" -> Automatic,
     "InteractionFunction" -> Automatic
 };
 Options[MonotoneSolver] = Options[MonotoneSolverFromData];
-Options[MonotoneSolverODE] = {"TimeSteps" -> 100, "UseCachedGradient" -> True};
+Options[MonotoneSolverODE] = {
+    "ResidualTolerance" -> 10^-6,
+    "MaxTime" -> 100,
+    "MaxSteps" -> 5000,
+    "UseCachedProjection" -> True
+};
 
 Begin["`Private`"];
 
@@ -85,16 +101,37 @@ NumberMatrixQ[A_] := NumberVectorQ@Flatten@A;
 HessianSandwich[x_?NumberVectorQ, A_, At_] := A . InverseHessian[x] . At;
 HessianSandwich[x_?NumberVectorQ, A_] := A . InverseHessian[x] . Transpose[A];
 
+BuildProjectionCacheEntry[x_?NumberVectorQ, A_, At_] :=
+  Module[{invH, sandwich, solver},
+    invH = InverseHessian[x];
+    sandwich = HessianSandwich[x, A, At];
+    solver = Quiet @ Check[LinearSolve[sandwich], $Failed];
+    If[solver === $Failed,
+      <|"x" -> x, "Method" -> "PseudoInverse", "PseudoInverse" -> PseudoInverse[sandwich]|>,
+      <|"x" -> x, "Method" -> "LinearSolve", "Solver" -> solver|>
+    ]
+  ];
+
+ProjectionOperatorFromEntry[x_?NumberVectorQ, A_, dim_Integer, At_, entry_Association] :=
+  Module[{invH, correction},
+    invH = InverseHessian[x];
+    correction = If[Lookup[entry, "Method", "PseudoInverse"] === "LinearSolve",
+      At . entry["Solver"][A . invH],
+      At . entry["PseudoInverse"] . A . invH
+    ];
+    invH . (IdentityMatrix[dim] - correction)
+  ];
+
 (* --- GradientProjection: projected gradient operator --- *)
 
 GradientProjection[x_?NumberVectorQ, A_, dim_, At_] :=
-  InverseHessian[x] . (IdentityMatrix[dim] - At . PseudoInverse[HessianSandwich[x, A, At]] . A . InverseHessian[x]);
+  ProjectionOperatorFromEntry[x, A, dim, At, BuildProjectionCacheEntry[x, A, At]];
 
 GradientProjection[x_?NumberVectorQ, A_] :=
 	Module[{dim, At},
 		dim = Length[x];
 		At = Transpose[A];
-		InverseHessian[x] . (IdentityMatrix[dim] - At . PseudoInverse[HessianSandwich[x, A, At]] . A . InverseHessian[x])
+		ProjectionOperatorFromEntry[x, A, dim, At, BuildProjectionCacheEntry[x, A, At]]
 	];
 
 (* --- CachedGradientProjection: caches PseudoInverse when x changes slowly --- *)
@@ -102,18 +139,13 @@ GradientProjection[x_?NumberVectorQ, A_] :=
 (* Other arguments are force-evaluated via Module initializers. *)
 
 CachedGradientProjection[x_, KM_, dim_, At_, cache_, tol_:10^-6] :=
-  Module[{xVal = x, KMVal = KM, dimVal = dim, AtVal = At, tolVal = tol,
-          invH, AinvHAt, pi},
-    invH = InverseHessian[xVal];
+  Module[{xVal = x, KMVal = KM, dimVal = dim, AtVal = At, tolVal = tol, entry},
     If[cache[[1]] =!= Null && Norm[xVal - cache[[1]]["x"], Infinity] < tolVal,
-      (* Reuse cached PseudoInverse *)
-      invH . (IdentityMatrix[dimVal] - AtVal . cache[[1]]["pi"] . KMVal . invH),
-      (* Recompute PseudoInverse and cache *)
-      AinvHAt = KMVal . invH . AtVal;
-      pi = PseudoInverse[AinvHAt];
-      cache[[1]] = <|"x" -> xVal, "pi" -> pi|>;
-      invH . (IdentityMatrix[dimVal] - AtVal . pi . KMVal . invH)
-    ]
+      entry = cache[[1]],
+      entry = BuildProjectionCacheEntry[xVal, KMVal, AtVal];
+      cache[[1]] = entry
+    ];
+    ProjectionOperatorFromEntry[xVal, KMVal, dimVal, AtVal, entry]
   ];
 
 (* --- BuildMonotoneStateData: shared linear state for MonotoneSolver --- *)
@@ -142,22 +174,372 @@ BuildMonotoneStateData[d2e_Association] :=
     |>
   ];
 
+ConjunctionTerms[expr_] :=
+  Which[
+    TrueQ[expr], {},
+    Head[expr] === And, List @@ expr,
+    True, {expr}
+  ];
+
+BuildMonotoneValueSystem[d2e_Association] :=
+  Module[{statePairs, pairIndex, equalityPairs, boundaryValues, transitions, switching,
+      stateCount},
+    statePairs = DeleteDuplicates @ Cases[Lookup[d2e, "us", {}], u[a_, b_] :> {a, b}];
+    stateCount = Length[statePairs];
+    If[stateCount === 0,
+      Return[<|"StateValueAssociation" -> (<||> &)|>, Module]
+    ];
+    pairIndex = AssociationThread[statePairs, Range[stateCount]];
+    equalityPairs = DeleteDuplicates @ Select[
+      Cases[
+        Join[
+          KeyValueMap[Equal, Lookup[d2e, "RuleEntryValues", <||>]],
+          ConjunctionTerms @ Lookup[d2e, "EqValueAuxiliaryEdges", True]
+        ],
+        Equal[u[a_, b_], u[c_, d_]] :> {{a, b}, {c, d}}
+      ],
+      KeyExistsQ[pairIndex, #[[1]]] && KeyExistsQ[pairIndex, #[[2]]] &
+    ];
+    boundaryValues = Association @ KeyValueMap[
+      (#1 -> N[#2]) &,
+      Lookup[d2e, "RuleExitValues", <||>]
+    ];
+    transitions = Select[
+      Lookup[d2e, "auxTriples", {}],
+      KeyExistsQ[pairIndex, #[[{1, 2}]]] && KeyExistsQ[pairIndex, #[[{2, 3}]]] &
+    ];
+    switching = Lookup[d2e, "SwitchingCosts", <||>];
+    <|
+      "StateValueAssociation" ->
+        Function[{pairCosts},
+          Module[{dist, changed, sourceIdx, targetIdx, newValue, iter = 0},
+            dist = ConstantArray[Infinity, stateCount];
+            KeyValueMap[
+              Function[{key, value},
+                If[KeyExistsQ[pairIndex, List @@ key],
+                  dist[[pairIndex[List @@ key]]] = Min[dist[[pairIndex[List @@ key]]], value]
+                ]
+              ],
+              boundaryValues
+            ];
+            While[iter < stateCount,
+              iter++;
+              changed = False;
+              Do[
+                sourceIdx = pairIndex[equality[[1]]];
+                targetIdx = pairIndex[equality[[2]]];
+                If[dist[[targetIdx]] < dist[[sourceIdx]],
+                  dist[[sourceIdx]] = dist[[targetIdx]];
+                  changed = True
+                ];
+                If[dist[[sourceIdx]] < dist[[targetIdx]],
+                  dist[[targetIdx]] = dist[[sourceIdx]];
+                  changed = True
+                ],
+                {equality, equalityPairs}
+              ];
+              Do[
+                sourceIdx = pairIndex[triple[[{1, 2}]]];
+                targetIdx = pairIndex[triple[[{2, 3}]]];
+                newValue =
+                  LookupAssociationValue[switching, triple, 0.] +
+                  LookupAssociationValue[pairCosts, triple[[{2, 3}]], 0.] +
+                  dist[[targetIdx]];
+                If[newValue < dist[[sourceIdx]],
+                  dist[[sourceIdx]] = newValue;
+                  changed = True
+                ],
+                {triple, transitions}
+              ];
+              If[!changed, Break[]]
+            ];
+            AssociationThread[u @@@ statePairs, N @ dist]
+          ]
+        ]
+    |>
+  ];
+
+LookupAssociationValue[assoc_Association, key_, default_:0.] :=
+  If[KeyExistsQ[assoc, key], assoc[key], default];
+
+BuildCriticalQuadraticEdgeModel[d2e_Association, tol_:10^-8] :=
+  Module[{edges, alphaValues, samples, slopes},
+    edges = Lookup[d2e, "edgeList", {}];
+    alphaValues = Quiet @ Check[N[alpha /@ edges], $Failed];
+    If[
+      alphaValues =!= $Failed &&
+      VectorQ[alphaValues, NumericQ] &&
+      Max[Abs[alphaValues - 1.]] <= tol,
+      Return[AssociationThread[edges, ConstantArray[1., Length[edges]]], Module]
+    ];
+    samples =
+      Quiet @ Check[
+        Table[
+          {N @ Cost[1., edge], N @ Cost[2., edge], N @ Cost[3., edge]},
+          {edge, edges}
+        ],
+        $Failed
+      ];
+    If[samples === $Failed || !MatrixQ[samples, NumericQ],
+      Return[$Failed, Module]
+    ];
+    slopes = Map[
+      Function[{vals},
+        Module[{c1, c2, c3, slope, intercept},
+          {c1, c2, c3} = vals;
+          slope = c2 - c1;
+          intercept = 2 c1 - c2;
+          If[
+            slope < -tol ||
+            Abs[intercept] > tol ||
+            Abs[(3 slope + intercept) - c3] > 10 tol,
+            Return[$Failed, Module]
+          ];
+          N @ slope
+        ]
+      ],
+      samples
+    ];
+    If[MemberQ[slopes, $Failed],
+      $Failed,
+      AssociationThread[edges, slopes]
+    ]
+  ];
+
+BuildCriticalQuadraticObjective[d2e_Association] :=
+  Module[{stateData, B, KM, jj, S, q, edgeSlopes, switching, exitRules,
+      outExitPairs, exitCostByPair, linearTerm, quadraticTerm},
+    stateData = BuildMonotoneStateData[d2e];
+    B = stateData["B"];
+    KM = stateData["KM"];
+    jj = stateData["FullVariables"];
+    If[Length[jj] === 0,
+      Return[$Failed, Module]
+    ];
+    edgeSlopes = BuildCriticalQuadraticEdgeModel[d2e];
+    If[edgeSlopes === $Failed,
+      Return[$Failed, Module]
+    ];
+    S = Normal @ stateData["SignedEdgeMatrix"];
+    q = S . jj;
+    quadraticTerm =
+      1/2 q . DiagonalMatrix[Lookup[edgeSlopes, Lookup[d2e, "edgeList", {}], 1.]] . q;
+    switching = Lookup[d2e, "SwitchingCosts", <||>];
+    exitRules = Lookup[d2e, "RuleExitValues", <||>];
+    outExitPairs = List @@@ Lookup[d2e, "exitEdges", {}];
+    exitCostByPair =
+      Association @ Table[
+        pair -> LookupAssociationValue[exitRules, u @@ pair, 0],
+        {pair, Join[outExitPairs, Reverse /@ outExitPairs]}
+      ];
+    linearTerm =
+      Total[
+        (
+          LookupAssociationValue[switching, #, 0] +
+          LookupAssociationValue[exitCostByPair, #[[{2, 3}]], 0]
+        ) (j @@ #) & /@ Lookup[d2e, "auxTriples", {}]
+      ] +
+      10^-7 Total[jj];
+    <|
+      "B" -> B,
+      "KM" -> KM,
+      "Variables" -> jj,
+      "Objective" -> quadraticTerm + linearTerm,
+      "StateData" -> stateData
+    |>
+  ];
+
+UseQuadraticCriticalBackendQ[d2e_Association] :=
+  Module[{edges, graph, degrees, maxDegree, nonzeroSwitching},
+    edges = Lookup[d2e, "edgeList", {}];
+    graph = Graph[edges];
+    degrees = VertexDegree[graph];
+    maxDegree = If[degrees === {}, 0, Max[degrees]];
+    nonzeroSwitching =
+      AnyTrue[
+        Values @ Lookup[d2e, "SwitchingCosts", <||>],
+        NumericQ[#] && !PossibleZeroQ[#] &
+      ];
+    TrueQ[AcyclicGraphQ[graph]] && (maxDegree <= 2 || !nonzeroSwitching)
+  ];
+
+BuildMonotoneComparisonData[d2e_Association, stateData_Association, solution_Association] :=
+  Module[{missing, edgeList, flowAssoc, jj, jjVals, signedVals, residual},
+    missing = Missing["NotAvailable"];
+    edgeList = Lookup[d2e, "edgeList", {}];
+    flowAssoc = Association @ KeySelect[solution, MatchQ[#, _j] &];
+    jj = stateData["FullVariables"];
+    jjVals = Lookup[flowAssoc, jj, missing];
+    signedVals =
+      If[ListQ[jjVals] && VectorQ[jjVals, NumericQ],
+        N @ (stateData["SignedEdgeMatrix"] . jjVals),
+        missing
+      ];
+    residual =
+      If[ListQ[jjVals] && VectorQ[jjVals, NumericQ],
+        N @ Norm[stateData["KM"] . jjVals - stateData["B"], Infinity],
+        missing
+      ];
+    <|
+      "ComparableEdges" -> edgeList,
+      "FlowAssociation" -> flowAssoc,
+      "SignedEdgeFlows" ->
+        If[signedVals === missing, missing, AssociationThread[edgeList, signedVals]],
+      "ComparableFlowVector" -> signedVals,
+      "KirchhoffResidual" -> residual
+    |>
+  ];
+
+BuildReducedKirchhoffMetadata[stateData_Association] :=
+  Module[{KM, S, fullDim, kmRank, stackedRank},
+    KM = Normal @ Lookup[stateData, "KM", {}];
+    S = Normal @ Lookup[stateData, "SignedEdgeMatrix", {}];
+    fullDim = Length @ Lookup[stateData, "FullVariables", {}];
+    If[fullDim === 0,
+      Return[
+        <|
+          "ReducedStateDimension" -> 0,
+          "FullStateDimension" -> 0,
+          "CostInvisibleDimension" -> 0
+        |>,
+        Module
+      ]
+    ];
+    kmRank = MatrixRank[KM];
+    stackedRank = MatrixRank[Join[KM, S]];
+    <|
+      "ReducedStateDimension" -> Max[0, stackedRank - kmRank],
+      "FullStateDimension" -> fullDim,
+      "CostInvisibleDimension" -> Max[0, fullDim - stackedRank]
+    |>
+  ];
+
+CleanCriticalQuadraticSolution[model_Association, rawSolution_List] :=
+  Module[{vars, S, qTarget, cleaned},
+    vars = model["Variables"];
+    S = Normal @ model["StateData"]["SignedEdgeMatrix"];
+    qTarget = N @ (S . (vars /. rawSolution));
+    cleaned =
+      Quiet @ Check[
+        LinearOptimization[
+          Total[vars],
+          Join[
+            Thread[Normal[model["KM"]] . vars == Normal[model["B"]]],
+            Thread[S . vars == qTarget],
+            Thread[vars >= 0]
+          ],
+          vars
+        ],
+        $Failed
+      ];
+    If[MatchQ[cleaned, {_Rule ..}], cleaned, rawSolution]
+  ];
+
+TryCriticalQuadraticMonotoneSolve[d2e_Association, residualTolerance_:10^-6] :=
+  Module[{model, vars, rawSolution, time, solution, comparisonData, status,
+      reducedMetadata, convergenceData, resultKind, message, optimizer},
+    model = BuildCriticalQuadraticObjective[d2e];
+    If[model === $Failed,
+      Return[$Failed, Module]
+    ];
+    vars = model["Variables"];
+    reducedMetadata = BuildReducedKirchhoffMetadata[model["StateData"]];
+    optimizer = If[UseQuadraticCriticalBackendQ[d2e], QuadraticOptimization, ConvexOptimization];
+    {time, rawSolution} =
+      AbsoluteTiming @ Quiet @ Check[
+        optimizer[
+          model["Objective"],
+          Join[
+            Thread[Normal[model["KM"]] . vars == Normal[model["B"]]],
+            Thread[vars >= 0]
+          ],
+          vars
+        ],
+        $Failed
+      ];
+    If[!MatchQ[rawSolution, {_Rule ..}],
+      Return[$Failed, Module]
+    ];
+    solution = AssociationThread[vars, N[vars /. rawSolution]];
+    comparisonData = BuildMonotoneComparisonData[d2e, model["StateData"], solution];
+    status = CheckFlowFeasibility[solution];
+    convergenceData = <|
+      "StopReason" -> "QuadraticCriticalSolve",
+      "FinalResidual" -> Lookup[comparisonData, "KirchhoffResidual", Missing["NotAvailable"]],
+      "Iterations" -> 0,
+      "SolveTime" -> time,
+      "SeedMethod" -> "QuadraticCriticalSolve"
+    |>;
+    resultKind =
+      If[
+        status === "Feasible" &&
+        NumericQ[Lookup[comparisonData, "KirchhoffResidual", Missing["NotAvailable"]]] &&
+        Lookup[comparisonData, "KirchhoffResidual", Infinity] <= residualTolerance,
+        "Success",
+        "NonConverged"
+      ];
+    message = If[resultKind === "Success", None, "QuadraticCriticalSolveFailed"];
+    MakeSolverResult[
+      "Monotone",
+      resultKind,
+      status,
+      message,
+      solution,
+      Join[
+        comparisonData,
+        reducedMetadata,
+        <|
+          "AssoMonotone" -> solution,
+          "Convergence" -> convergenceData
+        |>
+      ]
+    ]
+  ];
+
+MonotoneVariableFieldValue[var_, values_Association, switching_Association] :=
+  Replace[
+    var,
+    {
+      j[r_, i_, w_] :> N @ (
+        LookupAssociationValue[switching, {r, i, w}, 0] +
+        LookupAssociationValue[values, u[i, w], 0.] +
+        LookupAssociationValue[values["PairCosts"], {i, w}, 0.]
+      ),
+      j[a_, b_] :> N @ (
+        LookupAssociationValue[values, u[a, b], 0.] +
+        LookupAssociationValue[values["PairCosts"], {a, b}, 0.]
+      )
+    }
+  ];
+
 (* Exact affine reduction x = x0 + N . theta for the Kirchhoff manifold.
-   This does not yet implement the paper's edge-current reduction, but it gives
-   a minimal state dimension and lossless reconstruction of the full j[...] state. *)
+   We quotient out directions that are invisible to signed edge flows, so the
+   reduced state matches the observable stationary problem much more closely. *)
 BuildReducedKirchhoffCoordinates[d2e_Association, basePoint_:Automatic] :=
-  Module[{stateData, KM, jj, S, nullBasis, basisMatrix, dim, baseVec, edgeOffset,
-      edgeBasis, invisibleDim, signedEdgeRows},
+  Module[{stateData, KM, jj, S, nullBasis, invisibleBasis, visibleBasis,
+      removeInvisible, basisMatrix, dim, baseVec, edgeOffset, edgeBasis,
+      invisibleDim, signedEdgeRows, tol = 10^-10},
     stateData = BuildMonotoneStateData[d2e];
     KM = stateData["KM"];
     jj = stateData["FullVariables"];
     S = stateData["SignedEdgeMatrix"];
-    nullBasis = NullSpace[Normal[KM]];
-    basisMatrix = If[nullBasis === {},
-      ConstantArray[0., {Length[jj], 0}],
-      N @ Transpose[nullBasis]
+    nullBasis = N @ Orthogonalize[NullSpace[Normal[KM]]];
+    invisibleBasis = N @ Orthogonalize[NullSpace[Join[Normal[KM], Normal[S]]]];
+    removeInvisible[v_] :=
+      Fold[#1 - (#1.#2) #2 &, v, invisibleBasis];
+    visibleBasis = If[nullBasis === {},
+      {},
+      If[invisibleBasis === {},
+        nullBasis,
+        Orthogonalize @ Select[removeInvisible /@ nullBasis, Norm[#] > tol &]
+      ]
     ];
-    dim = If[MatrixQ[basisMatrix], Last @ Dimensions[basisMatrix], 0];
+    visibleBasis = Select[visibleBasis, Norm[#] > tol &];
+    basisMatrix = If[visibleBasis === {},
+      ConstantArray[0., {Length[jj], 0}],
+      N @ Transpose[visibleBasis]
+    ];
+    dim = Length[visibleBasis];
     baseVec = Which[
       basePoint === Automatic && Length[jj] === 0, {},
       basePoint === Automatic, Quiet @ Check[
@@ -178,10 +560,7 @@ BuildReducedKirchhoffCoordinates[d2e_Association, basePoint_:Automatic] :=
       ConstantArray[0., {0, dim}],
       If[MatrixQ[basisMatrix], N @ (S . basisMatrix), Missing["NotAvailable"]]
     ];
-    invisibleDim = If[signedEdgeRows === 0,
-      Length[NullSpace[Normal[KM]]],
-      Length[NullSpace[Join[Normal[KM], Normal[S]]]]
-    ];
+    invisibleDim = Length[invisibleBasis];
     <|
       "BasePoint" -> baseVec,
       "BasisMatrix" -> basisMatrix,
@@ -200,33 +579,104 @@ ReducedKirchhoffVector[reduced_Association, theta_?NumberVectorQ] :=
 ReducedKirchhoffAssociation[reduced_Association, theta_?NumberVectorQ] :=
   AssociationThread[reduced["FullVariables"], ReducedKirchhoffVector[reduced, theta]];
 
-(* --- BuildMonotoneField: lifted edge-cost field on Kirchhoff variables --- *)
-(* 
-   This function constructs the vector field for the HRF method by "lifting" 
-   microscopic edge costs to the reduced transition-flow space (the ϑ vector 
-   from the HRF paper).
-   
-   Returns {jj, fieldFn} where fieldFn[x_?NumberVectorQ] gives S^T . c(S . x). 
-   Here S is the sparsity matrix mapping transition flows to signed edge flows.
+(* --- BuildMonotoneField: total cost-to-go field on Kirchhoff variables --- *)
+(*
+   The stationary system chooses transitions by downstream value, not by local
+   edge cost alone. On branching networks, a purely lifted edge-cost field sends
+   mass to the locally cheaper branch even when the exit-value equations imply a
+   different total cost-to-go. We therefore rebuild the Monotone field from the
+   linear u-system induced by the current signed edge costs.
 *)
 
+BuildMonotonePairCostAssociation[halfPairs_List, edgeList_List, q_?NumberVectorQ] :=
+  Association @ Flatten @ MapThread[
+    Function[{pair, edge, flow},
+      With[{cost = If[PossibleZeroQ[flow], 0., N @ Cost[Abs[flow], edge]]},
+        {pair -> cost, Reverse[pair] -> cost}
+      ]
+    ],
+    {halfPairs, edgeList, q}
+  ];
+
 BuildMonotoneField[d2e_Association] :=
-  Module[{stateData, jj, halfPairs, S, fieldFn},
+  Module[{stateData, valueSystem, jj, halfPairs, edgeList, S, switching, fieldFn},
     stateData = BuildMonotoneStateData[d2e];
+    valueSystem = BuildMonotoneValueSystem[d2e];
     jj = stateData["FullVariables"];
-    If[Length[jj] === 0, Return[{jj, (0 * # &)}, Module]];
+    If[Length[jj] === 0, Return[{jj, (0 * # &)}]];
     halfPairs = stateData["HalfPairs"];
-    If[Length[halfPairs] === 0, Return[{jj, (0 * # &)}, Module]];
+    If[Length[halfPairs] === 0, Return[{jj, (0 * # &)}]];
+    edgeList = Lookup[d2e, "edgeList", {}];
     S = stateData["SignedEdgeMatrix"];
-    fieldFn[x_?NumberVectorQ] := Module[{q, c},
+    switching = Lookup[d2e, "SwitchingCosts", <||>];
+    fieldFn[x_?NumberVectorQ] := Module[{q, pairCosts, stateValues, values},
       q = S . x;
-      c = MapThread[
-        If[PossibleZeroQ[#1], 0., Sign[#1] Cost[#1, #2]] &,
-        {q, halfPairs}
-      ];
-      Transpose[S] . c
+      pairCosts = BuildMonotonePairCostAssociation[halfPairs, edgeList, q];
+      stateValues = valueSystem["StateValueAssociation"][pairCosts];
+      values = Join[stateValues, <|"PairCosts" -> pairCosts|>];
+      MonotoneVariableFieldValue[#, values, switching] & /@ jj
     ];
     {jj, fieldFn}
+  ];
+
+BuildReducedMonotoneDynamics[reduced_Association, KM_, B_, cc_, useCache_:True] :=
+  Module[{basis, basePoint, dim, edgeOffset, edgeBasis, fullState, edgeState,
+      reducedMetric, reducedSolve,
+      fullDirection, reducedDirection, residualData},
+    basis = reduced["BasisMatrix"];
+    basePoint = reduced["BasePoint"];
+    dim = reduced["StateDimension"];
+    edgeOffset = reduced["SignedEdgeOffset"];
+    edgeBasis = reduced["SignedEdgeBasis"];
+    fullState[theta_?NumberVectorQ] :=
+      If[dim === 0, basePoint, basePoint + basis . theta];
+    edgeState[theta_?NumberVectorQ] :=
+      If[dim === 0, edgeOffset, edgeOffset + edgeBasis . theta];
+    reducedMetric[q_?NumberVectorQ] := Transpose[edgeBasis] . Hess[q] . edgeBasis;
+    reducedSolve[q_?NumberVectorQ, rhs_?NumberVectorQ] :=
+      Module[{metric, solver},
+        metric = reducedMetric[q];
+        solver = Quiet @ Check[LinearSolve[metric], $Failed];
+        If[solver === $Failed,
+          -PseudoInverse[metric] . rhs,
+          -solver[rhs]
+        ]
+      ];
+    reducedDirection[theta_?NumberVectorQ] :=
+      Module[{x, q},
+        x = fullState[theta];
+        q = edgeState[theta];
+        If[dim === 0, {}, reducedSolve[q, Transpose[basis] . cc[x]]]
+      ];
+    fullDirection[theta_?NumberVectorQ] :=
+      If[dim === 0,
+        ConstantArray[0., Length[basePoint]],
+        basis . reducedDirection[theta]
+      ];
+    residualData[theta_?NumberVectorQ] :=
+      Module[{x, q, direction, reducedDir, stationarity, fullStationarity, kirchhoff},
+        x = fullState[theta];
+        q = edgeState[theta];
+        reducedDir = reducedDirection[theta];
+        direction = fullDirection[theta];
+        stationarity = If[Length[reducedDir] === 0, 0., N @ Norm[reducedDir, Infinity]];
+        fullStationarity = If[Length[direction] === 0, 0., N @ Norm[direction, Infinity]];
+        kirchhoff = N @ Norm[KM . x - B, Infinity];
+        <|
+          "Solution" -> AssociationThread[reduced["FullVariables"], x],
+          "StationarityResidual" -> stationarity,
+          "FullStationarityResidual" -> fullStationarity,
+          "KirchhoffResidual" -> kirchhoff,
+          "FinalResidual" -> Max[stationarity, kirchhoff],
+          "MinFlow" -> If[Length[q] === 0, Infinity, N @ Min[q]]
+        |>
+      ];
+    <|
+      "StateDimension" -> dim,
+      "FullState" -> fullState,
+      "ReducedDirection" -> reducedDirection,
+      "ResidualData" -> residualData
+    |>
   ];
 
 (* --- MonotoneSolver --- *)
@@ -246,10 +696,11 @@ MonotoneSolver[d2e_, opts:OptionsPattern[]] :=
 			potentialFunction,
 			congestionExponentFunction,
 			interactionFunction,
-				Module[{stateData, reducedState, B, KM, jj, cc, x0, result, returnShape, solution,
-				    missingSolution, comparisonData, reducedMetadata},
-					returnShape = OptionValue["ReturnShape"];
+				Module[{stateData, reducedState, B, KM, jj, cc, x0, result, solution, odeResult,
+				    missingSolution, comparisonData, reducedMetadata, convergenceData,
+                    resultKind, message, residualTolerance, status},
 					missingSolution = Missing["NotAvailable"];
+                    residualTolerance = N @ OptionValue["ResidualTolerance"];
 					stateData = BuildMonotoneStateData[d2e];
 					B = stateData["B"];
 					KM = stateData["KM"];
@@ -257,95 +708,229 @@ MonotoneSolver[d2e_, opts:OptionsPattern[]] :=
 					(* Guard: skip MonotoneSolver for degenerate cases with no flow variables *)
 					If[Length[jj] === 0,
 						Message[MonotoneSolver::degenerate];
+                        comparisonData = BuildSolverComparisonData[d2e, missingSolution];
+                        convergenceData = <|
+                            "StopReason" -> "DegenerateCase",
+                            "FinalResidual" -> Missing["NotApplicable"],
+                            "Iterations" -> 0,
+                            "SolveTime" -> 0.,
+                            "SeedMethod" -> "NotApplicable"
+                        |>;
 						Return[
-							If[returnShape === "Standard",
-								comparisonData = BuildSolverComparisonData[d2e, missingSolution];
-								MakeSolverResult[
-									"Monotone",
-									"Degenerate",
-									Missing["NotApplicable"],
-									"DegenerateCase",
-									missingSolution,
-									Join[comparisonData, <|"AssoMonotone" -> missingSolution|>]
-								],
-								<|"Message" -> "Degenerate case"|>
-							],
-						Module
+							MakeSolverResult[
+								"Monotone",
+								"Degenerate",
+								Missing["NotApplicable"],
+								"DegenerateCase",
+								missingSolution,
+								Join[comparisonData, <|
+                                    "AssoMonotone" -> missingSolution,
+                                    "Convergence" -> convergenceData
+                                |>]
+								]
 					]
-				];
-				(* Build the lifted edge-cost field *)
-				{jj, cc} = BuildMonotoneField[d2e];
-				(* Find numerically interior feasible seed *)
-				result = Quiet @ Check[
-					First @ FindInstance[KM . jj == B && And @@ ((# >= 10^-8) & /@ jj), jj, Reals],
+					];
+					(* Build the lifted edge-cost field *)
+                    result = TryCriticalQuadraticMonotoneSolve[d2e, residualTolerance];
+                    If[AssociationQ[result],
+                        Return[result]
+                    ];
+					{jj, cc} = BuildMonotoneField[d2e];
+					(* Find numerically interior feasible seed *)
+					result = Quiet @ Check[
+						First @ FindInstance[KM . jj == B && And @@ ((# >= 10^-8) & /@ jj), jj, Reals],
 					$Failed
 				];
 					If[result === $Failed,
 						Message[MonotoneSolver::seedfail];
+                        comparisonData = BuildSolverComparisonData[d2e, missingSolution];
+                        convergenceData = <|
+                            "StopReason" -> "SeedFindInstanceFailed",
+                            "FinalResidual" -> Missing["NotApplicable"],
+                            "Iterations" -> 0,
+                            "SolveTime" -> 0.,
+                            "SeedMethod" -> "InteriorFindInstance"
+                        |>;
 						Return[
-							If[returnShape === "Standard",
-								comparisonData = BuildSolverComparisonData[d2e, missingSolution];
-								MakeSolverResult[
-									"Monotone",
-									"Failure",
-									Missing["NotApplicable"],
-									"SeedFindInstanceFailed",
-									missingSolution,
-									Join[comparisonData, <|"AssoMonotone" -> missingSolution|>]
-								],
-								Null
-							],
-						Module
+							MakeSolverResult[
+								"Monotone",
+								"Failure",
+								Missing["NotApplicable"],
+								"SeedFindInstanceFailed",
+								missingSolution,
+								Join[comparisonData, <|
+                                    "AssoMonotone" -> missingSolution,
+                                    "Convergence" -> convergenceData
+                                |>]
+								]
 					]
 				];
 				x0 = N[jj /. result];
+                    reducedState = BuildReducedKirchhoffCoordinates[d2e, x0];
 				(* No edges → zero cost field → feasible point is already the solution *)
-				solution = If[Length[Lookup[d2e, "edgeList", {}]] === 0,
-					AssociationThread[jj, x0],
-						MonotoneSolverODE[x0, KM, jj, cc, FilterRules[{opts}, Options[MonotoneSolverODE]]]
+				odeResult = If[Length[Lookup[d2e, "edgeList", {}]] === 0,
+					<|
+                            "Solution" -> AssociationThread[jj, x0],
+                            "Convergence" -> <|
+                                "StopReason" -> "ResidualToleranceMet",
+                                "FinalResidual" -> 0.,
+                                "Iterations" -> 0,
+                                "SolveTime" -> 0.,
+                                "SeedMethod" -> "InteriorFindInstance"
+                            |>
+                        |>,
+						MonotoneSolverODE[reducedState, KM, B, cc, FilterRules[{opts}, Options[MonotoneSolverODE]]]
 					];
-					If[returnShape === "Standard",
-						reducedState = BuildReducedKirchhoffCoordinates[d2e, x0];
-						comparisonData = BuildSolverComparisonData[d2e, solution];
-						reducedMetadata = <|
-							"ReducedStateDimension" -> reducedState["StateDimension"],
-							"FullStateDimension" -> reducedState["FullDimension"],
-							"CostInvisibleDimension" -> reducedState["CostInvisibleDimension"]
-						|>;
-						MakeSolverResult[
-							"Monotone",
-							"Success",
-							Missing["NotApplicable"],
-							None,
-							solution,
-							Join[comparisonData, reducedMetadata, <|"AssoMonotone" -> solution|>]
-						],
-						solution
+                    solution = Lookup[odeResult, "Solution", missingSolution];
+                    convergenceData = Lookup[odeResult, "Convergence",
+                        <|
+                            "StopReason" -> "ODEFailure",
+                            "FinalResidual" -> Missing["NotAvailable"],
+                            "Iterations" -> 0,
+                            "SolveTime" -> 0.,
+                            "SeedMethod" -> "InteriorFindInstance"
+                        |>
+                    ];
+                    If[MissingQ[solution],
+                        Message[MonotoneSolver::odefail];
+                        comparisonData = BuildSolverComparisonData[d2e, missingSolution];
+                        Return[
+                            MakeSolverResult[
+                                "Monotone",
+                                "Failure",
+                                Missing["NotApplicable"],
+                                "ODEFailure",
+                                missingSolution,
+                                Join[comparisonData, <|
+                                    "AssoMonotone" -> missingSolution,
+                                    "Convergence" -> convergenceData
+                                |>]
+                            ]
+                        ]
+                    ];
+					comparisonData = BuildSolverComparisonData[d2e, solution];
+                    status = CheckFlowFeasibility[solution];
+                    resultKind =
+                        If[
+                            status === "Feasible" &&
+                            NumericQ[Lookup[convergenceData, "FinalResidual", Missing["NotAvailable"]]] &&
+                            Lookup[convergenceData, "FinalResidual", Infinity] <= residualTolerance &&
+                            NumericQ[Lookup[comparisonData, "KirchhoffResidual", Missing["NotAvailable"]]] &&
+                            Lookup[comparisonData, "KirchhoffResidual", Infinity] <= residualTolerance,
+                            "Success",
+                            "NonConverged"
+                        ];
+                    message =
+                        Which[
+                            resultKind === "Success", None,
+                            status =!= "Feasible", "InfeasibleProjectedSolution",
+                            True, Lookup[convergenceData, "StopReason", "NonConverged"]
+                        ];
+					reducedMetadata = <|
+						"ReducedStateDimension" -> reducedState["StateDimension"],
+						"FullStateDimension" -> reducedState["FullDimension"],
+						"CostInvisibleDimension" -> reducedState["CostInvisibleDimension"]
+					|>;
+					MakeSolverResult[
+						"Monotone",
+						resultKind,
+						status,
+						message,
+						solution,
+						Join[comparisonData, reducedMetadata, <|
+                            "AssoMonotone" -> solution,
+                            "Convergence" -> convergenceData
+                        |>]
 					]
 			]
 		]
 	];
 
-MonotoneSolverODE[x0_, KM_, jj_, cc_, opts:OptionsPattern[]] :=
-	Module[{At, dim, sol, x, xx, n, useCache, piCache, gradFn},
-		n = OptionValue["TimeSteps"];
-		useCache = OptionValue["UseCachedGradient"];
-		At = Transpose[KM];
-		dim = Length[x0];
-
-		If[useCache,
-			(* CachedGradientProjection has HoldAll; piCache is passed by reference *)
-			piCache = {Null};
-			gradFn[xv_?NumberVectorQ] := CachedGradientProjection[xv, KM, dim, At, piCache],
-			(* Use original uncached version *)
-			gradFn[xv_?NumberVectorQ] := GradientProjection[xv, KM, dim, At]
-		];
-
-		sol = NDSolve[
-			x'[t] == -gradFn[x[t]] . cc[x[t]] && x[0] == x0,
-			x[t], {t, 0, n}, Method -> "BDF"];
-		xx = Table[x[t] /. sol[[1]], {t, 1, n, 1}];
-		AssociationThread[jj, Last[xx]]
+MonotoneSolverODE[reduced_Association, KM_, B_, cc_, opts:OptionsPattern[]] :=
+	Module[{residualTolerance, maxTime, maxSteps, useCache, dynamics, dim, theta0,
+        iterations = 0, stopReason = None, solveTime, sol, messages, endTime, thetaEnd,
+        finalData, convergenceData},
+		residualTolerance = N @ OptionValue["ResidualTolerance"];
+        maxTime = N @ OptionValue["MaxTime"];
+		maxSteps = OptionValue["MaxSteps"];
+		useCache = OptionValue["UseCachedProjection"];
+        dynamics = BuildReducedMonotoneDynamics[reduced, KM, B, cc, useCache];
+        dim = dynamics["StateDimension"];
+        theta0 = ConstantArray[0., dim];
+        If[dim === 0,
+            finalData = dynamics["ResidualData"][theta0];
+            convergenceData = <|
+                "StopReason" -> If[finalData["FinalResidual"] <= residualTolerance, "ResidualToleranceMet", "NoDegreesOfFreedom"],
+                "FinalResidual" -> finalData["FinalResidual"],
+                "Iterations" -> 0,
+                "SolveTime" -> 0.,
+                "SeedMethod" -> "InteriorFindInstance"
+            |>;
+            Return[<|"Solution" -> finalData["Solution"], "Convergence" -> convergenceData|>]
+        ];
+        {solveTime, sol} = AbsoluteTiming[
+            Block[{$MessageList = {}},
+                iterations = 0;
+                sol = Quiet[
+                    NDSolveValue[
+                        {
+                            theta'[t] == dynamics["ReducedDirection"][theta[t]],
+                            theta[0] == theta0,
+                            WhenEvent[
+                                dynamics["ResidualData"][theta[t]]["FinalResidual"] <= residualTolerance,
+                                {stopReason = "ResidualToleranceMet", "StopIntegration"}
+                            ],
+                            WhenEvent[
+                                dynamics["ResidualData"][theta[t]]["MinFlow"] <= 10^-10,
+                                {If[stopReason === None, stopReason = "BoundaryHit"], "StopIntegration"}
+                            ]
+                        },
+                        theta,
+                        {t, 0, maxTime},
+                        Method -> "BDF",
+                        MaxSteps -> maxSteps,
+                        StepMonitor :> (iterations++)
+                    ],
+                    {NDSolveValue::mxst}
+                ];
+                messages = $MessageList;
+                sol
+            ]
+        ];
+        If[Head[sol] =!= InterpolatingFunction,
+            Return[
+                <|
+                    "Solution" -> Missing["NotAvailable"],
+                    "Convergence" -> <|
+                        "StopReason" -> "ODEFailure",
+                        "FinalResidual" -> Missing["NotAvailable"],
+                        "Iterations" -> iterations,
+                        "SolveTime" -> solveTime,
+                        "SeedMethod" -> "InteriorFindInstance"
+                    |>
+                |>
+            ]
+        ];
+        endTime = Last @ Last[sol["Domain"]];
+        thetaEnd = N @ sol[endTime];
+        finalData = dynamics["ResidualData"][thetaEnd];
+        If[stopReason === None,
+            stopReason = Which[
+                NumericQ[finalData["FinalResidual"]] && finalData["FinalResidual"] <= residualTolerance, "ResidualToleranceMet",
+                IntegerQ[maxSteps] && iterations >= maxSteps, "MaxStepsReached",
+                MemberQ[messages, HoldForm[MessageName[NDSolveValue, mxst]]], "MaxStepsReached",
+                endTime >= maxTime - 10^-8, "MaxTimeReached",
+                True, "Stopped"
+            ]
+        ];
+        convergenceData = <|
+            "StopReason" -> stopReason,
+            "FinalResidual" -> finalData["FinalResidual"],
+            "Iterations" -> iterations,
+            "SolveTime" -> solveTime,
+            "SeedMethod" -> "InteriorFindInstance"
+        |>;
+        <|"Solution" -> finalData["Solution"], "Convergence" -> convergenceData|>
 	];
 
 End[];

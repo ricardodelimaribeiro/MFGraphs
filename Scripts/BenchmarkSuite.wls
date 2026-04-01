@@ -1,4 +1,4 @@
-(* Usage: wolframscript -file Scripts/BenchmarkSuite.wls [tier] [case=key] [timeout=seconds] [tag=label] *)
+(* Usage: wolframscript -file Scripts/BenchmarkSuite.wls [tier] [case=key] [timeout=seconds] [tag=label] [rationale=...] [changes=...] [interpretation=...] *)
 (* tier: "small", "core", "stress", "large", "vlarge", legacy "medium", or "all" (default: "all") *)
 
 (* :!CodeAnalysis::Disable::SuspiciousSessionSymbol::Print *)
@@ -26,6 +26,9 @@ NormalizeCaseArg[arg_String] := If[StringMatchQ[arg, NumberString], ToExpression
 NormalizeCaseArg[arg_] := arg;
 
 $HistoryTag = None;
+$HistoryRationale = None;
+$HistoryChanges = None;
+$HistoryInterpretation = None;
 $SelectedTier = "all";
 $SelectedCase = All;
 $TimeoutOverride = Automatic;
@@ -37,6 +40,15 @@ Module[{args = Rest[$ScriptCommandLine], i = 1, arg, parsedTimeout},
       "--tag",
         i++;
         $HistoryTag = If[i <= Length[args], args[[i]], "untagged"],
+      "--rationale",
+        i++;
+        If[i <= Length[args], $HistoryRationale = args[[i]]],
+      "--changes",
+        i++;
+        If[i <= Length[args], $HistoryChanges = args[[i]]],
+      "--interpretation",
+        i++;
+        If[i <= Length[args], $HistoryInterpretation = args[[i]]],
       "--case",
         i++;
         If[i <= Length[args], $SelectedCase = NormalizeCaseArg[args[[i]]]],
@@ -57,6 +69,12 @@ Module[{args = Rest[$ScriptCommandLine], i = 1, arg, parsedTimeout},
         ],
       _ /; StringStartsQ[arg, "tag="],
         $HistoryTag = StringDrop[arg, StringLength["tag="]],
+      _ /; StringStartsQ[arg, "rationale="],
+        $HistoryRationale = StringDrop[arg, StringLength["rationale="]],
+      _ /; StringStartsQ[arg, "changes="],
+        $HistoryChanges = StringDrop[arg, StringLength["changes="]],
+      _ /; StringStartsQ[arg, "interpretation="],
+        $HistoryInterpretation = StringDrop[arg, StringLength["interpretation="]],
       _,
         If[!StringStartsQ[arg, "--"], $SelectedTier = arg]
     ];
@@ -72,6 +90,11 @@ If[$RequestedTier =!= $SelectedTier, Print["Requested alias: ", $RequestedTier]]
 If[$SelectedCase =!= All, Print["Selected case: ", $SelectedCase]];
 If[NumericQ[$TimeoutOverride], Print["Timeout override: ", $TimeoutOverride, "s"]];
 If[$HistoryTag =!= None, Print["History tag:   ", $HistoryTag]];
+If[$HistoryTag =!= None &&
+   MemberQ[{$HistoryRationale, $HistoryChanges, $HistoryInterpretation}, None],
+  Print["History entries require explicit rationale, changes, and interpretation text."];
+  Exit[2]
+];
 Print["Subkernels:    ", $KernelCount, " (of ", $ProcessorCount, " processors)"];
 Print[];
 
@@ -89,27 +112,19 @@ GetTier[key_] := SelectFirst[Keys[$BenchmarkTiers], MemberQ[$BenchmarkTiers[#], 
 (* --- Benchmark a single case with a single solver --- *)
 
 BenchmarkOneSolver[key_, tier_String, solverName_String, d2e_Association, timeout_?NumericQ] :=
-  Module[{result, meta, residual = Missing["N/A"], equationResidual = Missing["N/A"]},
+  Module[{result, meta, residual = Missing["N/A"], equationResidual = Missing["N/A"],
+      convergence, stopReason = Missing["N/A"], convergenceResidual = Missing["N/A"],
+      iterations = Missing["N/A"]},
     meta = GraphMetadata[d2e];
     Print["  Solver: ", solverName, " (timeout: ", timeout, "s)"];
 
     result = Switch[solverName,
       "CriticalCongestion",
-        SafeExecute[CriticalCongestionSolver[d2e, "ReturnShape" -> "Standard"], timeout],
+        SafeExecute[CriticalCongestionSolver[d2e], timeout],
       "NonLinearSolver",
-        Module[{critResult},
-          (* NonLinearSolver needs critical solution first *)
-          critResult = SafeExecute[CriticalCongestionSolver[d2e, "ReturnShape" -> "Standard"], timeout];
-          If[critResult["Status"] === "OK",
-            Block[{V = Function[{x, edge}, 0]},
-              SafeExecute[NonLinearSolver[critResult["Result"], "ReturnShape" -> "Standard"], timeout]
-            ],
-            <|"Time" -> 0, "Memory" -> 0, "Status" -> "SKIPPED",
-              "Result" -> "Critical solver failed"|>
-          ]
-        ],
+        SafeExecute[NonLinearSolver[d2e], timeout],
       "Monotone",
-        SafeExecute[MonotoneSolver[d2e, "ReturnShape" -> "Standard"], timeout],
+        SafeExecute[MonotoneSolver[d2e], timeout],
       _,
         <|"Time" -> 0, "Memory" -> 0, "Status" -> "SKIPPED", "Result" -> "Unknown solver"|>
     ];
@@ -117,10 +132,16 @@ BenchmarkOneSolver[key_, tier_String, solverName_String, d2e_Association, timeou
     (* Compute residual for successful solves *)
     If[result["Status"] === "OK" && AssociationQ[result["Result"]],
       residual = Lookup[result["Result"], "KirchhoffResidual", Missing["N/A"]];
+      convergence = Lookup[result["Result"], "Convergence", Missing["N/A"]];
+      If[AssociationQ[convergence],
+        stopReason = Lookup[convergence, "StopReason", Missing["N/A"]];
+        convergenceResidual = Lookup[convergence, "FinalResidual", Missing["N/A"]];
+        iterations = Lookup[convergence, "Iterations", Missing["N/A"]];
+      ];
       equationResidual = Switch[solverName,
-        "CriticalCongestion", ComputeResidual[result["Result"], "AssoCritical"],
-        "NonLinearSolver", ComputeResidual[result["Result"], "AssoNonCritical"],
-        "Monotone", Missing["N/A"],
+        "CriticalCongestion", ComputeResidual[Join[d2e, result["Result"]], "AssoCritical"],
+        "NonLinearSolver", ComputeResidual[Join[d2e, result["Result"]], "AssoNonCritical"],
+        "Monotone", ComputeResidual[Join[d2e, result["Result"]], "AssoMonotone"],
         _, Missing["N/A"]
       ]
     ];
@@ -144,6 +165,9 @@ BenchmarkOneSolver[key_, tier_String, solverName_String, d2e_Association, timeou
       "Status" -> result["Status"],
       "Residual" -> residual,
       "EquationResidual" -> equationResidual,
+      "StopReason" -> stopReason,
+      "ConvergenceResidual" -> convergenceResidual,
+      "Iterations" -> iterations,
       "Timestamp" -> DateString[]
     |>
   ];
@@ -315,13 +339,13 @@ If[$HistoryTag =!= None,
       tierTables,
       "",
       "#### Rationale",
-      "_" <> $HistoryTag <> "_",
+      $HistoryRationale,
       "",
       "#### Changes",
-      "_Describe the code or benchmark configuration change being measured in this run._",
+      $HistoryChanges,
       "",
       "#### Interpretation",
-      "_Summarize the main performance signal, regressions, or follow-up actions from this run._",
+      $HistoryInterpretation,
       ""
     }, "\n"];
 
