@@ -1,6 +1,6 @@
 # MFGraphs: A Development History
 
-*A chronicle of 521 commits across six years — from a research prototype to a production-grade Mean Field Games solver.*
+*A chronicle of 572 commits across six years — from a research prototype to a production-grade Mean Field Games solver.*
 
 ---
 
@@ -152,7 +152,7 @@ Then silence again — 9 months — until March 2026.
 
 ### The transformation
 
-On **March 1, 2026**, the repository underwent a transformation so dramatic that it deserves its own chapter. In 16 days, 18 pull requests were merged — more structured development than the previous five and a half years combined.
+On **March 1, 2026**, the repository underwent a transformation so dramatic that it deserves its own chapter. What began as a 16-day burst of 18 pull requests did not stop there: by **March 31, 2026**, 34 pull requests had been merged that month, turning an emergency professionalization sprint into a full-month engineering campaign.
 
 This wasn't gradual improvement. It was a deliberate, intensive effort to convert a research codebase into a properly engineered package.
 
@@ -238,6 +238,22 @@ Amid the bug fixes, a genuine mathematical advance: the MonotoneSolver was upgra
 ### PR #18: Solver contracts and test runner (March 16)
 
 The final PR of this period normalized the return format across all three solvers via a `"ReturnShape" -> "Standard"` option, created a comprehensive test runner (`RunTests.wls` with fast/slow/all tiers), and added solver contract tests verifying return format compliance.
+
+### PR #26–41: The second wave (March 16–31)
+
+The original history of March 2026 stopped a little too early. After the first professionalization push, a second wave landed during the second half of the month, and it changed the character of the repository again.
+
+The emphasis shifted from "make the package sane" to "make the package measurable, automatable, and comparable":
+
+- **PR #26** expanded this development history itself and cleaned up nearby solver/documentation surfaces. That sounds cosmetic, but it mattered: the repository had started to treat institutional memory as a maintained artifact rather than a one-off note.
+- **PR #27–28** parallelized independent operations in the solver pipeline and benchmarking helpers. The significance was not raw speed alone; it forced the codebase to confront the difference between theoretical parallelism and the practical overhead of launching Wolfram subkernels.
+- **PR #29–32** simplified shared helpers, added DNF profiling scripts, repaired benchmark output formatting, and introduced `ReduceDisjuncts` to eliminate redundant DNF branches earlier in the symbolic pipeline.
+- **PR #33** fixed a fast-suite stall by short-circuiting infeasible reduced systems before later inequality bucketing tried to operate on `False`. This was a classic "small guard, large payoff" software-engineering fix: correctness and test reliability improved at once.
+- **PR #34–38** consolidated solver documentation, automation scripts, reference papers, and GitHub Actions setup. In particular, the Wolfram CI workflow was corrected and then hardened around a dedicated environment, moving the project from "tests can be run locally" to "tests can be trusted in GitHub."
+- **PR #39** delivered another concrete performance win: `MFGSystemSolver` preprocessing became **4.3x faster** on representative switching-cost cases by merging redundant `TripleClean` passes, replacing an `O(n*m)` inequality-grouping step with a reverse index, and adding a parallel-launch threshold so small jobs no longer paid kernel startup cost.
+- **PR #40–41** returned to the Monotone solver with a more subtle goal: making its outputs genuinely comparable to `CriticalCongestionSolver` and `NonLinearSolver`. Shared flow-level result fields, reduced Kirchhoff-state metadata, and benchmark/status reporting changes meant Monotone could finally be assessed on the same external surface as the other stationary solvers.
+
+This second wave is notable because it closed the loop. Early March 2026 built measurement infrastructure. Late March 2026 used that infrastructure to refine preprocessing, stabilize CI, and expose where the Monotone solver still differs mathematically from the paper-aligned ideal.
 
 ### Assessment of the professionalization phase
 
@@ -401,17 +417,17 @@ This is Mathematica's version of the global variable problem, and it's especiall
 | 2022 | ~50 | D2E2 refinement, ZAnd investigation |
 | 2023 | ~5 | Minimal activity |
 | 2024 | ~15 | Monotone solver, D2E2 consolidation |
-| Mar 2026 | ~190 | 20 PRs, full professionalization + time-dependent solver |
-| **Total** | **~521** | |
+| Mar 2026 | ~106 | 34 PRs, professionalization + CI hardening + solver comparability |
+| **Total** | **~572** | |
 
 ### File evolution
 
 | File (current name) | Born | Original name | Major rewrites |
 |---------------------|------|---------------|----------------|
 | DNFReduce.wl | Nov 2020 | ZAnd.m | Mar 2026 (memoization, rename) |
-| DataToEquations.wl | May 2020 | DataToEquations.m → D2E2.m | Jun 2024 (consolidation), Mar 2026 (cleanup) |
+| DataToEquations.wl | May 2020 | DataToEquations.m → D2E2.m | Jun 2024 (consolidation), Mar 2026 (cleanup, preprocessing, comparability hooks) |
 | NonLinearSolver.wl | Aug 2020 | IterationFunction.m → NonLinearSolver.m | Mar 2026 (tolerance, caching) |
-| Monotone.wl | Jun 2024 | Monotone.m | Mar 2026 (Hessian flow, context fixes) |
+| Monotone.wl | Jun 2024 | Monotone.m | Mar 2026 (Hessian flow, context fixes, comparison contract) |
 | ExamplesData.wl | May 2020 | ExamplesParameters.m → ExamplesData.m | Mar 2026 (34 cases) |
 
 ### Pull requests (March 2026)
@@ -427,6 +443,12 @@ This is Mathematica's version of the global variable problem, and it's especiall
 | #18 | Solver contracts + test runner | Standardized interfaces |
 | #19 | Time-dependent solver + Hamiltonian hooks | Dynamic extension, public modeling hooks |
 | #20 | Development history document | Institutional memory, project narrative |
+| #26 | Development history expansion + solver cleanup | Narrative refresh, cleanup follow-through |
+| #27–28 | Parallelization pass | Faster independent operations, surfaced kernel-launch overhead tradeoffs |
+| #29–32 | Shared helpers + profiling + ReduceDisjuncts | Cleaner codebase, benchmark repair, earlier DNF simplification |
+| #33–38 | Infeasibility guard + docs + CI hardening | Fast-suite stability, safer Wolfram Actions automation, reference material |
+| #39 | Preprocessing optimization | 4.3x speedup on switching-cost preprocessing |
+| #40–41 | Monotone comparison contract + benchmark reporting | Cross-solver comparability, monotone timing/status visibility |
 
 ---
 
@@ -470,14 +492,15 @@ The most compelling applications are no longer toy graphs but operational case s
 - how to compare policies,
 - how to visualize the resulting equilibria.
 
-### 7. Add continuous regression infrastructure
+### 7. Expand continuous regression infrastructure
 
-The package now has meaningful tests and a test runner. The next engineering step is automation:
-- run the fast suite on every change,
-- track benchmark regressions over time,
+The package now has meaningful tests, a test runner, and a working GitHub Actions path for the fast suite. The next engineering step is to broaden that automation:
+- run richer trusted-branch suites beyond the current fast checks,
+- add benchmark smoke checks that are safe for CI,
+- track regressions over time on shared metrics like solver residuals and comparable flows,
 - keep the performance history updated with measured data rather than one-off runs.
 
-This would protect the gains from March 2026 instead of relying on memory and discipline.
+This would protect the gains from March 2026 and the late-March follow-up instead of relying on memory and discipline.
 
 Taken together, these tasks point in a coherent direction: MFGraphs is no longer just a repository of symbolic experiments. The interesting future is to turn it into a calibrated, scenario-driven, performant MFG toolkit for network routing problems.
 
@@ -491,8 +514,8 @@ MFGraphs follows a pattern common to academic software projects:
 2. **Long stabilization** — the code works well enough for papers; maintenance is minimal
 3. **Professionalization crisis** — the code needs to be shared, tested, or extended; years of technical debt surface simultaneously
 
-The transition from phase 2 to phase 3 is always painful. In MFGraphs' case, it was compressed into 16 days of intensive work. The context hygiene bugs that took three emergency PRs to fix had been present since 2020. The missing memoization that delivered 47x speedup had been *discussed* in commit messages since 2022 ("ZAnd is 'close' to optimal").
+The transition from phase 2 to phase 3 is always painful. In MFGraphs' case, it began as a 16-day burst of intensive work and then extended into a late-March consolidation wave. The context hygiene bugs that took three emergency PRs to fix had been present since 2020. The missing memoization that delivered 47x speedup had been *discussed* in commit messages since 2022 ("ZAnd is 'close' to optimal").
 
 The lesson isn't "write perfect code from the start." Research code *should* prioritize mathematical correctness over engineering practices. The lesson is: **when you decide to professionalize, invest in measurement first.** The benchmarking suite (PR #4) made everything that followed possible — without it, the DNFReduce optimization would have been guesswork, the context fixes would have had no regression detection, and the cleanup would have been a leap of faith.
 
-The package today is in a strong position: three solver implementations, 34 built-in test cases across four complexity tiers, comprehensive benchmarking infrastructure, performance history tracking, and standardized interfaces. It took six years of mathematical research and 16 days of engineering to get there.
+The package today is in a strong position: three solver implementations, 34 built-in test cases across multiple benchmark tiers, comprehensive benchmarking infrastructure, performance history tracking, standardized interfaces, and a functioning CI path for the fast suite. It took six years of mathematical research and one concentrated month of engineering to get there.
