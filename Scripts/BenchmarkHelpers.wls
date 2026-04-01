@@ -56,6 +56,47 @@ ComputeResidual[eqs_Association, solKey_String:"AssoNonCritical"] :=
     ]
   ];
 
+(* --- Solution hashing and verification --- *)
+
+$ReferenceHashesPath = FileNameJoin[{Directory[], "MFGraphs", "Tests", "reference_solutions.json"}];
+
+$ReferenceHashes = If[FileExistsQ[$ReferenceHashesPath],
+  Quiet @ Check[
+    Module[{data},
+      data = Import[$ReferenceHashesPath, "RawJSON"];
+      Association[
+        (ToString[#["case"]] -> #) & /@ Lookup[data, "cases", {}]
+      ]
+    ],
+    <||>
+  ],
+  <||>
+];
+
+HashSolution[asso_Association] :=
+  Module[{pairs},
+    pairs = SortBy[
+      KeyValueMap[
+        {ToString[#1, InputForm], If[NumericQ[#2], Round[N[#2], 10^-10], ToString[#2, InputForm]]} &,
+        asso
+      ],
+      First
+    ];
+    Hash[pairs, "SHA256", "HexString"]
+  ];
+
+HashSolution[_] := None;
+
+VerifySolution[caseKey_, asso_] :=
+  Module[{ref, currentHash},
+    ref = Lookup[$ReferenceHashes, ToString[caseKey], None];
+    If[ref === None, Return["NO_REF"]];
+    If[ref["solution_hash"] === None, Return["REF_NO_HASH"]];
+    currentHash = HashSolution[asso];
+    If[currentHash === None, Return["NO_SOLUTION"]];
+    If[currentHash === ref["solution_hash"], "MATCH", "MISMATCH"]
+  ];
+
 (* --- Graph metadata extraction --- *)
 
 GraphMetadata::usage =

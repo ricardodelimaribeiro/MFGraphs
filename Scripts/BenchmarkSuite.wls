@@ -125,9 +125,17 @@ BenchmarkOneSolver[key_, tier_String, solverName_String, d2e_Association, timeou
       ]
     ];
 
-    Print["    Status: ", result["Status"],
-          " | Time: ", FormatTime[result["Time"]], "s",
-          " | Memory: ", FormatMemoryMB[result["Memory"]], " MB"];
+    (* Verify against reference hashes for CriticalCongestion *)
+    Module[{verification = "N/A"},
+      If[result["Status"] === "OK" && solverName === "CriticalCongestion",
+        verification = VerifySolution[key,
+          Lookup[result["Result"], "AssoCritical", Null]];
+      ];
+      Print["    Status: ", result["Status"],
+            " | Time: ", FormatTime[result["Time"]], "s",
+            " | Memory: ", FormatMemoryMB[result["Memory"]], " MB",
+            If[verification =!= "N/A", " | Ref: " <> verification, ""]];
+    ];
 
     <|
       "Key" -> ToString[key],
