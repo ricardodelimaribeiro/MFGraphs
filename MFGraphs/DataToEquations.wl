@@ -109,6 +109,77 @@ IneqSwitch[u_, Switching_Association][r_, i_, w_] :=
 AltSwitch[j_, u_, Switching_][r_, i_, w_] :=
     (j[r, i, w] == 0) || (u[r, i] == u[w, i] + Switching[{r, i, w}]);
 
+(* --- Graph-distance-based Or-resolution --- *)
+(* Resolves flow complementarity conditions (j[a,b]==0 || j[b,a]==0)
+   using shortest-path distances from exit vertices. The vertex farther
+   from the exit sends flow toward the closer vertex, setting the
+   backward flow to zero. This eliminates most Or-conditions before
+   DNFReduce, reducing exponential branching to O(V+E) graph traversal. *)
+
+ResolveOneOr[Or[lhs_, rhs_], distToExit_Association] :=
+    Which[
+        (* Edge flow: j[a,b]==0 || j[b,a]==0 *)
+        MatchQ[{lhs, rhs}, {_j == 0, _j == 0}] &&
+            Length[lhs[[1]]] == 2 && Length[rhs[[1]]] == 2 &&
+            lhs[[1, 1]] === rhs[[1, 2]] && lhs[[1, 2]] === rhs[[1, 1]],
+        With[{da = Lookup[distToExit, lhs[[1, 1]], Infinity],
+              db = Lookup[distToExit, lhs[[1, 2]], Infinity]},
+            Which[da > db, rhs, da < db, lhs, True, $Failed]
+        ],
+        (* Transition flow: j[a,b,c]==0 || j[c,b,a]==0 *)
+        MatchQ[{lhs, rhs}, {_j == 0, _j == 0}] &&
+            Length[lhs[[1]]] == 3 && Length[rhs[[1]]] == 3 &&
+            lhs[[1, 1]] === rhs[[1, 3]] && lhs[[1, 3]] === rhs[[1, 1]] &&
+            lhs[[1, 2]] === rhs[[1, 2]],
+        With[{da = Lookup[distToExit, lhs[[1, 1]], Infinity],
+              dc = Lookup[distToExit, lhs[[1, 3]], Infinity]},
+            Which[da > dc, rhs, da < dc, lhs, True, $Failed]
+        ],
+        True, $Failed
+    ]
+
+ResolveOneOr[_, _] := $Failed
+
+ResolveOrByGraphDistance[Eqs_Association, triple:{_, _, _}] :=
+    Module[{graph, exitVerts, distToExit, orTerms, resolved = {},
+            unresolved = {}, newEE, newOR},
+        If[triple[[3]] === True, Return[triple, Module]];
+        graph = Lookup[Eqs, "auxiliaryGraph", None];
+        exitVerts = Lookup[Eqs, "auxExitVertices", {}];
+        If[graph === None || exitVerts === {},
+            MFGPrint["ResolveOrByGraphDistance: no graph data available"];
+            Return[triple, Module]
+        ];
+        distToExit = Association @ Table[
+            v -> Min[GraphDistance[graph, v, #]& /@ exitVerts],
+            {v, VertexList[graph]}
+        ];
+        orTerms = If[Head[triple[[3]]] === And,
+            List @@ triple[[3]], {triple[[3]]}];
+        Do[
+            With[{res = ResolveOneOr[term, distToExit]},
+                If[res =!= $Failed,
+                    AppendTo[resolved, res],
+                    AppendTo[unresolved, term]
+                ]
+            ],
+            {term, orTerms}
+        ];
+        MFGPrint["ResolveOrByGraphDistance: resolved ", Length[resolved],
+            " of ", Length[orTerms], " Or-conditions"];
+        newEE = If[resolved === {},
+            triple[[1]],
+            And @@ Join[
+                If[triple[[1]] === True, {},
+                    If[Head[triple[[1]]] === And, List @@ triple[[1]],
+                        {triple[[1]]}]],
+                resolved
+            ]
+        ];
+        newOR = If[unresolved === {}, True, And @@ unresolved];
+        {newEE, triple[[2]], newOR}
+    ]
+
 (* --- DataToEquations: main converter --- *)
 
 DataToEquations[Data_Association] :=
@@ -405,6 +476,11 @@ MFGPreprocessing[Eqs_] :=
                 IneqJts && IneqJs && ineqTriple[[2]],
                 AltFlows && AltTransitionFlows && AltOptCond && ineqTriple[[3]]}
         ];
+        (* Resolve Or-conditions using graph distance before TripleClean
+           substitutes variables and obscures the j[a,b]==0 patterns *)
+        {time, NewSystem} = AbsoluteTiming[
+            ResolveOrByGraphDistance[Eqs, NewSystem]];
+        MFGPrint["Graph-distance Or-resolution took ", time, " seconds."];
         temp = MFGPrintTemporary["TripleClean will work on\n", NewSystem,
              "\nwith: ", InitRules];
         {time, {NewSystem, InitRules}} = AbsoluteTiming @ TripleClean[
@@ -528,7 +604,7 @@ MFGSystemSolver[Eqs_][approxJs_] :=
         NewSystem[[2]] = (And @@ ineqsByTransition);
         NewSystem = SystemToTriple[And @@ NewSystem];
         {NewSystem, InitRules} = TripleClean[{NewSystem, InitRules}];
-            
+
         {NewSystem, InitRules} = DNFSolveStep[{NewSystem, InitRules}]
             ;
         MFGPrint["Simplifying system..."];
