@@ -1,20 +1,21 @@
 # BooleanConvert vs DNFReduce Comparison
 
-Generated: Wed 1 Apr 2026 02:22:45
+Generated: Thu 2 Apr 2026 14:11:29
 Mathematica: 14.3.0 for Mac OS X ARM (64-bit) (July 8, 2025)
 
 ## Summary
 
 | Case | Input Disjuncts | BC Time (s) | DNF Time (s) | Speedup | BC Disjuncts | DNF Disjuncts | BC Leaves | DNF Leaves | Equivalence |
 |---|---|---|---|---|---|---|---|---|---|
-| 7 | 1 | 0.000062 | 0.000898 | 0.0690423x | 3 | 1 | 158 | 10 | EQUIVALENT |
-| 8 | 1 | 0.000105 | 0.007126 | 0.0147348x | 8 | 1 | 1215 | 24 | EQUIVALENT |
-| 12 | 1 | 0.86449 | 0.019857 | 43.5358x | 65536 | 1 | 44269569 | 55 | EQUIV_TIMEOUT |
-| 11 | 1 | 55.7624 | 4.81065 | 11.5915x | 3359232 | 2977 | 6094206721 | 1199868 | EQUIV_TIMEOUT |
-| 14 | 1 | 0.005071 | 0.018464 | 0.274643x | 384 | 1 | 139009 | 33 | EQUIVALENT |
-| Braess congest | 1 | 1.38406 | 1.63961 | 0.844141x | 147456 | 179 | 166035457 | 18944 | EQUIV_TIMEOUT |
-| Paper example | 1 | 0.000031 | 0.000017 | 1.82353x | 1 | 1 | 3 | 3 | EQUIVALENT |
-| 20 | 1 | 0.005821 | 0.051266 | 0.113545x | 1024 | 8 | 469505 | 669 | EQUIVALENT |
+| 7 | - | - | - | - | - | - | - | - | TRIVIAL |
+| 8 | 1 | 0.000104 | 0.006419 | 0.0162019x | 4 | 1 | 313 | 16 | EQUIVALENT |
+| 12 | 1 | 0.000032 | 0.00037 | 0.0864865x | 1 | 1 | 23 | 6 | EQUIVALENT |
+| 11 | 1 | 0.023437 | 0.051185 | 0.457888x | 12 | 20 | 5763 | 6869 | EQUIV_TIMEOUT |
+| 14 | 2 | 0.000033 | 0.001142 | 0.0288967x | 2 | 1 | 82 | 6 | EQUIVALENT |
+| Braess congest | 1 | 0.000202 | 0.006403 | 0.0315477x | 4 | 1 | 649 | 67 | EQUIVALENT |
+| Paper example | 1 | 0.000035 |      -6
+6. 10 | 5.83333x | 1 | 1 | 3 | 3 | EQUIVALENT |
+| 20 | 1 | 0.000254 | 0.006305 | 0.0402855x | 8 | 4 | 1289 | 240 | EQUIVALENT |
 
 ## Interpretation
 
@@ -22,7 +23,6 @@ Mathematica: 14.3.0 for Mac OS X ARM (64-bit) (July 8, 2025)
 - **Speedup < 1**: BooleanConvert is faster than DNFReduce
 - **Disjuncts**: Fewer disjuncts = simpler output (fewer solution branches)
 - **Leaves**: Smaller LeafCount = more compact expression
-- The biggest wins remain the large symbolic cases (`12`, `11`), while several small formulas still favor `BooleanConvert` on raw wall time.
 
 ## Method details
 
