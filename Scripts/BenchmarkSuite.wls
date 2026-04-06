@@ -1,5 +1,5 @@
 (* Usage: wolframscript -file Scripts/BenchmarkSuite.wls [tier] [case=key] [timeout=seconds] [tag=label] [rationale=...] [changes=...] [interpretation=...] *)
-(* tier: "small", "core", "stress", "large", "vlarge", legacy "medium", or "all" (default: "all") *)
+(* tier: "small", "core", "stress", "paper", "inconsistent-switching", "large", "vlarge", legacy "medium", or "all" (default: "all") *)
 
 (* :!CodeAnalysis::Disable::SuspiciousSessionSymbol::Print *)
 

@@ -12,6 +12,7 @@ Returns <|\"Time\" -> seconds, \"Memory\" -> bytes, \"Status\" -> string, \"Resu
 Status is \"OK\", \"TIMEOUT\", or \"FAILED\".";
 
 SetAttributes[SafeExecute, HoldFirst];
+
 SafeExecute[expr_, timeout_:300] :=
   Module[{result, time, memBefore, memAfter, status},
     memBefore = MemoryInUse[];
@@ -169,6 +170,7 @@ $BenchmarkTiers = <|
   "core" -> {9, 10, 12, 14, 18},
   "stress" -> {7, 8, 104, "triangle with two exits"},
   "paper" -> {"HRF Scenario 1"},
+  "inconsistent-switching" -> {11, 15, 17, "Paper example"},
   "large" -> {13, 19, 20, 21, 22, 23, "Jamaratv9",
               "Braess split", "Braess congest", "New Braess",
               "Big Braess split", "Big Braess congest",
@@ -177,7 +179,8 @@ $BenchmarkTiers = <|
 |>;
 
 $BenchmarkTierAliases = <|
-  "medium" -> "core"
+  "medium" -> "core",
+  "inconsistent" -> "inconsistent-switching"
 |>;
 
 $DefaultBenchmarkTiers = {"small", "core", "large", "vlarge"};
@@ -208,9 +211,17 @@ ExportResultsCSV[results_List, path_String] :=
     Print["Results exported to ", path];
   ];
 
+JSONSafeValue[value_] := Which[
+  MatchQ[value, _Missing], Null,
+  AssociationQ[value], Map[JSONSafeValue, value],
+  ListQ[value], JSONSafeValue /@ value,
+  NumberQ[value] || StringQ[value] || BooleanQ[value] || value === Null, value,
+  True, ToString[Unevaluated[value], InputForm]
+];
+
 ExportResultsJSON[results_List, path_String] :=
   Module[{cleanResults},
-    cleanResults = results /. _Missing -> Null;
+    cleanResults = JSONSafeValue /@ results;
     Export[path, cleanResults, "JSON"];
     Print["Results exported to ", path];
   ];
@@ -239,6 +250,6 @@ PrintResultsSummary[results_List] :=
         ];
         Print[];
       ],
-      {tier, {"small", "core", "stress", "large", "vlarge"}}
+      {tier, {"small", "core", "stress", "paper", "inconsistent-switching", "large", "vlarge"}}
     ];
   ];
