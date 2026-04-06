@@ -463,6 +463,46 @@ Begin["`Private`"];
         (*DataIn=*){{1, I1}/.I1->400},
         (*FinalCosts=*){{3*3, U1}/.U1->0},
         (*SwitchingCostsData=*){}
+        },
+
+    "Grid0404" -> {
+        (*VL=*)VertexList[GridGraph[{4,4}]],
+        (*AM=*)AdjacencyMatrix[GridGraph[{4,4},DirectedEdges->True]],
+        (*DataIn=*){{1, I1}/.I1->400},
+        (*FinalCosts=*){{4*4, U1}/.U1->0},
+        (*SwitchingCostsData=*){}
+        },
+
+    "Grid0505" -> {
+        (*VL=*)VertexList[GridGraph[{5,5}]],
+        (*AM=*)AdjacencyMatrix[GridGraph[{5,5},DirectedEdges->True]],
+        (*DataIn=*){{1, I1}/.I1->400},
+        (*FinalCosts=*){{5*5, U1}/.U1->0},
+        (*SwitchingCostsData=*){}
+        },
+
+    "Grid0707" -> {
+        (*VL=*)VertexList[GridGraph[{7,7}]],
+        (*AM=*)AdjacencyMatrix[GridGraph[{7,7},DirectedEdges->True]],
+        (*DataIn=*){{1, I1}/.I1->400},
+        (*FinalCosts=*){{7*7, U1}/.U1->0},
+        (*SwitchingCostsData=*){}
+        },
+
+    "Grid0710" -> {
+        (*VL=*)VertexList[GridGraph[{7,10}]],
+        (*AM=*)AdjacencyMatrix[GridGraph[{7,10},DirectedEdges->True]],
+        (*DataIn=*){{1, I1}/.I1->400},
+        (*FinalCosts=*){{7*10, U1}/.U1->0},
+        (*SwitchingCostsData=*){}
+        },
+
+    "Grid1010" -> {
+        (*VL=*)VertexList[GridGraph[{10,10}]],
+        (*AM=*)AdjacencyMatrix[GridGraph[{10,10},DirectedEdges->True]],
+        (*DataIn=*){{1, I1}/.I1->400},
+        (*FinalCosts=*){{10*10, U1}/.U1->0},
+        (*SwitchingCostsData=*){}
         }
 ];
 
