@@ -1,0 +1,81 @@
+%% Phase 1: Jamaratv9 Parameter Tables for §5.3
+%% Extracted from MFGraphs/Examples/ExamplesData.wl lines 302-318
+%% Parameters: I1->100, I2->50, U1->0, U2->0, U3->0 (from BenchmarkHelpers.wls $DefaultParams)
+
+%%% TABLE 1: Network Topology Summary
+\begin{table}[h!]
+\caption{Jamaratv9 network topology}
+\label{tab:jamaratv9-topology}
+\centering
+\begin{tabular}{ll}
+\toprule
+\textbf{Property} & \textbf{Value} \\
+\midrule
+Vertices & $|\mathcal{V}| = 9$ \\
+Directed edges & $|\mathcal{E}| = 11$ \\
+Entrance vertices & 2 (vertices 1, 2) \\
+Exit vertices & 3 (vertices 7, 8, 9) \\
+Switching costs & None \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%%% TABLE 2: Edge List
+\begin{table}[h!]
+\caption{Jamaratv9 directed edges}
+\label{tab:jamaratv9-edges}
+\centering
+\begin{tabular}{cccc}
+\toprule
+\textbf{Source} & \textbf{Target} & \textbf{Source} & \textbf{Target} \\
+\midrule
+$1$ & $2$ & $5$ & $6$ \\
+$1$ & $3$ & $5$ & $7$ \\
+$2$ & $4$ & $6$ & $8$ \\
+$3$ & $4$ & $7$ & $9$ \\
+$3$ & $5$ & $8$ & $9$ \\
+$4$ & $6$ &  &  \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%%% TABLE 3: Entrance Flow and Exit Terminal Costs
+\begin{table}[h!]
+\caption{Jamaratv9 entrance flows and exit terminal costs}
+\label{tab:jamaratv9-flow-costs}
+\centering
+\begin{tabular}{lcc|lcc}
+\toprule
+\multicolumn{3}{c}{\textbf{Entrance flows}} & \multicolumn{3}{c}{\textbf{Exit terminal costs}} \\
+\textbf{Vertex} & \textbf{Symbol} & \textbf{Value} & \textbf{Vertex} & \textbf{Symbol} & \textbf{Value} \\
+\midrule
+$1$ & $I_1$ & $100$ & $7$ & $U_1$ & $0$ \\
+$2$ & $I_2$ & $50$ & $8$ & $U_2$ & $0$ \\
+ &  &  & $9$ & $U_3$ & $0$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%%% TABLE 4: Problem Specification Summary
+\begin{table}[h!]
+\caption{Jamaratv9 alternatives and pruning target}
+\label{tab:jamaratv9-alternatives}
+\centering
+\begin{tabular}{lp{4cm}}
+\toprule
+\textbf{Quantity} & \textbf{Description} \\
+\midrule
+Equilibrium sign triples & $q$ (measured during preprocessing)* \\
+Total sign alternatives & $2^q$ \\
+Expected count & $2^{95}$ (to be measured) \\
+Solver goal & Identify surviving leaves $M$ among $2^q$ branches \\
+\bottomrule
+\multicolumn{2}{p{11cm}}{\footnotesize *The value $q$ is the number of ``uncertain'' switching triples $(i,j,k)$ where the optimality condition is non-strict (either direction feasible). See \S\ref{sec:methodology} for details.} \\
+\end{tabular}
+\end{table}
+
+%%% NOTES FOR §5.3
+% Insert these tables into §5.3 before the pruning statistics discussion.
+% Cross-check edge directions and labels with figures/Jama.pdf
+% After running the solver in Phase 4, measure the actual q value and update "Expected count" in Table 4
+% If q ≠ 95, update the abstract and conclusion accordingly
