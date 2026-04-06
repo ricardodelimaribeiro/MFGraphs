@@ -109,6 +109,77 @@ IneqSwitch[u_, Switching_Association][r_, i_, w_] :=
 AltSwitch[j_, u_, Switching_][r_, i_, w_] :=
     (j[r, i, w] == 0) || (u[r, i] == u[w, i] + Switching[{r, i, w}]);
 
+(* --- Graph-distance-based Or-resolution --- *)
+(* Resolves flow complementarity conditions (j[a,b]==0 || j[b,a]==0)
+   using shortest-path distances from exit vertices. The vertex farther
+   from the exit sends flow toward the closer vertex, setting the
+   backward flow to zero. This eliminates most Or-conditions before
+   DNFReduce, reducing exponential branching to O(V+E) graph traversal. *)
+
+ResolveOneOr[Or[lhs_, rhs_], distToExit_Association] :=
+    Which[
+        (* Edge flow: j[a,b]==0 || j[b,a]==0 *)
+        MatchQ[{lhs, rhs}, {_j == 0, _j == 0}] &&
+            Length[lhs[[1]]] == 2 && Length[rhs[[1]]] == 2 &&
+            lhs[[1, 1]] === rhs[[1, 2]] && lhs[[1, 2]] === rhs[[1, 1]],
+        With[{da = Lookup[distToExit, lhs[[1, 1]], Infinity],
+              db = Lookup[distToExit, lhs[[1, 2]], Infinity]},
+            Which[da > db, rhs, da < db, lhs, True, $Failed]
+        ],
+        (* Transition flow: j[a,b,c]==0 || j[c,b,a]==0 *)
+        MatchQ[{lhs, rhs}, {_j == 0, _j == 0}] &&
+            Length[lhs[[1]]] == 3 && Length[rhs[[1]]] == 3 &&
+            lhs[[1, 1]] === rhs[[1, 3]] && lhs[[1, 3]] === rhs[[1, 1]] &&
+            lhs[[1, 2]] === rhs[[1, 2]],
+        With[{da = Lookup[distToExit, lhs[[1, 1]], Infinity],
+              dc = Lookup[distToExit, lhs[[1, 3]], Infinity]},
+            Which[da > dc, rhs, da < dc, lhs, True, $Failed]
+        ],
+        True, $Failed
+    ]
+
+ResolveOneOr[_, _] := $Failed
+
+ResolveOrByGraphDistance[Eqs_Association, triple:{_, _, _}] :=
+    Module[{graph, exitVerts, distToExit, orTerms, resolved = {},
+            unresolved = {}, newEE, newOR},
+        If[triple[[3]] === True, Return[triple, Module]];
+        graph = Lookup[Eqs, "auxiliaryGraph", None];
+        exitVerts = Lookup[Eqs, "auxExitVertices", {}];
+        If[graph === None || exitVerts === {},
+            MFGPrint["ResolveOrByGraphDistance: no graph data available"];
+            Return[triple, Module]
+        ];
+        distToExit = Association @ Table[
+            v -> Min[GraphDistance[graph, v, #]& /@ exitVerts],
+            {v, VertexList[graph]}
+        ];
+        orTerms = If[Head[triple[[3]]] === And,
+            List @@ triple[[3]], {triple[[3]]}];
+        Do[
+            With[{res = ResolveOneOr[term, distToExit]},
+                If[res =!= $Failed,
+                    AppendTo[resolved, res],
+                    AppendTo[unresolved, term]
+                ]
+            ],
+            {term, orTerms}
+        ];
+        MFGPrint["ResolveOrByGraphDistance: resolved ", Length[resolved],
+            " of ", Length[orTerms], " Or-conditions"];
+        newEE = If[resolved === {},
+            triple[[1]],
+            And @@ Join[
+                If[triple[[1]] === True, {},
+                    If[Head[triple[[1]]] === And, List @@ triple[[1]],
+                        {triple[[1]]}]],
+                resolved
+            ]
+        ];
+        newOR = If[unresolved === {}, True, And @@ unresolved];
+        {newEE, triple[[2]], newOR}
+    ]
+
 (* --- DataToEquations: main converter --- *)
 
 DataToEquations[Data_Association] :=
@@ -381,15 +452,32 @@ MFGPreprocessing[Eqs_] :=
         AssociateTo[InitRules, RuleEntryValues];
         AssociateTo[InitRules, RuleBalanceGatheringFlows];
         AssociateTo[InitRules, RuleExitValues];
-        temp = MFGPrintTemporary["Simplifying inequalities involving Switching Costs...",
-             IneqSwitchingByVertex];
-        With[{items = IneqSwitchingByVertex /. InitRules},
-            {time, IneqSwitchingByVertex} = AbsoluteTiming[And @@ MFGParallelMap[
-                Simplify, items]]
+        (* When all switching costs are zero, IneqSwitchingByVertex
+           reduces to pairwise u[a,b]<=u[c,b] && u[c,b]<=u[a,b],
+           i.e. equalities. Skip expensive Simplify and extract directly. *)
+        If[AllTrue[Values[Lookup[Eqs, "SwitchingCosts", <||>]], # === 0 &],
+            {time, IneqSwitchingByVertex} = AbsoluteTiming[
+                Module[{items = IneqSwitchingByVertex /. InitRules, ineqs, eqs},
+                    ineqs = Flatten[If[Head[#] === And, List @@ #, {#}]& /@ items];
+                    eqs = DeleteDuplicatesBy[
+                        Cases[ineqs, LessEqual[a_, b_] :> (a == b)],
+                        Sort @* (List @@ #&)
+                    ];
+                    If[eqs === {}, True, And @@ eqs]
+                ]
+            ];
+            MFGPrint["Switching costs (zero): extracted equalities in ",
+                time, " seconds."];
+            ,
+            temp = MFGPrintTemporary["Simplifying inequalities involving Switching Costs...",
+                 IneqSwitchingByVertex];
+            With[{items = IneqSwitchingByVertex /. InitRules},
+                {time, IneqSwitchingByVertex} = AbsoluteTiming[And @@ MFGParallelMap[
+                    Simplify, items]]
+            ];
+            NotebookDelete[temp];
+            MFGPrint["Switching costs simplified in ", time, " seconds."];
         ];
-        NotebookDelete[temp];
-        MFGPrint["Switching costs simplified in ", time, " seconds."]
-            ;
         EqBalanceSplittingFlows = EqBalanceSplittingFlows /. InitRules
             ;
         EqValueAuxiliaryEdges = EqValueAuxiliaryEdges /. InitRules;
@@ -405,6 +493,11 @@ MFGPreprocessing[Eqs_] :=
                 IneqJts && IneqJs && ineqTriple[[2]],
                 AltFlows && AltTransitionFlows && AltOptCond && ineqTriple[[3]]}
         ];
+        (* Resolve Or-conditions using graph distance before TripleClean
+           substitutes variables and obscures the j[a,b]==0 patterns *)
+        {time, NewSystem} = AbsoluteTiming[
+            ResolveOrByGraphDistance[Eqs, NewSystem]];
+        MFGPrint["Graph-distance Or-resolution took ", time, " seconds."];
         temp = MFGPrintTemporary["TripleClean will work on\n", NewSystem,
              "\nwith: ", InitRules];
         {time, {NewSystem, InitRules}} = AbsoluteTiming @ TripleClean[
@@ -416,6 +509,124 @@ MFGPreprocessing[Eqs_] :=
         Join[Eqs, AssociationThread[ModuleVarsNames, ModulesVars]]
     ];
 
+(* --- Direct numerical solver for zero-switching-cost critical congestion --- *)
+(* When all switching costs are zero and Ncpc=0 (critical congestion at zero flow):
+   - All values at a vertex are equal: u[a,b] = V(b)
+   - EqGeneral: V(b) - V(a) = j[a,b] - j[b,a]
+   - Complementarity: j[a,b]*j[b,a] = 0
+   - Flow direction determined by graph distance to exit
+   This reduces to a linear system solvable in O(V^2). *)
+
+DirectCriticalSolver[Eqs_Association] :=
+    Module[{graph, exitVerts, entryVerts, auxPairs, auxTriples,
+            us, js, jts, distToExit,
+            RuleEntryOut, RuleExitFlowsIn, RuleEntryValues, RuleExitValues,
+            RuleBalanceGatheringFlows, EqGeneral, EqEntryIn,
+            EqBalanceSplittingFlows, EqValueAuxiliaryEdges,
+            AltFlows, AltTransitionFlows,
+            zeroRules, eqSystem, allVars, sol, result},
+        graph = Lookup[Eqs, "auxiliaryGraph", None];
+        exitVerts = Lookup[Eqs, "auxExitVertices", {}];
+        entryVerts = Lookup[Eqs, "auxEntryVertices", {}];
+        us = Lookup[Eqs, "us", {}];
+        js = Lookup[Eqs, "js", {}];
+        jts = Lookup[Eqs, "jts", {}];
+        auxPairs = Cases[us, u[a_, b_] :> {a, b}];
+        auxTriples = Cases[jts, j[a_, b_, c_] :> {a, b, c}];
+        RuleEntryOut = Lookup[Eqs, "RuleEntryOut", {}];
+        RuleExitFlowsIn = Lookup[Eqs, "RuleExitFlowsIn", {}];
+        RuleEntryValues = Lookup[Eqs, "RuleEntryValues", <||>];
+        RuleExitValues = Lookup[Eqs, "RuleExitValues", <||>];
+        RuleBalanceGatheringFlows = Lookup[Eqs, "RuleBalanceGatheringFlows", <||>];
+        EqGeneral = Lookup[Eqs, "EqGeneral", True];
+        EqEntryIn = Lookup[Eqs, "EqEntryIn", True];
+        EqBalanceSplittingFlows = Lookup[Eqs, "EqBalanceSplittingFlows", True];
+        EqValueAuxiliaryEdges = Lookup[Eqs, "EqValueAuxiliaryEdges", True];
+
+        (* Phase 1: Compute vertex distances to exit *)
+        distToExit = Association @ Table[
+            v -> Min[GraphDistance[graph, v, #]& /@ exitVerts],
+            {v, VertexList[graph]}
+        ];
+
+        (* Phase 2: Determine which flows are zero from graph distance.
+           For edge {a,b}: if dist(a) < dist(b), then j[a,b]=0 (backward).
+           For equidistant edges, both directions may carry flow.
+           Transition flows are left free — determined by Kirchhoff. *)
+        zeroRules = Association[];
+        Do[With[{a = pair[[1]], b = pair[[2]]},
+            With[{da = Lookup[distToExit, a, Infinity],
+                  db = Lookup[distToExit, b, Infinity]},
+                If[da < db, zeroRules[j[a, b]] = 0]
+            ]], {pair, auxPairs}];
+        MFGPrint["DirectCriticalSolver: ", Length[zeroRules],
+            " flows set to zero by graph distance"];
+
+        (* Phase 3: Build the full equation system.
+           Substitute: Ncpc=0 (critical congestion at zero flow),
+           known boundary rules, zero switching cost equalities
+           (u[a,b]=u[c,b] at each vertex), and direction zeros. *)
+        eqSystem = And @@ Flatten[{
+            (* EqGeneral at Ncpc=0: j[a,b]-j[b,a]+u[a,b]-u[b,a]=0 *)
+            List @@ (EqGeneral /. Thread[
+                Cases[Keys[Lookup[Eqs, "costpluscurrents", <||>]], _] -> 0]),
+            (* Entry flow *)
+            If[Head[EqEntryIn] === And, List @@ EqEntryIn, {EqEntryIn}],
+            (* Balance/splitting *)
+            If[Head[EqBalanceSplittingFlows] === And,
+                List @@ EqBalanceSplittingFlows,
+                If[EqBalanceSplittingFlows === True, {}, {EqBalanceSplittingFlows}]],
+            (* Value auxiliary edges *)
+            If[Head[EqValueAuxiliaryEdges] === And,
+                List @@ EqValueAuxiliaryEdges,
+                If[EqValueAuxiliaryEdges === True, {}, {EqValueAuxiliaryEdges}]],
+            (* Boundary values *)
+            KeyValueMap[Equal, RuleExitValues],
+            KeyValueMap[Equal, RuleEntryValues],
+            (* Entry/exit flow rules *)
+            (Equal @@@ Normal[RuleEntryOut]),
+            (Equal @@@ Normal[RuleExitFlowsIn]),
+            (* Gathering flow rules *)
+            (Equal @@@ Normal[RuleBalanceGatheringFlows]),
+            (* Direction zeros *)
+            (Equal[#, 0]& /@ Keys[zeroRules]),
+            (* Zero switching costs: u[a,b] = u[c,b] at each vertex *)
+            (* Group by second element and equate all *)
+            Module[{byVertex = GroupBy[auxPairs, Last]},
+                Flatten @ KeyValueMap[
+                    Function[{v, pairs},
+                        If[Length[pairs] > 1,
+                            (u @@ # == u @@ pairs[[1]])& /@ Rest[pairs],
+                            {}
+                        ]
+                    ],
+                    byVertex
+                ]
+            ]
+        }];
+
+        (* Phase 4: Solve with non-negativity on all flow variables *)
+        allVars = Join[us, js, jts];
+        With[{flowVars = Join[js, jts]},
+            With[{ineqs = And @@ ((# >= 0 &) /@ flowVars)},
+                With[{inst = Quiet @ FindInstance[eqSystem && ineqs, allVars, Reals]},
+                    If[inst === {} || !MatchQ[inst, {{__Rule}, ___}],
+                        MFGPrint["DirectCriticalSolver: FindInstance failed"];
+                        Return[$Failed, Module]
+                    ];
+                    result = Association @ First @ inst;
+                ]
+            ]
+        ];
+        Do[If[!KeyExistsQ[result, var], result[var] = 0], {var, allVars}];
+        (* Only resolve transitive chains if there are symbolic values *)
+        If[!AllTrue[Values[result], NumericQ],
+            result = Expand /@ FixedPoint[Function[r, ReplaceAll[r] /@ r], result, 10]
+        ];
+        result = Join[KeyTake[result, us], KeyTake[result, js], KeyTake[result, jts]];
+        result
+    ]
+
 (* --- CriticalCongestionSolver --- *)
 
 CriticalCongestionSolver[$Failed, ___] :=
@@ -425,6 +636,33 @@ CriticalCongestionSolver[Eqs_] :=
     Module[{PreEqs, js, AssoCritical, time, temp, status,
          resultKind, message, solution, comparisonData},
         ClearSolveCache[];
+        (* Try direct solver for zero-switching-cost, fully numeric networks *)
+        If[AllTrue[Values[Lookup[Eqs, "SwitchingCosts", <|_ -> 1|>]], # === 0 &] &&
+            Lookup[Eqs, "auxiliaryGraph", None] =!= None &&
+            AllTrue[Flatten[Lookup[Eqs, "Entrance Vertices and Flows", {}]], NumericQ] &&
+            AllTrue[Flatten[Lookup[Eqs, "Exit Vertices and Terminal Costs", {}]], NumericQ],
+            MFGPrint["Attempting direct critical solver (zero switching costs)..."];
+            {time, AssoCritical} = AbsoluteTiming[DirectCriticalSolver[Eqs]];
+            If[AssociationQ[AssoCritical] && AssoCritical =!= $Failed,
+                MFGPrint["Direct critical solver completed in ", time, " seconds."];
+                status = CheckFlowFeasibility[AssoCritical];
+                If[status === "Feasible",
+                    PreEqs = Eqs;
+                    solution = AssoCritical;
+                    comparisonData = BuildSolverComparisonData[PreEqs, solution];
+                    Return[
+                        Join[PreEqs, MakeSolverResult["CriticalCongestion", "Success",
+                            status, None, solution,
+                            Join[comparisonData, <|"AssoCritical" -> AssoCritical,
+                                "Status" -> status|>]]],
+                        Module
+                    ],
+                    MFGPrint["Direct solver produced infeasible result, falling back to symbolic solver."]
+                ],
+                MFGPrint["Direct solver failed, falling back to symbolic solver."]
+            ]
+        ];
+        (* Standard symbolic solver path *)
         If[KeyExistsQ[Eqs, "InitRules"],
             PreEqs = Eqs
             ,
@@ -435,7 +673,7 @@ CriticalCongestionSolver[Eqs_] :=
                 ];
         ];
         js = Lookup[PreEqs, "js", $Failed];
-        AssoCritical = MFGSystemSolver[PreEqs][AssociationThread[js, 
+        AssoCritical = MFGSystemSolver[PreEqs][AssociationThread[js,
             0 js]];
         status = CheckFlowFeasibility[AssoCritical];
         resultKind =
@@ -520,15 +758,21 @@ MFGSystemSolver[Eqs_][approxJs_] :=
              time, " seconds. ", Length[ineqsByTransition]];
         temp = MFGPrintTemporary["MFGSS: Simplifying inequalities by transition flow..."
             ];
+        (* Pre-substitute known rules: many inequalities become True immediately *)
+        ineqsByTransition = ineqsByTransition /. InitRules;
+        ineqsByTransition = Replace[ineqsByTransition,
+            expr_ /; expr =!= True :> Expand[expr], {1}];
         {time, ineqsByTransition} = AbsoluteTiming[DeduplicateByComplexity[
-            MFGParallelMap[Simplify, ineqsByTransition]]];
+            MFGParallelMap[Simplify,
+                Select[ineqsByTransition, # =!= True &]]]];
+        (* Restore True entries for any that were already resolved *)
         NotebookDelete[temp];
         MFGPrint["MFGSS: Simplifying inequalities by transition flow took ",
              time, " seconds. "];
         NewSystem[[2]] = (And @@ ineqsByTransition);
         NewSystem = SystemToTriple[And @@ NewSystem];
         {NewSystem, InitRules} = TripleClean[{NewSystem, InitRules}];
-            
+
         {NewSystem, InitRules} = DNFSolveStep[{NewSystem, InitRules}]
             ;
         MFGPrint["Simplifying system..."];
