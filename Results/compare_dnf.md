@@ -1,21 +1,19 @@
 # BooleanConvert vs DNFReduce Comparison
 
-Generated: Thu 2 Apr 2026 14:11:29
-Mathematica: 14.3.0 for Mac OS X ARM (64-bit) (July 8, 2025)
+Generated: Mon 6 Apr 2026 10:56:49
+Mathematica: 14.0.0 for Mac OS X ARM (64-bit) (December 13, 2023)
 
 ## Summary
 
 | Case | Input Disjuncts | BC Time (s) | DNF Time (s) | Speedup | BC Disjuncts | DNF Disjuncts | BC Leaves | DNF Leaves | Equivalence |
 |---|---|---|---|---|---|---|---|---|---|
 | 7 | - | - | - | - | - | - | - | - | TRIVIAL |
-| 8 | 1 | 0.000104 | 0.006419 | 0.0162019x | 4 | 1 | 313 | 16 | EQUIVALENT |
-| 12 | 1 | 0.000032 | 0.00037 | 0.0864865x | 1 | 1 | 23 | 6 | EQUIVALENT |
-| 11 | 1 | 0.023437 | 0.051185 | 0.457888x | 12 | 20 | 5763 | 6869 | EQUIV_TIMEOUT |
-| 14 | 2 | 0.000033 | 0.001142 | 0.0288967x | 2 | 1 | 82 | 6 | EQUIVALENT |
-| Braess congest | 1 | 0.000202 | 0.006403 | 0.0315477x | 4 | 1 | 649 | 67 | EQUIVALENT |
-| Paper example | 1 | 0.000035 |      -6
-6. 10 | 5.83333x | 1 | 1 | 3 | 3 | EQUIVALENT |
-| 20 | 1 | 0.000254 | 0.006305 | 0.0402855x | 8 | 4 | 1289 | 240 | EQUIVALENT |
+| 8 | 1 | 0.000057 | 0.023938 | 0.00238115x | 4 | 1 | 313 | 16 | EQUIVALENT |
+| 12 | 1 | 0.000041 | 0.000434 | 0.09447x | 1 | 1 | 23 | 6 | EQUIVALENT |
+| 11 | 1 | 0.022839 | 0.045009 | 0.507432x | 12 | 20 | 5763 | 6869 | EQUIV_TIMEOUT |
+| 14 | 2 | 0.000046 | 0.00117 | 0.0393162x | 2 | 1 | 82 | 6 | EQUIVALENT |
+| Braess congest | 1 | 0.000163 | 0.005943 | 0.0274272x | 4 | 1 | 649 | 67 | EQUIVALENT |
+| 20 | 1 | 0.000267 | 0.005819 | 0.0458842x | 8 | 4 | 1289 | 240 | EQUIVALENT |
 
 ## Interpretation
 
