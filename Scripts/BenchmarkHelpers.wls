@@ -152,6 +152,11 @@ $CaseParams = <|
   "Big Braess split" -> {},
   "Big Braess congest" -> {},
   "Grid0303" -> {},
+  "Grid0404" -> {},
+  "Grid0505" -> {},
+  "Grid0707" -> {},
+  "Grid0710" -> {},
+  "Grid1010" -> {},
   "Grid1020" -> {}
 |>;
 
@@ -166,8 +171,9 @@ $BenchmarkTiers = <|
   "paper" -> {"HRF Scenario 1"},
   "large" -> {13, 19, 20, 21, 22, 23, "Jamaratv9",
               "Braess split", "Braess congest", "New Braess",
-              "Big Braess split", "Big Braess congest", "Grid0303"},
-  "vlarge" -> {"Grid1020"}
+              "Big Braess split", "Big Braess congest",
+              "Grid0303", "Grid0404", "Grid0505"},
+  "vlarge" -> {"Grid0707", "Grid0710", "Grid1010", "Grid1020"}
 |>;
 
 $BenchmarkTierAliases = <|

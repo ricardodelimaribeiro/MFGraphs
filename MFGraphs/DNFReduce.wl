@@ -84,28 +84,73 @@ DNFReduce[xp_, True] := xp
 (* Single equality: delegate to 3-arg form *)
 DNFReduce[xp_, eq_Equal] := DNFReduce[xp, True, eq]
 
-(* Conjunction: peel off the first element and process it *)
-DNFReduce[xp_, And[fst_, rst_]] :=
-    If[ xp === False,
-        False,
-        If[ Head[fst] === Or,
-            (* Distribute sequentially with early exit:
-               if any branch leaves xp unchanged, xp already satisfies the Or, so stop. *)
-            Catch[
-                Module[{accumulated = False, r},
-                    Do[
-                        r = DNFReduce[xp, rst, b];
-                        If[r === xp, Throw[xp, "dnfAndOr"]];
-                        accumulated = Or[accumulated, r],   (* Or[False, x] -> x automatically *)
-                        {b, List @@ fst}
+(* Helper: flatten post-substitution results back to a list of conjuncts *)
+FlattenConjuncts[True] := {}
+FlattenConjuncts[False] := {False}
+FlattenConjuncts[x_And] := List @@ x
+FlattenConjuncts[x_] := {x}
+
+(* Conjunction: flatten to list and process iteratively to avoid deep recursion.
+   The original recursive version peeled off one conjunct at a time, causing stack
+   overflow on large networks like Grid1020 (200 vertices). This iterative version
+   processes conjuncts in a While loop, only recursing for Or-distribution. *)
+DNFReduce[xp_, sys_And] :=
+    Module[{conjuncts = List @@ sys, xpAcc = xp, i = 1, elem,
+            newfst, sol, fsol, newxp, rest, newRest},
+        While[i <= Length[conjuncts],
+            If[xpAcc === False, Return[False, Module]];
+            elem = conjuncts[[i]];
+
+            Which[
+                elem === True,
+                    i++,
+
+                elem === False,
+                    Return[False, Module],
+
+                Head[elem] === Or,
+                    (* Distribute: process each Or-branch with remaining conjuncts.
+                       This is the only place we recurse, via the existing 3-arg forms. *)
+                    rest = If[i >= Length[conjuncts], True, And @@ conjuncts[[i + 1 ;;]]];
+                    Return[
+                        Catch[
+                            Module[{accumulated = False, r},
+                                Do[
+                                    r = DNFReduce[xpAcc, rest, b];
+                                    If[r === xpAcc, Throw[xpAcc, "dnfAndOr"]];
+                                    accumulated = Or[accumulated, r],
+                                    {b, List @@ elem}
+                                ];
+                                If[accumulated === False, False, DeduplicateByComplexity[accumulated]]
+                            ],
+                            "dnfAndOr"
+                        ],
+                        Module
+                    ],
+
+                Head[elem] === Equal,
+                    (* Equality: solve, substitute into xpAcc and all remaining conjuncts *)
+                    newfst = Simplify @ elem;
+                    If[newfst === False, Return[False, Module]];
+                    sol = Quiet[CachedSolve @ newfst];
+                    fsol = If[MatchQ[sol, {{__Rule}, ___}], First[sol], {}];
+                    newxp = SubstituteSolution[xpAcc, fsol];
+                    If[newxp === False, Return[False, Module]];
+                    xpAcc = newxp && elem;
+                    (* Substitute into all remaining conjuncts *)
+                    If[i < Length[conjuncts],
+                        newRest = SubstituteSolution[And @@ conjuncts[[i + 1 ;;]], fsol];
+                        conjuncts = Join[conjuncts[[;; i]], FlattenConjuncts[newRest]];
                     ];
-                    If[accumulated === False, False, DeduplicateByComplexity[accumulated]]
-                ],
-                "dnfAndOr"
-            ],
-            (* Process the single element *)
-            DNFReduce[xp, rst, fst]
-        ]
+                    i++,
+
+                True,
+                    (* Default: absorb into xpAcc *)
+                    xpAcc = xpAcc && elem;
+                    i++
+            ]
+        ];
+        xpAcc
     ]
 
 (* Disjunction: reduce each branch independently, prune False results *)
