@@ -11,6 +11,7 @@ SafeExecute::usage =
 Returns <|\"Time\" -> seconds, \"Memory\" -> bytes, \"Status\" -> string, \"Result\" -> value|>.
 Status is \"OK\", \"TIMEOUT\", or \"FAILED\".";
 
+SetAttributes[SafeExecute, HoldFirst];
 SafeExecute[expr_, timeout_:300] :=
   Module[{result, time, memBefore, memAfter, status},
     memBefore = MemoryInUse[];
@@ -165,8 +166,8 @@ GetParams[key_] := Lookup[$CaseParams, key, $DefaultParams];
 
 $BenchmarkTiers = <|
   "small" -> {1, 2, 3, 4, 5, 6, 27},
-  "core" -> {9, 10, 12, 14, 15, 18, "Paper example"},
-  "stress" -> {7, 8, 11, 17, 104, "triangle with two exits"},
+  "core" -> {9, 10, 12, 14, 18},
+  "stress" -> {7, 8, 104, "triangle with two exits"},
   "paper" -> {"HRF Scenario 1"},
   "large" -> {13, 19, 20, 21, 22, 23, "Jamaratv9",
               "Braess split", "Braess congest", "New Braess",
