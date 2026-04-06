@@ -88,7 +88,9 @@ wolframscript -file Scripts/GenerateDocs.wls
 ```
 
 ### Updating developer guides
-- **CLAUDE.md** and **GEMINI.md** provide AI-assistance guidance — keep both synchronized if updating general workflows
+- **CLAUDE.md** is the canonical AI/developer workflow guide
+- **GEMINI.md** is a synchronized companion reference for the same workflows
+- **AGENTS.md** must remain a thin pointer (do not duplicate long-form guidance there)
 - **BENCHMARKS.md** documents the profiling infrastructure — update when adding new benchmark cases
 - **CONTRIBUTING.md** (this file) — update when workflow changes
 
@@ -102,6 +104,8 @@ wolframscript -file Scripts/GenerateDocs.wls
 - `MFGraphs/Tests/`: MUnit test files (`.mt`)
 - `Results/`: Benchmark outputs (CSV, JSON, markdown reports)
 - `History/`: Development history and decision records
-- `CLAUDE.md`, `GEMINI.md`: AI-specific development guidance
+- `CLAUDE.md`: Canonical AI/developer workflow guidance
+- `GEMINI.md`: Companion AI guidance synchronized with CLAUDE.md
+- `AGENTS.md`: Pointer file that redirects to canonical guidance
 - `BENCHMARKS.md`: Performance profiling methodology
 - `TROUBLESHOOTING.md`: FAQ and common issues
