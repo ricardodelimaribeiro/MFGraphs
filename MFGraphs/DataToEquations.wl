@@ -422,7 +422,7 @@ MFGPreprocessing[Eqs_] :=
     Module[{InitRules, RuleBalanceGatheringFlows, EqEntryIn, RuleEntryOut,
          RuleExitFlowsIn, RuleExitValues, EqValueAuxiliaryEdges, IneqSwitchingByVertex,
          AltOptCond, EqBalanceSplittingFlows, AltFlows, AltTransitionFlows, IneqJs,
-         IneqJts, ModuleVarsNames, ModulesVars, NewSystem, Rules, EqGeneral, 
+         IneqJts, ModuleVarsNames, ModulesVars, NewSystem, Rules, EqGeneral,
         RuleEntryValues, temp, time},
         RuleBalanceGatheringFlows = Lookup[Eqs, "RuleBalanceGatheringFlows",
              $Failed];
@@ -647,7 +647,14 @@ CriticalCongestionSolver[Eqs_] :=
                 MFGPrint["Direct critical solver completed in ", time, " seconds."];
                 status = CheckFlowFeasibility[AssoCritical];
                 If[status === "Feasible",
-                    PreEqs = Eqs;
+                    (* Run MFGPreprocessing so downstream solvers (NonLinearSolver)
+                       have the symbolic InitRules, NewSystem, costpluscurrents that
+                       MFGSystemSolver expects to specialize per-iteration. *)
+                    If[KeyExistsQ[Eqs, "InitRules"],
+                        PreEqs = Eqs,
+                        {time, PreEqs} = AbsoluteTiming @ MFGPreprocessing[Eqs];
+                        MFGPrint["Preprocessing (for downstream solvers) took ", time, " seconds."]
+                    ];
                     solution = AssoCritical;
                     comparisonData = BuildSolverComparisonData[PreEqs, solution];
                     Return[
