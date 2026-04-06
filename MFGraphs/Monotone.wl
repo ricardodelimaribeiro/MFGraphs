@@ -103,6 +103,9 @@ HessianSandwich[x_?NumberVectorQ, A_] := A . InverseHessian[x] . Transpose[A];
 
 BuildProjectionCacheEntry[x_?NumberVectorQ, A_, At_] :=
   Module[{invH, sandwich, solver},
+    If[Length[x] === 0,
+      Return[<|"x" -> x, "Method" -> "Degenerate"|>, Module]
+    ];
     invH = InverseHessian[x];
     sandwich = HessianSandwich[x, A, At];
     solver = Quiet @ Check[LinearSolve[sandwich], $Failed];
@@ -113,13 +116,16 @@ BuildProjectionCacheEntry[x_?NumberVectorQ, A_, At_] :=
   ];
 
 ProjectionOperatorFromEntry[x_?NumberVectorQ, A_, dim_Integer, At_, entry_Association] :=
-  Module[{invH, correction},
+  If[dim === 0,
+    {},
+    Module[{invH, correction},
     invH = InverseHessian[x];
     correction = If[Lookup[entry, "Method", "PseudoInverse"] === "LinearSolve",
       At . entry["Solver"][A . invH],
       At . entry["PseudoInverse"] . A . invH
     ];
     invH . (IdentityMatrix[dim] - correction)
+    ]
   ];
 
 (* --- GradientProjection: projected gradient operator --- *)
@@ -308,7 +314,7 @@ BuildCriticalQuadraticEdgeModel[d2e_Association, tol_:10^-8] :=
 
 BuildCriticalQuadraticObjective[d2e_Association] :=
   Module[{stateData, B, KM, jj, S, q, edgeSlopes, switching, exitRules,
-      outExitPairs, exitCostByPair, linearTerm, quadraticTerm},
+      outExitPairs, exitCostByPair, linearTerm, quadraticTerm, edgeSlopeVector},
     stateData = BuildMonotoneStateData[d2e];
     B = stateData["B"];
     KM = stateData["KM"];
@@ -320,10 +326,14 @@ BuildCriticalQuadraticObjective[d2e_Association] :=
     If[edgeSlopes === $Failed,
       Return[$Failed, Module]
     ];
-    S = Normal @ stateData["SignedEdgeMatrix"];
-    q = S . jj;
+    S = stateData["SignedEdgeMatrix"];
+    q = If[Length[stateData["HalfPairs"]] === 0, {}, S . jj];
+    edgeSlopeVector = Lookup[edgeSlopes, Lookup[d2e, "edgeList", {}], 1.];
     quadraticTerm =
-      1/2 q . DiagonalMatrix[Lookup[edgeSlopes, Lookup[d2e, "edgeList", {}], 1.]] . q;
+      If[q === {} || edgeSlopeVector === {},
+        0,
+        1/2 q . DiagonalMatrix[edgeSlopeVector] . q
+      ];
     switching = Lookup[d2e, "SwitchingCosts", <||>];
     exitRules = Lookup[d2e, "RuleExitValues", <||>];
     outExitPairs = List @@@ Lookup[d2e, "exitEdges", {}];
@@ -372,7 +382,7 @@ BuildMonotoneComparisonData[d2e_Association, stateData_Association, solution_Ass
     jjVals = Lookup[flowAssoc, jj, missing];
     signedVals =
       If[ListQ[jjVals] && VectorQ[jjVals, NumericQ],
-        N @ (stateData["SignedEdgeMatrix"] . jjVals),
+        If[Length[edgeList] === 0, {}, N @ (stateData["SignedEdgeMatrix"] . jjVals)],
         missing
       ];
     residual =
@@ -417,15 +427,19 @@ BuildReducedKirchhoffMetadata[stateData_Association] :=
 CleanCriticalQuadraticSolution[model_Association, rawSolution_List] :=
   Module[{vars, S, qTarget, cleaned},
     vars = model["Variables"];
-    S = Normal @ model["StateData"]["SignedEdgeMatrix"];
-    qTarget = N @ (S . (vars /. rawSolution));
+    S = model["StateData"]["SignedEdgeMatrix"];
+    qTarget = If[
+      Length[Lookup[model["StateData"], "HalfPairs", {}]] === 0,
+      {},
+      N @ (S . (vars /. rawSolution))
+    ];
     cleaned =
       Quiet @ Check[
         LinearOptimization[
           Total[vars],
           Join[
             Thread[Normal[model["KM"]] . vars == Normal[model["B"]]],
-            Thread[S . vars == qTarget],
+            If[qTarget === {}, {}, Thread[S . vars == qTarget]],
             Thread[vars >= 0]
           ],
           vars
@@ -632,7 +646,11 @@ BuildReducedMonotoneDynamics[reduced_Association, KM_, B_, cc_, useCache_:True] 
       If[dim === 0, basePoint, basePoint + basis . theta];
     edgeState[theta_?NumberVectorQ] :=
       If[dim === 0, edgeOffset, edgeOffset + edgeBasis . theta];
-    reducedMetric[q_?NumberVectorQ] := Transpose[edgeBasis] . Hess[q] . edgeBasis;
+    reducedMetric[q_?NumberVectorQ] :=
+      If[dim === 0 || Length[q] === 0,
+        ConstantArray[0., {dim, dim}],
+        Transpose[edgeBasis] . Hess[q] . edgeBasis
+      ];
     reducedSolve[q_?NumberVectorQ, rhs_?NumberVectorQ] :=
       Module[{metric, solver},
         metric = reducedMetric[q];
