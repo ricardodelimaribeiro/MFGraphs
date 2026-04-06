@@ -37,44 +37,89 @@ IsFeasible[result]
 If[IsFeasible[result], Print["Flows: ", result["AssoCritical"]]]
 ```
 
+### Built-in test cases
+
+The package includes 34 pre-configured test networks accessible via `GetExampleData[key]`:
+
+```mathematica
+(* Access by numeric key *)
+data = GetExampleData[12];                  (* Case 12 — 4-vertex attraction network *)
+data = GetExampleData[7];                   (* Case 7 — solver stress test *)
+
+(* Access by name (string) *)
+data = GetExampleData["Paper example"];     (* Paper publication benchmark *)
+data = GetExampleData["Grid0303"];          (* 3×3 grid network *)
+data = GetExampleData["Jamaratv9"];         (* Large Jamarah network variant *)
+data = GetExampleData["triangle with two exits"];  (* Symmetric stress case *)
+
+(* Substitute symbolic parameters *)
+data = GetExampleData[12] /. {I1 -> 100, U1 -> 0}  (* Replace symbolic parameters *)
+```
+
+For the complete list of 34 cases (both numeric and named), their definitions, and topologies, see `MFGraphs/Examples/ExamplesData.wl`. Many cases include symbolic parameters (e.g., `I1`, `U1`, `S1`) that must be substituted with numeric values before solving. Default substitutions for the benchmark suite are in `Scripts/BenchmarkHelpers.wls` (`$DefaultParams`).
+
 ### Run tests and benchmarks
 
-All scripts use `wolframscript` and must be run from the repository root:
+All scripts use `wolframscript` and must be run from the repository root.
+
+#### Unit tests (correctness validation)
+
+Fast regression suite for verifying package correctness:
 
 ```bash
-# Fast regression suite (9 files, ~27 minutes)
+# Fast suite (9 files, ~27 minutes)
 wolframscript -file Scripts/RunTests.wls fast
 
 # All tests (slower, more comprehensive)
 wolframscript -file Scripts/RunTests.wls slow
 
-# Full benchmark suite across all tiers
-wolframscript -file Scripts/BenchmarkSuite.wls
-
-# Single tier (small/medium/large/vlarge)
-wolframscript -file Scripts/BenchmarkSuite.wls small
-
-# Track performance impact of changes
-wolframscript -file Scripts/CompareDNF.wls --tag "description of change"
+# All test suites at once
+wolframscript -file Scripts/RunTests.wls all
 ```
 
-**Test tier specifications**:
+**Test suite notes**:
+- Expected times on a typical Mac (as of March 2025):
+  - `fast`: **~27 minutes** (solver-contracts + monotone tests with full solver runs)
+  - `slow`: **significantly longer** (includes large-case solvers)
+- Results go to standard Mathematica test output; no files are saved
+- Use this suite in CI for correctness regression checks
 
-| Tier | Cases | Timeout | Notes |
-|------|-------|---------|-------|
-| **small** | 1–6, 27 | 60s | Linear chains, cycles |
-| **medium** | 7–15, 17–18, 104, triangle, Paper | 300s | Mid-size networks |
-| **large** | 13, 19–23, Braess variants, Jamaratv9, Grid0303 | 900s | Large networks |
-| **vlarge** | Grid1020 | 1800s | Stress test (RecursionLimit by design) |
+#### Performance benchmarks (tier-based)
 
-Expected times on a typical Mac (as of March 2025):
-- `RunTests.wls fast`: **~27 minutes** (solver-contracts + monotone tests with full solver runs)
-- `RunTests.wls slow`: **significantly longer** (includes large-case solvers)
+Full benchmark suite across performance tiers:
 
-**Test infrastructure notes**:
-- Benchmark results (CSV, JSON, markdown) go to `Results/` (gitignored except `Results/compare_dnf.md`)
+```bash
+# Full benchmark suite (all tiers)
+wolframscript -file Scripts/BenchmarkSuite.wls
+
+# Single tier (small/core/stress/paper/inconsistent-switching/large/vlarge)
+wolframscript -file Scripts/BenchmarkSuite.wls small
+wolframscript -file Scripts/BenchmarkSuite.wls core
+
+# Single case with custom timeout
+wolframscript -file Scripts/BenchmarkSuite.wls small case=1 timeout=60
+
+# Track performance impact of changes (records in DNF_PERFORMANCE_HISTORY.md)
+wolframscript -file Scripts/BenchmarkSuite.wls --tag "description of change" --rationale "why" --changes "what changed"
+```
+
+**Benchmark tier specifications**:
+
+| Tier | Cases | Timeout | Description |
+|------|-------|---------|-------------|
+| **small** | 1–6, 27 | 60s | Linear chains, simple cycles |
+| **core** | 9, 10, 12, 14, 18 | 300s | Stable cases for routine benchmarking (recommended for CI) |
+| **stress** | 7, 8, 104, "triangle with two exits" | 1800s | Symmetry-heavy or solver-stress cases |
+| **paper** | "HRF Scenario 1" | 1800s | Paper publication benchmark reference |
+| **inconsistent-switching** | 11, 15, 17, "Paper example" | 300s | Feature validation: switching costs violating triangle inequality |
+| **large** | 13, 19–23, Braess variants, "Jamaratv9", Grid0303, Grid0404, Grid0505 | 900s | Multi-entrance/exit, larger graphs |
+| **vlarge** | Grid0707, Grid0710, Grid1010, Grid1020 | 1800s | Stress test grids (up to 200 vertices, designed to hit RecursionLimit) |
+
+**Benchmark notes**:
+- Results (CSV, JSON, markdown) go to `Results/` (gitignored except `Results/compare_dnf.md`)
+- Use `--tag` with `--rationale`, `--changes`, and `--interpretation` to track performance history in `DNF_PERFORMANCE_HISTORY.md` and `PARALLEL_PERFORMANCE_HISTORY.md`
 - Test cases that fail validation due to switching costs violating the triangle inequality are **expected failures** (feature validation)
-- Run benchmarks with `--tag` to track performance history; see `DNF_PERFORMANCE_HISTORY.md` and `PARALLEL_PERFORMANCE_HISTORY.md`
+- `medium` is a legacy alias for `core` (supported for backward compatibility)
 
 ## Architecture
 
@@ -88,9 +133,13 @@ Data (Association)
 DataToEquations[data]                    (DataToEquations.wl)
   ↓
 CriticalCongestionSolver[d2e]           (DataToEquations.wl, uses DNFReduce.wl)
+  ├─ DirectCriticalSolver[d2e]           (fast path for zero-switching-cost networks)
+  └─ MFGSystemSolver + DNFSolveStep      (general case with switching costs)
   ↓
 NonLinearSolver[criticalResult]  or  MonotoneSolverFromData[data]
 ```
+
+**Solver selection**: `CriticalCongestionSolver` automatically dispatches to `DirectCriticalSolver` for networks with no switching costs (much faster); otherwise uses the full symbolic pipeline.
 
 ### Module load order
 
@@ -214,6 +263,51 @@ Parallelized sites: `Simplify` over switching-cost inequalities, `Select`/`Simpl
 - `Block[{sym}]` clears all `DownValues` — provide explicit defaults when wrapping solver parameters
 
 Performance history tracked in `PARALLEL_PERFORMANCE_HISTORY.md`. Use `BenchmarkSuite.wls --tag "description"` to record entries.
+
+## Utility Scripts
+
+The `Scripts/` directory contains specialized tools for benchmarking, profiling, and performance analysis. All scripts use `wolframscript` and must be run from the repository root.
+
+### Performance comparison and tracking
+
+**`CompareDNF.wls`** — Compare DNF solver performance before/after code changes:
+```bash
+# Establish baseline before making changes
+wolframscript -file Scripts/CompareDNF.wls --tag "baseline"
+
+# Make code changes...
+
+# Measure impact after changes
+wolframscript -file Scripts/CompareDNF.wls --tag "after optimization"
+
+# Compare performance on a single case
+wolframscript -file Scripts/CompareDNF.wls case=7
+```
+Results are recorded in `DNF_PERFORMANCE_HISTORY.md` and `Results/compare_dnf.md`.
+
+**`CompareSolvers.wls`** — Compare performance across all three solvers (CriticalCongestion, NonLinear, Monotone) on representative test cases.
+
+### Profiling and bottleneck analysis
+
+**`BottleneckReport.wls`** — Generate detailed timing breakdown per solver function:
+```bash
+wolframscript -file Scripts/BottleneckReport.wls
+```
+Produces `Results/bottleneck_report.md` with call counts and timing for each profiled stage (preprocessing, DNFReduce, TripleClean, etc.). Use this to identify performance bottlenecks.
+
+**`ProfilePreprocessing.wls`** — Deep-dive profiling of the preprocessing stage (`MFGPreprocessing` + `TripleClean`).
+
+**`ProfileReductionStrategies.wls`** — Compare different disjunct reduction strategies (`ReduceDisjuncts` vs `SubsumptionPrune`) on performance-critical cases.
+
+**`ProfileInstrument.wls`** — Generate instrumentation data for custom analysis.
+
+### Helper scripts
+
+**`BenchmarkHelpers.wls`** — Loaded by `BenchmarkSuite.wls`; defines tier configurations, default parameters, and helper functions. Contains `$DefaultParams` substitutions and tier definitions.
+
+**`GenerateDocs.wls`** — Regenerate auto-generated documentation (e.g., `API_REFERENCE.md` from `::usage` declarations).
+
+**`GenerateReferenceHashes.wls`** — Generate reference solution hashes for verification.
 
 ## Debugging & Profiling Workflows
 
