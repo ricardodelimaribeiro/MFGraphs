@@ -83,9 +83,59 @@ CheckFlowFeasibility[assoc_Association] :=
 SelectFlowAssociation[assoc_Association] :=
     Association @ KeySelect[assoc, MatchQ[#, _j] &];
 
+ComputeNonLinearResidual[Eqs_Association, solution_] :=
+    Module[{missing, Nlhs, Nrhs, lhsVals, rhsVals, diffs},
+        missing = Missing["NotComputable"];
+        If[!AssociationQ[solution],
+            Return[
+                <|
+                    "NonLinearResidual" -> missing,
+                    "NonLinearResidualVector" -> missing
+                |>,
+                Module
+            ]
+        ];
+        Nlhs = Lookup[Eqs, "Nlhs", $Failed];
+        Nrhs = Lookup[Eqs, "Nrhs", $Failed];
+        If[Nlhs === $Failed || Nrhs === $Failed,
+            Return[
+                <|
+                    "NonLinearResidual" -> missing,
+                    "NonLinearResidualVector" -> missing
+                |>,
+                Module
+            ]
+        ];
+        lhsVals = Quiet @ Check[N[Nlhs /. Normal[solution]], $Failed];
+        rhsVals = Quiet @ Check[N[Nrhs /. Normal[solution]], $Failed];
+        If[lhsVals === $Failed || rhsVals === $Failed,
+            Return[
+                <|
+                    "NonLinearResidual" -> missing,
+                    "NonLinearResidualVector" -> missing
+                |>,
+                Module
+            ]
+        ];
+        diffs = Select[Flatten[{lhsVals - rhsVals}], NumericQ];
+        If[diffs === {},
+            Return[
+                <|
+                    "NonLinearResidual" -> missing,
+                    "NonLinearResidualVector" -> missing
+                |>,
+                Module
+            ]
+        ];
+        <|
+            "NonLinearResidual" -> Max[Abs[diffs]],
+            "NonLinearResidualVector" -> diffs
+        |>
+    ];
+
 BuildSolverComparisonData[Eqs_Association, solution_] :=
     Module[{missing, flowAssoc, edgeList, edgePairs, signedFlowRules, signedExprs,
-         signedVals, B, KM, jj, jjVals, residual},
+         signedVals, B, KM, jj, jjVals, residual, nonLinearMetrics},
         missing = Missing["NotAvailable"];
         edgeList = Lookup[Eqs, "edgeList", {}];
         If[!AssociationQ[solution],
@@ -95,7 +145,9 @@ BuildSolverComparisonData[Eqs_Association, solution_] :=
                     "FlowAssociation" -> missing,
                     "SignedEdgeFlows" -> missing,
                     "ComparableFlowVector" -> missing,
-                    "KirchhoffResidual" -> missing
+                    "KirchhoffResidual" -> missing,
+                    "NonLinearResidual" -> missing,
+                    "NonLinearResidualVector" -> missing
                 |>,
                 Module
             ]
@@ -121,13 +173,16 @@ BuildSolverComparisonData[Eqs_Association, solution_] :=
                 N @ Norm[KM . jjVals - B, Infinity],
                 missing
             ];
+        nonLinearMetrics = ComputeNonLinearResidual[Eqs, solution];
         <|
             "ComparableEdges" -> edgeList,
             "FlowAssociation" -> flowAssoc,
             "SignedEdgeFlows" ->
                 If[signedVals === missing, missing, AssociationThread[edgeList, signedVals]],
             "ComparableFlowVector" -> signedVals,
-            "KirchhoffResidual" -> residual
+            "KirchhoffResidual" -> residual,
+            "NonLinearResidual" -> Lookup[nonLinearMetrics, "NonLinearResidual", missing],
+            "NonLinearResidualVector" -> Lookup[nonLinearMetrics, "NonLinearResidualVector", missing]
         |>
     ];
 
