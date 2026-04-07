@@ -53,8 +53,9 @@ FastIntegratedMass::usage =
 interpM should be the result of PrecomputeM.";
 
 IsFeasible::usage =
-"IsFeasible[result] returns True if a solver result is feasible, checking legacy \
-\"Status\" or standardized \"Feasibility\" keys.";
+"IsFeasible[result, Tolerance -> 10^-4] returns True if a solver result is feasible, \
+checking legacy \"Status\" or standardized \"Feasibility\" keys and, when available, \
+requiring \"NonLinearResidual\" <= Tolerance.";
 
 Options[NonLinearSolver] = {
     "MaxIterations" -> 15,
@@ -157,29 +158,74 @@ NonLinearSolver[Eqs_, OptionsPattern[]] :=
                         Missing["NotAvailable"]
                     ]
                 ];
-                (* Feasibility check on the non-linear solution *)
-                If[AssoNonCritical === Null,
-                    status = "Infeasible",
-                    status = CheckFlowFeasibility[AssoNonCritical]
+                Module[{flowStatus, nominalResultKind, nlRes, structValid},
+                    If[AssoNonCritical === Null,
+                        flowStatus = "Infeasible",
+                        flowStatus = CheckFlowFeasibility[AssoNonCritical]
+                    ];
+                    stopReason =
+                        Which[
+                            AssoNonCritical === Null, "NoSolution",
+                            tol > 0 && NumericQ[flowDelta] && flowDelta <= tol, "ToleranceMet",
+                            tol > 0, "MaxIterationsReached",
+                            iterations > 0 && NonCriticalList[[-1]] === NonCriticalList[[-2]], "FixedPointReached",
+                            iterations >= MaxIter, "MaxIterationsReached",
+                            True, "IterationStopped"
+                        ];
+                    nominalResultKind =
+                        Which[
+                            AssoNonCritical === Null, "Failure",
+                            MemberQ[{"ToleranceMet", "FixedPointReached"}, stopReason], "Success",
+                            True, "NonConverged"
+                        ];
+                    solution = If[AssociationQ[AssoNonCritical], AssoNonCritical, Missing["NotAvailable"]];
+                    comparisonData = BuildSolverComparisonData[PreEqs, solution];
+                    nlRes = Lookup[comparisonData, "NonLinearResidual", Missing["NotAvailable"]];
+                    structValid =
+                        If[AssoNonCritical === Null,
+                            False,
+                            Module[{testState, assoc, eqEntryIn, eqValue, altOpt, eqBalance,
+                              altFlows, altTransitions, ineqJs, ineqJts, ineqSwitch},
+                                testState = Join[PreEqs, <|"AssoNonCritical" -> AssoNonCritical|>];
+                                assoc = Lookup[testState, "AssoNonCritical", <||>];
+                                eqEntryIn = And @@ Lookup[testState, "EqEntryIn", {$Failed}];
+                                eqValue = Lookup[testState, "EqValueAuxiliaryEdges", $Failed];
+                                altOpt = Lookup[testState, "AltOptCond", $Failed];
+                                eqBalance = Lookup[testState, "EqBalanceSplittingFlows", $Failed];
+                                altFlows = Lookup[testState, "AltFlows", $Failed];
+                                altTransitions = Lookup[testState, "AltTransitionFlows", $Failed];
+                                ineqJs = Lookup[testState, "IneqJs", $Failed];
+                                ineqJts = Lookup[testState, "IneqJts", $Failed];
+                                ineqSwitch = And @@ Lookup[testState, "IneqSwitchingByVertex", {$Failed}];
+                                TrueQ[
+                                    (eqEntryIn && eqValue && altOpt && eqBalance &&
+                                     altFlows && altTransitions && ineqJs && ineqJts && ineqSwitch) /. assoc
+                                ]
+                            ]
+                        ];
+                    If[flowStatus =!= "Feasible" || nominalResultKind =!= "Success",
+                        status = "Infeasible";
+                        resultKind = If[nominalResultKind === "Success", "NonConverged", nominalResultKind];
+                        message = Which[
+                            AssoNonCritical === Null, stopReason,
+                            flowStatus =!= "Feasible", "FlowFeasibilityFailed",
+                            True, stopReason
+                        ],
+                        If[NumericQ[nlRes],
+                            If[nlRes <= tol && structValid,
+                                status = "Feasible";
+                                resultKind = "Success";
+                                message = None,
+                                status = "Infeasible";
+                                resultKind = "NonConverged";
+                                message = If[!structValid, "StructuralCheckFailed", "ResidualExceedsTolerance"];
+                            ],
+                            status = "Infeasible";
+                            resultKind = "Failure";
+                            message = "ResidualNotComputable";
+                        ]
+                    ];
                 ];
-                stopReason =
-                    Which[
-                        AssoNonCritical === Null, "NoSolution",
-                        tol > 0 && NumericQ[flowDelta] && flowDelta <= tol, "ToleranceMet",
-                        tol > 0, "MaxIterationsReached",
-                        iterations > 0 && NonCriticalList[[-1]] === NonCriticalList[[-2]], "FixedPointReached",
-                        iterations >= MaxIter, "MaxIterationsReached",
-                        True, "IterationStopped"
-                    ];
-                resultKind =
-                    Which[
-                        AssoNonCritical === Null, "Failure",
-                        MemberQ[{"ToleranceMet", "FixedPointReached"}, stopReason], "Success",
-                        True, "NonConverged"
-                    ];
-                message = If[resultKind === "Success", None, stopReason];
-                solution = If[AssociationQ[AssoNonCritical], AssoNonCritical, Missing["NotAvailable"]];
-                comparisonData = BuildSolverComparisonData[PreEqs, solution];
                 convergenceData = <|
                     "StopReason" -> stopReason,
                     "FinalResidual" -> flowDelta,
@@ -455,7 +501,14 @@ PlotValueFunctions[Eqs_, string_] :=
 
 (* --- Feasibility check --- *)
 
-IsFeasible[result_Association] :=
-    Lookup[result, "Feasibility", Lookup[result, "Status", "Unknown"]] === "Feasible";
+Options[IsFeasible] = {Tolerance -> 10^-4};
+
+IsFeasible[result_Association, opts:OptionsPattern[]] :=
+    Module[{statusOk, residual, tol},
+        statusOk = Lookup[result, "Feasibility", Lookup[result, "Status", "Unknown"]] === "Feasible";
+        residual = Lookup[result, "NonLinearResidual", Missing["NotAvailable"]];
+        tol = OptionValue[Tolerance];
+        statusOk && (!NumericQ[residual] || residual <= tol)
+    ];
 
 End[];
