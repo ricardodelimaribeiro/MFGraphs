@@ -13,7 +13,22 @@ Status is \"OK\", \"TIMEOUT\", or \"FAILED\".";
 
 SetAttributes[SafeExecute, HoldFirst];
 
-SafeExecute[expr_, timeout_:300] :=
+SafeExecuteIsolated::usage =
+"SafeExecuteIsolated[expr, timeout] evaluates expr in an isolated child wolframscript process.
+Returns the same status envelope as SafeExecute and prevents child-kernel crashes from
+terminating the benchmark master process.";
+
+Options[SafeExecuteIsolated] = {
+  "KernelPath" -> "wolframscript",
+  "ProcessTimeBuffer" -> 5
+};
+
+$SafeExecuteMode = "InProcess";
+
+SetAttributes[SafeExecuteIsolated, HoldFirst];
+SetAttributes[SafeExecuteInProcess, HoldFirst];
+
+SafeExecuteInProcess[expr_, timeout_:300] :=
   Module[{result, time, memBefore, memAfter, status},
     memBefore = MemoryInUse[];
     {time, result} = AbsoluteTiming[
@@ -36,6 +51,121 @@ SafeExecute[expr_, timeout_:300] :=
       "Status" -> status,
       "Result" -> result
     |>
+  ];
+
+SafeExecuteIsolated[expr_, timeout_:300, opts:OptionsPattern[]] :=
+  Module[{kernelPath, buffer, scriptFile, outFile, runResult = <||>, runTime = 0.,
+      rawResult = Missing["NotAvailable"], status = "FAILED", result = Missing["Failed"],
+      stderr = "", heldExpr, concretizedExpr, exprString, scriptLines, processTimeout,
+      proc, startTime, timedOut = False, info = <||>, stdout = "", startOK = False,
+      ignored, procStatus = "Unknown"},
+
+    kernelPath = OptionValue["KernelPath"];
+    buffer = OptionValue["ProcessTimeBuffer"];
+    processTimeout = Max[1, timeout + buffer];
+
+    scriptFile = CreateFile[];
+    outFile = CreateFile[];
+
+    heldExpr = HoldComplete[expr];
+    concretizedExpr = heldExpr /. s_Symbol /; (Context[s] === "Global`" && OwnValues[s] =!= {}) :> Evaluate[s];
+    exprString = StringReplace[
+      ToString[concretizedExpr, InputForm],
+      {
+        StartOfString ~~ "HoldComplete[" -> "",
+        "]" ~~ EndOfString -> ""
+      }
+    ];
+
+    scriptLines = {
+      "SetDirectory[" <> ToString[InputForm[Directory[]]] <> "];",
+      "PrependTo[$Path, Directory[]];",
+      "Needs[\"MFGraphs`\"];",
+      "res = TimeConstrained[",
+      "  Check[",
+      "    " <> exprString <> ",",
+      "    $Failed",
+      "  ],",
+      "  " <> ToString[InputForm[N[timeout]]] <> ",",
+      "  \"TIMEOUT\"",
+      "];",
+      "Export[" <> ToString[InputForm[outFile]] <> ", res, \"WXF\"];"
+    };
+    Export[scriptFile, StringRiffle[scriptLines, "\n"], "Text"];
+
+    {runTime, ignored} = AbsoluteTiming[
+      Quiet @ Check[
+        proc = StartProcess[{kernelPath, "-file", scriptFile}];
+        startOK = True,
+        startOK = False
+      ];
+      If[startOK,
+        startTime = AbsoluteTime[];
+        procStatus = Quiet @ Check[ProcessStatus[proc], "Unknown"];
+        While[
+          procStatus === "Running" && AbsoluteTime[] - startTime < processTimeout,
+          Pause[0.05]
+          ;
+          procStatus = Quiet @ Check[ProcessStatus[proc], "Unknown"]
+        ];
+        If[procStatus === "Running",
+          timedOut = True;
+          Quiet @ Check[KillProcess[proc], Null];
+          Pause[0.1];
+          procStatus = Quiet @ Check[ProcessStatus[proc], "Unknown"]
+        ];
+        info = Quiet @ Check[ProcessInformation[proc], <||>];
+        If[procStatus =!= "Running",
+          stdout = Quiet @ Check[ReadString[proc["StandardOutput"]], ""];
+          stderr = Quiet @ Check[ReadString[proc["StandardError"]], ""];
+        ];
+      ];
+      runResult = <|
+        "ExitCode" -> Lookup[info, "ExitCode", If[startOK, Missing["NotAvailable"], 1]],
+        "StandardOutput" -> stdout,
+        "StandardError" -> stderr
+      |>;
+    ];
+
+    If[timedOut ||
+       Lookup[runResult, "ExitCode", 1] =!= 0 ||
+       !FileExistsQ[outFile] ||
+       Quiet @ Check[FileByteCount[outFile], 0] == 0,
+      status =
+        If[timedOut, "TIMEOUT", "FAILED"];
+      result = Missing[If[status === "TIMEOUT", "Timeout", "KernelPanic"]],
+      rawResult = Quiet @ Check[Import[outFile, "WXF"], $Failed];
+      Which[
+        rawResult === "TIMEOUT",
+          status = "TIMEOUT";
+          result = Missing["Timeout"],
+        rawResult === $Failed || rawResult === $Aborted || rawResult === Null,
+          status = "FAILED";
+          result = Missing["Failed"],
+        True,
+          status = "OK";
+          result = rawResult
+      ]
+    ];
+
+    Quiet @ Check[DeleteFile[scriptFile], Null];
+    Quiet @ Check[DeleteFile[outFile], Null];
+
+    <|
+      "Time" -> runTime,
+      "Memory" -> Missing["IsolatedProcess"],
+      "Status" -> status,
+      "Result" -> result,
+      "ExecutionMode" -> "Process",
+      "ExitCode" -> Lookup[runResult, "ExitCode", Missing["NotAvailable"]],
+      "StandardError" -> stderr
+    |>
+  ];
+
+SafeExecute[expr_, timeout_:300] :=
+  If[$SafeExecuteMode === "Process",
+    SafeExecuteIsolated[expr, timeout],
+    SafeExecuteInProcess[expr, timeout]
   ];
 
 (* --- Residual computation --- *)

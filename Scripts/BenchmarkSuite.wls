@@ -1,4 +1,4 @@
-(* Usage: wolframscript -file Scripts/BenchmarkSuite.wls [tier] [case=key] [timeout=seconds] [tag=label] [rationale=...] [changes=...] [interpretation=...] *)
+(* Usage: wolframscript -file Scripts/BenchmarkSuite.wls [tier] [case=key] [timeout=seconds] [isolation=mode] [tag=label] [rationale=...] [changes=...] [interpretation=...] *)
 (* tier: "small", "core", "stress", "paper", "inconsistent-switching", "large", "vlarge", legacy "medium", or "all" (default: "all") *)
 
 (* :!CodeAnalysis::Disable::SuspiciousSessionSymbol::Print *)
@@ -21,9 +21,15 @@ $MFGraphsVerbose = False;
 Get[FileNameJoin[{Directory[], "Scripts", "BenchmarkHelpers.wls"}]];
 
 (* --- Parse command-line arguments --- *)
-(* Support: wolframscript -file Scripts/BenchmarkSuite.wls [tier] [case=key] [timeout=seconds] [tag=description] *)
+(* Support: wolframscript -file Scripts/BenchmarkSuite.wls [tier] [case=key] [timeout=seconds] [isolation=process|inprocess] [tag=description] *)
 NormalizeCaseArg[arg_String] := If[StringMatchQ[arg, NumberString], ToExpression[arg], arg];
 NormalizeCaseArg[arg_] := arg;
+NormalizeIsolationMode[arg_String] := Switch[ToLowerCase[arg],
+  "process" | "isolated", "Process",
+  "inprocess" | "in-process" | "none", "InProcess",
+  _, $Failed
+];
+NormalizeIsolationMode[_] := $Failed;
 
 $HistoryTag = None;
 $HistoryRationale = None;
@@ -32,8 +38,9 @@ $HistoryInterpretation = None;
 $SelectedTier = "all";
 $SelectedCase = All;
 $TimeoutOverride = Automatic;
+$IsolationModeArg = "inprocess";
 
-Module[{args = Rest[$ScriptCommandLine], i = 1, arg, parsedTimeout},
+Module[{args = Rest[$ScriptCommandLine], i = 1, arg, parsedTimeout, parsedIsolation},
   While[i <= Length[args],
     arg = args[[i]];
     Switch[arg,
@@ -60,6 +67,9 @@ Module[{args = Rest[$ScriptCommandLine], i = 1, arg, parsedTimeout},
             $TimeoutOverride = parsedTimeout
           ]
         ],
+      "--isolation",
+        i++;
+        If[i <= Length[args], $IsolationModeArg = args[[i]]],
       _ /; StringStartsQ[arg, "case="],
         $SelectedCase = NormalizeCaseArg[StringDrop[arg, StringLength["case="]]],
       _ /; StringStartsQ[arg, "timeout="],
@@ -67,6 +77,8 @@ Module[{args = Rest[$ScriptCommandLine], i = 1, arg, parsedTimeout},
         If[NumericQ[parsedTimeout] && parsedTimeout > 0,
           $TimeoutOverride = parsedTimeout
         ],
+      _ /; StringStartsQ[arg, "isolation="],
+        $IsolationModeArg = StringDrop[arg, StringLength["isolation="]],
       _ /; StringStartsQ[arg, "tag="],
         $HistoryTag = StringDrop[arg, StringLength["tag="]],
       _ /; StringStartsQ[arg, "rationale="],
@@ -80,6 +92,14 @@ Module[{args = Rest[$ScriptCommandLine], i = 1, arg, parsedTimeout},
     ];
     i++;
   ];
+
+  parsedIsolation = NormalizeIsolationMode[$IsolationModeArg];
+  If[parsedIsolation === $Failed,
+    Print["Invalid isolation mode: ", $IsolationModeArg];
+    Print["Valid values: inprocess, process"];
+    Exit[2]
+  ];
+  $SafeExecuteMode = parsedIsolation;
 ];
 
 $RequestedTier = $SelectedTier;
@@ -89,6 +109,7 @@ Print["Selected tier: ", $SelectedTier];
 If[$RequestedTier =!= $SelectedTier, Print["Requested alias: ", $RequestedTier]];
 If[$SelectedCase =!= All, Print["Selected case: ", $SelectedCase]];
 If[NumericQ[$TimeoutOverride], Print["Timeout override: ", $TimeoutOverride, "s"]];
+Print["Isolation mode: ", $SafeExecuteMode];
 If[$HistoryTag =!= None, Print["History tag:   ", $HistoryTag]];
 If[$HistoryTag =!= None &&
    MemberQ[{$HistoryRationale, $HistoryChanges, $HistoryInterpretation}, None],
