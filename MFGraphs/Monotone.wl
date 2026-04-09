@@ -450,11 +450,25 @@ CleanCriticalQuadraticSolution[model_Association, rawSolution_List] :=
   ];
 
 TryCriticalQuadraticMonotoneSolve[d2e_Association, residualTolerance_:10^-6] :=
-  Module[{model, vars, rawSolution, time, solution, comparisonData, status,
-      reducedMetadata, convergenceData, resultKind, message, optimizer},
+  Module[{model, vars, rawSolution, time = 0., solution, comparisonData, status,
+      reducedMetadata, convergenceData, optimizer, nonLinearResidual,
+      kirchhoffResidual, isValidShortcut, telemetry, rejectReason, finalResult},
     model = BuildCriticalQuadraticObjective[d2e];
     If[model === $Failed,
-      Return[$Failed, Module]
+      Return[
+        <|
+          "Outcome" -> "Unavailable",
+          "Telemetry" -> <|
+            "QuadraticShortcutAttempted" -> False,
+            "QuadraticShortcutAccepted" -> False,
+            "QuadraticShortcutNonLinearResidual" -> Missing["NotComputed"],
+            "QuadraticShortcutKirchhoffResidual" -> Missing["NotComputed"],
+            "QuadraticShortcutSolveTime" -> 0.,
+            "QuadraticShortcutRejectReason" -> "ModelUnavailable"
+          |>
+        |>,
+        Module
+      ]
     ];
     vars = model["Variables"];
     reducedMetadata = BuildReducedKirchhoffMetadata[model["StateData"]];
@@ -472,41 +486,78 @@ TryCriticalQuadraticMonotoneSolve[d2e_Association, residualTolerance_:10^-6] :=
         $Failed
       ];
     If[!MatchQ[rawSolution, {_Rule ..}],
-      Return[$Failed, Module]
+      telemetry = <|
+        "QuadraticShortcutAttempted" -> True,
+        "QuadraticShortcutAccepted" -> False,
+        "QuadraticShortcutNonLinearResidual" -> Missing["NotComputed"],
+        "QuadraticShortcutKirchhoffResidual" -> Missing["NotComputed"],
+        "QuadraticShortcutSolveTime" -> time,
+        "QuadraticShortcutRejectReason" -> "OptimizerFailed"
+      |>;
+      Return[<|"Outcome" -> "Unavailable", "Telemetry" -> telemetry|>, Module]
     ];
     solution = AssociationThread[vars, N[vars /. rawSolution]];
+    solution = ReconstructUtilities[solution, d2e];
     comparisonData = BuildMonotoneComparisonData[d2e, model["StateData"], solution];
+    nonLinearResidual = ComputeMonotoneEquationResidual[d2e, solution];
+    comparisonData = Join[comparisonData, <|"NonLinearResidual" -> nonLinearResidual|>];
     status = CheckFlowFeasibility[solution];
-    convergenceData = <|
-      "StopReason" -> "QuadraticCriticalSolve",
-      "FinalResidual" -> Lookup[comparisonData, "KirchhoffResidual", Missing["NotAvailable"]],
-      "Iterations" -> 0,
-      "SolveTime" -> time,
-      "SeedMethod" -> "QuadraticCriticalSolve"
-    |>;
-    resultKind =
-      If[
+    kirchhoffResidual = Lookup[comparisonData, "KirchhoffResidual", Missing["NotAvailable"]];
+    isValidShortcut =
+      TrueQ[
         status === "Feasible" &&
-        NumericQ[Lookup[comparisonData, "KirchhoffResidual", Missing["NotAvailable"]]] &&
-        Lookup[comparisonData, "KirchhoffResidual", Infinity] <= residualTolerance,
-        "Success",
-        "NonConverged"
+        NumericQ[nonLinearResidual] &&
+        nonLinearResidual <= residualTolerance &&
+        NumericQ[kirchhoffResidual] &&
+        kirchhoffResidual <= residualTolerance
       ];
-    message = If[resultKind === "Success", None, "QuadraticCriticalSolveFailed"];
-    MakeSolverResult[
-      "Monotone",
-      resultKind,
-      status,
-      message,
-      solution,
-      Join[
-        comparisonData,
-        reducedMetadata,
-        <|
-          "AssoMonotone" -> solution,
-          "Convergence" -> convergenceData
-        |>
-      ]
+    rejectReason =
+      Which[
+        isValidShortcut, None,
+        status =!= "Feasible", "FlowInfeasible",
+        !NumericQ[nonLinearResidual], "ResidualNotComputable",
+        nonLinearResidual > residualTolerance, "NonLinearResidualExceedsTolerance",
+        !NumericQ[kirchhoffResidual], "KirchhoffResidualNotComputable",
+        kirchhoffResidual > residualTolerance, "KirchhoffResidualExceedsTolerance",
+        True, "Unknown"
+      ];
+    telemetry = <|
+      "QuadraticShortcutAttempted" -> True,
+      "QuadraticShortcutAccepted" -> isValidShortcut,
+      "QuadraticShortcutNonLinearResidual" -> nonLinearResidual,
+      "QuadraticShortcutKirchhoffResidual" -> kirchhoffResidual,
+      "QuadraticShortcutSolveTime" -> time,
+      "QuadraticShortcutRejectReason" -> rejectReason
+    |>;
+    If[isValidShortcut,
+      convergenceData = <|
+        "StopReason" -> "QuadraticCriticalSolve",
+        "FinalResidual" -> kirchhoffResidual,
+        "Iterations" -> 0,
+        "SolveTime" -> time,
+        "SeedMethod" -> "QuadraticCriticalSolve"
+      |>;
+      finalResult = MakeSolverResult[
+        "Monotone",
+        "Success",
+        "Feasible",
+        None,
+        solution,
+        Join[
+          comparisonData,
+          reducedMetadata,
+          <|
+            "AssoMonotone" -> solution,
+            "Convergence" -> Join[convergenceData, telemetry]
+          |>
+        ]
+      ];
+      <|"Outcome" -> "Accepted", "Result" -> finalResult, "Telemetry" -> telemetry|>,
+      <|
+        "Outcome" -> "Rejected",
+        "Telemetry" -> telemetry,
+        "CandidateSolution" -> solution
+      |>
     ]
   ];
 
@@ -610,6 +661,78 @@ BuildMonotonePairCostAssociation[halfPairs_List, edgeList_List, q_?NumberVectorQ
       ]
     ],
     {halfPairs, edgeList, q}
+  ];
+
+ComputeMonotoneEquationResidual[d2e_Association, solution_Association] :=
+  Module[{nlhs, nrhs, diff},
+    nlhs = Lookup[d2e, "Nlhs", {}];
+    nrhs = Lookup[d2e, "Nrhs", {}];
+    If[
+      !ListQ[nlhs] || !ListQ[nrhs] || nlhs === {} || nrhs === {} ||
+      Length[nlhs] =!= Length[nrhs],
+      Return[Missing["NoData"], Module]
+    ];
+    diff = Quiet @ Check[(nlhs - nrhs) /. solution, $Failed];
+    If[diff === $Failed,
+      Return[Missing["ComputeError"], Module]
+    ];
+    diff = Quiet @ Check[N @ diff, $Failed];
+    If[diff === $Failed || !VectorQ[diff, NumericQ],
+      Missing["NotComputable"],
+      Quiet @ Check[N @ Norm[diff, Infinity], Missing["ComputeError"]]
+    ]
+  ];
+
+ReconstructMonotoneEdgeFlows[solution_Association, d2e_Association] :=
+  Module[{entryInRules, flowRules, replacementRules, resolve, edgeFlows},
+    entryInRules = Association @ Flatten[ToRules /@ Lookup[d2e, "EqEntryIn", {}]];
+    flowRules = Join[
+      entryInRules,
+      Lookup[d2e, "RuleEntryOut", <||>],
+      Lookup[d2e, "RuleExitFlowsIn", <||>],
+      Lookup[d2e, "RuleBalanceGatheringFlows", <||>]
+    ];
+    replacementRules = Join[Normal[solution], Normal[flowRules]];
+    resolve[expr_] := FixedPoint[ReplaceAll[#, replacementRules] &, expr, 10];
+    edgeFlows = Association @ Cases[
+      Map[
+        Function[{var},
+          Module[{val},
+            val = Quiet @ Check[N @ resolve[var], Missing["NotAvailable"]];
+            If[NumericQ[val], var -> val, Nothing]
+          ]
+        ],
+        Lookup[d2e, "js", {}]
+      ],
+      _Rule
+    ];
+    Join[edgeFlows, solution]
+  ];
+
+ReconstructUtilities[solution_Association, d2e_Association] :=
+  Module[{solutionWithFlows, stateData, jj, jjVals, halfPairs, edgeList, q,
+      pairCosts, valueSystem, utilityAsso},
+    solutionWithFlows = ReconstructMonotoneEdgeFlows[solution, d2e];
+    stateData = BuildMonotoneStateData[d2e];
+    jj = stateData["FullVariables"];
+    jjVals = Lookup[solutionWithFlows, jj, Missing["NotAvailable"]];
+    If[!ListQ[jjVals] || !VectorQ[jjVals, NumericQ],
+      Return[solutionWithFlows, Module]
+    ];
+    halfPairs = stateData["HalfPairs"];
+    edgeList = Lookup[d2e, "edgeList", {}];
+    q = If[Length[halfPairs] === 0, {}, N @ (stateData["SignedEdgeMatrix"] . jjVals)];
+    pairCosts =
+      If[Length[halfPairs] === 0,
+        <||>,
+        BuildMonotonePairCostAssociation[halfPairs, edgeList, q]
+      ];
+    valueSystem = BuildMonotoneValueSystem[d2e];
+    utilityAsso = Lookup[valueSystem, "StateValueAssociation", (<||> &)][pairCosts];
+    If[AssociationQ[utilityAsso],
+      Join[utilityAsso, solutionWithFlows],
+      solutionWithFlows
+    ]
   ];
 
 BuildMonotoneField[d2e_Association] :=
@@ -716,9 +839,14 @@ MonotoneSolver[d2e_, opts:OptionsPattern[]] :=
 			interactionFunction,
 				Module[{stateData, reducedState, B, KM, jj, cc, x0, result, solution, odeResult,
 				    missingSolution, comparisonData, reducedMetadata, convergenceData,
-                    resultKind, message, residualTolerance, status},
+                    resultKind, message, residualTolerance, status, nonLinearResidual,
+                    residualViolationQ, shortcutCandidate, shortcutOutcome,
+                    shortcutTelemetry, defaultShortcutTelemetry, candidateSolution,
+                    warmStartVector, seedMethod, warmStartFloor},
 					missingSolution = Missing["NotAvailable"];
                     residualTolerance = N @ OptionValue["ResidualTolerance"];
+                    warmStartFloor = 10^-6;
+                    seedMethod = "InteriorFindInstance";
 					stateData = BuildMonotoneStateData[d2e];
 					B = stateData["B"];
 					KM = stateData["KM"];
@@ -749,41 +877,70 @@ MonotoneSolver[d2e_, opts:OptionsPattern[]] :=
 					]
 					];
 					(* Build the lifted edge-cost field *)
-                    result = TryCriticalQuadraticMonotoneSolve[d2e, residualTolerance];
-                    If[AssociationQ[result],
-                        Return[result]
+                    defaultShortcutTelemetry = <|
+                        "QuadraticShortcutAttempted" -> False,
+                        "QuadraticShortcutAccepted" -> False,
+                        "QuadraticShortcutNonLinearResidual" -> Missing["NotComputed"],
+                        "QuadraticShortcutKirchhoffResidual" -> Missing["NotComputed"],
+                        "QuadraticShortcutSolveTime" -> 0.,
+                        "QuadraticShortcutRejectReason" -> "ModelUnavailable"
+                    |>;
+                    shortcutCandidate = TryCriticalQuadraticMonotoneSolve[d2e, residualTolerance];
+                    shortcutOutcome = Lookup[shortcutCandidate, "Outcome", "Unavailable"];
+                    shortcutTelemetry = Lookup[shortcutCandidate, "Telemetry", defaultShortcutTelemetry];
+                    candidateSolution = Lookup[shortcutCandidate, "CandidateSolution", Missing["NotAvailable"]];
+                    If[
+                        shortcutOutcome === "Accepted" &&
+                        AssociationQ[shortcutCandidate] &&
+                        KeyExistsQ[shortcutCandidate, "Result"],
+                        Return[shortcutCandidate["Result"]]
                     ];
 					{jj, cc} = BuildMonotoneField[d2e];
-					(* Find numerically interior feasible seed *)
-					result = Quiet @ Check[
-						First @ FindInstance[KM . jj == B && And @@ ((# >= 10^-8) & /@ jj), jj, Reals],
-					$Failed
-				];
-					If[result === $Failed,
-						Message[MonotoneSolver::seedfail];
-                        comparisonData = BuildSolverComparisonData[d2e, missingSolution];
-                        convergenceData = <|
-                            "StopReason" -> "SeedFindInstanceFailed",
-                            "FinalResidual" -> Missing["NotApplicable"],
-                            "Iterations" -> 0,
-                            "SolveTime" -> 0.,
-                            "SeedMethod" -> "InteriorFindInstance"
-                        |>;
-						Return[
-							MakeSolverResult[
-								"Monotone",
-								"Failure",
-								Missing["NotApplicable"],
-								"SeedFindInstanceFailed",
-								missingSolution,
-								Join[comparisonData, <|
-                                    "AssoMonotone" -> missingSolution,
-                                    "Convergence" -> convergenceData
-                                |>]
-								]
-					]
-				];
-				x0 = N[jj /. result];
+                    (* Warm start from rejected quadratic candidate when available *)
+                    warmStartVector =
+                        If[AssociationQ[candidateSolution],
+                            Lookup[candidateSolution, jj, Missing["NotAvailable"]],
+                            Missing["NotAvailable"]
+                        ];
+                    If[ListQ[warmStartVector] && VectorQ[warmStartVector, NumericQ],
+                        x0 = N @ Map[Max[#, warmStartFloor] &, warmStartVector];
+                        seedMethod = "QuadraticWarmStart";
+                        ,
+                        (* Find numerically interior feasible seed *)
+                        result = Quiet @ Check[
+                            First @ FindInstance[KM . jj == B && And @@ ((# >= 10^-8) & /@ jj), jj, Reals],
+                        $Failed
+                    ];
+                        If[result === $Failed,
+                            Message[MonotoneSolver::seedfail];
+                            comparisonData = BuildSolverComparisonData[d2e, missingSolution];
+                            convergenceData = Join[
+                                <|
+                                    "StopReason" -> "SeedFindInstanceFailed",
+                                    "FinalResidual" -> Missing["NotApplicable"],
+                                    "Iterations" -> 0,
+                                    "SolveTime" -> 0.,
+                                    "SeedMethod" -> seedMethod
+                                |>,
+                                shortcutTelemetry
+                            ];
+                            Return[
+                                MakeSolverResult[
+                                    "Monotone",
+                                    "Failure",
+                                    Missing["NotApplicable"],
+                                    "SeedFindInstanceFailed",
+                                    missingSolution,
+                                    Join[comparisonData, <|
+                                        "AssoMonotone" -> missingSolution,
+                                        "Convergence" -> convergenceData
+                                    |>]
+                                    ]
+                        ]
+                    ];
+                        x0 = N[jj /. result];
+                    ];
+                    shortcutTelemetry = Join[shortcutTelemetry, <|"SeedMethod" -> seedMethod|>];
                     reducedState = BuildReducedKirchhoffCoordinates[d2e, x0];
 				(* No edges → zero cost field → feasible point is already the solution *)
 				odeResult = If[Length[Lookup[d2e, "edgeList", {}]] === 0,
@@ -794,20 +951,23 @@ MonotoneSolver[d2e_, opts:OptionsPattern[]] :=
                                 "FinalResidual" -> 0.,
                                 "Iterations" -> 0,
                                 "SolveTime" -> 0.,
-                                "SeedMethod" -> "InteriorFindInstance"
+                                "SeedMethod" -> seedMethod
                             |>
                         |>,
 						MonotoneSolverODE[reducedState, KM, B, cc, FilterRules[{opts}, Options[MonotoneSolverODE]]]
 					];
                     solution = Lookup[odeResult, "Solution", missingSolution];
-                    convergenceData = Lookup[odeResult, "Convergence",
-                        <|
-                            "StopReason" -> "ODEFailure",
-                            "FinalResidual" -> Missing["NotAvailable"],
-                            "Iterations" -> 0,
-                            "SolveTime" -> 0.,
-                            "SeedMethod" -> "InteriorFindInstance"
-                        |>
+                    convergenceData = Join[
+                        Lookup[odeResult, "Convergence",
+                            <|
+                                "StopReason" -> "ODEFailure",
+                                "FinalResidual" -> Missing["NotAvailable"],
+                                "Iterations" -> 0,
+                                "SolveTime" -> 0.,
+                                "SeedMethod" -> seedMethod
+                            |>
+                        ],
+                        shortcutTelemetry
                     ];
                     If[MissingQ[solution],
                         Message[MonotoneSolver::odefail];
@@ -826,10 +986,16 @@ MonotoneSolver[d2e_, opts:OptionsPattern[]] :=
                             ]
                         ]
                     ];
+					solution = ReconstructUtilities[solution, d2e];
 					comparisonData = BuildSolverComparisonData[d2e, solution];
+                    nonLinearResidual = ComputeMonotoneEquationResidual[d2e, solution];
+                    comparisonData = Join[comparisonData, <|"NonLinearResidual" -> nonLinearResidual|>];
                     status = CheckFlowFeasibility[solution];
+                    residualViolationQ =
+                        NumericQ[nonLinearResidual] && nonLinearResidual > residualTolerance;
                     resultKind =
                         If[
+                            !residualViolationQ &&
                             status === "Feasible" &&
                             NumericQ[Lookup[convergenceData, "FinalResidual", Missing["NotAvailable"]]] &&
                             Lookup[convergenceData, "FinalResidual", Infinity] <= residualTolerance &&
@@ -838,9 +1004,11 @@ MonotoneSolver[d2e_, opts:OptionsPattern[]] :=
                             "Success",
                             "NonConverged"
                         ];
+                    If[residualViolationQ, status = "Infeasible"];
                     message =
                         Which[
                             resultKind === "Success", None,
+                            residualViolationQ, "ResidualExceedsTolerance",
                             status =!= "Feasible", "InfeasibleProjectedSolution",
                             True, Lookup[convergenceData, "StopReason", "NonConverged"]
                         ];
@@ -909,7 +1077,7 @@ MonotoneSolverODE[reduced_Association, KM_, B_, cc_, opts:OptionsPattern[]] :=
                         MaxSteps -> maxSteps,
                         StepMonitor :> (iterations++)
                     ],
-                    {NDSolveValue::mxst}
+                    {NDSolveValue::mxst, NDSolveValue::nbnum1}
                 ];
                 messages = $MessageList;
                 sol

@@ -58,7 +58,8 @@ SafeExecuteIsolated[expr_, timeout_:300, opts:OptionsPattern[]] :=
       rawResult = Missing["NotAvailable"], status = "FAILED", result = Missing["Failed"],
       stderr = "", heldExpr, concretizedExpr, exprString, scriptLines, processTimeout,
       proc, startTime, timedOut = False, info = <||>, stdout = "", startOK = False,
-      ignored, procStatus = "Unknown"},
+      ignored, procStatus = "Unknown", rawPayload = Missing["NotAvailable"],
+      childTime = Missing["NotAvailable"], childMem = Missing["NotAvailable"]},
 
     kernelPath = OptionValue["KernelPath"];
     buffer = OptionValue["ProcessTimeBuffer"];
@@ -81,15 +82,20 @@ SafeExecuteIsolated[expr_, timeout_:300, opts:OptionsPattern[]] :=
       "SetDirectory[" <> ToString[InputForm[Directory[]]] <> "];",
       "PrependTo[$Path, Directory[]];",
       "Needs[\"MFGraphs`\"];",
-      "res = TimeConstrained[",
-      "  Check[",
-      "    " <> exprString <> ",",
-      "    $Failed",
-      "  ],",
-      "  " <> ToString[InputForm[N[timeout]]] <> ",",
-      "  \"TIMEOUT\"",
+      "Quiet[Check[ResetMaxMemoryUsed[], Null]];",
+      "{innerTime, rawRes} = AbsoluteTiming[",
+      "  TimeConstrained[",
+      "    Check[",
+      "      " <> exprString <> ",",
+      "      $Failed",
+      "    ],",
+      "    " <> ToString[InputForm[N[timeout]]] <> ",",
+      "    \"TIMEOUT\"",
+      "  ]",
       "];",
-      "Export[" <> ToString[InputForm[outFile]] <> ", res, \"WXF\"];"
+      "childMem = Quiet @ Check[MaxMemoryUsed[], Missing[\"NotAvailable\"]];",
+      "payload = <|\"Result\" -> rawRes, \"InnerSolveTime\" -> innerTime, \"ChildMaxMemoryUsed\" -> childMem|>;",
+      "Export[" <> ToString[InputForm[outFile]] <> ", payload, \"WXF\"];"
     };
     Export[scriptFile, StringRiffle[scriptLines, "\n"], "Text"];
 
@@ -134,7 +140,16 @@ SafeExecuteIsolated[expr_, timeout_:300, opts:OptionsPattern[]] :=
       status =
         If[timedOut, "TIMEOUT", "FAILED"];
       result = Missing[If[status === "TIMEOUT", "Timeout", "KernelPanic"]],
-      rawResult = Quiet @ Check[Import[outFile, "WXF"], $Failed];
+      rawPayload = Quiet @ Check[Import[outFile, "WXF"], $Failed];
+      If[AssociationQ[rawPayload] && KeyExistsQ[rawPayload, "Result"],
+        rawResult = Lookup[rawPayload, "Result", $Failed];
+        childTime = Lookup[rawPayload, "InnerSolveTime", Missing["NotAvailable"]];
+        childMem = Lookup[rawPayload, "ChildMaxMemoryUsed", Missing["NotAvailable"]];
+        ,
+        rawResult = $Failed;
+        childTime = Missing["NotAvailable"];
+        childMem = Missing["NotAvailable"]
+      ];
       Which[
         rawResult === "TIMEOUT",
           status = "TIMEOUT";
@@ -153,9 +168,12 @@ SafeExecuteIsolated[expr_, timeout_:300, opts:OptionsPattern[]] :=
 
     <|
       "Time" -> runTime,
-      "Memory" -> Missing["IsolatedProcess"],
+      "WallTime" -> runTime,
+      "Memory" -> childMem,
       "Status" -> status,
       "Result" -> result,
+      "InnerSolveTime" -> childTime,
+      "ChildMaxMemoryUsed" -> childMem,
       "ExecutionMode" -> "Process",
       "ExitCode" -> Lookup[runResult, "ExitCode", Missing["NotAvailable"]],
       "StandardError" -> stderr
@@ -175,16 +193,24 @@ ComputeResidual::usage =
 solKey should be \"AssoCritical\", \"AssoNonCritical\", or \"AssoMonotone\".";
 
 ComputeResidual[eqs_Association, solKey_String:"AssoNonCritical"] :=
-  Module[{sol, nlhs, nrhs},
+  Module[{sol, nlhs, nrhs, diff},
     sol = Lookup[eqs, solKey, <||>];
     nlhs = Lookup[eqs, "Nlhs", {}];
     nrhs = Lookup[eqs, "Nrhs", {}];
-    If[sol === <||> || nlhs === {} || nrhs === {},
-      Missing["NoData"],
-      Quiet @ Check[
-        Norm[N[nlhs /. sol] - (nrhs /. sol), Infinity],
-        Missing["ComputeError"]
-      ]
+    If[
+      !AssociationQ[sol] || sol === <||> ||
+      !ListQ[nlhs] || !ListQ[nrhs] || nlhs === {} || nrhs === {} ||
+      Length[nlhs] =!= Length[nrhs],
+      Return[Missing["NoData"], Module]
+    ];
+    diff = Quiet @ Check[(nlhs - nrhs) /. sol, $Failed];
+    If[diff === $Failed,
+      Return[Missing["ComputeError"], Module]
+    ];
+    diff = Quiet @ Check[N @ diff, $Failed];
+    If[diff === $Failed || !VectorQ[diff, NumericQ],
+      Missing["NotComputable"],
+      Quiet @ Check[N @ Norm[diff, Infinity], Missing["ComputeError"]]
     ]
   ];
 
