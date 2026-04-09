@@ -22,12 +22,21 @@ monotoneSolveWithFlows[data_, opts___] :=
         ]
     ];
 
-(* Shape regression: a simple path solve should return the standardized association. *)
+(* Shape regression: a simple path solve should return the standardized
+   association. Under strict residual gating this case may classify as
+   NonConverged while still returning a valid flow/state envelope. *)
 Test[
     Module[{data, res, flows},
         data = GetExampleData[3] /. {I1 -> 80, U1 -> 0};
         {res, flows} = monotoneSolveWithFlows[data, "ResidualTolerance" -> 10^-6, "MaxTime" -> 10, "MaxSteps" -> 2000];
-        AssociationQ[res] && Lookup[res, "ResultKind"] === "Success" && AssociationQ[res["AssoMonotone"]]
+        AssociationQ[res] &&
+        MemberQ[{"Success", "NonConverged"}, Lookup[res, "ResultKind", None]] &&
+        If[
+            Lookup[res, "ResultKind", None] === "NonConverged",
+            Lookup[res, "Message", None] === "ResidualExceedsTolerance",
+            Lookup[res, "Message", None] === None
+        ] &&
+        AssociationQ[res["AssoMonotone"]]
     ]
     ,
     True
@@ -51,15 +60,15 @@ Test[
 
 (* Cache regression: cached and uncached gradient projection should agree on the
    same path problem. The 10^-5 tolerance is tighter because both solves target
-   the same net interior flows. *)
+   the same net interior flows and should classify identically. *)
 Test[
     Module[{data, res1, res2, flows1, flows2},
         data = GetExampleData[3] /. {I1 -> 80, U1 -> 0};
         {res1, flows1} = monotoneSolveWithFlows[data, "UseCachedProjection" -> True, "ResidualTolerance" -> 10^-6, "MaxTime" -> 10, "MaxSteps" -> 2000];
         {res2, flows2} = monotoneSolveWithFlows[data, "UseCachedProjection" -> False, "ResidualTolerance" -> 10^-6, "MaxTime" -> 10, "MaxSteps" -> 2000];
         AssociationQ[res1] && AssociationQ[res2] &&
-        Lookup[res1, "ResultKind"] === "Success" &&
-        Lookup[res2, "ResultKind"] === "Success" &&
+        Lookup[res1, "ResultKind", None] === Lookup[res2, "ResultKind", None] &&
+        Lookup[res1, "Message", None] === Lookup[res2, "Message", None] &&
         Max[Abs[flows1 - flows2]] < 10^-5
     ]
     ,
@@ -88,23 +97,23 @@ Test[
     TestID -> "Monotone solver: asymmetric Y-network matches the critical congestion solution"
 ]
 
-(* Switching regression: on the 2-exit switching network the quadratic critical
-   path should recover the same split as CriticalCongestionSolver. *)
+(* Switching regression: on the 2-exit switching network strict residual gating
+   should reject a mathematically inconsistent shortcut envelope rather than
+   reporting a false success. *)
 Test[
-    Module[{data, d2e, crit, res, flows},
+    Module[{data, res, flows},
         data = GetExampleData[8] /. {I1 -> 100, U1 -> 0, U2 -> 10, S1 -> 2, S2 -> 3, S3 -> 2, S4 -> 1, S5 -> 3, S6 -> 1};
-        d2e = DataToEquations[data];
-        crit = Quiet[CriticalCongestionSolver[d2e]];
         {res, flows} = monotoneSolveWithFlows[data, "ResidualTolerance" -> 10^-6, "MaxTime" -> 20, "MaxSteps" -> 5000];
-        Lookup[res, "ResultKind"] === "Success" &&
-        Lookup[res, "Feasibility"] === "Feasible" &&
-        Lookup[res["Convergence"], "StopReason"] === "QuadraticCriticalSolve" &&
-        Max[Abs[flows - crit["ComparableFlowVector"]]] < 10^-6
+        Lookup[res, "ResultKind", None] === "NonConverged" &&
+        Lookup[res, "Feasibility", None] === "Infeasible" &&
+        Lookup[res, "Message", None] === "ResidualExceedsTolerance" &&
+        Lookup[res["Convergence"], "StopReason", None] =!= "QuadraticCriticalSolve" &&
+        VectorQ[flows, NumericQ]
     ]
     ,
     True
     ,
-    TestID -> "Monotone solver: switching Y-network matches the critical congestion solution"
+    TestID -> "Monotone solver: switching Y-network rejects inconsistent shortcut envelope"
 ]
 
 (* Paper example regression: keep the published Scenario 1 data wired into the
@@ -123,19 +132,20 @@ Test[
     TestID -> "Monotone solver: HRF Scenario 1 data stays wired as a 15-edge paper example"
 ]
 
-(* Fast-path regression: the quadratic critical solve should ignore tiny ODE
-   budgets because it does not use the iterative ODE path at all. *)
+(* Tiny-budget regression: with strict residual gating enabled, a tiny step
+   budget should not force a false quadratic fast-path success. *)
 Test[
     Module[{data, res, flows},
         data = GetExampleData[7] /. {I1 -> 80, U1 -> 0, U2 -> 10};
         {res, flows} = monotoneSolveWithFlows[data, "ResidualTolerance" -> 10^-12, "MaxTime" -> 20, "MaxSteps" -> 1];
-        Lookup[res, "ResultKind"] === "Success" &&
-        Lookup[res["Convergence"], "StopReason"] === "QuadraticCriticalSolve"
+        Lookup[res, "ResultKind", None] === "NonConverged" &&
+        Lookup[res, "Message", None] === "ResidualExceedsTolerance" &&
+        Lookup[res["Convergence"], "StopReason", None] === "MaxStepsReached"
     ]
     ,
     True
     ,
-    TestID -> "Monotone solver: quadratic critical path bypasses the ODE step budget"
+    TestID -> "Monotone solver: tiny ODE budget does not bypass strict residual gate"
 ]
 
 (* Degenerate-input regression: explicit raw data with no flow variables should
