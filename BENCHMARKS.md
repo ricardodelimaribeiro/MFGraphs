@@ -40,6 +40,10 @@ wolframscript -file Scripts/BenchmarkSuite.wls core case=8 timeout=3600
 
 Results are exported to `Results/benchmark_latest.csv` and `Results/benchmark_latest.json`, plus timestamped copies. Timestamped benchmark filenames now include seconds, and the suite rewrites the current run's exports after each completed case so partial progress is preserved if a later case is interrupted.
 
+`NonLinearSolver` and `MonotoneSolver` are benchmarked with a critical seed from the same case when available (to reduce wall-clock benchmark time and isolate incremental post-critical cost). The exported rows include:
+- `IncrementalSolveTime`: measured runtime of the seeded post-critical solver (NonLinear or Monotone)
+- `EstimatedStandaloneSolveTime`: `CriticalCongestion SolveTime + IncrementalSolveTime` (estimate of standalone timing for that solver)
+
 ### Bottleneck profiling
 
 Run the profiling analysis:

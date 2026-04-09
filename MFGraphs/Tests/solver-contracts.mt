@@ -24,6 +24,68 @@ Test[
 
 Test[
     Module[{data, d2e, result},
+        data = GetExampleData[7] /. {I1 -> 100, U1 -> 0, U2 -> 0};
+        d2e = DataToEquations[data];
+        result = Quiet[CriticalCongestionSolver[d2e]];
+        IsCriticalSolution[result]
+    ]
+    ,
+    True
+    ,
+    TestID -> "Critical solution checker: feasible case satisfies full MFG constraints"
+]
+
+Test[
+    Module[{data, d2e, result, report},
+        data = GetExampleData[7] /. {I1 -> 100, U1 -> 0, U2 -> 0};
+        d2e = DataToEquations[data];
+        result = Quiet[CriticalCongestionSolver[d2e]];
+        report = IsCriticalSolution[result, "ReturnReport" -> True];
+        TrueQ[report["Valid"]] &&
+        AssociationQ[report["BlockChecks"]] &&
+        report["EquationResidualPass"]
+    ]
+    ,
+    True
+    ,
+    TestID -> "Critical solution checker: report mode returns block checks and residual pass"
+]
+
+Test[
+    Module[{report},
+        report = IsCriticalSolution[
+            <|"AssoCritical" -> <||>|>,
+            "ReturnReport" -> True
+        ];
+        !TrueQ[report["Valid"]] &&
+        report["Reason"] === "MissingRequiredFields" &&
+        ListQ[report["MissingKeys"]] &&
+        Length[report["MissingKeys"]] > 0
+    ]
+    ,
+    True
+    ,
+    TestID -> "Critical solution checker: strict mode rejects incomplete inputs"
+]
+
+Test[
+    Module[{data, d2e, result},
+        data = GetExampleData["Jamaratv9"] /. {I1 -> 130, I2 -> 128, U1 -> 20, U2 -> 100, U3 -> 0};
+        d2e = DataToEquations[data];
+        result = Quiet[
+            CriticalCongestionSolver[d2e],
+            {MFGSystemSolver::nosolution}
+        ];
+        !IsCriticalSolution[result]
+    ]
+    ,
+    True
+    ,
+    TestID -> "Critical solution checker: infeasible case is rejected"
+]
+
+Test[
+    Module[{data, d2e, result},
         data = GetExampleData[3] /. {I1 -> 2, U1 -> 0};
         d2e = DataToEquations[data];
         result = Quiet[
