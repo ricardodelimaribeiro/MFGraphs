@@ -1,0 +1,50 @@
+name: Benchmark CI Gate
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark_truth_gate:
+    runs-on: ubuntu-latest
+    environment:
+      name: wolfram-ci
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Validate Wolfram environment secrets
+        env:
+          WOLFRAM_CI_ID: ${{ secrets.WOLFRAM_CI_ID }}
+          WOLFRAM_CI_PASS: ${{ secrets.WOLFRAM_CI_PASS }}
+        run: |
+          if [ -z "$WOLFRAM_CI_ID" ]; then
+            echo "::error::Missing environment secret WOLFRAM_CI_ID on environment 'wolfram-ci'"
+            exit 1
+          fi
+          if [ -z "$WOLFRAM_CI_PASS" ]; then
+            echo "::error::Missing environment secret WOLFRAM_CI_PASS on environment 'wolfram-ci'"
+            exit 1
+          fi
+
+      - name: Run Fast Unit Tests
+        uses: miRoox/wolfram-action@v1
+        with:
+          file: Scripts/RunTests.wls
+          args: fast
+        env:
+          WOLFRAM_ID: ${{ secrets.WOLFRAM_CI_ID }}
+          WOLFRAM_PASS: ${{ secrets.WOLFRAM_CI_PASS }}
+
+      - name: Run Benchmark Truth Gate
+        uses: miRoox/wolfram-action@v1
+        with:
+          file: Scripts/RunBenchmarkCI.wls
+        env:
+          WOLFRAM_ID: ${{ secrets.WOLFRAM_CI_ID }}
+          WOLFRAM_PASS: ${{ secrets.WOLFRAM_CI_PASS }}
