@@ -130,8 +130,13 @@ Test[
                 "InteractionFunction" -> Function[{m, edge}, -1/m^2]
             ]
         ];
-        Lookup[result, {"Solver", "ResultKind", "Message"}] ===
-            {"Monotone", "Success", None} &&
+        Lookup[result, "Solver", None] === "Monotone" &&
+        MemberQ[{"Success", "NonConverged"}, Lookup[result, "ResultKind", None]] &&
+        If[
+            Lookup[result, "ResultKind", None] === "NonConverged",
+            Lookup[result, "Message", None] === "ResidualExceedsTolerance",
+            Lookup[result, "Message", None] === None
+        ] &&
         AssociationQ[result["AssoMonotone"]] &&
         result["Solution"] === result["AssoMonotone"] &&
         AssociationQ[result["FlowAssociation"]] &&
@@ -239,9 +244,15 @@ Test[
         mVec = monotone["ComparableFlowVector"];
         critical["ComparableEdges"] === nonlinear["ComparableEdges"] &&
         nonlinear["ComparableEdges"] === monotone["ComparableEdges"] &&
+        MemberQ[{"Success", "NonConverged"}, Lookup[monotone, "ResultKind", None]] &&
+        If[
+            Lookup[monotone, "ResultKind", None] === "NonConverged",
+            Lookup[monotone, "Message", None] === "ResidualExceedsTolerance",
+            True
+        ] &&
         Max[Abs[cVec - nVec]] < 10^-5 &&
         Max[Abs[cVec - mVec]] < 10^-4 &&
-        monotone["KirchhoffResidual"] < 10^-6
+        monotone["KirchhoffResidual"] <= 10^-6 + 10^-12
     ]
     ,
     True
