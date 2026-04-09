@@ -46,7 +46,15 @@ MFGPreprocessing::usage = "MFGPreprocessing[Eqs] returns the association Eqs wit
 CriticalCongestionSolver::usage = "CriticalCongestionSolver[Eqs] returns Eqs with an association \"AssoCritical\" with rules to
 the solution to the critical congestion case. It returns a standardized association
 containing solver metadata, feasibility, comparison fields, and the solver-specific
-payload key \"AssoCritical\".";
+payload key \"AssoCritical\". Options: \"ValidateSolution\" (default True), \
+\"ValidationTolerance\" (default 10^-8), and \"ValidationVerbose\" (default False).";
+
+IsCriticalSolution::usage =
+"IsCriticalSolution[Eqs] validates whether the critical-congestion solution stored \
+in \"AssoCritical\" satisfies the full symbolic MFG constraint set (equalities, \
+inequalities, alternatives/complementarity) and the critical EqGeneral residual. \
+By default it returns True/False. Options: \"Tolerance\" (default 10^-8), \
+\"Verbose\" (default False), and \"ReturnReport\" (default False).";
 
 MFGSystemSolver::usage = "MFGSystemSolver[Eqs][edgeEquations] returns the
 association with rules to the solution";
@@ -629,13 +637,24 @@ DirectCriticalSolver[Eqs_Association] :=
 
 (* --- CriticalCongestionSolver --- *)
 
+Options[CriticalCongestionSolver] = {
+    "ValidateSolution" -> True,
+    "ValidationTolerance" -> 10^-8,
+    "ValidationVerbose" -> False
+};
+
 CriticalCongestionSolver[$Failed, ___] :=
     $Failed
 
-CriticalCongestionSolver[Eqs_] :=
+CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
     Module[{PreEqs, js, AssoCritical, time, temp, status,
-         resultKind, message, solution, comparisonData},
+         resultKind, message, solution, comparisonData,
+         validateQ, validationTolerance, validationVerboseQ, validationFailedQ},
         ClearSolveCache[];
+        validateQ = TrueQ[OptionValue["ValidateSolution"]];
+        validationTolerance = OptionValue["ValidationTolerance"];
+        validationVerboseQ = TrueQ[OptionValue["ValidationVerbose"]];
+        validationFailedQ = False;
         (* Try direct solver for zero-switching-cost, fully numeric networks *)
         If[AllTrue[Values[Lookup[Eqs, "SwitchingCosts", <|_ -> 1|>]], # === 0 &] &&
             Lookup[Eqs, "auxiliaryGraph", None] =!= None &&
@@ -655,14 +674,33 @@ CriticalCongestionSolver[Eqs_] :=
                         {time, PreEqs} = AbsoluteTiming @ MFGPreprocessing[Eqs];
                         MFGPrint["Preprocessing (for downstream solvers) took ", time, " seconds."]
                     ];
-                    solution = AssoCritical;
-                    comparisonData = BuildSolverComparisonData[PreEqs, solution];
-                    Return[
-                        Join[PreEqs, MakeSolverResult["CriticalCongestion", "Success",
-                            status, None, solution,
-                            Join[comparisonData, <|"AssoCritical" -> AssoCritical,
-                                "Status" -> status|>]]],
-                        Module
+                    If[validateQ,
+                        If[!TrueQ @ IsCriticalSolution[
+                            Join[PreEqs, <|"AssoCritical" -> AssoCritical, "Solution" -> AssoCritical|>],
+                            "Tolerance" -> validationTolerance,
+                            "Verbose" -> validationVerboseQ
+                        ],
+                            MFGPrint["Direct solver validation failed, falling back to symbolic solver."]
+                            ,
+                            solution = AssoCritical;
+                            comparisonData = BuildSolverComparisonData[PreEqs, solution];
+                            Return[
+                                Join[PreEqs, MakeSolverResult["CriticalCongestion", "Success",
+                                    status, None, solution,
+                                    Join[comparisonData, <|"AssoCritical" -> AssoCritical,
+                                        "Status" -> status|>]]],
+                                Module
+                            ]
+                        ],
+                        solution = AssoCritical;
+                        comparisonData = BuildSolverComparisonData[PreEqs, solution];
+                        Return[
+                            Join[PreEqs, MakeSolverResult["CriticalCongestion", "Success",
+                                status, None, solution,
+                                Join[comparisonData, <|"AssoCritical" -> AssoCritical,
+                                    "Status" -> status|>]]],
+                            Module
+                        ]
                     ],
                     MFGPrint["Direct solver produced infeasible result, falling back to symbolic solver."]
                 ],
@@ -683,6 +721,17 @@ CriticalCongestionSolver[Eqs_] :=
         AssoCritical = MFGSystemSolver[PreEqs][AssociationThread[js,
             0 js]];
         status = CheckFlowFeasibility[AssoCritical];
+        If[validateQ && AssociationQ[AssoCritical] && status === "Feasible",
+            If[!TrueQ @ IsCriticalSolution[
+                Join[PreEqs, <|"AssoCritical" -> AssoCritical, "Solution" -> AssoCritical|>],
+                "Tolerance" -> validationTolerance,
+                "Verbose" -> validationVerboseQ
+            ],
+                validationFailedQ = True;
+                AssoCritical = Null;
+                status = "Infeasible";
+            ]
+        ];
         resultKind =
             If[AssoCritical === Null,
                 "Failure"
@@ -691,7 +740,7 @@ CriticalCongestionSolver[Eqs_] :=
             ];
         message =
             If[AssoCritical === Null,
-                "NoSolution"
+                If[validationFailedQ, "InvalidCriticalSolution", "NoSolution"]
                 ,
                 None
             ];
@@ -705,6 +754,226 @@ CriticalCongestionSolver[Eqs_] :=
         Join[PreEqs, MakeSolverResult["CriticalCongestion", resultKind,
              status, message, solution, Join[comparisonData, <|"AssoCritical" -> AssoCritical, "Status"
              -> status|>]]]
+    ];
+
+Options[IsCriticalSolution] = {
+    "Tolerance" -> 10^-8,
+    "Verbose" -> False,
+    "ReturnReport" -> False
+};
+
+NumericRelationSatisfiedQ[expr_, tol_?NumericQ] :=
+    Module[{delta},
+        Which[
+            MatchQ[expr, HoldPattern[Equal[l_, r_]]],
+                delta = Quiet @ Check[N[expr[[1]] - expr[[2]]], $Failed];
+                NumericQ[delta] && Abs[delta] <= tol
+            ,
+            MatchQ[expr, HoldPattern[LessEqual[l_, r_]]],
+                delta = Quiet @ Check[N[expr[[1]] - expr[[2]]], $Failed];
+                NumericQ[delta] && delta <= tol
+            ,
+            MatchQ[expr, HoldPattern[GreaterEqual[l_, r_]]],
+                delta = Quiet @ Check[N[expr[[2]] - expr[[1]]], $Failed];
+                NumericQ[delta] && delta <= tol
+            ,
+            MatchQ[expr, HoldPattern[Less[l_, r_]]],
+                delta = Quiet @ Check[N[expr[[1]] - expr[[2]]], $Failed];
+                NumericQ[delta] && delta < -tol
+            ,
+            MatchQ[expr, HoldPattern[Greater[l_, r_]]],
+                delta = Quiet @ Check[N[expr[[2]] - expr[[1]]], $Failed];
+                NumericQ[delta] && delta < -tol
+            ,
+            MatchQ[expr, HoldPattern[Unequal[l_, r_]]],
+                delta = Quiet @ Check[N[expr[[1]] - expr[[2]]], $Failed];
+                NumericQ[delta] && Abs[delta] > tol
+            ,
+            True,
+                False
+        ]
+    ];
+
+LogicalSatisfiedQ[expr_, rules_Association, tol_?NumericQ] :=
+    Module[{evaluated},
+        Which[
+            expr === True, True,
+            expr === False, False,
+            True,
+                evaluated = Quiet @ Check[
+                    expr /. rules /. relation_ /; MatchQ[relation, _Equal | _LessEqual | _GreaterEqual | _Less | _Greater | _Unequal] :>
+                        NumericRelationSatisfiedQ[relation, tol],
+                    $Failed
+                ];
+                If[evaluated === $Failed,
+                    False,
+                    TrueQ[Simplify[evaluated]]
+                ]
+        ]
+    ];
+
+RulesConjunction[rules_] :=
+    Module[{pairs},
+        pairs = Which[
+            AssociationQ[rules], Normal[rules],
+            ListQ[rules] && VectorQ[rules, MatchQ[#, _Rule]&], rules,
+            True, {}
+        ];
+        If[pairs === {},
+            True,
+            And @@ (Equal @@@ (List @@@ pairs))
+        ]
+    ];
+
+IsCriticalSolution[Eqs_Association, OptionsPattern[]] :=
+    Module[{tol, verboseQ, returnReportQ, solution, blocks, blockResults,
+         residual, residualPass, allBlocksPass, overall, report, flowApprox,
+         costpluscurrents, eqGeneralCritical, eqResidualPairs, eqResidualDeltas,
+         requiredKeys, missingKeys},
+        tol = OptionValue["Tolerance"];
+        verboseQ = TrueQ[OptionValue["Verbose"]];
+        returnReportQ = TrueQ[OptionValue["ReturnReport"]];
+
+        requiredKeys = {
+            "EqEntryIn",
+            "EqValueAuxiliaryEdges",
+            "AltOptCond",
+            "EqBalanceSplittingFlows",
+            "AltFlows",
+            "AltTransitionFlows",
+            "IneqJs",
+            "IneqJts",
+            "IneqSwitchingByVertex",
+            "RuleEntryOut",
+            "RuleExitFlowsIn",
+            "RuleEntryValues",
+            "RuleExitValues",
+            "RuleBalanceGatheringFlows",
+            "EqGeneral",
+            "js",
+            "costpluscurrents"
+        };
+        missingKeys = Select[requiredKeys, !KeyExistsQ[Eqs, #]&];
+        If[missingKeys =!= {},
+            report = <|
+                "Valid" -> False,
+                "Reason" -> "MissingRequiredFields",
+                "MissingKeys" -> missingKeys,
+                "BlockChecks" -> <||>,
+                "EquationResidual" -> Missing["NotAvailable"],
+                "EquationResidualPass" -> False,
+                "Tolerance" -> tol
+            |>;
+            If[verboseQ,
+                Print["IsCriticalSolution: missing required fields: ", missingKeys]
+            ];
+            Return[If[returnReportQ, report, False], Module]
+        ];
+
+        solution = Which[
+            AssociationQ[Lookup[Eqs, "AssoCritical", Missing["NotAvailable"]]],
+                Lookup[Eqs, "AssoCritical"],
+            AssociationQ[Lookup[Eqs, "Solution", Missing["NotAvailable"]]],
+                Lookup[Eqs, "Solution"],
+            True,
+                Missing["NotAvailable"]
+        ];
+
+        If[!AssociationQ[solution],
+            report = <|
+                "Valid" -> False,
+                "Reason" -> "MissingAssoCritical",
+                "MissingKeys" -> {},
+                "BlockChecks" -> <||>,
+                "EquationResidual" -> Missing["NotAvailable"],
+                "EquationResidualPass" -> False,
+                "Tolerance" -> tol
+            |>;
+            If[verboseQ, Print["IsCriticalSolution: missing association in \"AssoCritical\" or \"Solution\"."]];
+            Return[If[returnReportQ, report, False], Module]
+        ];
+
+        flowApprox = Lookup[Eqs, "js", {}];
+        flowApprox = AssociationThread[flowApprox, 0 flowApprox];
+        costpluscurrents = Lookup[Eqs, "costpluscurrents", Missing["NotAvailable"]];
+        eqGeneralCritical =
+            Lookup[Eqs, "EqGeneral", True] /.
+                If[AssociationQ[costpluscurrents],
+                    Expand /@ (costpluscurrents /. flowApprox),
+                    {}
+                ];
+
+        blocks = <|
+            "EqEntryIn" -> (And @@ Lookup[Eqs, "EqEntryIn", True]),
+            "EqValueAuxiliaryEdges" -> Lookup[Eqs, "EqValueAuxiliaryEdges", True],
+            "AltOptCond" -> Lookup[Eqs, "AltOptCond", True],
+            "EqBalanceSplittingFlows" -> Lookup[Eqs, "EqBalanceSplittingFlows", True],
+            "AltFlows" -> Lookup[Eqs, "AltFlows", True],
+            "AltTransitionFlows" -> Lookup[Eqs, "AltTransitionFlows", True],
+            "IneqJs" -> Lookup[Eqs, "IneqJs", True],
+            "IneqJts" -> Lookup[Eqs, "IneqJts", True],
+            "IneqSwitchingByVertex" -> (And @@ Lookup[Eqs, "IneqSwitchingByVertex", True]),
+            "RuleEntryOut" -> RulesConjunction[Lookup[Eqs, "RuleEntryOut", <||>]],
+            "RuleExitFlowsIn" -> RulesConjunction[Lookup[Eqs, "RuleExitFlowsIn", <||>]],
+            "RuleEntryValues" -> RulesConjunction[Lookup[Eqs, "RuleEntryValues", <||>]],
+            "RuleExitValues" -> RulesConjunction[Lookup[Eqs, "RuleExitValues", <||>]],
+            "RuleBalanceGatheringFlows" -> RulesConjunction[Lookup[Eqs, "RuleBalanceGatheringFlows", <||>]],
+            "EqGeneralCritical" -> eqGeneralCritical
+        |>;
+
+        blockResults = Association @ KeyValueMap[
+            #1 -> LogicalSatisfiedQ[#2, solution, tol] &,
+            blocks
+        ];
+        allBlocksPass = And @@ Values[blockResults];
+
+        eqResidualPairs =
+            Cases[eqGeneralCritical /. solution,
+                HoldPattern[Equal[lhs_, rhs_]] :> {lhs, rhs},
+                Infinity
+            ];
+        eqResidualDeltas =
+            Quiet @ Check[
+                N[(#[[1]] - #[[2]])& /@ eqResidualPairs],
+                $Failed
+            ];
+        residual =
+            If[eqResidualPairs === {},
+                Missing["NotAvailable"],
+                If[eqResidualDeltas === $Failed || !VectorQ[eqResidualDeltas, NumericQ],
+                    Missing["ComputeError"],
+                    Max[Abs[eqResidualDeltas]]
+                ]
+            ];
+        residualPass =
+            Which[
+                NumericQ[residual], residual <= tol,
+                residual === Missing["NotAvailable"], TrueQ[Lookup[blockResults, "EqGeneralCritical", False]],
+                True, False
+            ];
+
+        overall = allBlocksPass && residualPass;
+
+        If[verboseQ,
+            Print["IsCriticalSolution: all blocks pass = ", allBlocksPass];
+            If[!allBlocksPass,
+                Print["  Failed blocks: ", Keys @ Select[blockResults, !TrueQ[#]&]]
+            ];
+            Print["IsCriticalSolution: equation residual = ", residual, " (tol=", tol, ")"];
+            Print["IsCriticalSolution: equation residual pass = ", residualPass];
+        ];
+
+        report = <|
+            "Valid" -> overall,
+            "Reason" -> If[overall, None, "ConstraintViolation"],
+            "MissingKeys" -> {},
+            "BlockChecks" -> blockResults,
+            "EquationResidual" -> residual,
+            "EquationResidualPass" -> residualPass,
+            "Tolerance" -> tol
+        |>;
+
+        If[returnReportQ, report, overall]
     ];
 
 (* --- MFGSystemSolver --- *)

@@ -301,6 +301,7 @@ $CaseParams = <|
   104 -> {I1 -> 80, I2 -> 40},
   "triangle with two exits" -> {I1 -> 80, U1 -> 0, U2 -> 10},
   "HRF Scenario 1" -> {I1 -> 100, I2 -> 100, U1 -> 0, U2 -> 0},
+  "Jamaratv9" -> {I1 -> 100, I2 -> 50, U1 -> 0, U2 -> 0, U3 -> 0},
   "Paper example" -> {I1 -> 80, I2 -> 40, S1 -> 2, S2 -> 1, S3 -> 3, S4 -> 1},
   13 -> {},
   "Braess split" -> {},
