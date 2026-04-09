@@ -97,6 +97,29 @@ IsSwitchingCostConsistent[switchingCosts_] :=
     And @@ Simplify[ConsistentSwitchingCosts[switchingCosts] /@ switchingCosts
         ]
 
+GraphDistanceHeuristicSafeQ[Eqs_Association, tol_:10^-10] :=
+    Module[{exitCosts, exitCostSpread, switchingValues, nonzeroSwitchingQ},
+        exitCosts = Last /@ Lookup[Eqs, "Exit Vertices and Terminal Costs", {}];
+        exitCostSpread =
+            Which[
+                Length[exitCosts] <= 1, 0.,
+                VectorQ[exitCosts, NumericQ], N @ Max[Abs[N @ exitCosts - First[N @ exitCosts]]],
+                True, Infinity
+            ];
+        switchingValues = Values @ Lookup[Eqs, "SwitchingCosts", <||>];
+        nonzeroSwitchingQ =
+            AnyTrue[
+                switchingValues,
+                Function[val,
+                    Which[
+                        NumericQ[val], !PossibleZeroQ[val],
+                        True, True
+                    ]
+                ]
+            ];
+        exitCostSpread <= tol && !nonzeroSwitchingQ
+    ];
+
 (* --- Graph helper functions --- *)
 
 TransitionsAt[G_, k_] :=
@@ -152,6 +175,10 @@ ResolveOrByGraphDistance[Eqs_Association, triple:{_, _, _}] :=
     Module[{graph, exitVerts, distToExit, orTerms, resolved = {},
             unresolved = {}, newEE, newOR},
         If[triple[[3]] === True, Return[triple, Module]];
+        If[!GraphDistanceHeuristicSafeQ[Eqs],
+            MFGPrint["ResolveOrByGraphDistance: skipped (heterogeneous exit/switching costs)."];
+            Return[triple, Module]
+        ];
         graph = Lookup[Eqs, "auxiliaryGraph", None];
         exitVerts = Lookup[Eqs, "auxExitVertices", {}];
         If[graph === None || exitVerts === {},
@@ -1254,7 +1281,8 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
         If[AllTrue[Values[Lookup[Eqs, "SwitchingCosts", <|_ -> 1|>]], # === 0 &] &&
             Lookup[Eqs, "auxiliaryGraph", None] =!= None &&
             AllTrue[Flatten[Lookup[Eqs, "Entrance Vertices and Flows", {}]], NumericQ] &&
-            AllTrue[Flatten[Lookup[Eqs, "Exit Vertices and Terminal Costs", {}]], NumericQ],
+            AllTrue[Flatten[Lookup[Eqs, "Exit Vertices and Terminal Costs", {}]], NumericQ] &&
+            GraphDistanceHeuristicSafeQ[Eqs],
             MFGPrint["Attempting direct critical solver (zero switching costs)..."];
             {time, AssoCritical} = AbsoluteTiming[DirectCriticalSolver[Eqs]];
             If[AssociationQ[AssoCritical] && AssoCritical =!= $Failed,
