@@ -104,7 +104,7 @@ NonLinearSolver[Eqs_, OptionsPattern[]] :=
              MaxIter = OptionValue["MaxIterations"], tol = OptionValue["Tolerance"],
              status, resultKind, message, solution, comparisonData, convergenceData,
              flowDelta = Missing["NotAvailable"], iterations, stopReason, solveTime,
-             seedMethod, timingResult},
+             seedMethod, timingResult, residualHistory = {}},
                 {solveTime, timingResult} = AbsoluteTiming[
                     If[ KeyExistsQ[PreEqs, "AssoNonCritical"],
                         AssoNonCritical = PreEqs["AssoNonCritical"];
@@ -157,6 +157,22 @@ NonLinearSolver[Eqs_, OptionsPattern[]] :=
                         Missing["NotAvailable"]
                     ]
                 ];
+                residualHistory =
+                    If[Length[NonCriticalList] >= 2 && js =!= {} &&
+                        AllTrue[NonCriticalList, AssociationQ],
+                        Quiet @ Table[
+                            Check[
+                                Norm[
+                                    N[Values[KeyTake[NonCriticalList[[k]], js]]
+                                      - Values[KeyTake[NonCriticalList[[k-1]], js]]],
+                                    Infinity
+                                ],
+                                Missing["NotAvailable"]
+                            ],
+                            {k, 2, Length[NonCriticalList]}
+                        ],
+                        {}
+                    ];
                 (* Feasibility check on the non-linear solution *)
                 If[AssoNonCritical === Null,
                     status = "Infeasible",
@@ -183,6 +199,7 @@ NonLinearSolver[Eqs_, OptionsPattern[]] :=
                 convergenceData = <|
                     "StopReason" -> stopReason,
                     "FinalResidual" -> flowDelta,
+                    "ResidualHistory" -> residualHistory,
                     "Iterations" -> iterations,
                     "SolveTime" -> solveTime,
                     "SeedMethod" -> seedMethod
