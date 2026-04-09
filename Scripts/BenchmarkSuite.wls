@@ -1,4 +1,4 @@
-(* Usage: wolframscript -file Scripts/BenchmarkSuite.wls [tier] [case=key] [timeout=seconds] [tag=label] [rationale=...] [changes=...] [interpretation=...] *)
+(* Usage: wolframscript -file Scripts/BenchmarkSuite.wls [tier] [case=key] [timeout=seconds] [isolation=mode] [tag=label] [rationale=...] [changes=...] [interpretation=...] *)
 (* tier: "small", "core", "stress", "paper", "inconsistent-switching", "large", "vlarge", legacy "medium", or "all" (default: "all") *)
 
 (* :!CodeAnalysis::Disable::SuspiciousSessionSymbol::Print *)
@@ -21,9 +21,16 @@ $MFGraphsVerbose = False;
 Get[FileNameJoin[{Directory[], "Scripts", "BenchmarkHelpers.wls"}]];
 
 (* --- Parse command-line arguments --- *)
-(* Support: wolframscript -file Scripts/BenchmarkSuite.wls [tier] [case=key] [timeout=seconds] [tag=description] *)
+(* Support: wolframscript -file Scripts/BenchmarkSuite.wls [tier] [case=key] [timeout=seconds] [isolation=process|inprocess|auto] [tag=description] *)
 NormalizeCaseArg[arg_String] := If[StringMatchQ[arg, NumberString], ToExpression[arg], arg];
 NormalizeCaseArg[arg_] := arg;
+NormalizeIsolationMode[arg_String] := Switch[ToLowerCase[arg],
+  "process" | "isolated", "Process",
+  "inprocess" | "in-process" | "none", "InProcess",
+  "auto", "Auto",
+  _, $Failed
+];
+NormalizeIsolationMode[_] := $Failed;
 
 $HistoryTag = None;
 $HistoryRationale = None;
@@ -32,8 +39,9 @@ $HistoryInterpretation = None;
 $SelectedTier = "all";
 $SelectedCase = All;
 $TimeoutOverride = Automatic;
+$IsolationModeArg = "inprocess";
 
-Module[{args = Rest[$ScriptCommandLine], i = 1, arg, parsedTimeout},
+Module[{args = Rest[$ScriptCommandLine], i = 1, arg, parsedTimeout, parsedIsolation},
   While[i <= Length[args],
     arg = args[[i]];
     Switch[arg,
@@ -60,6 +68,9 @@ Module[{args = Rest[$ScriptCommandLine], i = 1, arg, parsedTimeout},
             $TimeoutOverride = parsedTimeout
           ]
         ],
+      "--isolation",
+        i++;
+        If[i <= Length[args], $IsolationModeArg = args[[i]]],
       _ /; StringStartsQ[arg, "case="],
         $SelectedCase = NormalizeCaseArg[StringDrop[arg, StringLength["case="]]],
       _ /; StringStartsQ[arg, "timeout="],
@@ -67,6 +78,8 @@ Module[{args = Rest[$ScriptCommandLine], i = 1, arg, parsedTimeout},
         If[NumericQ[parsedTimeout] && parsedTimeout > 0,
           $TimeoutOverride = parsedTimeout
         ],
+      _ /; StringStartsQ[arg, "isolation="],
+        $IsolationModeArg = StringDrop[arg, StringLength["isolation="]],
       _ /; StringStartsQ[arg, "tag="],
         $HistoryTag = StringDrop[arg, StringLength["tag="]],
       _ /; StringStartsQ[arg, "rationale="],
@@ -80,6 +93,15 @@ Module[{args = Rest[$ScriptCommandLine], i = 1, arg, parsedTimeout},
     ];
     i++;
   ];
+
+  parsedIsolation = NormalizeIsolationMode[$IsolationModeArg];
+  If[parsedIsolation === $Failed,
+    Print["Invalid isolation mode: ", $IsolationModeArg];
+    Print["Valid values: inprocess, process, auto"];
+    Exit[2]
+  ];
+  $RequestedIsolationMode = parsedIsolation;
+  $SafeExecuteMode = If[$RequestedIsolationMode === "Auto", "InProcess", $RequestedIsolationMode];
 ];
 
 $RequestedTier = $SelectedTier;
@@ -89,6 +111,7 @@ Print["Selected tier: ", $SelectedTier];
 If[$RequestedTier =!= $SelectedTier, Print["Requested alias: ", $RequestedTier]];
 If[$SelectedCase =!= All, Print["Selected case: ", $SelectedCase]];
 If[NumericQ[$TimeoutOverride], Print["Timeout override: ", $TimeoutOverride, "s"]];
+Print["Isolation mode: ", If[$RequestedIsolationMode === "Auto", "Auto (tier-routed)", $RequestedIsolationMode]];
 If[$HistoryTag =!= None, Print["History tag:   ", $HistoryTag]];
 If[$HistoryTag =!= None &&
    MemberQ[{$HistoryRationale, $HistoryChanges, $HistoryInterpretation}, None],
@@ -108,13 +131,22 @@ $CasesToRun = If[$SelectedCase =!= All,
 ];
 
 GetTier[key_] := SelectFirst[Keys[$BenchmarkTiers], MemberQ[$BenchmarkTiers[#], key] &, "unknown"];
+ResolveCaseIsolationMode[tier_String] :=
+  If[
+    $RequestedIsolationMode === "Auto",
+    If[MemberQ[{"large", "vlarge"}, tier], "Process", "InProcess"],
+    $RequestedIsolationMode
+  ];
 
 (* --- Benchmark a single case with a single solver --- *)
 
 BenchmarkOneSolver[key_, tier_String, solverName_String, d2e_Association, timeout_?NumericQ] :=
   Module[{result, meta, residual = Missing["N/A"], equationResidual = Missing["N/A"],
       convergence, stopReason = Missing["N/A"], convergenceResidual = Missing["N/A"],
-      iterations = Missing["N/A"]},
+      iterations = Missing["N/A"], solveTime = Missing["N/A"],
+      solveMemory = Missing["N/A"], executionMode = Missing["N/A"],
+      rawResult = Missing["NotAvailable"], resultKind = Missing["NotAvailable"],
+      feasibility = Missing["NotAvailable"], solverMessage = Missing["NotAvailable"]},
     meta = GraphMetadata[d2e];
     Print["  Solver: ", solverName, " (timeout: ", timeout, "s)"];
 
@@ -128,20 +160,39 @@ BenchmarkOneSolver[key_, tier_String, solverName_String, d2e_Association, timeou
       _,
         <|"Time" -> 0, "Memory" -> 0, "Status" -> "SKIPPED", "Result" -> "Unknown solver"|>
     ];
+    solveTime =
+      If[
+        NumericQ[Lookup[result, "InnerSolveTime", Missing["N/A"]]],
+        Lookup[result, "InnerSolveTime", Missing["N/A"]],
+        Lookup[result, "Time", Missing["N/A"]]
+      ];
+    solveMemory =
+      If[
+        NumericQ[Lookup[result, "ChildMaxMemoryUsed", Missing["N/A"]]],
+        Lookup[result, "ChildMaxMemoryUsed", Missing["N/A"]],
+        Lookup[result, "Memory", Missing["N/A"]]
+      ];
+    executionMode = Lookup[result, "ExecutionMode", If[$SafeExecuteMode === "Process", "Process", "InProcess"]];
+    rawResult = Lookup[result, "Result", Missing["NotAvailable"]];
+    If[AssociationQ[rawResult],
+      resultKind = Lookup[rawResult, "ResultKind", Missing["NotAvailable"]];
+      feasibility = Lookup[rawResult, "Feasibility", Missing["NotAvailable"]];
+      solverMessage = Lookup[rawResult, "Message", Missing["NotAvailable"]];
+    ];
 
     (* Compute residual for successful solves *)
-    If[result["Status"] === "OK" && AssociationQ[result["Result"]],
-      residual = Lookup[result["Result"], "KirchhoffResidual", Missing["N/A"]];
-      convergence = Lookup[result["Result"], "Convergence", Missing["N/A"]];
+    If[result["Status"] === "OK" && AssociationQ[rawResult],
+      residual = Lookup[rawResult, "KirchhoffResidual", Missing["N/A"]];
+      convergence = Lookup[rawResult, "Convergence", Missing["N/A"]];
       If[AssociationQ[convergence],
         stopReason = Lookup[convergence, "StopReason", Missing["N/A"]];
         convergenceResidual = Lookup[convergence, "FinalResidual", Missing["N/A"]];
         iterations = Lookup[convergence, "Iterations", Missing["N/A"]];
       ];
       equationResidual = Switch[solverName,
-        "CriticalCongestion", ComputeResidual[Join[d2e, result["Result"]], "AssoCritical"],
-        "NonLinearSolver", ComputeResidual[Join[d2e, result["Result"]], "AssoNonCritical"],
-        "Monotone", ComputeResidual[Join[d2e, result["Result"]], "AssoMonotone"],
+        "CriticalCongestion", ComputeResidual[Join[d2e, rawResult], "AssoCritical"],
+        "NonLinearSolver", ComputeResidual[Join[d2e, rawResult], "AssoNonCritical"],
+        "Monotone", ComputeResidual[Join[d2e, rawResult], "AssoMonotone"],
         _, Missing["N/A"]
       ]
     ];
@@ -150,11 +201,11 @@ BenchmarkOneSolver[key_, tier_String, solverName_String, d2e_Association, timeou
     Module[{verification = "N/A"},
       If[result["Status"] === "OK" && solverName === "CriticalCongestion",
         verification = VerifySolution[key,
-          Lookup[result["Result"], "AssoCritical", Null]];
+          Lookup[rawResult, "AssoCritical", Null]];
       ];
       Print["    Status: ", result["Status"],
-            " | Time: ", FormatTime[result["Time"]], "s",
-            " | Memory: ", FormatMemoryMB[result["Memory"]], " MB",
+            " | Time: ", FormatTime[solveTime], "s",
+            " | Memory: ", FormatMemoryMB[solveMemory], " MB",
             If[verification =!= "N/A", " | Ref: " <> verification, ""]];
     ];
 
@@ -167,10 +218,17 @@ BenchmarkOneSolver[key_, tier_String, solverName_String, d2e_Association, timeou
       "NumEntries" -> meta["NumEntries"],
       "NumExits" -> meta["NumExits"],
       "HasSwitching" -> meta["HasSwitching"],
+      "ExecutionMode" -> executionMode,
+      "WallTime" -> Lookup[result, "WallTime", Lookup[result, "Time", Missing["N/A"]]],
+      "InnerSolveTime" -> Lookup[result, "InnerSolveTime", Missing["N/A"]],
+      "ChildMaxMemoryUsed" -> Lookup[result, "ChildMaxMemoryUsed", Missing["N/A"]],
       "D2ETime" -> Missing["Included"],
-      "SolveTime" -> result["Time"],
-      "SolveMemory" -> result["Memory"],
+      "SolveTime" -> solveTime,
+      "SolveMemory" -> solveMemory,
       "Status" -> result["Status"],
+      "ResultKind" -> resultKind,
+      "Feasibility" -> feasibility,
+      "Message" -> solverMessage,
       "Residual" -> residual,
       "EquationResidual" -> equationResidual,
       "StopReason" -> stopReason,
@@ -195,12 +253,15 @@ CaseStatusSummary[caseRows_List] :=
 (* --- Benchmark a single case across all applicable solvers --- *)
 
 BenchmarkCase[key_] :=
-  Module[{tier, timeout, data, d2eResult, d2e, results = {}, params},
+  Module[{tier, timeout, data, d2eResult, d2e, results = {}, params, d2eTime, caseIsolationMode},
     tier = GetTier[key];
     timeout = If[NumericQ[$TimeoutOverride], $TimeoutOverride, Lookup[$TierTimeouts, tier, 300]];
     params = GetParams[key];
+    caseIsolationMode = ResolveCaseIsolationMode[tier];
+    $SafeExecuteMode = caseIsolationMode;
 
     Print["\n--- Case: ", key, " (tier: ", tier, ") ---"];
+    Print["  Isolation: ", caseIsolationMode];
 
     (* Load data *)
     data = Quiet @ Check[GetExampleData[key], $Failed];
@@ -218,12 +279,18 @@ BenchmarkCase[key_] :=
     (* Convert to equations (timed separately) *)
     Print["  Running DataToEquations..."];
     d2eResult = SafeExecute[DataToEquations[data], timeout];
+    d2eTime =
+      If[
+        NumericQ[Lookup[d2eResult, "InnerSolveTime", Missing["N/A"]]],
+        Lookup[d2eResult, "InnerSolveTime", Missing["N/A"]],
+        Lookup[d2eResult, "Time", Missing["N/A"]]
+      ];
     Print["    D2E Status: ", d2eResult["Status"],
-          " | Time: ", FormatTime[d2eResult["Time"]], "s"];
+          " | Time: ", FormatTime[d2eTime], "s"];
 
     If[d2eResult["Status"] =!= "OK",
       Return[{<|"Key" -> ToString[key], "Tier" -> tier, "Solver" -> "DataToEquations",
-               "D2ETime" -> d2eResult["Time"], "Status" -> d2eResult["Status"],
+               "D2ETime" -> d2eTime, "Status" -> d2eResult["Status"],
                "Timestamp" -> DateString[]|>}]
     ];
 
@@ -240,7 +307,7 @@ BenchmarkCase[key_] :=
       BenchmarkOneSolver[key, tier, "Monotone", d2e, timeout]];
 
     (* Store D2E time in all results *)
-    results = Map[Append[#, "D2ETime" -> d2eResult["Time"]] &, results];
+    results = Map[Append[#, "D2ETime" -> d2eTime] &, results];
 
     results
   ];

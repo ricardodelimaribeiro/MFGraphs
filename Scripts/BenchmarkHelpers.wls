@@ -13,7 +13,22 @@ Status is \"OK\", \"TIMEOUT\", or \"FAILED\".";
 
 SetAttributes[SafeExecute, HoldFirst];
 
-SafeExecute[expr_, timeout_:300] :=
+SafeExecuteIsolated::usage =
+"SafeExecuteIsolated[expr, timeout] evaluates expr in an isolated child wolframscript process.
+Returns the same status envelope as SafeExecute and prevents child-kernel crashes from
+terminating the benchmark master process.";
+
+Options[SafeExecuteIsolated] = {
+  "KernelPath" -> "wolframscript",
+  "ProcessTimeBuffer" -> 5
+};
+
+$SafeExecuteMode = "InProcess";
+
+SetAttributes[SafeExecuteIsolated, HoldFirst];
+SetAttributes[SafeExecuteInProcess, HoldFirst];
+
+SafeExecuteInProcess[expr_, timeout_:300] :=
   Module[{result, time, memBefore, memAfter, status},
     memBefore = MemoryInUse[];
     {time, result} = AbsoluteTiming[
@@ -38,6 +53,139 @@ SafeExecute[expr_, timeout_:300] :=
     |>
   ];
 
+SafeExecuteIsolated[expr_, timeout_:300, opts:OptionsPattern[]] :=
+  Module[{kernelPath, buffer, scriptFile, outFile, runResult = <||>, runTime = 0.,
+      rawResult = Missing["NotAvailable"], status = "FAILED", result = Missing["Failed"],
+      stderr = "", heldExpr, concretizedExpr, exprString, scriptLines, processTimeout,
+      proc, startTime, timedOut = False, info = <||>, stdout = "", startOK = False,
+      ignored, procStatus = "Unknown", rawPayload = Missing["NotAvailable"],
+      childTime = Missing["NotAvailable"], childMem = Missing["NotAvailable"]},
+
+    kernelPath = OptionValue["KernelPath"];
+    buffer = OptionValue["ProcessTimeBuffer"];
+    processTimeout = Max[1, timeout + buffer];
+
+    scriptFile = CreateFile[];
+    outFile = CreateFile[];
+
+    heldExpr = HoldComplete[expr];
+    concretizedExpr = heldExpr /. s_Symbol /; (Context[s] === "Global`" && OwnValues[s] =!= {}) :> Evaluate[s];
+    exprString = StringReplace[
+      ToString[concretizedExpr, InputForm],
+      {
+        StartOfString ~~ "HoldComplete[" -> "",
+        "]" ~~ EndOfString -> ""
+      }
+    ];
+
+    scriptLines = {
+      "SetDirectory[" <> ToString[InputForm[Directory[]]] <> "];",
+      "PrependTo[$Path, Directory[]];",
+      "Needs[\"MFGraphs`\"];",
+      "Quiet[Check[ResetMaxMemoryUsed[], Null]];",
+      "{innerTime, rawRes} = AbsoluteTiming[",
+      "  TimeConstrained[",
+      "    Check[",
+      "      " <> exprString <> ",",
+      "      $Failed",
+      "    ],",
+      "    " <> ToString[InputForm[N[timeout]]] <> ",",
+      "    \"TIMEOUT\"",
+      "  ]",
+      "];",
+      "childMem = Quiet @ Check[MaxMemoryUsed[], Missing[\"NotAvailable\"]];",
+      "payload = <|\"Result\" -> rawRes, \"InnerSolveTime\" -> innerTime, \"ChildMaxMemoryUsed\" -> childMem|>;",
+      "Export[" <> ToString[InputForm[outFile]] <> ", payload, \"WXF\"];"
+    };
+    Export[scriptFile, StringRiffle[scriptLines, "\n"], "Text"];
+
+    {runTime, ignored} = AbsoluteTiming[
+      Quiet @ Check[
+        proc = StartProcess[{kernelPath, "-file", scriptFile}];
+        startOK = True,
+        startOK = False
+      ];
+      If[startOK,
+        startTime = AbsoluteTime[];
+        procStatus = Quiet @ Check[ProcessStatus[proc], "Unknown"];
+        While[
+          procStatus === "Running" && AbsoluteTime[] - startTime < processTimeout,
+          Pause[0.05]
+          ;
+          procStatus = Quiet @ Check[ProcessStatus[proc], "Unknown"]
+        ];
+        If[procStatus === "Running",
+          timedOut = True;
+          Quiet @ Check[KillProcess[proc], Null];
+          Pause[0.1];
+          procStatus = Quiet @ Check[ProcessStatus[proc], "Unknown"]
+        ];
+        info = Quiet @ Check[ProcessInformation[proc], <||>];
+        If[procStatus =!= "Running",
+          stdout = Quiet @ Check[ReadString[proc["StandardOutput"]], ""];
+          stderr = Quiet @ Check[ReadString[proc["StandardError"]], ""];
+        ];
+      ];
+      runResult = <|
+        "ExitCode" -> Lookup[info, "ExitCode", If[startOK, Missing["NotAvailable"], 1]],
+        "StandardOutput" -> stdout,
+        "StandardError" -> stderr
+      |>;
+    ];
+
+    If[timedOut ||
+       Lookup[runResult, "ExitCode", 1] =!= 0 ||
+       !FileExistsQ[outFile] ||
+       Quiet @ Check[FileByteCount[outFile], 0] == 0,
+      status =
+        If[timedOut, "TIMEOUT", "FAILED"];
+      result = Missing[If[status === "TIMEOUT", "Timeout", "KernelPanic"]],
+      rawPayload = Quiet @ Check[Import[outFile, "WXF"], $Failed];
+      If[AssociationQ[rawPayload] && KeyExistsQ[rawPayload, "Result"],
+        rawResult = Lookup[rawPayload, "Result", $Failed];
+        childTime = Lookup[rawPayload, "InnerSolveTime", Missing["NotAvailable"]];
+        childMem = Lookup[rawPayload, "ChildMaxMemoryUsed", Missing["NotAvailable"]];
+        ,
+        rawResult = $Failed;
+        childTime = Missing["NotAvailable"];
+        childMem = Missing["NotAvailable"]
+      ];
+      Which[
+        rawResult === "TIMEOUT",
+          status = "TIMEOUT";
+          result = Missing["Timeout"],
+        rawResult === $Failed || rawResult === $Aborted || rawResult === Null,
+          status = "FAILED";
+          result = Missing["Failed"],
+        True,
+          status = "OK";
+          result = rawResult
+      ]
+    ];
+
+    Quiet @ Check[DeleteFile[scriptFile], Null];
+    Quiet @ Check[DeleteFile[outFile], Null];
+
+    <|
+      "Time" -> runTime,
+      "WallTime" -> runTime,
+      "Memory" -> childMem,
+      "Status" -> status,
+      "Result" -> result,
+      "InnerSolveTime" -> childTime,
+      "ChildMaxMemoryUsed" -> childMem,
+      "ExecutionMode" -> "Process",
+      "ExitCode" -> Lookup[runResult, "ExitCode", Missing["NotAvailable"]],
+      "StandardError" -> stderr
+    |>
+  ];
+
+SafeExecute[expr_, timeout_:300] :=
+  If[$SafeExecuteMode === "Process",
+    SafeExecuteIsolated[expr, timeout],
+    SafeExecuteInProcess[expr, timeout]
+  ];
+
 (* --- Residual computation --- *)
 
 ComputeResidual::usage =
@@ -45,16 +193,24 @@ ComputeResidual::usage =
 solKey should be \"AssoCritical\", \"AssoNonCritical\", or \"AssoMonotone\".";
 
 ComputeResidual[eqs_Association, solKey_String:"AssoNonCritical"] :=
-  Module[{sol, nlhs, nrhs},
+  Module[{sol, nlhs, nrhs, diff},
     sol = Lookup[eqs, solKey, <||>];
     nlhs = Lookup[eqs, "Nlhs", {}];
     nrhs = Lookup[eqs, "Nrhs", {}];
-    If[sol === <||> || nlhs === {} || nrhs === {},
-      Missing["NoData"],
-      Quiet @ Check[
-        Norm[N[nlhs /. sol] - (nrhs /. sol), Infinity],
-        Missing["ComputeError"]
-      ]
+    If[
+      !AssociationQ[sol] || sol === <||> ||
+      !ListQ[nlhs] || !ListQ[nrhs] || nlhs === {} || nrhs === {} ||
+      Length[nlhs] =!= Length[nrhs],
+      Return[Missing["NoData"], Module]
+    ];
+    diff = Quiet @ Check[(nlhs - nrhs) /. sol, $Failed];
+    If[diff === $Failed,
+      Return[Missing["ComputeError"], Module]
+    ];
+    diff = Quiet @ Check[N @ diff, $Failed];
+    If[diff === $Failed || !VectorQ[diff, NumericQ],
+      Missing["NotComputable"],
+      Quiet @ Check[N @ Norm[diff, Infinity], Missing["ComputeError"]]
     ]
   ];
 
