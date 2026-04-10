@@ -16,6 +16,7 @@ Print[];
 PrependTo[$Path, Directory[]];
 Needs["MFGraphs`"];
 $MFGraphsVerbose = False;
+$HistoryLength = 0;
 
 (* --- Load helpers --- *)
 Get[FileNameJoin[{Directory[], "Scripts", "BenchmarkHelpers.wls"}]];
@@ -39,7 +40,7 @@ $HistoryInterpretation = None;
 $SelectedTier = "all";
 $SelectedCase = All;
 $TimeoutOverride = Automatic;
-$IsolationModeArg = "inprocess";
+$IsolationModeArg = "auto";
 
 Module[{args = Rest[$ScriptCommandLine], i = 1, arg, parsedTimeout, parsedIsolation},
   While[i <= Length[args],
@@ -304,6 +305,9 @@ BenchmarkCase[key_] :=
     Print["\n--- Case: ", key, " (tier: ", tier, ") ---"];
     Print["  Isolation: ", caseIsolationMode];
 
+    Quiet @ Check[MFGraphs`Private`ClearSolveCache[], Null];
+    Quiet @ Check[ClearSystemCache[], Null];
+
     (* Load data *)
     data = Quiet @ Check[GetExampleData[key], $Failed];
     If[data === $Failed,
@@ -371,6 +375,8 @@ BenchmarkCase[key_] :=
 
     (* Store D2E time in all results *)
     results = Map[Append[#, "D2ETime" -> d2eTime] &, results];
+    Quiet @ Check[MFGraphs`Private`ClearSolveCache[], Null];
+    Quiet @ Check[ClearSystemCache[], Null];
 
     results
   ];
@@ -428,10 +434,10 @@ If[$HistoryTag =!= None,
       If[Length[tierRows2] === 0, Return[""]];
       caseKeys = DeleteDuplicates[#["Key"] & /@ tierRows2];
       tableLines = {"#### Tier: " <> tierName, "",
-        "| Case | D2E (s) | CritSolver (s) | NLSolver inc (s) | NLSolver standalone est (s) | Monotone (s) | Total (s) | Case Status |",
-        "|------|---------|---------------|------------------|----------------------------|--------------|-----------|-------------|"};
+        "| Case | D2E (s) | CritSolver (s) | NLSolver inc (s) | NLSolver standalone est (s) | Monotone inc (s) | Monotone standalone est (s) | Total (s) | Case Status |",
+        "|------|---------|---------------|------------------|----------------------------|------------------|-----------------------------|-----------|-------------|"};
       Do[
-        Module[{caseRows, d2eT, critT, nlT, monoT, totalT, caseStatus, nlEstST},
+        Module[{caseRows, d2eT, critT, nlT, monoT, totalT, caseStatus, nlEstST, monoEstST},
           caseRows = Select[tierRows2, #["Key"] === k &];
           d2eT = SelectFirst[caseRows, True&, <||>]["D2ETime"];
           critT = SelectFirst[Select[caseRows, #["Solver"] === "CriticalCongestion"&], True&, <||>];
@@ -443,6 +449,7 @@ If[$HistoryTag =!= None,
           nlST   = fmtT[If[KeyExistsQ[nlT, "SolveTime"], nlT["SolveTime"], Missing[]]];
           nlEstST = fmtT[If[KeyExistsQ[nlT, "EstimatedStandaloneSolveTime"], nlT["EstimatedStandaloneSolveTime"], Missing[]]];
           monoST = fmtT[If[KeyExistsQ[monoT, "SolveTime"], monoT["SolveTime"], Missing[]]];
+          monoEstST = fmtT[If[KeyExistsQ[monoT, "EstimatedStandaloneSolveTime"], monoT["EstimatedStandaloneSolveTime"], Missing[]]];
           totalN = Plus @@ Select[{
             If[KeyExistsQ[critT, "SolveTime"] && NumericQ[critT["SolveTime"]], critT["SolveTime"], 0],
             If[KeyExistsQ[nlT, "SolveTime"] && NumericQ[nlT["SolveTime"]], nlT["SolveTime"], 0],
@@ -452,7 +459,7 @@ If[$HistoryTag =!= None,
           caseStatus = CaseStatusSummary[caseRows];
           AppendTo[tableLines,
             "| " <> k <> " | " <> d2eT <> " | " <> critST <> " | " <>
-            nlST <> " | " <> nlEstST <> " | " <> monoST <> " | " <> totalT <> " | " <> caseStatus <> " |"]
+            nlST <> " | " <> nlEstST <> " | " <> monoST <> " | " <> monoEstST <> " | " <> totalT <> " | " <> caseStatus <> " |"]
         ],
         {k, caseKeys}
       ];

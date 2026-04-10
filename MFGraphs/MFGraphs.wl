@@ -85,7 +85,8 @@ SelectFlowAssociation[assoc_Association] :=
 
 BuildSolverComparisonData[Eqs_Association, solution_] :=
     Module[{missing, flowAssoc, edgeList, edgePairs, signedFlowRules, signedExprs,
-         signedVals, B, KM, jj, jjVals, residual},
+         signedVals, B, KM, jj, jjVals, residual, numericState, encodedFlowVec,
+         fastSignedVals, fastResidual, usedFastSignedQ, usedFastResidualQ},
         missing = Missing["NotAvailable"];
         edgeList = Lookup[Eqs, "edgeList", {}];
         If[!AssociationQ[solution],
@@ -101,26 +102,65 @@ BuildSolverComparisonData[Eqs_Association, solution_] :=
             ]
         ];
         flowAssoc = SelectFlowAssociation[solution];
-        edgePairs = List @@@ edgeList;
-        signedFlowRules = Lookup[Eqs, "SignedFlows", <||>];
-        signedExprs =
-            (If[KeyExistsQ[signedFlowRules, #], signedFlowRules[#], missing] & /@ edgePairs) /.
-                Join[
-                    Lookup[Eqs, "RuleBalanceGatheringFlows", <||>],
-                    Lookup[Eqs, "RuleExitFlowsIn", <||>],
-                    Lookup[Eqs, "RuleEntryOut", <||>]
-                ];
-        signedVals = Quiet @ Check[signedExprs /. flowAssoc, missing];
-        If[!ListQ[signedVals] || !VectorQ[signedVals, NumericQ],
-            signedVals = missing
-        ];
-        {B, KM, jj} = MFGraphs`GetKirchhoffLinearSystem[Eqs];
-        jjVals = Lookup[flowAssoc, jj, missing];
-        residual =
-            If[ListQ[jjVals] && VectorQ[jjVals, NumericQ],
-                N @ Norm[KM . jjVals - B, Infinity],
+        numericState = Lookup[Eqs, "NumericState", Missing["NotAvailable"]];
+        usedFastSignedQ = False;
+        usedFastResidualQ = False;
+        signedVals = missing;
+        residual = missing;
+
+        If[AssociationQ[numericState],
+            encodedFlowVec = Quiet @ Check[
+                EncodeFlowAssociation[numericState, flowAssoc],
                 missing
             ];
+            If[ListQ[encodedFlowVec] && VectorQ[encodedFlowVec, NumericQ],
+                fastSignedVals = Quiet @ Check[
+                    ComputeSignedEdgeFlowsFast[numericState, encodedFlowVec],
+                    missing
+                ];
+                If[
+                    ListQ[fastSignedVals] &&
+                    VectorQ[fastSignedVals, NumericQ] &&
+                    Length[fastSignedVals] === Length[edgeList],
+                    signedVals = fastSignedVals;
+                    usedFastSignedQ = True
+                ];
+                fastResidual = Quiet @ Check[
+                    ComputeKirchhoffResidualFast[numericState, encodedFlowVec],
+                    missing
+                ];
+                If[NumericQ[fastResidual],
+                    residual = fastResidual;
+                    usedFastResidualQ = True
+                ]
+            ]
+        ];
+
+        If[!usedFastSignedQ,
+            edgePairs = List @@@ edgeList;
+            signedFlowRules = Lookup[Eqs, "SignedFlows", <||>];
+            signedExprs =
+                (If[KeyExistsQ[signedFlowRules, #], signedFlowRules[#], missing] & /@ edgePairs) /.
+                    Join[
+                        Lookup[Eqs, "RuleBalanceGatheringFlows", <||>],
+                        Lookup[Eqs, "RuleExitFlowsIn", <||>],
+                        Lookup[Eqs, "RuleEntryOut", <||>]
+                    ];
+            signedVals = Quiet @ Check[signedExprs /. flowAssoc, missing];
+            If[!ListQ[signedVals] || !VectorQ[signedVals, NumericQ],
+                signedVals = missing
+            ]
+        ];
+
+        If[!usedFastResidualQ,
+            {B, KM, jj} = MFGraphs`GetKirchhoffLinearSystem[Eqs];
+            jjVals = Lookup[flowAssoc, jj, missing];
+            residual =
+                If[ListQ[jjVals] && VectorQ[jjVals, NumericQ],
+                    N @ Norm[KM . jjVals - B, Infinity],
+                    missing
+                ]
+        ];
         <|
             "ComparableEdges" -> edgeList,
             "FlowAssociation" -> flowAssoc,

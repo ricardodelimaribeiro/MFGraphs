@@ -817,6 +817,276 @@ DirectCriticalSolver[Eqs_Association] :=
         result
     ]
 
+(* --- Critical numeric backend (internal, guarded) --- *)
+
+$CriticalNumericBackendEnabled = False;
+
+CriticalNumericBackendRequestedQ[Eqs_Association] :=
+    Module[{mode},
+        mode = Lookup[Eqs, "CriticalNumericBackendMode", Automatic];
+        Which[
+            mode === True || mode === "Force", True,
+            mode === False || mode === "Disabled", False,
+            mode === Automatic || mode === "Auto", TrueQ[$CriticalNumericBackendEnabled],
+            True, False
+        ]
+    ];
+
+CriticalNumericBackendEligibleQ[Eqs_Association] :=
+    Module[{numericState, switchingVals, entryVals, exitVals, km, b, vars},
+        numericState = Lookup[Eqs, "NumericState", Missing["NotAvailable"]];
+        switchingVals = Values[Lookup[Eqs, "SwitchingCosts", <||>]];
+        entryVals = Flatten[Lookup[Eqs, "Entrance Vertices and Flows", {}]];
+        exitVals = Flatten[Lookup[Eqs, "Exit Vertices and Terminal Costs", {}]];
+        km = Lookup[numericState, "KirchhoffKM", Missing["NotAvailable"]];
+        b = Lookup[numericState, "KirchhoffB", Missing["NotAvailable"]];
+        vars = Lookup[numericState, "KirchhoffVariables", {}];
+        AssociationQ[numericState] &&
+        AllTrue[switchingVals, # === 0 &] &&
+        Lookup[Eqs, "auxiliaryGraph", None] =!= None &&
+        AllTrue[entryVals, NumericQ] &&
+        AllTrue[exitVals, NumericQ] &&
+        Head[km] === SparseArray &&
+        VectorQ[b, NumericQ] &&
+        ListQ[vars] &&
+        vars =!= {}
+    ];
+
+BuildCriticalLinearConstraints[Eqs_Association] :=
+    Module[{graph, exitVerts, us, js, jts, auxPairs, distToExit, zeroRules, pair,
+        RuleEntryOut, RuleExitFlowsIn, RuleEntryValues, RuleExitValues,
+        RuleBalanceGatheringFlows, EqGeneral, EqEntryIn,
+        EqBalanceSplittingFlows, EqValueAuxiliaryEdges,
+        eqList, flowVars, allVars, ineqList},
+        graph = Lookup[Eqs, "auxiliaryGraph", None];
+        exitVerts = Lookup[Eqs, "auxExitVertices", {}];
+        us = Lookup[Eqs, "us", {}];
+        js = Lookup[Eqs, "js", {}];
+        jts = Lookup[Eqs, "jts", {}];
+        auxPairs = Cases[us, u[a_, b_] :> {a, b}];
+        RuleEntryOut = Lookup[Eqs, "RuleEntryOut", {}];
+        RuleExitFlowsIn = Lookup[Eqs, "RuleExitFlowsIn", {}];
+        RuleEntryValues = Lookup[Eqs, "RuleEntryValues", <||>];
+        RuleExitValues = Lookup[Eqs, "RuleExitValues", <||>];
+        RuleBalanceGatheringFlows = Lookup[Eqs, "RuleBalanceGatheringFlows", <||>];
+        EqGeneral = Lookup[Eqs, "EqGeneral", True];
+        EqEntryIn = Lookup[Eqs, "EqEntryIn", True];
+        EqBalanceSplittingFlows = Lookup[Eqs, "EqBalanceSplittingFlows", True];
+        EqValueAuxiliaryEdges = Lookup[Eqs, "EqValueAuxiliaryEdges", True];
+
+        distToExit = Lookup[
+            Lookup[Eqs, "NumericState", <||>],
+            "DistanceToExit",
+            <||>
+        ];
+        If[!AssociationQ[distToExit] || distToExit === <||>,
+            If[Head[graph] =!= Graph || exitVerts === {},
+                Return[$Failed, Module]
+            ];
+            distToExit = Association @ Table[
+                v -> Min[GraphDistance[graph, v, #] & /@ exitVerts],
+                {v, VertexList[graph]}
+            ];
+        ];
+
+        zeroRules = Association[];
+        Do[
+            pair = auxPairs[[k]];
+            If[
+                Lookup[distToExit, pair[[1]], Infinity] <
+                    Lookup[distToExit, pair[[2]], Infinity],
+                zeroRules[j @@ pair] = 0
+            ],
+            {k, Length[auxPairs]}
+        ];
+
+        eqList = Flatten[{
+            List @@ (EqGeneral /. Thread[
+                Keys[Lookup[Eqs, "costpluscurrents", <||>]] -> 0
+            ]),
+            If[Head[EqEntryIn] === And, List @@ EqEntryIn, If[EqEntryIn === True, {}, {EqEntryIn}]],
+            If[Head[EqBalanceSplittingFlows] === And,
+                List @@ EqBalanceSplittingFlows,
+                If[EqBalanceSplittingFlows === True, {}, {EqBalanceSplittingFlows}]
+            ],
+            If[Head[EqValueAuxiliaryEdges] === And,
+                List @@ EqValueAuxiliaryEdges,
+                If[EqValueAuxiliaryEdges === True, {}, {EqValueAuxiliaryEdges}]
+            ],
+            KeyValueMap[Equal, RuleExitValues],
+            KeyValueMap[Equal, RuleEntryValues],
+            Equal @@@ Normal[RuleEntryOut],
+            Equal @@@ Normal[RuleExitFlowsIn],
+            Equal @@@ Normal[RuleBalanceGatheringFlows],
+            (Equal[#, 0] & /@ Keys[zeroRules]),
+            Module[{byVertex = GroupBy[auxPairs, Last]},
+                Flatten @ KeyValueMap[
+                    Function[{v, pairs},
+                        If[
+                            Length[pairs] > 1,
+                            (u @@ # == u @@ pairs[[1]]) & /@ Rest[pairs],
+                            {}
+                        ]
+                    ],
+                    byVertex
+                ]
+            ]
+        }];
+        eqList = Cases[DeleteCases[eqList, True], _Equal];
+
+        flowVars = Join[js, jts];
+        allVars = Join[us, js, jts];
+        ineqList = (# >= 0) & /@ flowVars;
+        <|
+            "Equalities" -> eqList,
+            "Inequalities" -> ineqList,
+            "FlowVariables" -> flowVars,
+            "AllVariables" -> allVars
+        |>
+    ];
+
+BuildLinearSystemFromEqualities[equalities_List, vars_List] :=
+    Module[{exprs, placeholders, subExprs, coeffData, bVec, aMat},
+        If[equalities === {} || vars === {},
+            Return[$Failed, Module]
+        ];
+        exprs = equalities /. Equal[l_, r_] :> (l - r);
+        placeholders = Table[Unique["lv"], {Length[vars]}];
+        subExprs = exprs /. Thread[vars -> placeholders];
+        coeffData = Quiet @ Check[
+            CoefficientArrays[subExprs, placeholders],
+            $Failed
+        ];
+        If[coeffData === $Failed || Length[coeffData] < 2,
+            Return[$Failed, Module]
+        ];
+        bVec = Quiet @ Check[
+            Developer`ToPackedArray @ N @ (-Normal[coeffData[[1]]]),
+            $Failed
+        ];
+        aMat = Quiet @ Check[
+            SparseArray[coeffData[[2]]],
+            $Failed
+        ];
+        If[
+            bVec === $Failed || aMat === $Failed || !VectorQ[bVec, NumericQ],
+            $Failed,
+            <|"A" -> aMat, "b" -> bVec|>
+        ]
+    ];
+
+LinearSolveCandidate[aMat_SparseArray, bVec_List] :=
+    Module[{dims, ls, x, ata, atb},
+        dims = Dimensions[aMat];
+        If[Length[dims] =!= 2 || dims[[2]] == 0,
+            Return[$Failed, Module]
+        ];
+        If[dims[[1]] === dims[[2]],
+            ls = Quiet @ Check[LinearSolve[N @ aMat], $Failed];
+            If[ls === $Failed,
+                Return[$Failed, Module]
+            ];
+            x = Quiet @ Check[N @ ls[N @ bVec], $Failed];
+            If[VectorQ[x, NumericQ], Developer`ToPackedArray @ x, $Failed]
+            ,
+            ata = Quiet @ Check[N @ (Transpose[aMat].aMat), $Failed];
+            atb = Quiet @ Check[N @ (Transpose[aMat].bVec), $Failed];
+            If[ata === $Failed || atb === $Failed,
+                Return[$Failed, Module]
+            ];
+            ls = Quiet @ Check[LinearSolve[ata], $Failed];
+            If[ls === $Failed,
+                Return[$Failed, Module]
+            ];
+            x = Quiet @ Check[N @ ls[atb], $Failed];
+            If[VectorQ[x, NumericQ], Developer`ToPackedArray @ x, $Failed]
+        ]
+    ];
+
+SolveCriticalNumericBackend[Eqs_Association] :=
+    Module[{constraints, equalities, inequalities, flowVars, allVars,
+        linearSystem, aMat, bVec, xCandidate, varIndex, flowIndices,
+        linResidual, flowMin, tol = 10^-8, assoc, lpResult, lpVals, solvedAssoc},
+        constraints = BuildCriticalLinearConstraints[Eqs];
+        If[constraints === $Failed || !AssociationQ[constraints],
+            Return[$Failed, Module]
+        ];
+        equalities = Lookup[constraints, "Equalities", {}];
+        inequalities = Lookup[constraints, "Inequalities", {}];
+        flowVars = Lookup[constraints, "FlowVariables", {}];
+        allVars = Lookup[constraints, "AllVariables", {}];
+        If[equalities === {} || allVars === {},
+            Return[$Failed, Module]
+        ];
+
+        linearSystem = BuildLinearSystemFromEqualities[equalities, allVars];
+        If[AssociationQ[linearSystem],
+            aMat = linearSystem["A"];
+            bVec = linearSystem["b"];
+            xCandidate = LinearSolveCandidate[aMat, bVec];
+            If[VectorQ[xCandidate, NumericQ] && Length[xCandidate] === Length[allVars],
+                varIndex = AssociationThread[allVars, Range[Length[allVars]]];
+                flowIndices = Lookup[varIndex, flowVars, Missing["NotAvailable"]];
+                If[!MemberQ[flowIndices, _Missing] && flowIndices =!= {},
+                    linResidual = Quiet @ Check[N @ Norm[aMat . xCandidate - bVec, Infinity], Infinity];
+                    flowMin = Min[xCandidate[[flowIndices]]];
+                    If[NumericQ[linResidual] && linResidual <= tol && NumericQ[flowMin] && flowMin >= -tol,
+                        assoc = AssociationThread[allVars, xCandidate];
+                        solvedAssoc = Association @ KeyValueMap[
+                            #1 -> If[Abs[#2] <= tol, 0., N[#2]] &,
+                            assoc
+                        ];
+                        Return[
+                            Join[
+                                KeyTake[solvedAssoc, Lookup[Eqs, "us", {}]],
+                                KeyTake[solvedAssoc, Lookup[Eqs, "js", {}]],
+                                KeyTake[solvedAssoc, Lookup[Eqs, "jts", {}]]
+                            ],
+                            Module
+                        ]
+                    ]
+                ]
+            ]
+        ];
+
+        lpResult = Quiet @ Check[
+            LinearOptimization[
+                0,
+                And @@ Join[equalities, inequalities],
+                allVars,
+                Reals
+            ],
+            $Failed
+        ];
+        If[lpResult === $Failed,
+            Return[$Failed, Module]
+        ];
+        lpVals = Which[
+            VectorQ[lpResult, NumericQ] && Length[lpResult] === Length[allVars],
+                Developer`ToPackedArray @ N @ lpResult,
+            AssociationQ[lpResult],
+                Lookup[lpResult, allVars, Missing["NotAvailable"]],
+            ListQ[lpResult] && VectorQ[lpResult, MatchQ[#, _Rule] &],
+                allVars /. lpResult,
+            True,
+                $Failed
+        ];
+        If[
+            lpVals === $Failed || !VectorQ[lpVals, NumericQ] || Length[lpVals] =!= Length[allVars],
+            Return[$Failed, Module]
+        ];
+        assoc = AssociationThread[allVars, Developer`ToPackedArray @ N @ lpVals];
+        solvedAssoc = Association @ KeyValueMap[
+            #1 -> If[Abs[#2] <= tol, 0., N[#2]] &,
+            assoc
+        ];
+        Join[
+            KeyTake[solvedAssoc, Lookup[Eqs, "us", {}]],
+            KeyTake[solvedAssoc, Lookup[Eqs, "js", {}]],
+            KeyTake[solvedAssoc, Lookup[Eqs, "jts", {}]]
+        ]
+    ];
+
 (* --- CriticalCongestionSolver --- *)
 
 Options[CriticalCongestionSolver] = {
@@ -831,12 +1101,106 @@ CriticalCongestionSolver[$Failed, ___] :=
 CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
     Module[{PreEqs, js, AssoCritical, time, temp, status,
          resultKind, message, solution, comparisonData,
-         validateQ, validationTolerance, validationVerboseQ, validationFailedQ},
+         validateQ, validationTolerance, validationVerboseQ, validationFailedQ,
+         numericBackendRequestedQ, numericBackendEligibleQ,
+         numericBackendUsedQ, numericBackendFallbackReason, numericBackendSolveTime,
+         numericCandidate, forcedRejectQ},
         ClearSolveCache[];
         validateQ = TrueQ[OptionValue["ValidateSolution"]];
         validationTolerance = OptionValue["ValidationTolerance"];
         validationVerboseQ = TrueQ[OptionValue["ValidationVerbose"]];
         validationFailedQ = False;
+        numericBackendUsedQ = False;
+        numericBackendSolveTime = Missing["NotAvailable"];
+        numericBackendRequestedQ = CriticalNumericBackendRequestedQ[Eqs];
+        numericBackendEligibleQ = CriticalNumericBackendEligibleQ[Eqs];
+        numericBackendFallbackReason = Which[
+            !numericBackendRequestedQ, "DisabledByGuard",
+            !numericBackendEligibleQ, "IneligibleInput",
+            True, "NumericSolveFailed"
+        ];
+        forcedRejectQ = TrueQ[Lookup[Eqs, "ForceNumericBackendValidationFailure", False]];
+
+        (* Try the numeric backend first when explicitly forced or globally enabled. *)
+        If[numericBackendRequestedQ && numericBackendEligibleQ,
+            MFGPrint["Attempting critical numeric backend..."];
+            {numericBackendSolveTime, numericCandidate} =
+                AbsoluteTiming[SolveCriticalNumericBackend[Eqs]];
+            If[AssociationQ[numericCandidate] && numericCandidate =!= $Failed,
+                status = CheckFlowFeasibility[numericCandidate];
+                If[status === "Feasible",
+                    If[KeyExistsQ[Eqs, "InitRules"],
+                        PreEqs = Eqs,
+                        {time, PreEqs} = AbsoluteTiming @ MFGPreprocessing[Eqs];
+                        MFGPrint["Preprocessing (for downstream solvers) took ", time, " seconds."]
+                    ];
+                    If[validateQ,
+                        If[forcedRejectQ || !TrueQ @ IsCriticalSolution[
+                            Join[PreEqs, <|"AssoCritical" -> numericCandidate, "Solution" -> numericCandidate|>],
+                            "Tolerance" -> validationTolerance,
+                            "Verbose" -> validationVerboseQ
+                        ],
+                            numericBackendFallbackReason =
+                                If[forcedRejectQ, "ForcedValidationFailure", "CriticalValidationFailed"]
+                            ,
+                            solution = numericCandidate;
+                            comparisonData = BuildSolverComparisonData[PreEqs, solution];
+                            Return[
+                                Join[
+                                    PreEqs,
+                                    MakeSolverResult[
+                                        "CriticalCongestion",
+                                        "Success",
+                                        status,
+                                        None,
+                                        solution,
+                                        Join[
+                                            comparisonData,
+                                            <|
+                                                "AssoCritical" -> numericCandidate,
+                                                "Status" -> status,
+                                                "NumericBackendUsed" -> True,
+                                                "NumericBackendFallbackReason" -> None,
+                                                "NumericBackendSolveTime" -> numericBackendSolveTime
+                                            |>
+                                        ]
+                                    ]
+                                ],
+                                Module
+                            ]
+                        ],
+                        solution = numericCandidate;
+                        comparisonData = BuildSolverComparisonData[PreEqs, solution];
+                        Return[
+                            Join[
+                                PreEqs,
+                                MakeSolverResult[
+                                    "CriticalCongestion",
+                                    "Success",
+                                    status,
+                                    None,
+                                    solution,
+                                    Join[
+                                        comparisonData,
+                                        <|
+                                            "AssoCritical" -> numericCandidate,
+                                            "Status" -> status,
+                                            "NumericBackendUsed" -> True,
+                                            "NumericBackendFallbackReason" -> None,
+                                            "NumericBackendSolveTime" -> numericBackendSolveTime
+                                        |>
+                                    ]
+                                ]
+                            ],
+                            Module
+                        ]
+                    ],
+                    numericBackendFallbackReason = "FlowFeasibilityFailed"
+                ],
+                numericBackendFallbackReason = "NumericSolveFailed"
+            ]
+        ];
+
         (* Try direct solver for zero-switching-cost, fully numeric networks *)
         If[AllTrue[Values[Lookup[Eqs, "SwitchingCosts", <|_ -> 1|>]], # === 0 &] &&
             Lookup[Eqs, "auxiliaryGraph", None] =!= None &&
@@ -869,8 +1233,16 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
                             Return[
                                 Join[PreEqs, MakeSolverResult["CriticalCongestion", "Success",
                                     status, None, solution,
-                                    Join[comparisonData, <|"AssoCritical" -> AssoCritical,
-                                        "Status" -> status|>]]],
+                                    Join[
+                                        comparisonData,
+                                        <|
+                                            "AssoCritical" -> AssoCritical,
+                                            "Status" -> status,
+                                            "NumericBackendUsed" -> numericBackendUsedQ,
+                                            "NumericBackendFallbackReason" -> numericBackendFallbackReason,
+                                            "NumericBackendSolveTime" -> numericBackendSolveTime
+                                        |>
+                                    ]]],
                                 Module
                             ]
                         ],
@@ -879,8 +1251,16 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
                         Return[
                             Join[PreEqs, MakeSolverResult["CriticalCongestion", "Success",
                                 status, None, solution,
-                                Join[comparisonData, <|"AssoCritical" -> AssoCritical,
-                                    "Status" -> status|>]]],
+                                Join[
+                                    comparisonData,
+                                    <|
+                                        "AssoCritical" -> AssoCritical,
+                                        "Status" -> status,
+                                        "NumericBackendUsed" -> numericBackendUsedQ,
+                                        "NumericBackendFallbackReason" -> numericBackendFallbackReason,
+                                        "NumericBackendSolveTime" -> numericBackendSolveTime
+                                    |>
+                                ]]],
                             Module
                         ]
                     ],
@@ -890,14 +1270,16 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
             ]
         ];
         (* Standard symbolic solver path *)
-        If[KeyExistsQ[Eqs, "InitRules"],
-            PreEqs = Eqs
-            ,
-            temp = MFGPrintTemporary["Preprocessing..."];
-            {time, PreEqs} = AbsoluteTiming @ MFGPreprocessing[Eqs];
-            NotebookDelete[temp];
-            MFGPrint["Preprocessing took ", time, " seconds to terminate."
-                ];
+        If[!(AssociationQ[PreEqs] && KeyExistsQ[PreEqs, "InitRules"]),
+            If[KeyExistsQ[Eqs, "InitRules"],
+                PreEqs = Eqs
+                ,
+                temp = MFGPrintTemporary["Preprocessing..."];
+                {time, PreEqs} = AbsoluteTiming @ MFGPreprocessing[Eqs];
+                NotebookDelete[temp];
+                MFGPrint["Preprocessing took ", time, " seconds to terminate."
+                    ];
+            ]
         ];
         js = Lookup[PreEqs, "js", $Failed];
         AssoCritical = MFGSystemSolver[PreEqs][AssociationThread[js,
@@ -934,8 +1316,17 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
             ];
         comparisonData = BuildSolverComparisonData[PreEqs, solution];
         Join[PreEqs, MakeSolverResult["CriticalCongestion", resultKind,
-             status, message, solution, Join[comparisonData, <|"AssoCritical" -> AssoCritical, "Status"
-             -> status|>]]]
+             status, message, solution,
+             Join[
+                 comparisonData,
+                 <|
+                    "AssoCritical" -> AssoCritical,
+                    "Status" -> status,
+                    "NumericBackendUsed" -> numericBackendUsedQ,
+                    "NumericBackendFallbackReason" -> numericBackendFallbackReason,
+                    "NumericBackendSolveTime" -> numericBackendSolveTime
+                 |>
+             ]]]
     ];
 
 Options[IsCriticalSolution] = {
