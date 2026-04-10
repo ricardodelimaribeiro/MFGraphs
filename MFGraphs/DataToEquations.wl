@@ -188,6 +188,185 @@ ResolveOrByGraphDistance[Eqs_Association, triple:{_, _, _}] :=
         {newEE, triple[[2]], newOR}
     ]
 
+(* --- Numeric state compiler and adapters (internal) --- *)
+
+ComputeDistanceToExitAssociation[graph_, exitVerts_List] :=
+    Module[{verts, distMatrix},
+        If[Head[graph] =!= Graph || exitVerts === {},
+            Return[<||>, Module]
+        ];
+        verts = VertexList[graph];
+        If[verts === {},
+            Return[<||>, Module]
+        ];
+        distMatrix = Quiet @ Check[
+            Normal @ GraphDistanceMatrix[graph, verts, exitVerts],
+            $Failed
+        ];
+        If[distMatrix === $Failed || !MatrixQ[distMatrix],
+            Return[<||>, Module]
+        ];
+        AssociationThread[verts, Min /@ distMatrix]
+    ];
+
+BuildSignedEdgeMatrixFromKirchhoff[Eqs_Association, kirchhoffVars_List] :=
+    Module[{edgePairs, signedFlows, rules, signedExprs, placeholders, substituted, signedMatrix},
+        edgePairs = List @@@ Lookup[Eqs, "edgeList", {}];
+        If[edgePairs === {} || kirchhoffVars === {},
+            Return[SparseArray[{}, {Length[edgePairs], Length[kirchhoffVars]}], Module]
+        ];
+        signedFlows = Lookup[Eqs, "SignedFlows", <||>];
+        rules = Join[
+            Lookup[Eqs, "RuleBalanceGatheringFlows", <||>],
+            Lookup[Eqs, "RuleExitFlowsIn", <||>],
+            Lookup[Eqs, "RuleEntryOut", <||>]
+        ];
+        signedExprs = (If[KeyExistsQ[signedFlows, #], signedFlows[#], 0] & /@ edgePairs) /. rules;
+        placeholders = Table[Unique["sv"], {Length[kirchhoffVars]}];
+        substituted = signedExprs /. Thread[kirchhoffVars -> placeholders];
+        signedMatrix = Quiet @ Check[
+            Last @ CoefficientArrays[substituted, placeholders],
+            $Failed
+        ];
+        If[signedMatrix === $Failed,
+            SparseArray[{}, {Length[edgePairs], Length[kirchhoffVars]}],
+            If[Head[signedMatrix] === SparseArray,
+                signedMatrix,
+                SparseArray[signedMatrix]
+            ]
+        ]
+    ];
+
+BuildNumericState[Eqs_Association] :=
+    Module[{graph, vertexList, edgeList, edgePairs, transitionTriples, js, jts, us,
+      flowVariables, jVarToIndex, jtVarToIndex, uVarToIndex, flowVarToIndex,
+      B, KM, kirchhoffVars, kirchhoffIndices, signedEdgeMatrix, statePairs},
+        graph = Lookup[Eqs, "auxiliaryGraph", None];
+        vertexList = If[Head[graph] === Graph, VertexList[graph], {}];
+        edgeList = Lookup[Eqs, "edgeList", {}];
+        edgePairs = List @@@ edgeList;
+        transitionTriples = Lookup[Eqs, "auxTriples", {}];
+        js = Lookup[Eqs, "js", {}];
+        jts = Lookup[Eqs, "jts", {}];
+        us = Lookup[Eqs, "us", {}];
+        flowVariables = Join[js, jts];
+
+        jVarToIndex = AssociationThread[js, Range[Length[js]]];
+        jtVarToIndex = AssociationThread[jts, Range[Length[jts]]];
+        uVarToIndex = AssociationThread[us, Range[Length[us]]];
+        flowVarToIndex = AssociationThread[flowVariables, Range[Length[flowVariables]]];
+
+        {B, KM, kirchhoffVars} = GetKirchhoffLinearSystem[Eqs];
+        kirchhoffIndices = Lookup[flowVarToIndex, kirchhoffVars, Missing["NotAvailable"]];
+        If[MemberQ[kirchhoffIndices, _Missing],
+            kirchhoffIndices = {}
+        ];
+
+        signedEdgeMatrix = BuildSignedEdgeMatrixFromKirchhoff[Eqs, kirchhoffVars];
+        statePairs = DeleteDuplicates @ Cases[us, u[a_, b_] :> {a, b}];
+
+        <|
+            "Version" -> 1,
+            "VertexList" -> vertexList,
+            "VertexIndex" -> AssociationThread[vertexList, Range[Length[vertexList]]],
+            "EdgePairs" -> edgePairs,
+            "EdgeIndex" -> AssociationThread[edgePairs, Range[Length[edgePairs]]],
+            "TransitionTriples" -> transitionTriples,
+            "TransitionIndex" -> AssociationThread[transitionTriples, Range[Length[transitionTriples]]],
+            "StatePairs" -> statePairs,
+            "StatePairIndex" -> AssociationThread[statePairs, Range[Length[statePairs]]],
+            "JVars" -> js,
+            "JVarToIndex" -> jVarToIndex,
+            "JTVars" -> jts,
+            "JTVarToIndex" -> jtVarToIndex,
+            "UVars" -> us,
+            "UVarToIndex" -> uVarToIndex,
+            "FlowVariables" -> flowVariables,
+            "FlowVarToIndex" -> flowVarToIndex,
+            "KirchhoffVariables" -> kirchhoffVars,
+            "KirchhoffVarToIndex" -> AssociationThread[kirchhoffVars, Range[Length[kirchhoffVars]]],
+            "KirchhoffIndicesInFlowVector" -> kirchhoffIndices,
+            "KirchhoffB" -> Developer`ToPackedArray @ N @ Which[
+                VectorQ[B], B,
+                Head[B] === SparseArray, Normal[B],
+                True, {}
+            ],
+            "KirchhoffKM" ->
+                If[Head[KM] === SparseArray,
+                    KM,
+                    SparseArray[KM]
+                ],
+            "SignedEdgeMatrix" -> signedEdgeMatrix,
+            "DistanceToExit" -> ComputeDistanceToExitAssociation[graph, Lookup[Eqs, "auxExitVertices", {}]]
+        |>
+    ];
+
+EncodeFlowAssociation[numericState_Association, assoc_Association] :=
+    Module[{vars, vals},
+        vars = Lookup[numericState, "FlowVariables", {}];
+        If[vars === {},
+            Return[Developer`ToPackedArray[{}], Module]
+        ];
+        vals = Lookup[assoc, vars, Missing["NotAvailable"]];
+        If[VectorQ[vals, NumericQ],
+            Developer`ToPackedArray @ N @ vals,
+            Missing["NotAvailable"]
+        ]
+    ];
+
+EncodeFlowAssociation[_, _] := Missing["NotAvailable"];
+
+DecodeFlowVector[numericState_Association, flowVec_] :=
+    Module[{vars, vals},
+        vars = Lookup[numericState, "FlowVariables", {}];
+        vals = Quiet @ Check[Developer`ToPackedArray @ N @ flowVec, $Failed];
+        If[vals === $Failed || !VectorQ[vals, NumericQ] || Length[vals] =!= Length[vars],
+            <||>,
+            AssociationThread[vars, vals]
+        ]
+    ];
+
+DecodeFlowVector[_, _] := <||>;
+
+ComputeSignedEdgeFlowsFast[numericState_Association, flowVec_] :=
+    Module[{indices, signedEdgeMatrix, kirchhoffVec},
+        indices = Lookup[numericState, "KirchhoffIndicesInFlowVector", {}];
+        signedEdgeMatrix = Lookup[numericState, "SignedEdgeMatrix", SparseArray[{}, {0, 0}]];
+        If[Dimensions[signedEdgeMatrix][[1]] === 0,
+            Return[Developer`ToPackedArray[{}], Module]
+        ];
+        If[indices === {} || !VectorQ[indices, IntegerQ],
+            Return[Missing["NotAvailable"], Module]
+        ];
+        If[Length[flowVec] < Max[indices],
+            Return[Missing["NotAvailable"], Module]
+        ];
+        kirchhoffVec = flowVec[[indices]];
+        If[!VectorQ[kirchhoffVec, NumericQ],
+            Return[Missing["NotAvailable"], Module]
+        ];
+        Developer`ToPackedArray @ N @ (signedEdgeMatrix . kirchhoffVec)
+    ];
+
+ComputeKirchhoffResidualFast[numericState_Association, flowVec_] :=
+    Module[{indices, KM, B, kirchhoffVec, residual},
+        indices = Lookup[numericState, "KirchhoffIndicesInFlowVector", {}];
+        KM = Lookup[numericState, "KirchhoffKM", SparseArray[{}, {0, 0}]];
+        B = Lookup[numericState, "KirchhoffB", Developer`ToPackedArray[{}]];
+        If[indices === {} || !VectorQ[indices, IntegerQ],
+            Return[Missing["NotAvailable"], Module]
+        ];
+        If[Length[flowVec] < Max[indices],
+            Return[Missing["NotAvailable"], Module]
+        ];
+        kirchhoffVec = flowVec[[indices]];
+        If[!VectorQ[kirchhoffVec, NumericQ],
+            Return[Missing["NotAvailable"], Module]
+        ];
+        residual = Quiet @ Check[N @ Norm[KM . kirchhoffVec - B, Infinity], Missing["NotAvailable"]];
+        If[NumericQ[residual], residual, Missing["NotAvailable"]]
+    ];
+
 (* --- DataToEquations: main converter --- *)
 
 DataToEquations[Data_Association] :=
@@ -352,7 +531,10 @@ DataToEquations[Data_Association] :=
              "RuleEntryValues", "RuleExitFlowsIn", "RuleExitValues", "EqValueAuxiliaryEdges",
              "IneqSwitchingByVertex", "AltOptCond", "Nlhs", "Nrhs", "costpluscurrents",
              "EqGeneral"};
-        Join[Data, AssociationThread[ModuleVarsNames, ModuleVars]]
+        Module[{baseAssoc},
+            baseAssoc = Join[Data, AssociationThread[ModuleVarsNames, ModuleVars]];
+            Join[baseAssoc, <|"NumericState" -> BuildNumericState[baseAssoc]|>]
+        ]
     ];
 
 (* --- Utility --- *)
