@@ -1373,30 +1373,55 @@ Options[IsCriticalSolution] = {
 };
 
 NumericRelationSatisfiedQ[expr_, tol_?NumericQ] :=
-    Module[{delta},
+    Module[{delta, pair, held},
+        held = HoldComplete[expr];
         Which[
-            MatchQ[expr, HoldPattern[Equal[l_, r_]]],
-                delta = Quiet @ Check[N[expr[[1]] - expr[[2]]], $Failed];
+            MatchQ[held, HoldComplete[Equal[_, _]] | HoldComplete[Inactive[Equal][_, _]]],
+                pair = Replace[held, {
+                    HoldComplete[Equal[l_, r_]] :> {l, r},
+                    HoldComplete[Inactive[Equal][l_, r_]] :> {l, r}
+                }];
+                delta = Quiet @ Check[N[pair[[1]] - pair[[2]]], $Failed];
                 NumericQ[delta] && Abs[delta] <= tol
             ,
-            MatchQ[expr, HoldPattern[LessEqual[l_, r_]]],
-                delta = Quiet @ Check[N[expr[[1]] - expr[[2]]], $Failed];
+            MatchQ[held, HoldComplete[LessEqual[_, _]] | HoldComplete[Inactive[LessEqual][_, _]]],
+                pair = Replace[held, {
+                    HoldComplete[LessEqual[l_, r_]] :> {l, r},
+                    HoldComplete[Inactive[LessEqual][l_, r_]] :> {l, r}
+                }];
+                delta = Quiet @ Check[N[pair[[1]] - pair[[2]]], $Failed];
                 NumericQ[delta] && delta <= tol
             ,
-            MatchQ[expr, HoldPattern[GreaterEqual[l_, r_]]],
-                delta = Quiet @ Check[N[expr[[2]] - expr[[1]]], $Failed];
+            MatchQ[held, HoldComplete[GreaterEqual[_, _]] | HoldComplete[Inactive[GreaterEqual][_, _]]],
+                pair = Replace[held, {
+                    HoldComplete[GreaterEqual[l_, r_]] :> {l, r},
+                    HoldComplete[Inactive[GreaterEqual][l_, r_]] :> {l, r}
+                }];
+                delta = Quiet @ Check[N[pair[[2]] - pair[[1]]], $Failed];
                 NumericQ[delta] && delta <= tol
             ,
-            MatchQ[expr, HoldPattern[Less[l_, r_]]],
-                delta = Quiet @ Check[N[expr[[1]] - expr[[2]]], $Failed];
+            MatchQ[held, HoldComplete[Less[_, _]] | HoldComplete[Inactive[Less][_, _]]],
+                pair = Replace[held, {
+                    HoldComplete[Less[l_, r_]] :> {l, r},
+                    HoldComplete[Inactive[Less][l_, r_]] :> {l, r}
+                }];
+                delta = Quiet @ Check[N[pair[[1]] - pair[[2]]], $Failed];
                 NumericQ[delta] && delta < -tol
             ,
-            MatchQ[expr, HoldPattern[Greater[l_, r_]]],
-                delta = Quiet @ Check[N[expr[[2]] - expr[[1]]], $Failed];
+            MatchQ[held, HoldComplete[Greater[_, _]] | HoldComplete[Inactive[Greater][_, _]]],
+                pair = Replace[held, {
+                    HoldComplete[Greater[l_, r_]] :> {l, r},
+                    HoldComplete[Inactive[Greater][l_, r_]] :> {l, r}
+                }];
+                delta = Quiet @ Check[N[pair[[2]] - pair[[1]]], $Failed];
                 NumericQ[delta] && delta < -tol
             ,
-            MatchQ[expr, HoldPattern[Unequal[l_, r_]]],
-                delta = Quiet @ Check[N[expr[[1]] - expr[[2]]], $Failed];
+            MatchQ[held, HoldComplete[Unequal[_, _]] | HoldComplete[Inactive[Unequal][_, _]]],
+                pair = Replace[held, {
+                    HoldComplete[Unequal[l_, r_]] :> {l, r},
+                    HoldComplete[Inactive[Unequal][l_, r_]] :> {l, r}
+                }];
+                delta = Quiet @ Check[N[pair[[1]] - pair[[2]]], $Failed];
                 NumericQ[delta] && Abs[delta] > tol
             ,
             True,
@@ -1405,14 +1430,29 @@ NumericRelationSatisfiedQ[expr_, tol_?NumericQ] :=
     ];
 
 LogicalSatisfiedQ[expr_, rules_Association, tol_?NumericQ] :=
-    Module[{evaluated},
+    Module[{heldExpr, evaluated},
         Which[
             expr === True, True,
             expr === False, False,
             True,
+                heldExpr =
+                    expr /. HoldPattern[(h:Equal | LessEqual | GreaterEqual | Less | Greater | Unequal)[lhs_, rhs_]] :>
+                        Inactive[h][lhs, rhs];
                 evaluated = Quiet @ Check[
-                    expr /. rules /. relation_ /; MatchQ[relation, _Equal | _LessEqual | _GreaterEqual | _Less | _Greater | _Unequal] :>
-                        NumericRelationSatisfiedQ[relation, tol],
+                    heldExpr /. rules /. {
+                        HoldPattern[Inactive[Equal][lhs_, rhs_]] :>
+                            NumericRelationSatisfiedQ[Inactive[Equal][lhs, rhs], tol],
+                        HoldPattern[Inactive[LessEqual][lhs_, rhs_]] :>
+                            NumericRelationSatisfiedQ[Inactive[LessEqual][lhs, rhs], tol],
+                        HoldPattern[Inactive[GreaterEqual][lhs_, rhs_]] :>
+                            NumericRelationSatisfiedQ[Inactive[GreaterEqual][lhs, rhs], tol],
+                        HoldPattern[Inactive[Less][lhs_, rhs_]] :>
+                            NumericRelationSatisfiedQ[Inactive[Less][lhs, rhs], tol],
+                        HoldPattern[Inactive[Greater][lhs_, rhs_]] :>
+                            NumericRelationSatisfiedQ[Inactive[Greater][lhs, rhs], tol],
+                        HoldPattern[Inactive[Unequal][lhs_, rhs_]] :>
+                            NumericRelationSatisfiedQ[Inactive[Unequal][lhs, rhs], tol]
+                    },
                     $Failed
                 ];
                 If[evaluated === $Failed,
@@ -1538,8 +1578,9 @@ IsCriticalSolution[Eqs_Association, OptionsPattern[]] :=
         allBlocksPass = And @@ Values[blockResults];
 
         eqResidualPairs =
-            Cases[eqGeneralCritical /. solution,
-                HoldPattern[Equal[lhs_, rhs_]] :> {lhs, rhs},
+            Cases[
+                (eqGeneralCritical /. HoldPattern[Equal[lhs_, rhs_]] :> Inactive[Equal][lhs, rhs]) /. solution,
+                HoldPattern[Inactive[Equal][lhs_, rhs_]] :> {lhs, rhs},
                 Infinity
             ];
         eqResidualDeltas =
