@@ -1068,19 +1068,31 @@ SolveCriticalNumericBackend[Eqs_Association] :=
                 cVec,
                 {aIneq, bIneq},
                 {aEq, bEq},
-                Method -> "Simplex",
                 Tolerance -> 10^-6
             ],
             $Failed
         ];
-        If[lpResult === $Failed,
-            Return[$Failed, Module]
-        ];
-        lpVals = Which[
+        lpVals = If[
             VectorQ[lpResult, NumericQ] && Length[lpResult] === nVars,
-                Developer`ToPackedArray @ N @ lpResult,
-            True,
+            Developer`ToPackedArray @ N @ lpResult,
+            $Failed
+        ];
+        If[lpVals === $Failed,
+            lpResult = Quiet @ Check[
+                LinearOptimization[
+                    cVec,
+                    {aIneq, bIneq},
+                    {aEq, bEq},
+                    Method -> "Simplex",
+                    Tolerance -> 10^-6
+                ],
                 $Failed
+            ];
+            lpVals = If[
+                VectorQ[lpResult, NumericQ] && Length[lpResult] === nVars,
+                Developer`ToPackedArray @ N @ lpResult,
+                $Failed
+            ];
         ];
         If[
             lpVals === $Failed || !VectorQ[lpVals, NumericQ] || Length[lpVals] =!= nVars,
