@@ -1004,7 +1004,7 @@ LinearSolveCandidate[aMat_SparseArray, bVec_List] :=
     ];
 
 SolveCriticalNumericBackend[Eqs_Association] :=
-    Module[{constraints, equalities, inequalities, flowVars, allVars,
+    Module[{constraints, equalities, flowVars, allVars,
         linearSystem, aMat, bVec, xCandidate, varIndex, flowIndices,
         linResidual, flowMin, tol = 10^-8, assoc, lpResult, lpVals, solvedAssoc,
         nVars, cVec, aIneq, bIneq, aEq, bEq},
@@ -1013,7 +1013,6 @@ SolveCriticalNumericBackend[Eqs_Association] :=
             Return[$Failed, Module]
         ];
         equalities = Lookup[constraints, "Equalities", {}];
-        inequalities = Lookup[constraints, "Inequalities", {}];
         flowVars = Lookup[constraints, "FlowVariables", {}];
         allVars = Lookup[constraints, "AllVariables", {}];
         If[equalities === {} || allVars === {},
