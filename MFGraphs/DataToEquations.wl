@@ -1006,7 +1006,8 @@ LinearSolveCandidate[aMat_SparseArray, bVec_List] :=
 SolveCriticalNumericBackend[Eqs_Association] :=
     Module[{constraints, equalities, inequalities, flowVars, allVars,
         linearSystem, aMat, bVec, xCandidate, varIndex, flowIndices,
-        linResidual, flowMin, tol = 10^-8, assoc, lpResult, lpVals, solvedAssoc},
+        linResidual, flowMin, tol = 10^-8, assoc, lpResult, lpVals, solvedAssoc,
+        nVars, cVec, aIneq, bIneq, aEq, bEq},
         constraints = BuildCriticalLinearConstraints[Eqs];
         If[constraints === $Failed || !AssociationQ[constraints],
             Return[$Failed, Module]
@@ -1018,6 +1019,11 @@ SolveCriticalNumericBackend[Eqs_Association] :=
         If[equalities === {} || allVars === {},
             Return[$Failed, Module]
         ];
+        varIndex = AssociationThread[allVars, Range[Length[allVars]]];
+        flowIndices = Lookup[varIndex, flowVars, Missing["NotAvailable"]];
+        If[MemberQ[flowIndices, _Missing] || flowIndices === {},
+            Return[$Failed, Module]
+        ];
 
         linearSystem = BuildLinearSystemFromEqualities[equalities, allVars];
         If[AssociationQ[linearSystem],
@@ -1025,36 +1031,46 @@ SolveCriticalNumericBackend[Eqs_Association] :=
             bVec = linearSystem["b"];
             xCandidate = LinearSolveCandidate[aMat, bVec];
             If[VectorQ[xCandidate, NumericQ] && Length[xCandidate] === Length[allVars],
-                varIndex = AssociationThread[allVars, Range[Length[allVars]]];
-                flowIndices = Lookup[varIndex, flowVars, Missing["NotAvailable"]];
-                If[!MemberQ[flowIndices, _Missing] && flowIndices =!= {},
-                    linResidual = Quiet @ Check[N @ Norm[aMat . xCandidate - bVec, Infinity], Infinity];
-                    flowMin = Min[xCandidate[[flowIndices]]];
-                    If[NumericQ[linResidual] && linResidual <= tol && NumericQ[flowMin] && flowMin >= -tol,
-                        assoc = AssociationThread[allVars, xCandidate];
-                        solvedAssoc = Association @ KeyValueMap[
-                            #1 -> If[Abs[#2] <= tol, 0., N[#2]] &,
-                            assoc
-                        ];
-                        Return[
-                            Join[
-                                KeyTake[solvedAssoc, Lookup[Eqs, "us", {}]],
-                                KeyTake[solvedAssoc, Lookup[Eqs, "js", {}]],
-                                KeyTake[solvedAssoc, Lookup[Eqs, "jts", {}]]
-                            ],
-                            Module
-                        ]
+                linResidual = Quiet @ Check[N @ Norm[aMat . xCandidate - bVec, Infinity], Infinity];
+                flowMin = Min[xCandidate[[flowIndices]]];
+                If[NumericQ[linResidual] && linResidual <= tol && NumericQ[flowMin] && flowMin >= -tol,
+                    assoc = AssociationThread[allVars, xCandidate];
+                    solvedAssoc = Association @ KeyValueMap[
+                        #1 -> If[Abs[#2] <= tol, 0., N[#2]] &,
+                        assoc
+                    ];
+                    Return[
+                        Join[
+                            KeyTake[solvedAssoc, Lookup[Eqs, "us", {}]],
+                            KeyTake[solvedAssoc, Lookup[Eqs, "js", {}]],
+                            KeyTake[solvedAssoc, Lookup[Eqs, "jts", {}]]
+                        ],
+                        Module
                     ]
                 ]
             ]
+            ,
+            Return[$Failed, Module]
         ];
 
+        nVars = Length[allVars];
+        cVec = Developer`ToPackedArray @ ConstantArray[0., nVars];
+        aEq = If[Head[aMat] === SparseArray, aMat, SparseArray[aMat]];
+        bEq = Developer`ToPackedArray @ N @ (-bVec);
+        aIneq = SparseArray[
+            Thread[
+                Transpose[{Range[Length[flowIndices]], flowIndices}] -> 1.
+            ],
+            {Length[flowIndices], nVars}
+        ];
+        bIneq = Developer`ToPackedArray @ ConstantArray[0., Length[flowIndices]];
         lpResult = Quiet @ Check[
             LinearOptimization[
-                0,
-                And @@ Join[equalities, inequalities],
-                allVars,
-                Reals
+                cVec,
+                {aIneq, bIneq},
+                {aEq, bEq},
+                Method -> "Simplex",
+                Tolerance -> 10^-6
             ],
             $Failed
         ];
@@ -1062,17 +1078,13 @@ SolveCriticalNumericBackend[Eqs_Association] :=
             Return[$Failed, Module]
         ];
         lpVals = Which[
-            VectorQ[lpResult, NumericQ] && Length[lpResult] === Length[allVars],
+            VectorQ[lpResult, NumericQ] && Length[lpResult] === nVars,
                 Developer`ToPackedArray @ N @ lpResult,
-            AssociationQ[lpResult],
-                Lookup[lpResult, allVars, Missing["NotAvailable"]],
-            ListQ[lpResult] && VectorQ[lpResult, MatchQ[#, _Rule] &],
-                allVars /. lpResult,
             True,
                 $Failed
         ];
         If[
-            lpVals === $Failed || !VectorQ[lpVals, NumericQ] || Length[lpVals] =!= Length[allVars],
+            lpVals === $Failed || !VectorQ[lpVals, NumericQ] || Length[lpVals] =!= nVars,
             Return[$Failed, Module]
         ];
         assoc = AssociationThread[allVars, Developer`ToPackedArray @ N @ lpVals];
