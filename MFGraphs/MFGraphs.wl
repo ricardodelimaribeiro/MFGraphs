@@ -52,6 +52,19 @@ when Length[list] >= $MFGraphsParallelThreshold (and kernels are already running
 or Length[list] >= $MFGraphsParallelLaunchThreshold (when kernels must be launched).
 This avoids paying ~3s kernel launch overhead for small workloads.";
 
+SolveMFG::usage =
+"SolveMFG[input, Method -> m] dispatches to the selected stationary solver and returns
+its standardized result association.
+
+Supported methods:
+  \"Automatic\" (placeholder in phase 1, routes to CriticalCongestion)
+  \"CriticalCongestion\"
+  \"NonLinear\"
+  \"Monotone\"
+
+input can be either raw data (association accepted by DataToEquations) or an already
+compiled equation association.";
+
 $MFGraphsParallelLaunchThreshold::usage =
 "$MFGraphsParallelLaunchThreshold is the minimum list length required to justify
 launching parallel subkernels. Only applies when $KernelCount === 0. Default is 50.";
@@ -205,5 +218,66 @@ Get["MFGraphs`DataToEquations`"];
 Get["MFGraphs`NonLinearSolver`"];
 Get["MFGraphs`Monotone`"];
 Get["MFGraphs`TimeDependentSolver`"];
+
+Options[SolveMFG] = {
+    Method -> "Automatic"
+};
+
+SolveMFGUnknownMethodResult[method_] :=
+    <|
+        "Solver" -> "SolveMFG",
+        "ResultKind" -> "Failure",
+        "Feasibility" -> Missing["NotApplicable"],
+        "Message" -> "UnknownMethod",
+        "Method" -> method,
+        "Solution" -> Missing["NotAvailable"],
+        "Convergence" -> Missing["NotApplicable"]
+    |>;
+
+SolveMFGCompiledInputQ[input_Association] :=
+    KeyExistsQ[input, "EqGeneral"] &&
+    KeyExistsQ[input, "js"] &&
+    KeyExistsQ[input, "jts"];
+
+SolveMFG[input_Association, opts:OptionsPattern[]] :=
+    Module[{method, normalizedMethod, d2e},
+        method = OptionValue[Method];
+        normalizedMethod = ToString[method];
+
+        Switch[normalizedMethod,
+            "Monotone" | "MonotoneSolver",
+                If[
+                    SolveMFGCompiledInputQ[input],
+                    MonotoneSolver[
+                        input,
+                        Sequence @@ FilterRules[{opts}, Options[MonotoneSolver]]
+                    ],
+                    MonotoneSolverFromData[
+                        input,
+                        Sequence @@ FilterRules[{opts}, Options[MonotoneSolverFromData]]
+                    ]
+                ]
+            ,
+            "CriticalCongestion" | "CriticalCongestionSolver" | "Automatic",
+                d2e = If[SolveMFGCompiledInputQ[input], input, DataToEquations[input]];
+                CriticalCongestionSolver[
+                    d2e,
+                    Sequence @@ FilterRules[{opts}, Options[CriticalCongestionSolver]]
+                ]
+            ,
+            "NonLinear" | "NonLinearSolver",
+                d2e = If[SolveMFGCompiledInputQ[input], input, DataToEquations[input]];
+                NonLinearSolver[
+                    d2e,
+                    Sequence @@ FilterRules[{opts}, Options[NonLinearSolver]]
+                ]
+            ,
+            _,
+                SolveMFGUnknownMethodResult[method]
+        ]
+    ];
+
+SolveMFG[_, opts:OptionsPattern[]] :=
+    SolveMFGUnknownMethodResult[OptionValue[Method]];
 
 EndPackage[];

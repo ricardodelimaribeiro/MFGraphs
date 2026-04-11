@@ -5,6 +5,7 @@
 Test[
     NameQ["MFGraphs`DataToEquations"] && NameQ["MFGraphs`CriticalCongestionSolver"] &&
     NameQ["MFGraphs`NonLinearSolver"] && NameQ["MFGraphs`MonotoneSolverFromData"] &&
+    NameQ["MFGraphs`SolveMFG"] &&
     NameQ["MFGraphs`GetExampleData"] && NameQ["MFGraphs`DNFReduce"] &&
     NameQ["MFGraphs`GetKirchhoffLinearSystem"] && NameQ["MFGraphs`V"] &&
     NameQ["MFGraphs`alpha"] && NameQ["MFGraphs`g"] &&
