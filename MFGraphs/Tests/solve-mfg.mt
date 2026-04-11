@@ -114,3 +114,229 @@ Test[
     ,
     TestID -> "SolveMFG routing: unknown method returns failure envelope"
 ]
+
+(* Automatic cascade tests (issue #23): trace + strict fallback/abort behavior. *)
+
+Test[
+    Module[{compiled, result, trace},
+        compiled = <|"EqGeneral" -> True, "js" -> {}, "jts" -> {}|>;
+        result = Block[{CriticalCongestionSolver, MonotoneSolver, NonLinearSolver},
+            CriticalCongestionSolver[___] =
+                <|
+                    "Solver" -> "CriticalCongestion",
+                    "ResultKind" -> "Failure",
+                    "Feasibility" -> "Infeasible",
+                    "Message" -> "NoSolution",
+                    "Solution" -> Missing["NotAvailable"],
+                    "Convergence" -> Missing["NotApplicable"]
+                |>;
+            MonotoneSolver[___] =
+                <|
+                    "Solver" -> "Monotone",
+                    "ResultKind" -> "Success",
+                    "Feasibility" -> "Feasible",
+                    "Message" -> None,
+                    "Solution" -> <||>,
+                    "Convergence" -> <||>
+                |>;
+            NonLinearSolver[___] =
+                <|
+                    "Solver" -> "NonLinear",
+                    "ResultKind" -> "Success",
+                    "Feasibility" -> "Feasible",
+                    "Message" -> None,
+                    "Solution" -> <||>,
+                    "Convergence" -> <||>
+                |>;
+            SolveMFG[compiled, Method -> "Automatic"]
+        ];
+        trace = Lookup[result, "MethodTrace", {}];
+        Lookup[result, {"Solver", "MethodUsed", "ResultKind", "Feasibility", "Message"}] ===
+            {"Monotone", "Monotone", "Success", "Feasible", None} &&
+        Length[trace] === 2 &&
+        Lookup[trace[[1]], "Decision", None] === "Fallback" &&
+        Lookup[trace[[2]], "Decision", None] === "Done"
+    ]
+    ,
+    True
+    ,
+    TestID -> "SolveMFG automatic: recoverable critical failure cascades to monotone"
+]
+
+Test[
+    Module[{compiled, result, trace},
+        compiled = <|"EqGeneral" -> True, "js" -> {}, "jts" -> {}|>;
+        result = Block[{CriticalCongestionSolver, MonotoneSolver, NonLinearSolver},
+            CriticalCongestionSolver[___] =
+                <|
+                    "Solver" -> "CriticalCongestion",
+                    "ResultKind" -> "Success",
+                    "Feasibility" -> "Infeasible",
+                    "Message" -> None,
+                    "Solution" -> <||>,
+                    "Convergence" -> <||>
+                |>;
+            MonotoneSolver[___] =
+                <|
+                    "Solver" -> "Monotone",
+                    "ResultKind" -> "Success",
+                    "Feasibility" -> "Feasible",
+                    "Message" -> None,
+                    "Solution" -> <||>,
+                    "Convergence" -> <||>
+                |>;
+            NonLinearSolver[___] =
+                <|
+                    "Solver" -> "NonLinear",
+                    "ResultKind" -> "Success",
+                    "Feasibility" -> "Feasible",
+                    "Message" -> None,
+                    "Solution" -> <||>,
+                    "Convergence" -> <||>
+                |>;
+            SolveMFG[compiled, Method -> "Automatic"]
+        ];
+        trace = Lookup[result, "MethodTrace", {}];
+        Lookup[result, {"Solver", "MethodUsed", "ResultKind", "Feasibility"}] ===
+            {"Monotone", "Monotone", "Success", "Feasible"} &&
+        Length[trace] === 2 &&
+        Lookup[trace[[1]], "ResultKind", None] === "Success" &&
+        Lookup[trace[[1]], "Feasibility", None] === "Infeasible" &&
+        Lookup[trace[[1]], "Decision", None] === "Fallback"
+    ]
+    ,
+    True
+    ,
+    TestID -> "SolveMFG automatic: infeasible false-success critical result falls back"
+]
+
+Test[
+    Module[{compiled, result, trace},
+        compiled = <|"EqGeneral" -> True, "js" -> {}, "jts" -> {}|>;
+        result = Block[{CriticalCongestionSolver, MonotoneSolver, NonLinearSolver},
+            CriticalCongestionSolver[___] =
+                <|
+                    "Solver" -> "CriticalCongestion",
+                    "ResultKind" -> "Failure",
+                    "Feasibility" -> "Infeasible",
+                    "Message" -> "NoSolution",
+                    "Solution" -> Missing["NotAvailable"],
+                    "Convergence" -> Missing["NotApplicable"]
+                |>;
+            MonotoneSolver[___] =
+                <|
+                    "Solver" -> "Monotone",
+                    "ResultKind" -> "NonConverged",
+                    "Feasibility" -> "Infeasible",
+                    "Message" -> "ResidualExceedsTolerance",
+                    "Solution" -> Missing["NotAvailable"],
+                    "Convergence" -> <|"StopReason" -> "MaxTimeReached"|>
+                |>;
+            NonLinearSolver[___] =
+                <|
+                    "Solver" -> "NonLinear",
+                    "ResultKind" -> "Success",
+                    "Feasibility" -> "Feasible",
+                    "Message" -> None,
+                    "Solution" -> <||>,
+                    "Convergence" -> <||>
+                |>;
+            SolveMFG[compiled, Method -> "Automatic"]
+        ];
+        trace = Lookup[result, "MethodTrace", {}];
+        Lookup[result, {"Solver", "MethodUsed", "ResultKind", "Feasibility", "Message"}] ===
+            {"NonLinear", "NonLinear", "Success", "Feasible", None} &&
+        Length[trace] === 3 &&
+        Lookup[trace[[1]], "Decision", None] === "Fallback" &&
+        Lookup[trace[[2]], "Decision", None] === "Fallback" &&
+        Lookup[trace[[3]], "Decision", None] === "Done"
+    ]
+    ,
+    True
+    ,
+    TestID -> "SolveMFG automatic: cascades through nonlinear on dual recoverable failures"
+]
+
+Test[
+    Module[{compiled, result, trace},
+        compiled = <|"EqGeneral" -> True, "js" -> {}, "jts" -> {}|>;
+        result = Block[{CriticalCongestionSolver},
+            CriticalCongestionSolver[___] = $Failed;
+            SolveMFG[compiled, Method -> "Automatic"]
+        ];
+        trace = Lookup[result, "MethodTrace", {}];
+        Lookup[result, {"Solver", "ResultKind", "Message", "MethodUsed"}] ===
+            {"SolveMFG", "Failure", "InvalidSolverReturnShape", "CriticalCongestion"} &&
+        Length[trace] === 1 &&
+        Lookup[trace[[1]], "Decision", None] === "Abort"
+    ]
+    ,
+    True
+    ,
+    TestID -> "SolveMFG automatic: malformed solver return triggers strict abort"
+]
+
+Test[
+    Module[{compiled, result, trace, nonLinearCalls = 0},
+        compiled = <|"EqGeneral" -> True, "js" -> {}, "jts" -> {}|>;
+        result = Block[{CriticalCongestionSolver, MonotoneSolver, NonLinearSolver},
+            CriticalCongestionSolver[___] =
+                <|
+                    "Solver" -> "CriticalCongestion",
+                    "ResultKind" -> "Failure",
+                    "Feasibility" -> "Infeasible",
+                    "Message" -> "NoSolution",
+                    "Solution" -> Missing["NotAvailable"],
+                    "Convergence" -> Missing["NotApplicable"]
+                |>;
+            MonotoneSolver[___] =
+                <|
+                    "Solver" -> "Monotone",
+                    "ResultKind" -> "Degenerate",
+                    "Feasibility" -> Missing["NotApplicable"],
+                    "Message" -> "DegenerateCase",
+                    "Solution" -> Missing["NotAvailable"],
+                    "Convergence" -> <|"StopReason" -> "DegenerateCase"|>
+                |>;
+            NonLinearSolver[___] :=
+                (
+                    nonLinearCalls++;
+                    <|
+                        "Solver" -> "NonLinear",
+                        "ResultKind" -> "Success",
+                        "Feasibility" -> "Feasible",
+                        "Message" -> None,
+                        "Solution" -> <||>,
+                        "Convergence" -> <||>
+                    |>
+                );
+            SolveMFG[compiled, Method -> "Automatic"]
+        ];
+        trace = Lookup[result, "MethodTrace", {}];
+        Lookup[result, {"Solver", "MethodUsed", "ResultKind", "Message"}] ===
+            {"Monotone", "Monotone", "Degenerate", "DegenerateCase"} &&
+        nonLinearCalls === 0 &&
+        Length[trace] === 2 &&
+        Lookup[trace[[2]], "Decision", None] === "Done"
+    ]
+    ,
+    True
+    ,
+    TestID -> "SolveMFG automatic: monotone degenerate case is terminal"
+]
+
+Test[
+    Module[{data, result, trace, methodUsed},
+        data = GetExampleData[7] /. {I1 -> 100, U1 -> 0, U2 -> 0};
+        result = Quiet[SolveMFG[data, Method -> "Automatic"]];
+        trace = Lookup[result, "MethodTrace", {}];
+        methodUsed = Lookup[result, "MethodUsed", Missing["NotAvailable"]];
+        Lookup[result, {"ResultKind", "Feasibility"}] === {"Success", "Feasible"} &&
+        ListQ[trace] && Length[trace] >= 1 &&
+        StringQ[methodUsed]
+    ]
+    ,
+    True
+    ,
+    TestID -> "SolveMFG automatic: real-data run returns method trace and method used"
+]
