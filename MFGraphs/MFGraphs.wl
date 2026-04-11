@@ -239,6 +239,111 @@ SolveMFGCompiledInputQ[input_Association] :=
     KeyExistsQ[input, "js"] &&
     KeyExistsQ[input, "jts"];
 
+$SolveMFGRequiredEnvelopeKeys = {"Solver", "ResultKind", "Feasibility", "Message"};
+
+SolveMFGClassifyOutcome[result_] :=
+    Module[{resultKind, feasibility, message},
+        If[!AssociationQ[result], Return["Abort"]];
+        If[!And @@ (KeyExistsQ[result, #] & /@ $SolveMFGRequiredEnvelopeKeys), Return["Abort"]];
+        resultKind = Lookup[result, "ResultKind", Missing["NotAvailable"]];
+        feasibility = Lookup[result, "Feasibility", Missing["NotAvailable"]];
+        message = Lookup[result, "Message", Missing["NotAvailable"]];
+        Which[
+            resultKind === "Success" && feasibility === "Feasible", "Done",
+            resultKind === "Degenerate" && message === "DegenerateCase", "Done",
+            feasibility === "Infeasible" || MemberQ[{"Failure", "NonConverged"}, resultKind], "Fallback",
+            True, "Abort"
+        ]
+    ];
+
+SolveMFGBuildTraceEntry[method_, result_, decision_] :=
+    Module[{solver, resultKind, feasibility, message},
+        solver = If[AssociationQ[result], Lookup[result, "Solver", "InvalidSolver"], "InvalidSolver"];
+        resultKind = If[AssociationQ[result], Lookup[result, "ResultKind", Missing["NotAvailable"]], Missing["NotAvailable"]];
+        feasibility = If[AssociationQ[result], Lookup[result, "Feasibility", Missing["NotAvailable"]], Missing["NotAvailable"]];
+        message = If[AssociationQ[result], Lookup[result, "Message", Missing["NotAvailable"]], "InvalidSolverReturnShape"];
+        <|
+            "Method" -> method,
+            "Solver" -> solver,
+            "ResultKind" -> resultKind,
+            "Feasibility" -> feasibility,
+            "Message" -> message,
+            "Decision" -> decision
+        |>
+    ];
+
+SolveMFGFinalizeWithTrace[result_Association, methodUsed_, trace_List] :=
+    Join[result, <|"MethodUsed" -> methodUsed, "MethodTrace" -> trace|>];
+
+SolveMFGAbortResult[message_, methodUsed_, trace_List] :=
+    <|
+        "Solver" -> "SolveMFG",
+        "ResultKind" -> "Failure",
+        "Feasibility" -> Missing["NotApplicable"],
+        "Message" -> message,
+        "Method" -> "Automatic",
+        "MethodUsed" -> methodUsed,
+        "MethodTrace" -> trace,
+        "Solution" -> Missing["NotAvailable"],
+        "Convergence" -> Missing["NotApplicable"]
+    |>;
+
+SolveMFGAutomaticDispatch[input_Association, opts_List] :=
+    Module[{d2e, result = Missing["NotAvailable"], decision, trace = {}, methodUsed = "Automatic", attempts},
+        d2e = If[SolveMFGCompiledInputQ[input], input, Quiet @ Check[DataToEquations[input], $Failed]];
+        If[!AssociationQ[d2e],
+            Return[SolveMFGAbortResult["DataToEquationsFailed", methodUsed, trace], Module]
+        ];
+        attempts = {
+            <|
+                "Method" -> "CriticalCongestion",
+                "Run" -> Function[
+                    CriticalCongestionSolver[
+                        d2e,
+                        Sequence @@ FilterRules[opts, Options[CriticalCongestionSolver]]
+                    ]
+                ]
+            |>,
+            <|
+                "Method" -> "Monotone",
+                "Run" -> Function[
+                    MonotoneSolver[
+                        d2e,
+                        Sequence @@ FilterRules[opts, Options[MonotoneSolver]]
+                    ]
+                ]
+            |>,
+            <|
+                "Method" -> "NonLinear",
+                "Run" -> Function[
+                    NonLinearSolver[
+                        d2e,
+                        Sequence @@ FilterRules[opts, Options[NonLinearSolver]]
+                    ]
+                ]
+            |>
+        };
+        Do[
+            result = attempt["Run"][];
+            decision = SolveMFGClassifyOutcome[result];
+            methodUsed = attempt["Method"];
+            trace = Append[trace, SolveMFGBuildTraceEntry[methodUsed, result, decision]];
+            Switch[decision,
+                "Done",
+                    Return[SolveMFGFinalizeWithTrace[result, methodUsed, trace], Module],
+                "Fallback",
+                    Null,
+                _,
+                    Return[SolveMFGAbortResult["InvalidSolverReturnShape", methodUsed, trace], Module]
+            ],
+            {attempt, attempts}
+        ];
+        If[AssociationQ[result],
+            SolveMFGFinalizeWithTrace[result, methodUsed, trace],
+            SolveMFGAbortResult["InvalidSolverReturnShape", methodUsed, trace]
+        ]
+    ];
+
 SolveMFG[input_Association, opts:OptionsPattern[]] :=
     Module[{method, normalizedMethod, d2e},
         method = OptionValue[Method];
@@ -258,12 +363,15 @@ SolveMFG[input_Association, opts:OptionsPattern[]] :=
                     ]
                 ]
             ,
-            "CriticalCongestion" | "CriticalCongestionSolver" | "Automatic",
+            "CriticalCongestion" | "CriticalCongestionSolver",
                 d2e = If[SolveMFGCompiledInputQ[input], input, DataToEquations[input]];
                 CriticalCongestionSolver[
                     d2e,
                     Sequence @@ FilterRules[{opts}, Options[CriticalCongestionSolver]]
                 ]
+            ,
+            "Automatic",
+                SolveMFGAutomaticDispatch[input, {opts}]
             ,
             "NonLinear" | "NonLinearSolver",
                 d2e = If[SolveMFGCompiledInputQ[input], input, DataToEquations[input]];
