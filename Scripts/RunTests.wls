@@ -18,6 +18,7 @@ $TestSuites = <|
         "infeasible-status.mt",
         "monotone-monotonicity.mt",
         "monotone-solver.mt",
+        "numeric-state.mt",
         "solver-contracts.mt",
         "time-dependent-data.mt"
     },
