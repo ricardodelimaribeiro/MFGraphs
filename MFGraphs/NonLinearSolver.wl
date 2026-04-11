@@ -104,7 +104,7 @@ NonLinearSolver[Eqs_, OptionsPattern[]] :=
              MaxIter = OptionValue["MaxIterations"], tol = OptionValue["Tolerance"],
              status, resultKind, message, solution, comparisonData, convergenceData,
              flowDelta = Missing["NotAvailable"], iterations, stopReason, solveTime,
-             seedMethod, timingResult, residualHistory = {}},
+             seedMethod, timingResult, residualHistory = {}, demotedDueToFeasibilityQ},
                 {solveTime, timingResult} = AbsoluteTiming[
                     If[ KeyExistsQ[PreEqs, "AssoNonCritical"],
                         AssoNonCritical = PreEqs["AssoNonCritical"];
@@ -193,7 +193,14 @@ NonLinearSolver[Eqs_, OptionsPattern[]] :=
                         MemberQ[{"ToleranceMet", "FixedPointReached"}, stopReason], "Success",
                         True, "NonConverged"
                     ];
-                message = If[resultKind === "Success", None, stopReason];
+                demotedDueToFeasibilityQ = resultKind === "Success" && status =!= "Feasible";
+                If[demotedDueToFeasibilityQ, resultKind = "NonConverged"];
+                message =
+                    Which[
+                        resultKind === "Success", None,
+                        demotedDueToFeasibilityQ, "FlowFeasibilityFailed",
+                        True, stopReason
+                    ];
                 solution = If[AssociationQ[AssoNonCritical], AssoNonCritical, Missing["NotAvailable"]];
                 comparisonData = BuildSolverComparisonData[PreEqs, solution];
                 convergenceData = <|
