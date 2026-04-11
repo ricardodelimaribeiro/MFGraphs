@@ -74,6 +74,31 @@ Test[
     Module[{data, d2e, result},
         data = GetExampleData[7] /. {I1 -> 100, U1 -> 0, U2 -> 0};
         d2e = DataToEquations[data];
+        result = Quiet[
+            CriticalCongestionSolver[
+                Join[
+                    d2e,
+                    <|
+                        "CriticalNumericBackendMode" -> "Force",
+                        "CriticalNumericBackendTimeLimit" -> 10^-9
+                    |>
+                ]
+            ]
+        ];
+        !TrueQ[Lookup[result, "NumericBackendUsed", False]] &&
+        Lookup[result, "NumericBackendFallbackReason", Missing["NotAvailable"]] === "NumericBackendTimeout" &&
+        Lookup[result, "ResultKind", Missing["NotAvailable"]] === "Success" &&
+        Lookup[result, "Feasibility", Missing["NotAvailable"]] === "Feasible" &&
+        IsCriticalSolution[result]
+    ],
+    True,
+    TestID -> "Critical numeric backend fallback: timeout fast-fails to symbolic solver"
+]
+
+Test[
+    Module[{data, d2e, result},
+        data = GetExampleData[7] /. {I1 -> 100, U1 -> 0, U2 -> 0};
+        d2e = DataToEquations[data];
         result = Quiet[CriticalCongestionSolver[d2e]];
         And @@ (KeyExistsQ[result, #] & /@ {
             "NumericBackendUsed",

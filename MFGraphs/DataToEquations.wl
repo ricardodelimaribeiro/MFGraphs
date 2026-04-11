@@ -1104,7 +1104,7 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
          validateQ, validationTolerance, validationVerboseQ, validationFailedQ,
          numericBackendRequestedQ, numericBackendEligibleQ,
          numericBackendUsedQ, numericBackendFallbackReason, numericBackendSolveTime,
-         numericCandidate, forcedRejectQ},
+         numericCandidate, forcedRejectQ, numericBackendTimeLimit},
         ClearSolveCache[];
         validateQ = TrueQ[OptionValue["ValidateSolution"]];
         validationTolerance = OptionValue["ValidationTolerance"];
@@ -1120,12 +1120,36 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
             True, "NumericSolveFailed"
         ];
         forcedRejectQ = TrueQ[Lookup[Eqs, "ForceNumericBackendValidationFailure", False]];
+        numericBackendTimeLimit = Lookup[Eqs, "CriticalNumericBackendTimeLimit", 30.];
+        numericBackendTimeLimit = Which[
+            numericBackendTimeLimit === Infinity || numericBackendTimeLimit === DirectedInfinity[1],
+                Infinity,
+            NumericQ[numericBackendTimeLimit] && numericBackendTimeLimit > 0,
+                N[numericBackendTimeLimit],
+            True,
+                30.
+        ];
 
         (* Try the numeric backend first when explicitly forced or globally enabled. *)
         If[numericBackendRequestedQ && numericBackendEligibleQ,
             MFGPrint["Attempting critical numeric backend..."];
             {numericBackendSolveTime, numericCandidate} =
-                AbsoluteTiming[SolveCriticalNumericBackend[Eqs]];
+                AbsoluteTiming[
+                    TimeConstrained[
+                        SolveCriticalNumericBackend[Eqs],
+                        numericBackendTimeLimit,
+                        $TimedOut
+                    ]
+                ];
+            If[numericCandidate === $TimedOut,
+                numericBackendFallbackReason = "NumericBackendTimeout";
+                MFGPrint[
+                    "Numeric backend timed out after ",
+                    numericBackendTimeLimit,
+                    " seconds; falling back to symbolic path."
+                ];
+                numericCandidate = $Failed;
+            ];
             If[AssociationQ[numericCandidate] && numericCandidate =!= $Failed,
                 status = CheckFlowFeasibility[numericCandidate];
                 If[status === "Feasible",
@@ -1197,7 +1221,9 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
                     ],
                     numericBackendFallbackReason = "FlowFeasibilityFailed"
                 ],
-                numericBackendFallbackReason = "NumericSolveFailed"
+                If[numericBackendFallbackReason =!= "NumericBackendTimeout",
+                    numericBackendFallbackReason = "NumericSolveFailed"
+                ]
             ]
         ];
 
