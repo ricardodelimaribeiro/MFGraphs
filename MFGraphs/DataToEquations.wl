@@ -47,13 +47,13 @@ CriticalCongestionSolver::usage = "CriticalCongestionSolver[Eqs] returns Eqs wit
 the solution to the critical congestion case. It returns a standardized association
 containing solver metadata, feasibility, comparison fields, and the solver-specific
 payload key \"AssoCritical\". Options: \"ValidateSolution\" (default True), \
-\"ValidationTolerance\" (default 10^-8), and \"ValidationVerbose\" (default False).";
+\"ValidationTolerance\" (default $CriticalSolverTolerance), and \"ValidationVerbose\" (default False).";
 
 IsCriticalSolution::usage =
 "IsCriticalSolution[Eqs] validates whether the critical-congestion solution stored \
 in \"AssoCritical\" satisfies the full symbolic MFG constraint set (equalities, \
 inequalities, alternatives/complementarity) and the critical EqGeneral residual. \
-By default it returns True/False. Options: \"Tolerance\" (default 10^-8), \
+By default it returns True/False. Options: \"Tolerance\" (default $CriticalSolverTolerance), \
 \"Verbose\" (default False), and \"ReturnReport\" (default False).";
 
 MFGSystemSolver::usage = "MFGSystemSolver[Eqs][edgeEquations] returns the
@@ -77,6 +77,13 @@ DataToEquations::switchingcosts = "Switching costs are inconsistent.";
 MFGSystemSolver::nosolution = "There is no feasible symbolic solution for the current system.";
 
 Begin["`Private`"];
+
+(* --- Solver tolerance constant --- *)
+(* Single source of truth for numeric tolerance across all critical-congestion
+   solver paths: JFirst backend, coupled numeric backend, DirectCriticalSolver,
+   and the IsCriticalSolution validation gate. The CriticalCongestionSolver
+   "ValidationTolerance" option overrides this when set explicitly. *)
+$CriticalSolverTolerance = 10^-6;
 
 (* --- Switching cost consistency --- *)
 
@@ -237,10 +244,125 @@ BuildSignedEdgeMatrixFromKirchhoff[Eqs_Association, kirchhoffVars_List] :=
         ]
     ];
 
+ExtractDirectedEdgePairsFromAdjacencyMatrix[adjacency_, vertexList_List] :=
+    Module[{n, rules, densePairs, edgePairs},
+        If[vertexList === {},
+            Return[{}, Module]
+        ];
+        n = Length[vertexList];
+        edgePairs =
+            Which[
+                Head[adjacency] === SparseArray,
+                    rules = Most[ArrayRules[adjacency]];
+                    Cases[
+                        rules,
+                        ({i_Integer, j_Integer} -> val_) /;
+                            1 <= i <= n && 1 <= j <= n && !PossibleZeroQ[val] :>
+                            {vertexList[[i]], vertexList[[j]]}
+                    ],
+                MatrixQ[adjacency],
+                    densePairs = Reap[
+                        Do[
+                            If[
+                                !PossibleZeroQ[adjacency[[i, j]]],
+                                Sow[{vertexList[[i]], vertexList[[j]]}]
+                            ],
+                            {i, 1, Min[Length[adjacency], n]},
+                            {j, 1, Min[Length[adjacency[[i]]], n]}
+                        ]
+                    ][[2]];
+                    If[densePairs === {}, {}, First[densePairs]],
+                True,
+                    {}
+            ];
+        DeleteDuplicates[edgePairs]
+    ];
+
+BuildCriticalDecouplingPartition[Eqs_Association, numericState_Association] :=
+    Module[{jVars, uVars, kirchhoffVars, kirchhoffIndices, km, bRaw, bVec,
+      adjacency, vertexList, edgePairs, directedGraph, cycleSample, isDAG,
+      nodeOrder, nodePosition, edgeOrder, jVarToIndex, jVarOrder, cycleWitness},
+        jVars = Lookup[numericState, "JVars", {}];
+        uVars = Lookup[numericState, "UVars", {}];
+        kirchhoffVars = Lookup[numericState, "KirchhoffVariables", {}];
+        kirchhoffIndices = Lookup[numericState, "KirchhoffIndicesInFlowVector", {}];
+        km = Lookup[numericState, "KirchhoffKM", SparseArray[{}, {0, 0}]];
+        If[Head[km] =!= SparseArray,
+            km = SparseArray[km]
+        ];
+        bRaw = Lookup[numericState, "KirchhoffB", {}];
+        bVec = Developer`ToPackedArray @ N @ Which[
+            Head[bRaw] === SparseArray, Normal[bRaw],
+            VectorQ[bRaw], bRaw,
+            True, {}
+        ];
+
+        adjacency = Lookup[Eqs, "Adjacency Matrix", {}];
+        vertexList = Lookup[Eqs, "Vertices List", Lookup[numericState, "VertexList", {}]];
+        edgePairs = ExtractDirectedEdgePairsFromAdjacencyMatrix[adjacency, vertexList];
+        directedGraph = Graph[vertexList, DirectedEdge @@@ edgePairs, DirectedEdges -> True];
+        cycleSample = Quiet @ Check[FindCycle[directedGraph, {1, Infinity}, 1], {}];
+        isDAG = cycleSample === {};
+        nodeOrder = If[isDAG, Quiet @ Check[TopologicalSort[directedGraph], {}], {}];
+        If[!ListQ[nodeOrder], nodeOrder = {}];
+        nodePosition = AssociationThread[nodeOrder, Range[Length[nodeOrder]]];
+        edgeOrder =
+            If[isDAG,
+                SortBy[
+                    edgePairs,
+                    {
+                        Lookup[nodePosition, First[#], Infinity] &,
+                        Lookup[nodePosition, Last[#], Infinity] &,
+                        ToString[First[#], InputForm] &,
+                        ToString[Last[#], InputForm] &
+                    }
+                ],
+                {}
+            ];
+        jVarToIndex = Lookup[numericState, "JVarToIndex",
+            AssociationThread[jVars, Range[Length[jVars]]]
+        ];
+        jVarOrder =
+            If[isDAG,
+                Select[j @@@ edgeOrder, KeyExistsQ[jVarToIndex, #] &],
+                {}
+            ];
+        cycleWitness =
+            If[isDAG,
+                Missing["NotApplicable"],
+                If[ListQ[cycleSample] && cycleSample =!= {},
+                    First[cycleSample],
+                    Missing["NotAvailable"]
+                ]
+            ];
+
+        <|
+            "JVars" -> jVars,
+            "UVars" -> uVars,
+            "MassConstraints" -> <|
+                "Aeq" -> km,
+                "beq" -> bVec,
+                "Variables" -> kirchhoffVars,
+                "FlowVariableIndices" -> kirchhoffIndices,
+                "LowerBounds" -> Developer`ToPackedArray @ ConstantArray[0., Length[kirchhoffVars]],
+                "UpperBounds" -> Developer`ToPackedArray @ ConstantArray[Infinity, Length[kirchhoffVars]],
+                "ConstraintKind" -> "KirchhoffOnly"
+            |>,
+            "TopologicalOrder" -> <|
+                "IsDAG" -> isDAG,
+                "NodeOrder" -> nodeOrder,
+                "EdgeOrder" -> edgeOrder,
+                "JVarOrder" -> jVarOrder,
+                "CycleWitness" -> cycleWitness
+            |>
+        |>
+    ];
+
 BuildNumericState[Eqs_Association] :=
     Module[{graph, vertexList, edgeList, edgePairs, transitionTriples, js, jts, us,
       flowVariables, jVarToIndex, jtVarToIndex, uVarToIndex, flowVarToIndex,
-      B, KM, kirchhoffVars, kirchhoffIndices, signedEdgeMatrix, statePairs},
+      B, KM, kirchhoffVars, kirchhoffIndices, signedEdgeMatrix, statePairs,
+      numericState},
         graph = Lookup[Eqs, "auxiliaryGraph", None];
         vertexList = If[Head[graph] === Graph, VertexList[graph], {}];
         edgeList = Lookup[Eqs, "edgeList", {}];
@@ -265,7 +387,7 @@ BuildNumericState[Eqs_Association] :=
         signedEdgeMatrix = BuildSignedEdgeMatrixFromKirchhoff[Eqs, kirchhoffVars];
         statePairs = DeleteDuplicates @ Cases[us, u[a_, b_] :> {a, b}];
 
-        <|
+        numericState = <|
             "Version" -> 1,
             "VertexList" -> vertexList,
             "VertexIndex" -> AssociationThread[vertexList, Range[Length[vertexList]]],
@@ -287,8 +409,8 @@ BuildNumericState[Eqs_Association] :=
             "KirchhoffVarToIndex" -> AssociationThread[kirchhoffVars, Range[Length[kirchhoffVars]]],
             "KirchhoffIndicesInFlowVector" -> kirchhoffIndices,
             "KirchhoffB" -> Developer`ToPackedArray @ N @ Which[
-                VectorQ[B], B,
                 Head[B] === SparseArray, Normal[B],
+                VectorQ[B], B,
                 True, {}
             ],
             "KirchhoffKM" ->
@@ -298,7 +420,11 @@ BuildNumericState[Eqs_Association] :=
                 ],
             "SignedEdgeMatrix" -> signedEdgeMatrix,
             "DistanceToExit" -> ComputeDistanceToExitAssociation[graph, Lookup[Eqs, "auxExitVertices", {}]]
-        |>
+        |>;
+        Join[
+            numericState,
+            <|"CriticalDecoupling" -> BuildCriticalDecouplingPartition[Eqs, numericState]|>
+        ]
     ];
 
 EncodeFlowAssociation[numericState_Association, assoc_Association] :=
@@ -606,6 +732,141 @@ GetKirchhoffMatrix[Eqs_] :=
         {B, KM, CCost, vars}
     ];
 
+UtilityConjunctionTerms[expr_] :=
+    Which[
+        TrueQ[expr], {},
+        Head[expr] === And, List @@ expr,
+        True, {expr}
+    ];
+
+CanonicalUtilityOrderKey[expr_] := ToString[expr, InputForm];
+
+BuildUtilityReductionData[Eqs_Association, initRules_Association, switchingExpr_, valueExpr_] :=
+    Module[{switchingVals, uVars, rulesList, resolve, rulePairs, switchingPairs, valuePairs,
+      utilityPairs, graph, classes, classData, representativeRules, representativeVariables,
+      reducedEqGeneral, reducedSwitching, reducedValue},
+        switchingVals = Values[Lookup[Eqs, "SwitchingCosts", <||>]];
+        If[!AllTrue[switchingVals, # === 0 &],
+            Return[
+                <|
+                    "Enabled" -> False,
+                    "Reason" -> "NonZeroSwitchingCosts",
+                    "UtilityClasses" -> {},
+                    "RepresentativeRules" -> <||>,
+                    "RepresentativeVariables" -> {},
+                    "ClassCount" -> 0,
+                    "ReducedVariableCount" -> 0,
+                    "ReducedEqGeneral" -> Missing["NotAvailable"],
+                    "ReducedSwitchingEqualities" -> Missing["NotAvailable"],
+                    "ReducedEqValueAuxiliaryEdges" -> Missing["NotAvailable"]
+                |>,
+                Module
+            ]
+        ];
+        uVars = Lookup[Eqs, "us", {}];
+        If[uVars === {} || !AssociationQ[initRules],
+            Return[
+                <|
+                    "Enabled" -> False,
+                    "Reason" -> "MissingUtilityState",
+                    "UtilityClasses" -> {},
+                    "RepresentativeRules" -> <||>,
+                    "RepresentativeVariables" -> {},
+                    "ClassCount" -> 0,
+                    "ReducedVariableCount" -> 0,
+                    "ReducedEqGeneral" -> Missing["NotAvailable"],
+                    "ReducedSwitchingEqualities" -> Missing["NotAvailable"],
+                    "ReducedEqValueAuxiliaryEdges" -> Missing["NotAvailable"]
+                |>,
+                Module
+            ]
+        ];
+
+        rulesList = Normal[initRules];
+        resolve[expr_] := FixedPoint[
+            Function[val, Quiet @ Check[val /. rulesList, val]],
+            expr,
+            12
+        ];
+
+        rulePairs = DeleteDuplicates @ Cases[
+            rulesList,
+            Rule[lhs_, rhs_] /;
+                MatchQ[resolve[lhs], _u] &&
+                MatchQ[resolve[rhs], _u] &&
+                resolve[lhs] =!= resolve[rhs] :>
+                    SortBy[{resolve[lhs], resolve[rhs]}, CanonicalUtilityOrderKey]
+        ];
+
+        switchingPairs = DeleteDuplicates @ Cases[
+            UtilityConjunctionTerms[switchingExpr],
+            Equal[lhs_, rhs_] /;
+                MatchQ[resolve[lhs], _u] &&
+                MatchQ[resolve[rhs], _u] &&
+                resolve[lhs] =!= resolve[rhs] :>
+                    SortBy[{resolve[lhs], resolve[rhs]}, CanonicalUtilityOrderKey]
+        ];
+
+        valuePairs = DeleteDuplicates @ Cases[
+            UtilityConjunctionTerms[valueExpr],
+            Equal[lhs_, rhs_] /;
+                MatchQ[resolve[lhs], _u] &&
+                MatchQ[resolve[rhs], _u] &&
+                resolve[lhs] =!= resolve[rhs] :>
+                    SortBy[{resolve[lhs], resolve[rhs]}, CanonicalUtilityOrderKey]
+        ];
+
+        utilityPairs = DeleteDuplicates @ Join[rulePairs, switchingPairs, valuePairs];
+        graph = Graph[uVars, UndirectedEdge @@@ utilityPairs];
+        classes = ConnectedComponents[graph];
+
+        classData = Map[
+            Function[class,
+                Module[{resolvedClass, anchorValues, representative, classRules},
+                    resolvedClass = DeleteDuplicates[resolve /@ class];
+                    anchorValues = DeleteDuplicates @ Select[resolvedClass, FreeQ[#, _u] &];
+                    representative =
+                        If[anchorValues =!= {},
+                            First @ SortBy[anchorValues, CanonicalUtilityOrderKey],
+                            First @ SortBy[class, CanonicalUtilityOrderKey]
+                        ];
+                    classRules = Cases[class, var_ /; var =!= representative :> (var -> representative)];
+                    <|
+                        "Class" -> class,
+                        "Representative" -> representative,
+                        "Anchored" -> (anchorValues =!= {}),
+                        "AnchorValues" -> anchorValues,
+                        "Rules" -> classRules
+                    |>
+                ]
+            ],
+            classes
+        ];
+
+        representativeRules = Association @ Flatten[Lookup[classData, "Rules", {}]];
+        representativeVariables = DeleteDuplicates @ Cases[
+            Lookup[classData, "Representative", {}],
+            _u
+        ];
+        reducedEqGeneral = Lookup[Eqs, "EqGeneral", True] /. Normal[representativeRules];
+        reducedSwitching = switchingExpr /. Normal[representativeRules];
+        reducedValue = valueExpr /. Normal[representativeRules];
+
+        <|
+            "Enabled" -> True,
+            "Reason" -> None,
+            "UtilityClasses" -> classes,
+            "ClassData" -> classData,
+            "RepresentativeRules" -> representativeRules,
+            "RepresentativeVariables" -> representativeVariables,
+            "ClassCount" -> Length[classes],
+            "ReducedVariableCount" -> Length[representativeVariables],
+            "ReducedEqGeneral" -> reducedEqGeneral,
+            "ReducedSwitchingEqualities" -> reducedSwitching,
+            "ReducedEqValueAuxiliaryEdges" -> reducedValue
+        |>
+    ];
+
 (* --- MFGPreprocessing --- *)
 
 MFGPreprocessing[Eqs_] :=
@@ -613,6 +874,7 @@ MFGPreprocessing[Eqs_] :=
          RuleExitFlowsIn, RuleExitValues, EqValueAuxiliaryEdges, IneqSwitchingByVertex,
          AltOptCond, EqBalanceSplittingFlows, AltFlows, AltTransitionFlows, IneqJs,
          IneqJts, ModuleVarsNames, ModulesVars, NewSystem, Rules, EqGeneral,
+        utilityReductionData,
         RuleEntryValues, temp, time},
         RuleBalanceGatheringFlows = Lookup[Eqs, "RuleBalanceGatheringFlows",
              $Failed];
@@ -678,6 +940,12 @@ MFGPreprocessing[Eqs_] :=
         InitRules = Join[InitRules /. Rules, Association @ Rules];
         NotebookDelete[temp];
         MFGPrint["Balance equations solved in ", time, " seconds."];
+        utilityReductionData = BuildUtilityReductionData[
+            Eqs,
+            InitRules,
+            IneqSwitchingByVertex,
+            EqValueAuxiliaryEdges
+        ];
         With[{ineqTriple = SystemToTriple[IneqSwitchingByVertex]},
             NewSystem = {ineqTriple[[1]] && EqGeneral,
                 IneqJts && IneqJs && ineqTriple[[2]],
@@ -694,8 +962,8 @@ MFGPreprocessing[Eqs_] :=
             {NewSystem, InitRules}];
         NotebookDelete[temp];
         MFGPrint["TripleClean took ", time, " seconds."];
-        ModuleVarsNames = {"InitRules", "NewSystem"};
-        ModulesVars = {InitRules, NewSystem};
+        ModuleVarsNames = {"InitRules", "NewSystem", "UtilityReduction"};
+        ModulesVars = {InitRules, NewSystem, utilityReductionData};
         Join[Eqs, AssociationThread[ModuleVarsNames, ModulesVars]]
     ];
 
@@ -996,17 +1264,342 @@ LinearSolveCandidate[aMat_SparseArray, bVec_List] :=
             ];
             ls = Quiet @ Check[LinearSolve[ata], $Failed];
             If[ls === $Failed,
-                Return[$Failed, Module]
+                x = Quiet @ Check[N @ LeastSquares[N @ Normal[aMat], N @ bVec], $Failed];
+                Return[If[VectorQ[x, NumericQ], Developer`ToPackedArray @ x, $Failed], Module]
             ];
             x = Quiet @ Check[N @ ls[atb], $Failed];
+            If[!VectorQ[x, NumericQ],
+                x = Quiet @ Check[N @ LeastSquares[N @ Normal[aMat], N @ bVec], $Failed]
+            ];
             If[VectorQ[x, NumericQ], Developer`ToPackedArray @ x, $Failed]
         ]
+    ];
+
+CriticalJFirstFailure[reason_String, details_Association : <||>] :=
+    Failure["CriticalJFirstBackend", Join[<|"Reason" -> reason|>, details]];
+
+CriticalJFirstFailureReason[result_] :=
+    Which[
+        MatchQ[result, Failure[_, _Association]],
+            Lookup[result[[2]], "Reason", "JFirstFailed"],
+        True,
+            "JFirstFailed"
+    ];
+
+BuildCriticalJFirstObjectiveExpression[Eqs_Association, massVars_List] :=
+    Module[{model, objective, objectiveVars},
+        model = Quiet @ Check[BuildCriticalQuadraticObjective[Eqs], $Failed];
+        If[!AssociationQ[model],
+            Return[CriticalJFirstFailure["ObjectiveUnavailable"], Module]
+        ];
+        objective = Lookup[model, "Objective", Missing["NotAvailable"]];
+        If[objective === Missing["NotAvailable"],
+            Return[CriticalJFirstFailure["ObjectiveUnavailable"], Module]
+        ];
+        objectiveVars = Select[Variables[objective], MatchQ[#, _j] &];
+        If[!SubsetQ[massVars, objectiveVars],
+            Return[CriticalJFirstFailure["ObjectiveScopeMismatch"], Module]
+        ];
+        objective
+    ];
+
+CriticalConjunctionTerms[expr_] :=
+    Which[
+        TrueQ[expr], {},
+        Head[expr] === And, List @@ expr,
+        True, {expr}
+    ];
+
+RecoverCriticalFlowAssociation[Eqs_Association, flowBase_Association, tol_?NumericQ] :=
+    Module[{entryInRules, flowRules, replacementRules, allFlowVars, resolve, resolved},
+        entryInRules = Association @ Flatten[ToRules /@ Lookup[Eqs, "EqEntryIn", {}]];
+        flowRules = Join[
+            entryInRules,
+            Lookup[Eqs, "RuleEntryOut", <||>],
+            Lookup[Eqs, "RuleExitFlowsIn", <||>],
+            Lookup[Eqs, "RuleBalanceGatheringFlows", <||>]
+        ];
+        replacementRules = Join[Normal[flowBase], Normal[flowRules]];
+        resolve[expr_] := FixedPoint[
+            Function[val, Quiet @ Check[val /. replacementRules, val]],
+            expr,
+            10
+        ];
+        allFlowVars = Join[Lookup[Eqs, "js", {}], Lookup[Eqs, "jts", {}]];
+        resolved = Association @ Cases[
+            Map[
+                Function[{var},
+                    Module[{val},
+                        val = Quiet @ Check[N @ resolve[var], Missing["NotAvailable"]];
+                        If[NumericQ[val],
+                            var -> If[Abs[val] <= tol, 0., N[val]],
+                            Nothing
+                        ]
+                    ]
+                ],
+                allFlowVars
+            ],
+            _Rule
+        ];
+        If[
+            !AssociationQ[resolved] ||
+            !And @@ (KeyExistsQ[resolved, #] & /@ allFlowVars),
+            CriticalJFirstFailure["FlowReconstructionFailed"],
+            resolved
+        ]
+    ];
+
+SolveCriticalJFirstUtilities[
+    Eqs_Association,
+    flowAssoc_Association,
+    uVars_List,
+    tol_?NumericQ
+] :=
+    Module[{costpluscurrents, eqGeneralCritical, eqValueAuxiliaryEdges, ruleEntryValues,
+      ruleExitValues, ineqSwitchingByVertex, switchingEqualities, uEqualities,
+      uSystem, uCandidate, residual, utilityAssoc},
+        If[uVars === {},
+            Return[CriticalJFirstFailure["MissingUVars"], Module]
+        ];
+        costpluscurrents = Lookup[Eqs, "costpluscurrents", <||>];
+        eqGeneralCritical =
+            Lookup[Eqs, "EqGeneral", True] /.
+                If[AssociationQ[costpluscurrents],
+                    Expand /@ (costpluscurrents /. flowAssoc),
+                    {}
+                ];
+        eqValueAuxiliaryEdges = Lookup[Eqs, "EqValueAuxiliaryEdges", True];
+        ruleEntryValues = Lookup[Eqs, "RuleEntryValues", <||>];
+        ruleExitValues = Lookup[Eqs, "RuleExitValues", <||>];
+        ineqSwitchingByVertex = Lookup[Eqs, "IneqSwitchingByVertex", True];
+        switchingEqualities = DeleteDuplicatesBy[
+            Cases[
+                CriticalConjunctionTerms[ineqSwitchingByVertex],
+                LessEqual[lhs_, rhs_] :> (lhs == rhs)
+            ],
+            Sort @* (List @@ # &)
+        ];
+        uEqualities = DeleteDuplicates @ Select[
+            Cases[
+                DeleteCases[
+                    Flatten[{
+                        CriticalConjunctionTerms[eqGeneralCritical],
+                        CriticalConjunctionTerms[eqValueAuxiliaryEdges],
+                        switchingEqualities,
+                        KeyValueMap[Equal, ruleEntryValues],
+                        KeyValueMap[Equal, ruleExitValues]
+                    }] /. flowAssoc,
+                    True
+                ],
+                _Equal
+            ],
+            !FreeQ[#, Alternatives @@ uVars] &
+        ];
+        If[uEqualities === {},
+            Return[CriticalJFirstFailure["URecoveryFailed"], Module]
+        ];
+        uSystem = BuildLinearSystemFromEqualities[uEqualities, uVars];
+        If[!AssociationQ[uSystem],
+            Return[CriticalJFirstFailure["URecoveryFailed"], Module]
+        ];
+        uCandidate = LinearSolveCandidate[uSystem["A"], uSystem["b"]];
+        If[!VectorQ[uCandidate, NumericQ] || Length[uCandidate] =!= Length[uVars],
+            Return[CriticalJFirstFailure["URecoveryFailed"], Module]
+        ];
+        residual = Quiet @ Check[N @ Norm[uSystem["A"] . uCandidate - uSystem["b"], Infinity], Infinity];
+        If[!NumericQ[residual] || residual > tol,
+            Return[CriticalJFirstFailure["URecoveryFailed"], Module]
+        ];
+        utilityAssoc = AssociationThread[uVars, uCandidate];
+        Association @ KeyValueMap[
+            #1 -> If[Abs[#2] <= tol, 0., N[#2]] &,
+            utilityAssoc
+        ]
+    ];
+
+SolveCriticalJFirstBackend[Eqs_Association, numericState_Association] :=
+    Module[{decoupling, topo, massConstraints, massVars, aEq, bEqRaw, bEq, tol = $CriticalSolverTolerance,
+      nVars, massAssoc = <||>, xCandidate, candidateResidual, flowMin, rank,
+      objectiveExpr, qpVars, qpRules, objectiveQP, constraintsQP,
+      optimizerOrder, optimizer, rawSolution = $Failed, massVec,
+      flowAssoc, uVars, utilityAssoc, solvedAssoc, expectedVars},
+        decoupling = Lookup[numericState, "CriticalDecoupling", Missing["NotAvailable"]];
+        If[!AssociationQ[decoupling],
+            Return[CriticalJFirstFailure["MissingDecoupling"], Module]
+        ];
+        topo = Lookup[decoupling, "TopologicalOrder", <||>];
+        If[!TrueQ[Lookup[topo, "IsDAG", False]],
+            Return[CriticalJFirstFailure["NonDAG"], Module]
+        ];
+        massConstraints = Lookup[decoupling, "MassConstraints", <||>];
+        massVars = Lookup[massConstraints, "Variables", {}];
+        aEq = Lookup[massConstraints, "Aeq", Missing["NotAvailable"]];
+        bEqRaw = Lookup[massConstraints, "beq", Missing["NotAvailable"]];
+        If[Head[aEq] =!= SparseArray,
+            aEq = SparseArray[aEq]
+        ];
+        bEq = Developer`ToPackedArray @ N @ Which[
+            Head[bEqRaw] === SparseArray, Normal[bEqRaw],
+            VectorQ[bEqRaw, NumericQ], bEqRaw,
+            True, {}
+        ];
+        nVars = Length[massVars];
+        If[
+            nVars == 0 || Head[aEq] =!= SparseArray || !VectorQ[bEq, NumericQ] ||
+            Length[bEq] =!= Dimensions[aEq][[1]] || Dimensions[aEq][[2]] =!= nVars,
+            Return[CriticalJFirstFailure["MissingMassConstraints"], Module]
+        ];
+
+        rank = Quiet @ Check[MatrixRank[Normal[aEq]], -1];
+        If[IntegerQ[rank] && rank === nVars,
+            xCandidate = LinearSolveCandidate[aEq, bEq];
+            If[VectorQ[xCandidate, NumericQ] && Length[xCandidate] === nVars,
+                candidateResidual = Quiet @ Check[N @ Norm[aEq . xCandidate - bEq, Infinity], Infinity];
+                flowMin = Min[xCandidate];
+                If[
+                    NumericQ[candidateResidual] && candidateResidual <= tol &&
+                    NumericQ[flowMin] && flowMin >= -tol,
+                    massAssoc = AssociationThread[massVars, xCandidate]
+                ]
+            ]
+        ];
+
+        If[!AssociationQ[massAssoc] || massAssoc === <||>,
+            objectiveExpr = BuildCriticalJFirstObjectiveExpression[Eqs, massVars];
+            qpVars = Table[Unique["qv"], {nVars}];
+            qpRules = Thread[massVars -> qpVars];
+            constraintsQP = Join[
+                Thread[(aEq . qpVars) == bEq],
+                Thread[qpVars >= 0]
+            ];
+            If[!MatchQ[objectiveExpr, Failure[_, _Association]],
+                objectiveQP = objectiveExpr /. qpRules;
+                optimizerOrder = DeleteDuplicates @ {
+                    If[
+                        NameQ["System`QuadraticOptimization"] &&
+                        TrueQ @ Quiet @ Check[UseQuadraticCriticalBackendQ[Eqs], False],
+                        QuadraticOptimization,
+                        ConvexOptimization
+                    ],
+                    ConvexOptimization
+                };
+                Do[
+                    rawSolution = Quiet @ Check[
+                        optimizer[
+                            objectiveQP,
+                            constraintsQP,
+                            qpVars
+                        ],
+                        $Failed
+                    ];
+                    If[MatchQ[rawSolution, {_Rule ..}],
+                        Break[]
+                    ],
+                    {optimizer, optimizerOrder}
+                ];
+            ];
+            If[!MatchQ[rawSolution, {_Rule ..}],
+                rawSolution = Quiet @ Check[
+                    LinearOptimization[
+                        Total[qpVars],
+                        constraintsQP,
+                        qpVars
+                    ],
+                    $Failed
+                ];
+            ];
+            If[!MatchQ[rawSolution, {_Rule ..}],
+                Return[CriticalJFirstFailure["FlowInfeasible"], Module]
+            ];
+            massAssoc = AssociationThread[massVars, N @ (qpVars /. rawSolution)];
+        ];
+
+        massVec = Lookup[massAssoc, massVars, Missing["NotAvailable"]];
+        If[!VectorQ[massVec, NumericQ] || Length[massVec] =!= nVars,
+            Return[CriticalJFirstFailure["FlowInfeasible"], Module]
+        ];
+        candidateResidual = Quiet @ Check[N @ Norm[aEq . massVec - bEq, Infinity], Infinity];
+        flowMin = Min[massVec];
+        If[
+            !NumericQ[candidateResidual] || candidateResidual > tol ||
+            !NumericQ[flowMin] || flowMin < -tol,
+            Return[CriticalJFirstFailure["FlowInfeasible"], Module]
+        ];
+
+        flowAssoc = RecoverCriticalFlowAssociation[Eqs, massAssoc, tol];
+        If[MatchQ[flowAssoc, Failure[_, _Association]],
+            Return[flowAssoc, Module]
+        ];
+        uVars = Lookup[decoupling, "UVars", Lookup[numericState, "UVars", {}]];
+        utilityAssoc = SolveCriticalJFirstUtilities[Eqs, flowAssoc, uVars, tol];
+        If[MatchQ[utilityAssoc, Failure[_, _Association]],
+            Return[utilityAssoc, Module]
+        ];
+        solvedAssoc = Join[utilityAssoc, flowAssoc];
+        expectedVars = Join[
+            Lookup[Eqs, "us", {}],
+            Lookup[Eqs, "js", {}],
+            Lookup[Eqs, "jts", {}]
+        ];
+        If[!And @@ (KeyExistsQ[solvedAssoc, #] & /@ expectedVars),
+            Return[CriticalJFirstFailure["IncompleteCandidate"], Module]
+        ];
+        Join[
+            KeyTake[solvedAssoc, Lookup[Eqs, "us", {}]],
+            KeyTake[solvedAssoc, Lookup[Eqs, "js", {}]],
+            KeyTake[solvedAssoc, Lookup[Eqs, "jts", {}]]
+        ]
+    ];
+
+SolveCriticalNumericBackendWithTelemetry[Eqs_Association] :=
+    Module[{numericState, jFirstCandidate, jFirstReason, coupledCandidate,
+      jFirstStatus, jFirstValidQ, forcedRejectQ},
+        numericState = Lookup[Eqs, "NumericState", <||>];
+        forcedRejectQ = TrueQ[Lookup[Eqs, "ForceNumericBackendValidationFailure", False]];
+        jFirstCandidate = SolveCriticalJFirstBackend[Eqs, numericState];
+        If[AssociationQ[jFirstCandidate],
+            jFirstStatus = CheckFlowFeasibility[jFirstCandidate];
+            jFirstValidQ =
+                TrueQ[
+                    !forcedRejectQ &&
+                    jFirstStatus === "Feasible" &&
+                    IsCriticalSolution[
+                        Join[Eqs, <|"AssoCritical" -> jFirstCandidate, "Solution" -> jFirstCandidate|>],
+                        "Tolerance" -> $CriticalSolverTolerance,
+                        "Verbose" -> False
+                    ]
+                ];
+            If[jFirstValidQ,
+                Return[
+                    <|
+                        "Candidate" -> jFirstCandidate,
+                        "Strategy" -> "JFirst",
+                        "JFirstBackendUsed" -> True,
+                        "JFirstBackendFallbackReason" -> None
+                    |>,
+                    Module
+                ]
+            ];
+            jFirstReason = Which[
+                forcedRejectQ, "ForcedValidationFailure",
+                jFirstStatus =!= "Feasible", "FlowFeasibilityFailed",
+                True, "CriticalValidationFailed"
+            ],
+            jFirstReason = CriticalJFirstFailureReason[jFirstCandidate]
+        ];
+        coupledCandidate = SolveCriticalNumericBackend[Eqs];
+        <|
+            "Candidate" -> coupledCandidate,
+            "Strategy" -> "Coupled",
+            "JFirstBackendUsed" -> False,
+            "JFirstBackendFallbackReason" -> jFirstReason
+        |>
     ];
 
 SolveCriticalNumericBackend[Eqs_Association] :=
     Module[{constraints, equalities, flowVars, allVars,
         linearSystem, aMat, bVec, xCandidate, varIndex, flowIndices,
-        linResidual, flowMin, tol = 10^-8, assoc, lpResult, lpVals, solvedAssoc,
+        linResidual, flowMin, tol = $CriticalSolverTolerance, assoc, lpResult, lpVals, solvedAssoc,
         nVars, cVec, aIneq, bIneq, aEq, bEq},
         constraints = BuildCriticalLinearConstraints[Eqs];
         If[constraints === $Failed || !AssociationQ[constraints],
@@ -1068,7 +1661,7 @@ SolveCriticalNumericBackend[Eqs_Association] :=
                 cVec,
                 {aIneq, bIneq},
                 {aEq, bEq},
-                Tolerance -> 10^-6
+                Tolerance -> tol
             ],
             $Failed
         ];
@@ -1084,7 +1677,7 @@ SolveCriticalNumericBackend[Eqs_Association] :=
                     {aIneq, bIneq},
                     {aEq, bEq},
                     Method -> "Simplex",
-                    Tolerance -> 10^-6
+                    Tolerance -> tol
                 ],
                 $Failed
             ];
@@ -1114,7 +1707,7 @@ SolveCriticalNumericBackend[Eqs_Association] :=
 
 Options[CriticalCongestionSolver] = {
     "ValidateSolution" -> True,
-    "ValidationTolerance" -> 10^-8,
+    "ValidationTolerance" -> $CriticalSolverTolerance,
     "ValidationVerbose" -> False
 };
 
@@ -1127,7 +1720,8 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
          validateQ, validationTolerance, validationVerboseQ, validationFailedQ,
          numericBackendRequestedQ, numericBackendEligibleQ,
          numericBackendUsedQ, numericBackendFallbackReason, numericBackendSolveTime,
-         numericCandidate, forcedRejectQ, numericBackendTimeLimit},
+         numericBackendStrategy, jFirstBackendUsedQ, jFirstBackendFallbackReason,
+         numericCandidate, numericOutcome, forcedRejectQ, numericBackendTimeLimit},
         ClearSolveCache[];
         validateQ = TrueQ[OptionValue["ValidateSolution"]];
         validationTolerance = OptionValue["ValidationTolerance"];
@@ -1135,6 +1729,9 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
         validationFailedQ = False;
         numericBackendUsedQ = False;
         numericBackendSolveTime = Missing["NotAvailable"];
+        numericBackendStrategy = "Symbolic";
+        jFirstBackendUsedQ = False;
+        jFirstBackendFallbackReason = None;
         numericBackendRequestedQ = CriticalNumericBackendRequestedQ[Eqs];
         numericBackendEligibleQ = CriticalNumericBackendEligibleQ[Eqs];
         numericBackendFallbackReason = Which[
@@ -1156,26 +1753,39 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
         (* Try the numeric backend first when explicitly forced or globally enabled. *)
         If[numericBackendRequestedQ && numericBackendEligibleQ,
             MFGPrint["Attempting critical numeric backend..."];
-            {numericBackendSolveTime, numericCandidate} =
+            {numericBackendSolveTime, numericOutcome} =
                 AbsoluteTiming[
                     TimeConstrained[
-                        SolveCriticalNumericBackend[Eqs],
+                        SolveCriticalNumericBackendWithTelemetry[Eqs],
                         numericBackendTimeLimit,
                         $TimedOut
                     ]
                 ];
-            If[numericCandidate === $TimedOut,
+            If[numericOutcome === $TimedOut,
                 numericBackendFallbackReason = "NumericBackendTimeout";
+                numericBackendStrategy = "Symbolic";
+                jFirstBackendUsedQ = False;
+                jFirstBackendFallbackReason = "NumericBackendTimeout";
                 MFGPrint[
                     "Numeric backend timed out after ",
                     numericBackendTimeLimit,
                     " seconds; falling back to symbolic path."
                 ];
                 numericCandidate = $Failed;
+                ,
+                numericCandidate = Lookup[numericOutcome, "Candidate", $Failed];
+                numericBackendStrategy = Lookup[numericOutcome, "Strategy", "Coupled"];
+                jFirstBackendUsedQ = TrueQ[Lookup[numericOutcome, "JFirstBackendUsed", False]];
+                jFirstBackendFallbackReason = Lookup[
+                    numericOutcome,
+                    "JFirstBackendFallbackReason",
+                    "NotAttempted"
+                ];
             ];
             If[AssociationQ[numericCandidate] && numericCandidate =!= $Failed,
                 status = CheckFlowFeasibility[numericCandidate];
                 If[status === "Feasible",
+                    numericBackendUsedQ = True;
                     If[KeyExistsQ[Eqs, "InitRules"],
                         PreEqs = Eqs,
                         {time, PreEqs} = AbsoluteTiming @ MFGPreprocessing[Eqs];
@@ -1187,6 +1797,15 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
                             "Tolerance" -> validationTolerance,
                             "Verbose" -> validationVerboseQ
                         ],
+                            numericBackendUsedQ = False;
+                            numericBackendStrategy = "Symbolic";
+                            If[
+                                TrueQ[jFirstBackendUsedQ] &&
+                                (jFirstBackendFallbackReason === None || jFirstBackendFallbackReason === "NotAttempted"),
+                                jFirstBackendFallbackReason =
+                                    If[forcedRejectQ, "ForcedValidationFailure", "CriticalValidationFailed"]
+                            ];
+                            jFirstBackendUsedQ = False;
                             numericBackendFallbackReason =
                                 If[forcedRejectQ, "ForcedValidationFailure", "CriticalValidationFailed"]
                             ,
@@ -1208,7 +1827,10 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
                                                 "Status" -> status,
                                                 "NumericBackendUsed" -> True,
                                                 "NumericBackendFallbackReason" -> None,
-                                                "NumericBackendSolveTime" -> numericBackendSolveTime
+                                                "NumericBackendSolveTime" -> numericBackendSolveTime,
+                                                "NumericBackendStrategy" -> numericBackendStrategy,
+                                                "JFirstBackendUsed" -> jFirstBackendUsedQ,
+                                                "JFirstBackendFallbackReason" -> jFirstBackendFallbackReason
                                             |>
                                         ]
                                     ]
@@ -1234,7 +1856,10 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
                                             "Status" -> status,
                                             "NumericBackendUsed" -> True,
                                             "NumericBackendFallbackReason" -> None,
-                                            "NumericBackendSolveTime" -> numericBackendSolveTime
+                                            "NumericBackendSolveTime" -> numericBackendSolveTime,
+                                            "NumericBackendStrategy" -> numericBackendStrategy,
+                                            "JFirstBackendUsed" -> jFirstBackendUsedQ,
+                                            "JFirstBackendFallbackReason" -> jFirstBackendFallbackReason
                                         |>
                                     ]
                                 ]
@@ -1289,7 +1914,10 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
                                             "Status" -> status,
                                             "NumericBackendUsed" -> numericBackendUsedQ,
                                             "NumericBackendFallbackReason" -> numericBackendFallbackReason,
-                                            "NumericBackendSolveTime" -> numericBackendSolveTime
+                                            "NumericBackendSolveTime" -> numericBackendSolveTime,
+                                            "NumericBackendStrategy" -> numericBackendStrategy,
+                                            "JFirstBackendUsed" -> jFirstBackendUsedQ,
+                                            "JFirstBackendFallbackReason" -> jFirstBackendFallbackReason
                                         |>
                                     ]]],
                                 Module
@@ -1307,7 +1935,10 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
                                         "Status" -> status,
                                         "NumericBackendUsed" -> numericBackendUsedQ,
                                         "NumericBackendFallbackReason" -> numericBackendFallbackReason,
-                                        "NumericBackendSolveTime" -> numericBackendSolveTime
+                                        "NumericBackendSolveTime" -> numericBackendSolveTime,
+                                        "NumericBackendStrategy" -> numericBackendStrategy,
+                                        "JFirstBackendUsed" -> jFirstBackendUsedQ,
+                                        "JFirstBackendFallbackReason" -> jFirstBackendFallbackReason
                                     |>
                                 ]]],
                             Module
@@ -1373,13 +2004,16 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
                     "Status" -> status,
                     "NumericBackendUsed" -> numericBackendUsedQ,
                     "NumericBackendFallbackReason" -> numericBackendFallbackReason,
-                    "NumericBackendSolveTime" -> numericBackendSolveTime
+                    "NumericBackendSolveTime" -> numericBackendSolveTime,
+                    "NumericBackendStrategy" -> numericBackendStrategy,
+                    "JFirstBackendUsed" -> jFirstBackendUsedQ,
+                    "JFirstBackendFallbackReason" -> jFirstBackendFallbackReason
                  |>
              ]]]
     ];
 
 Options[IsCriticalSolution] = {
-    "Tolerance" -> 10^-8,
+    "Tolerance" -> $CriticalSolverTolerance,
     "Verbose" -> False,
     "ReturnReport" -> False
 };

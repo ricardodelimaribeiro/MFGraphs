@@ -96,10 +96,108 @@ CheckFlowFeasibility[assoc_Association] :=
 SelectFlowAssociation[assoc_Association] :=
     Association @ KeySelect[assoc, MatchQ[#, _j] &];
 
+BuildBoundaryMassData[Eqs_Association, flowAssoc_Association] :=
+    Module[{missing, entryPairs, exitPairs, entryFlows, exitFlows, inTotal, outTotal, residual},
+        missing = Missing["NotAvailable"];
+        entryPairs = List @@@ Lookup[Eqs, "entryEdges", {}];
+        exitPairs = List @@@ Lookup[Eqs, "exitEdges", {}];
+        entryFlows =
+            If[entryPairs === {},
+                {},
+                Lookup[flowAssoc, j @@@ entryPairs, missing]
+            ];
+        exitFlows =
+            If[exitPairs === {},
+                {},
+                Lookup[flowAssoc, j @@@ exitPairs, missing]
+            ];
+        inTotal =
+            If[
+                ListQ[entryFlows] && VectorQ[entryFlows, NumericQ],
+                N @ Total[entryFlows],
+                missing
+            ];
+        outTotal =
+            If[
+                ListQ[exitFlows] && VectorQ[exitFlows, NumericQ],
+                N @ Total[exitFlows],
+                missing
+            ];
+        residual =
+            If[
+                NumericQ[inTotal] && NumericQ[outTotal],
+                N @ Abs[inTotal - outTotal],
+                missing
+            ];
+        <|
+            "BoundaryMassIn" -> inTotal,
+            "BoundaryMassOut" -> outTotal,
+            "BoundaryMassResidual" -> residual
+        |>
+    ];
+
+BuildBoundaryMassData[_, _] :=
+    <|
+        "BoundaryMassIn" -> Missing["NotAvailable"],
+        "BoundaryMassOut" -> Missing["NotAvailable"],
+        "BoundaryMassResidual" -> Missing["NotAvailable"]
+    |>;
+
+BuildUtilityReductionResidualData[Eqs_Association, solution_Association] :=
+    Module[{missing, utilityReduction, classes, classResiduals, overallResidual,
+      classCount, reducedVarCount},
+        missing = Missing["NotAvailable"];
+        utilityReduction = Lookup[Eqs, "UtilityReduction", Missing["NotAvailable"]];
+        If[!AssociationQ[utilityReduction],
+            Return[
+                <|
+                    "UtilityClassResidual" -> missing,
+                    "UtilityClassCount" -> missing,
+                    "UtilityReducedVariableCount" -> missing
+                |>,
+                Module
+            ]
+        ];
+        classes = Lookup[utilityReduction, "UtilityClasses", {}];
+        classCount =
+            If[ListQ[classes], Length[classes], missing];
+        reducedVarCount = Lookup[utilityReduction, "ReducedVariableCount", missing];
+        classResiduals = Cases[
+            Map[
+                Function[class,
+                    Module[{vals},
+                        vals = Quiet @ Check[N @ (class /. solution), $Failed];
+                        If[ListQ[vals] && VectorQ[vals, NumericQ] && Length[vals] > 1,
+                            N @ Max @ Abs[vals - First[vals]],
+                            If[ListQ[vals] && VectorQ[vals, NumericQ], 0., Missing["NotAvailable"]]
+                        ]
+                    ]
+                ],
+                classes
+            ],
+            _?NumericQ
+        ];
+        overallResidual =
+            If[classResiduals === {}, missing, N @ Max[classResiduals]];
+        <|
+            "UtilityClassResidual" -> overallResidual,
+            "UtilityClassCount" -> classCount,
+            "UtilityReducedVariableCount" -> reducedVarCount
+        |>
+    ];
+
+BuildUtilityReductionResidualData[_, _] :=
+    <|
+        "UtilityClassResidual" -> Missing["NotAvailable"],
+        "UtilityClassCount" -> Missing["NotAvailable"],
+        "UtilityReducedVariableCount" -> Missing["NotAvailable"]
+    |>;
+
 BuildSolverComparisonData[Eqs_Association, solution_] :=
     Module[{missing, flowAssoc, edgeList, edgePairs, signedFlowRules, signedExprs,
          signedVals, B, KM, jj, jjVals, residual, numericState, encodedFlowVec,
-         fastSignedVals, fastResidual, usedFastSignedQ, usedFastResidualQ},
+         fastSignedVals, fastResidual, usedFastSignedQ, usedFastResidualQ,
+         boundaryMassData, utilityReductionResidualData},
         missing = Missing["NotAvailable"];
         edgeList = Lookup[Eqs, "edgeList", {}];
         If[!AssociationQ[solution],
@@ -109,12 +207,20 @@ BuildSolverComparisonData[Eqs_Association, solution_] :=
                     "FlowAssociation" -> missing,
                     "SignedEdgeFlows" -> missing,
                     "ComparableFlowVector" -> missing,
-                    "KirchhoffResidual" -> missing
+                    "KirchhoffResidual" -> missing,
+                    "BoundaryMassIn" -> missing,
+                    "BoundaryMassOut" -> missing,
+                    "BoundaryMassResidual" -> missing,
+                    "UtilityClassResidual" -> missing,
+                    "UtilityClassCount" -> missing,
+                    "UtilityReducedVariableCount" -> missing
                 |>,
                 Module
             ]
         ];
         flowAssoc = SelectFlowAssociation[solution];
+        boundaryMassData = BuildBoundaryMassData[Eqs, flowAssoc];
+        utilityReductionResidualData = BuildUtilityReductionResidualData[Eqs, solution];
         numericState = Lookup[Eqs, "NumericState", Missing["NotAvailable"]];
         usedFastSignedQ = False;
         usedFastResidualQ = False;
@@ -174,14 +280,18 @@ BuildSolverComparisonData[Eqs_Association, solution_] :=
                     missing
                 ]
         ];
-        <|
-            "ComparableEdges" -> edgeList,
-            "FlowAssociation" -> flowAssoc,
-            "SignedEdgeFlows" ->
-                If[signedVals === missing, missing, AssociationThread[edgeList, signedVals]],
-            "ComparableFlowVector" -> signedVals,
-            "KirchhoffResidual" -> residual
-        |>
+        Join[
+            <|
+                "ComparableEdges" -> edgeList,
+                "FlowAssociation" -> flowAssoc,
+                "SignedEdgeFlows" ->
+                    If[signedVals === missing, missing, AssociationThread[edgeList, signedVals]],
+                "ComparableFlowVector" -> signedVals,
+                "KirchhoffResidual" -> residual
+            |>,
+            boundaryMassData,
+            utilityReductionResidualData
+        ]
     ];
 
 MakeSolverResult[

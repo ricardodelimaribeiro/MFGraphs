@@ -109,3 +109,102 @@ Test[
     True,
     TestID -> "Critical numeric backend telemetry: keys always present"
 ]
+
+Test[
+    Module[{data, d2e, symbolic, numeric, drift},
+        data = GetExampleData[1] /. {I1 -> 100, U1 -> 0};
+        d2e = DataToEquations[data];
+        symbolic = Quiet[
+            CriticalCongestionSolver[
+                Join[d2e, <|"CriticalNumericBackendMode" -> False|>]
+            ]
+        ];
+        numeric = Quiet[
+            CriticalCongestionSolver[
+                Join[d2e, <|"CriticalNumericBackendMode" -> "Force"|>]
+            ]
+        ];
+        drift = Quiet @ Check[
+            Module[{deltaVec},
+                deltaVec = symbolic["ComparableFlowVector"] - numeric["ComparableFlowVector"];
+                If[ListQ[deltaVec] && deltaVec === {},
+                    0.,
+                    Norm[deltaVec, Infinity]
+                ]
+            ],
+            Infinity
+        ];
+        Lookup[numeric, {"ResultKind", "Feasibility"}] === {"Success", "Feasible"} &&
+        Lookup[numeric, "NumericBackendStrategy", Missing["NotAvailable"]] === "JFirst" &&
+        TrueQ[Lookup[numeric, "JFirstBackendUsed", False]] &&
+        Lookup[numeric, "JFirstBackendFallbackReason", Missing["NotAvailable"]] === None &&
+        NumericQ[drift] && drift <= 10^-6 &&
+        IsCriticalSolution[numeric]
+    ],
+    True,
+    TestID -> "Critical j-first backend: DAG baseline uses j-first strategy with parity"
+]
+
+Test[
+    Module[{data, d2e, result},
+        data = GetExampleData[27] /. {I1 -> 100, U1 -> 0};
+        d2e = DataToEquations[data];
+        result = Quiet[
+            CriticalCongestionSolver[
+                Join[d2e, <|"CriticalNumericBackendMode" -> "Force"|>]
+            ]
+        ];
+        Lookup[result, {"ResultKind", "Feasibility"}] === {"Success", "Feasible"} &&
+        Lookup[result, "NumericBackendStrategy", Missing["NotAvailable"]] =!= "JFirst" &&
+        !TrueQ[Lookup[result, "JFirstBackendUsed", False]] &&
+        Lookup[result, "JFirstBackendFallbackReason", Missing["NotAvailable"]] === "NonDAG" &&
+        IsCriticalSolution[result]
+    ],
+    True,
+    TestID -> "Critical j-first backend: non-DAG case skips j-first and falls back cleanly"
+]
+
+Test[
+    Module[{data, d2e, result},
+        data = GetExampleData[9] /. {I1 -> 100, I2 -> 40, U1 -> 0};
+        d2e = DataToEquations[data];
+        result = Quiet[
+            Block[
+                {
+                    MFGraphs`Private`SolveCriticalJFirstUtilities =
+                        (Function[{eqs, flowAssoc, uVars, tol},
+                            Failure["CriticalJFirstBackend", <|"Reason" -> "InjectedURecoveryFailure"|>]
+                        ])
+                },
+                CriticalCongestionSolver[
+                    Join[d2e, <|"CriticalNumericBackendMode" -> "Force"|>]
+                ]
+            ]
+        ];
+        Lookup[result, {"ResultKind", "Feasibility"}] === {"Success", "Feasible"} &&
+        Lookup[result, "NumericBackendStrategy", Missing["NotAvailable"]] === "Coupled" &&
+        !TrueQ[Lookup[result, "JFirstBackendUsed", False]] &&
+        Lookup[result, "JFirstBackendFallbackReason", Missing["NotAvailable"]] === "InjectedURecoveryFailure" &&
+        IsCriticalSolution[result]
+    ],
+    True,
+    TestID -> "Critical j-first backend: U-recovery failure falls back to coupled numeric"
+]
+
+Test[
+    Module[{data, d2e, result},
+        data = GetExampleData[7] /. {I1 -> 100, U1 -> 0, U2 -> 0};
+        d2e = DataToEquations[data];
+        result = Quiet[CriticalCongestionSolver[d2e]];
+        And @@ (KeyExistsQ[result, #] & /@ {
+            "NumericBackendUsed",
+            "NumericBackendFallbackReason",
+            "NumericBackendSolveTime",
+            "NumericBackendStrategy",
+            "JFirstBackendUsed",
+            "JFirstBackendFallbackReason"
+        })
+    ],
+    True,
+    TestID -> "Critical j-first backend telemetry: additive keys are always present"
+]
