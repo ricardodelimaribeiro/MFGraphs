@@ -97,6 +97,29 @@ IsSwitchingCostConsistent[switchingCosts_] :=
     And @@ Simplify[ConsistentSwitchingCosts[switchingCosts] /@ switchingCosts
         ]
 
+GraphDistanceHeuristicSafeQ[Eqs_Association, tol_:10^-10] :=
+    Module[{exitCosts, exitCostSpread, switchingValues, nonzeroSwitchingQ},
+        exitCosts = Last /@ Lookup[Eqs, "Exit Vertices and Terminal Costs", {}];
+        exitCostSpread =
+            Which[
+                Length[exitCosts] <= 1, 0.,
+                VectorQ[exitCosts, NumericQ], N @ Max[Abs[N @ exitCosts - First[N @ exitCosts]]],
+                True, Infinity
+            ];
+        switchingValues = Values @ Lookup[Eqs, "SwitchingCosts", <||>];
+        nonzeroSwitchingQ =
+            AnyTrue[
+                switchingValues,
+                Function[val,
+                    Which[
+                        NumericQ[val], !PossibleZeroQ[val],
+                        True, True
+                    ]
+                ]
+            ];
+        exitCostSpread <= tol && !nonzeroSwitchingQ
+    ];
+
 (* --- Graph helper functions --- *)
 
 TransitionsAt[G_, k_] :=
@@ -152,6 +175,10 @@ ResolveOrByGraphDistance[Eqs_Association, triple:{_, _, _}] :=
     Module[{graph, exitVerts, distToExit, orTerms, resolved = {},
             unresolved = {}, newEE, newOR},
         If[triple[[3]] === True, Return[triple, Module]];
+        If[!GraphDistanceHeuristicSafeQ[Eqs],
+            MFGPrint["ResolveOrByGraphDistance: skipped (heterogeneous exit/switching costs)."];
+            Return[triple, Module]
+        ];
         graph = Lookup[Eqs, "auxiliaryGraph", None];
         exitVerts = Lookup[Eqs, "auxExitVertices", {}];
         If[graph === None || exitVerts === {},
@@ -379,6 +406,7 @@ DataToEquations[Data_Association] :=
          BalanceSplittingFlows, NoDeadStarts, RuleBalanceGatheringFlows, BalanceGatheringFlows,
          EqBalanceGatheringFlows, EqEntryIn, RuleEntryValues, RuleEntryOut, RuleExitFlowsIn,
          RuleExitValues, EqValueAuxiliaryEdges, IneqSwitchingByVertex, AltOptCond,
+         blockedIncomingPairs, activeAuxTriples,
          Nlhs, ModuleVars, ModuleVarsNames, Nrhs, costpluscurrents, EqGeneral,
          inAuxEntryPairs, outAuxEntryPairs, inAuxExitPairs, outAuxExitPairs, 
         pairs, halfPairs, consistentCosts},
@@ -486,6 +514,11 @@ DataToEquations[Data_Association] :=
             ];
         RuleExitFlowsIn = Association[(j @@ # -> 0)& /@ inAuxExitPairs
             ];
+        blockedIncomingPairs = DeleteDuplicates @ Join[outAuxEntryPairs, inAuxExitPairs];
+        activeAuxTriples = Select[
+            auxTriples,
+            !MemberQ[blockedIncomingPairs, #[[{1, 2}]]] &
+        ];
         (* Exit values at exit vertices *)
         RuleExitValues = AssociationThread[u @@@ (Reverse /@ outAuxExitPairs
             ), Last /@ exitVerticesCosts];
@@ -495,10 +528,14 @@ DataToEquations[Data_Association] :=
              @@@ inAuxEntryPairs];
         EqValueAuxiliaryEdges = And @@ ((u @@ # == u @@ Reverse[#])& 
             /@ Join[inAuxEntryPairs, outAuxExitPairs]);
-        IneqSwitchingByVertex = IneqSwitch[u, SwitchingCosts] @@@ TransitionsAt[
-            auxiliaryGraph, #]& /@ verticesList;
+        IneqSwitchingByVertex =
+            IneqSwitch[u, SwitchingCosts] @@@
+                Select[
+                    TransitionsAt[auxiliaryGraph, #],
+                    !MemberQ[blockedIncomingPairs, #[[{1, 2}]]] &
+                ] & /@ verticesList;
         IneqSwitchingByVertex = And @@@ IneqSwitchingByVertex;
-        AltOptCond = And @@ AltSwitch[j, u, SwitchingCosts] @@@ auxTriples
+        AltOptCond = And @@ AltSwitch[j, u, SwitchingCosts] @@@ activeAuxTriples
             ;
         Nlhs = Flatten[u @@ # - u @@ Reverse @ # + SignedFlows[#]& /@
              halfPairs];
@@ -647,13 +684,24 @@ MFGPreprocessing[Eqs_] :=
            i.e. equalities. Skip expensive Simplify and extract directly. *)
         If[AllTrue[Values[Lookup[Eqs, "SwitchingCosts", <||>]], # === 0 &],
             {time, IneqSwitchingByVertex} = AbsoluteTiming[
-                Module[{items = IneqSwitchingByVertex /. InitRules, ineqs, eqs},
+                Module[{items = IneqSwitchingByVertex /. InitRules, ineqs, pairs,
+                        reciprocalPairs, eqs, canonicalPair, reciprocalKeys,
+                        remainingIneqs, combinedConditions},
                     ineqs = Flatten[If[Head[#] === And, List @@ #, {#}]& /@ items];
-                    eqs = DeleteDuplicatesBy[
-                        Cases[ineqs, LessEqual[a_, b_] :> (a == b)],
-                        Sort @* (List @@ #&)
+                    pairs = Cases[ineqs, LessEqual[a_, b_] :> {a, b}];
+                    reciprocalPairs = Select[pairs, MemberQ[pairs, Reverse[#]] &];
+                    canonicalPair[pair_] := SortBy[pair, ToString[InputForm[#]] &];
+                    eqs = DeleteDuplicatesBy[Equal @@@ reciprocalPairs, canonicalPair @* (List @@ # &)];
+                    reciprocalKeys = DeleteDuplicates[canonicalPair /@ reciprocalPairs];
+                    remainingIneqs = Select[
+                        ineqs,
+                        Not @ MatchQ[
+                            #,
+                            LessEqual[a_, b_] /; MemberQ[reciprocalKeys, canonicalPair[{a, b}]]
+                        ] &
                     ];
-                    If[eqs === {}, True, And @@ eqs]
+                    combinedConditions = Join[eqs, remainingIneqs];
+                    If[combinedConditions === {}, True, And @@ combinedConditions]
                 ]
             ];
             MFGPrint["Switching costs (zero): extracted equalities in ",
@@ -1254,7 +1302,8 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
         If[AllTrue[Values[Lookup[Eqs, "SwitchingCosts", <|_ -> 1|>]], # === 0 &] &&
             Lookup[Eqs, "auxiliaryGraph", None] =!= None &&
             AllTrue[Flatten[Lookup[Eqs, "Entrance Vertices and Flows", {}]], NumericQ] &&
-            AllTrue[Flatten[Lookup[Eqs, "Exit Vertices and Terminal Costs", {}]], NumericQ],
+            AllTrue[Flatten[Lookup[Eqs, "Exit Vertices and Terminal Costs", {}]], NumericQ] &&
+            GraphDistanceHeuristicSafeQ[Eqs],
             MFGPrint["Attempting direct critical solver (zero switching costs)..."];
             {time, AssoCritical} = AbsoluteTiming[DirectCriticalSolver[Eqs]];
             If[AssociationQ[AssoCritical] && AssoCritical =!= $Failed,
@@ -1643,7 +1692,8 @@ IsCriticalSolution[Eqs_Association, OptionsPattern[]] :=
 
 MFGSystemSolver[Eqs_][approxJs_] :=
     Module[{NewSystem, InitRules, pickOne, vars, System, Ncpc, costpluscurrents,
-         us, js, jts, jjtsR, usR, time, temp, ineqsByTransition},
+         us, js, jts, jjtsR, usR, time, temp, ineqsByTransition,
+         ineqsWithoutTransition = {}},
         ClearSolveCache[];
         us = Lookup[Eqs, "us", $Failed];
         js = Lookup[Eqs, "js", $Failed];
@@ -1672,13 +1722,25 @@ MFGSystemSolver[Eqs_][approxJs_] :=
             ];
         If[NewSystem[[2]] === True,
             ineqsByTransition = ConstantArray[True, Length[jts]];
+            ineqsWithoutTransition = {};
             time = 0.
             ,
             {time, ineqsByTransition} =
                 AbsoluteTiming[
-                    Module[{ineqList, index},
+                    Module[{ineqList, index, scopedIneqs, transitionPattern},
                         ineqList = If[Head[NewSystem[[2]]] === And,
                             List @@ NewSystem[[2]], {NewSystem[[2]]}];
+                        transitionPattern = If[jts === {}, None, Alternatives @@ jts];
+                        ineqsWithoutTransition =
+                            If[transitionPattern === None,
+                                ineqList,
+                                Select[ineqList, FreeQ[#, transitionPattern] &]
+                            ];
+                        scopedIneqs =
+                            If[ineqsWithoutTransition === {},
+                                ineqList,
+                                Complement[ineqList, ineqsWithoutTransition]
+                            ];
                         index = Association[# -> {} & /@ jts];
                         Do[
                             Do[
@@ -1686,7 +1748,7 @@ MFGSystemSolver[Eqs_][approxJs_] :=
                                     index[jt] = Append[index[jt], ineq]],
                                 {jt, jts}
                             ],
-                            {ineq, ineqList}
+                            {ineq, scopedIneqs}
                         ];
                         (If[# === {}, True, And @@ #]&) /@ Values[index]
                     ]
@@ -1704,11 +1766,18 @@ MFGSystemSolver[Eqs_][approxJs_] :=
         {time, ineqsByTransition} = AbsoluteTiming[DeduplicateByComplexity[
             MFGParallelMap[Simplify,
                 Select[ineqsByTransition, # =!= True &]]]];
+        {time, ineqsWithoutTransition} =
+            AbsoluteTiming[
+                DeduplicateByComplexity[
+                    MFGParallelMap[Simplify,
+                        Select[ineqsWithoutTransition, # =!= True &]]
+                ]
+            ];
         (* Restore True entries for any that were already resolved *)
         NotebookDelete[temp];
         MFGPrint["MFGSS: Simplifying inequalities by transition flow took ",
              time, " seconds. "];
-        NewSystem[[2]] = (And @@ ineqsByTransition);
+        NewSystem[[2]] = (And @@ Join[ineqsByTransition, ineqsWithoutTransition]);
         NewSystem = SystemToTriple[And @@ NewSystem];
         {NewSystem, InitRules} = TripleClean[{NewSystem, InitRules}];
 

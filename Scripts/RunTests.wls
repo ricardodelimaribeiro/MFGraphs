@@ -16,6 +16,8 @@ $TestSuites = <|
         "007-critical_congestion_ok.mt",
         "012-critical_congestion.mt",
         "critical-numeric-backend.mt",
+        "exit-pass-through.mt",
+        "exit-pass-through-nonzero.mt",
         "infeasible-status.mt",
         "monotone-monotonicity.mt",
         "monotone-solver.mt",
