@@ -2,7 +2,9 @@
 Test[
 	MFGEquations = DataToEquations[GetExampleData[7] /. {I1 -> 11, U1 -> 0, U2 -> 10}];
     Association[
-        Normal[CriticalCongestionSolver[MFGEquations]["AssoCritical"]] /.
+        Normal[CriticalCongestionSolver[
+            Join[MFGEquations, <|"CriticalNumericBackendMode" -> False|>]
+        ]["AssoCritical"]] /.
             {MFGraphs`Private`u -> u, MFGraphs`Private`j -> j}
     ]
 	,

@@ -1087,7 +1087,7 @@ DirectCriticalSolver[Eqs_Association] :=
 
 (* --- Critical numeric backend (internal, guarded) --- *)
 
-$CriticalNumericBackendEnabled = False;
+$CriticalNumericBackendEnabled = True;
 
 CriticalNumericBackendRequestedQ[Eqs_Association] :=
     Module[{mode},
