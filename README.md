@@ -163,8 +163,7 @@ wolframscript -file Scripts/RunTests.wls slow
 wolframscript -file Scripts/RunTests.wls all
 ```
 
-GitHub Actions runs the fast suite on Pull Requests and, on trusted branch pushes,
-also runs the slow suite plus smoke checks for benchmarking and stationary-solver comparison.
+Tests are currently intended to run locally via `wolframscript` commands above.
 
 ## Plotting
 

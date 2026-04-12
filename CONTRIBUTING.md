@@ -19,7 +19,7 @@ This project uses Wolfram Language for Mean Field Games on networks. We follow s
   ```
 
 ### Testing before submission
-Run the test suite locally — GitHub Actions will verify but fixing locally first is faster:
+Run the test suite locally before opening a PR:
 
 ```bash
 # Fast regression suite (9 files, ~27 min) — run before PR
