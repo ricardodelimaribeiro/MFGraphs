@@ -300,6 +300,8 @@ $CaseParams = <|
   18 -> {I1 -> 80, U1 -> 0, S1 -> 2, S2 -> 1},
   104 -> {I1 -> 80, I2 -> 40},
   "triangle with two exits" -> {I1 -> 80, U1 -> 0, U2 -> 10},
+  "chain with two exits" -> {I1 -> 80, U1 -> 0, U2 -> 10},
+  105 -> {I1 -> 80, U1 -> 0, U2 -> 10},
   "HRF Scenario 1" -> {I1 -> 100, I2 -> 100, U1 -> 0, U2 -> 0},
   "Jamaratv9" -> {I1 -> 100, I2 -> 50, U1 -> 0, U2 -> 0, U3 -> 0},
   "Paper example" -> {I1 -> 80, I2 -> 40, S1 -> 2, S2 -> 1, S3 -> 3, S4 -> 1},
@@ -324,7 +326,7 @@ GetParams[key_] := Lookup[$CaseParams, key, $DefaultParams];
 
 $BenchmarkTiers = <|
   "small" -> {1, 2, 3, 4, 5, 6, 27},
-  "core" -> {9, 10, 12, 14, 18},
+  "core" -> {9, 10, 12, 14, 18, "chain with two exits"},
   "stress" -> {7, 8, 104, "triangle with two exits"},
   "paper" -> {"HRF Scenario 1"},
   "inconsistent-switching" -> {11, 15, 17, "Paper example"},
