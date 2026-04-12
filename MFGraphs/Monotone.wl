@@ -374,10 +374,13 @@ UseQuadraticCriticalBackendQ[d2e_Association] :=
   ];
 
 BuildMonotoneComparisonData[d2e_Association, stateData_Association, solution_Association] :=
-  Module[{missing, edgeList, flowAssoc, jj, jjVals, signedVals, residual},
+  Module[{missing, edgeList, flowAssoc, jj, jjVals, signedVals, residual,
+      boundaryMassData, utilityReductionResidualData},
     missing = Missing["NotAvailable"];
     edgeList = Lookup[d2e, "edgeList", {}];
     flowAssoc = Association @ KeySelect[solution, MatchQ[#, _j] &];
+    boundaryMassData = BuildBoundaryMassData[d2e, flowAssoc];
+    utilityReductionResidualData = BuildUtilityReductionResidualData[d2e, solution];
     jj = stateData["FullVariables"];
     jjVals = Lookup[flowAssoc, jj, missing];
     signedVals =
@@ -390,14 +393,18 @@ BuildMonotoneComparisonData[d2e_Association, stateData_Association, solution_Ass
         N @ Norm[stateData["KM"] . jjVals - stateData["B"], Infinity],
         missing
       ];
-    <|
-      "ComparableEdges" -> edgeList,
-      "FlowAssociation" -> flowAssoc,
-      "SignedEdgeFlows" ->
-        If[signedVals === missing, missing, AssociationThread[edgeList, signedVals]],
-      "ComparableFlowVector" -> signedVals,
-      "KirchhoffResidual" -> residual
-    |>
+    Join[
+      <|
+        "ComparableEdges" -> edgeList,
+        "FlowAssociation" -> flowAssoc,
+        "SignedEdgeFlows" ->
+          If[signedVals === missing, missing, AssociationThread[edgeList, signedVals]],
+        "ComparableFlowVector" -> signedVals,
+        "KirchhoffResidual" -> residual
+      |>,
+      boundaryMassData,
+      utilityReductionResidualData
+    ]
   ];
 
 BuildReducedKirchhoffMetadata[stateData_Association] :=
