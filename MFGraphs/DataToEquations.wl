@@ -1705,6 +1705,30 @@ SolveCriticalNumericBackend[Eqs_Association] :=
 
 (* --- CriticalCongestionSolver --- *)
 
+(* BuildCriticalResult: single point for assembling the standardized result envelope.
+   Eliminates duplication across numeric, direct, and symbolic solver paths. *)
+BuildCriticalResult[PreEqs_Association, resultKind_String, status_String, message_,
+    candidate_, telemetry_Association] :=
+    Module[{solution, comparisonData},
+        solution = If[AssociationQ[candidate], candidate, Missing["NotAvailable"]];
+        comparisonData = BuildSolverComparisonData[PreEqs, solution];
+        Join[PreEqs, MakeSolverResult["CriticalCongestion", resultKind,
+            status, message, solution,
+            Join[comparisonData, <|"AssoCritical" -> candidate, "Status" -> status|>, telemetry]
+        ]]
+    ];
+
+(* EnsurePreprocessed: lazily run MFGPreprocessing if InitRules are not already present. *)
+EnsurePreprocessed[Eqs_Association] :=
+    Module[{time, PreEqs},
+        If[KeyExistsQ[Eqs, "InitRules"],
+            Eqs,
+            {time, PreEqs} = AbsoluteTiming @ MFGPreprocessing[Eqs];
+            MFGPrint["Preprocessing (for downstream solvers) took ", time, " seconds."];
+            PreEqs
+        ]
+    ];
+
 Options[CriticalCongestionSolver] = {
     "ValidateSolution" -> True,
     "ValidationTolerance" -> $CriticalSolverTolerance,
@@ -1715,13 +1739,14 @@ CriticalCongestionSolver[$Failed, ___] :=
     $Failed
 
 CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
-    Module[{PreEqs, js, AssoCritical, time, temp, status,
-         resultKind, message, solution, comparisonData,
+    Module[{PreEqs, js, AssoCritical, time, status,
+         resultKind, message,
          validateQ, validationTolerance, validationVerboseQ, validationFailedQ,
          numericBackendRequestedQ, numericBackendEligibleQ,
          numericBackendUsedQ, numericBackendFallbackReason, numericBackendSolveTime,
          numericBackendStrategy, jFirstBackendUsedQ, jFirstBackendFallbackReason,
-         numericCandidate, numericOutcome, forcedRejectQ, numericBackendTimeLimit},
+         numericCandidate, numericOutcome, forcedRejectQ, numericBackendTimeLimit,
+         telemetry},
         ClearSolveCache[];
         validateQ = TrueQ[OptionValue["ValidateSolution"]];
         validationTolerance = OptionValue["ValidationTolerance"];
@@ -1749,6 +1774,16 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
             True,
                 30.
         ];
+
+        (* Helper: build telemetry association from current state *)
+        telemetry := <|
+            "NumericBackendUsed" -> numericBackendUsedQ,
+            "NumericBackendFallbackReason" -> numericBackendFallbackReason,
+            "NumericBackendSolveTime" -> numericBackendSolveTime,
+            "NumericBackendStrategy" -> numericBackendStrategy,
+            "JFirstBackendUsed" -> jFirstBackendUsedQ,
+            "JFirstBackendFallbackReason" -> jFirstBackendFallbackReason
+        |>;
 
         (* Try the numeric backend first when explicitly forced or globally enabled. *)
         If[numericBackendRequestedQ && numericBackendEligibleQ,
@@ -1786,11 +1821,8 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
                 status = CheckFlowFeasibility[numericCandidate];
                 If[status === "Feasible",
                     numericBackendUsedQ = True;
-                    If[KeyExistsQ[Eqs, "InitRules"],
-                        PreEqs = Eqs,
-                        {time, PreEqs} = AbsoluteTiming @ MFGPreprocessing[Eqs];
-                        MFGPrint["Preprocessing (for downstream solvers) took ", time, " seconds."]
-                    ];
+                    numericBackendFallbackReason = None;
+                    PreEqs = EnsurePreprocessed[Eqs];
                     If[validateQ,
                         If[forcedRejectQ || !TrueQ @ IsCriticalSolution[
                             Join[PreEqs, <|"AssoCritical" -> numericCandidate, "Solution" -> numericCandidate|>],
@@ -1809,63 +1841,9 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
                             numericBackendFallbackReason =
                                 If[forcedRejectQ, "ForcedValidationFailure", "CriticalValidationFailed"]
                             ,
-                            solution = numericCandidate;
-                            comparisonData = BuildSolverComparisonData[PreEqs, solution];
-                            Return[
-                                Join[
-                                    PreEqs,
-                                    MakeSolverResult[
-                                        "CriticalCongestion",
-                                        "Success",
-                                        status,
-                                        None,
-                                        solution,
-                                        Join[
-                                            comparisonData,
-                                            <|
-                                                "AssoCritical" -> numericCandidate,
-                                                "Status" -> status,
-                                                "NumericBackendUsed" -> True,
-                                                "NumericBackendFallbackReason" -> None,
-                                                "NumericBackendSolveTime" -> numericBackendSolveTime,
-                                                "NumericBackendStrategy" -> numericBackendStrategy,
-                                                "JFirstBackendUsed" -> jFirstBackendUsedQ,
-                                                "JFirstBackendFallbackReason" -> jFirstBackendFallbackReason
-                                            |>
-                                        ]
-                                    ]
-                                ],
-                                Module
-                            ]
+                            Return[BuildCriticalResult[PreEqs, "Success", status, None, numericCandidate, telemetry], Module]
                         ],
-                        solution = numericCandidate;
-                        comparisonData = BuildSolverComparisonData[PreEqs, solution];
-                        Return[
-                            Join[
-                                PreEqs,
-                                MakeSolverResult[
-                                    "CriticalCongestion",
-                                    "Success",
-                                    status,
-                                    None,
-                                    solution,
-                                    Join[
-                                        comparisonData,
-                                        <|
-                                            "AssoCritical" -> numericCandidate,
-                                            "Status" -> status,
-                                            "NumericBackendUsed" -> True,
-                                            "NumericBackendFallbackReason" -> None,
-                                            "NumericBackendSolveTime" -> numericBackendSolveTime,
-                                            "NumericBackendStrategy" -> numericBackendStrategy,
-                                            "JFirstBackendUsed" -> jFirstBackendUsedQ,
-                                            "JFirstBackendFallbackReason" -> jFirstBackendFallbackReason
-                                        |>
-                                    ]
-                                ]
-                            ],
-                            Module
-                        ]
+                        Return[BuildCriticalResult[PreEqs, "Success", status, None, numericCandidate, telemetry], Module]
                     ],
                     numericBackendFallbackReason = "FlowFeasibilityFailed"
                 ],
@@ -1886,14 +1864,7 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
                 MFGPrint["Direct critical solver completed in ", time, " seconds."];
                 status = CheckFlowFeasibility[AssoCritical];
                 If[status === "Feasible",
-                    (* Run MFGPreprocessing so downstream solvers (NonLinearSolver)
-                       have the symbolic InitRules, NewSystem, costpluscurrents that
-                       MFGSystemSolver expects to specialize per-iteration. *)
-                    If[KeyExistsQ[Eqs, "InitRules"],
-                        PreEqs = Eqs,
-                        {time, PreEqs} = AbsoluteTiming @ MFGPreprocessing[Eqs];
-                        MFGPrint["Preprocessing (for downstream solvers) took ", time, " seconds."]
-                    ];
+                    PreEqs = EnsurePreprocessed[Eqs];
                     If[validateQ,
                         If[!TrueQ @ IsCriticalSolution[
                             Join[PreEqs, <|"AssoCritical" -> AssoCritical, "Solution" -> AssoCritical|>],
@@ -1902,47 +1873,9 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
                         ],
                             MFGPrint["Direct solver validation failed, falling back to symbolic solver."]
                             ,
-                            solution = AssoCritical;
-                            comparisonData = BuildSolverComparisonData[PreEqs, solution];
-                            Return[
-                                Join[PreEqs, MakeSolverResult["CriticalCongestion", "Success",
-                                    status, None, solution,
-                                    Join[
-                                        comparisonData,
-                                        <|
-                                            "AssoCritical" -> AssoCritical,
-                                            "Status" -> status,
-                                            "NumericBackendUsed" -> numericBackendUsedQ,
-                                            "NumericBackendFallbackReason" -> numericBackendFallbackReason,
-                                            "NumericBackendSolveTime" -> numericBackendSolveTime,
-                                            "NumericBackendStrategy" -> numericBackendStrategy,
-                                            "JFirstBackendUsed" -> jFirstBackendUsedQ,
-                                            "JFirstBackendFallbackReason" -> jFirstBackendFallbackReason
-                                        |>
-                                    ]]],
-                                Module
-                            ]
+                            Return[BuildCriticalResult[PreEqs, "Success", status, None, AssoCritical, telemetry], Module]
                         ],
-                        solution = AssoCritical;
-                        comparisonData = BuildSolverComparisonData[PreEqs, solution];
-                        Return[
-                            Join[PreEqs, MakeSolverResult["CriticalCongestion", "Success",
-                                status, None, solution,
-                                Join[
-                                    comparisonData,
-                                    <|
-                                        "AssoCritical" -> AssoCritical,
-                                        "Status" -> status,
-                                        "NumericBackendUsed" -> numericBackendUsedQ,
-                                        "NumericBackendFallbackReason" -> numericBackendFallbackReason,
-                                        "NumericBackendSolveTime" -> numericBackendSolveTime,
-                                        "NumericBackendStrategy" -> numericBackendStrategy,
-                                        "JFirstBackendUsed" -> jFirstBackendUsedQ,
-                                        "JFirstBackendFallbackReason" -> jFirstBackendFallbackReason
-                                    |>
-                                ]]],
-                            Module
-                        ]
+                        Return[BuildCriticalResult[PreEqs, "Success", status, None, AssoCritical, telemetry], Module]
                     ],
                     MFGPrint["Direct solver produced infeasible result, falling back to symbolic solver."]
                 ],
@@ -1950,20 +1883,9 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
             ]
         ];
         (* Standard symbolic solver path *)
-        If[!(AssociationQ[PreEqs] && KeyExistsQ[PreEqs, "InitRules"]),
-            If[KeyExistsQ[Eqs, "InitRules"],
-                PreEqs = Eqs
-                ,
-                temp = MFGPrintTemporary["Preprocessing..."];
-                {time, PreEqs} = AbsoluteTiming @ MFGPreprocessing[Eqs];
-                NotebookDelete[temp];
-                MFGPrint["Preprocessing took ", time, " seconds to terminate."
-                    ];
-            ]
-        ];
+        PreEqs = EnsurePreprocessed[If[AssociationQ[PreEqs], PreEqs, Eqs]];
         js = Lookup[PreEqs, "js", $Failed];
-        AssoCritical = MFGSystemSolver[PreEqs][AssociationThread[js,
-            0 js]];
+        AssoCritical = MFGSystemSolver[PreEqs][AssociationThread[js, 0 js]];
         status = CheckFlowFeasibility[AssoCritical];
         If[validateQ && AssociationQ[AssoCritical] && status === "Feasible",
             If[!TrueQ @ IsCriticalSolution[
@@ -1976,40 +1898,10 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
                 status = "Infeasible";
             ]
         ];
-        resultKind =
-            If[AssoCritical === Null,
-                "Failure"
-                ,
-                "Success"
-            ];
-        message =
-            If[AssoCritical === Null,
-                If[validationFailedQ, "InvalidCriticalSolution", "NoSolution"]
-                ,
-                None
-            ];
-        solution =
-            If[AssociationQ[AssoCritical],
-                AssoCritical
-                ,
-                Missing["NotAvailable"]
-            ];
-        comparisonData = BuildSolverComparisonData[PreEqs, solution];
-        Join[PreEqs, MakeSolverResult["CriticalCongestion", resultKind,
-             status, message, solution,
-             Join[
-                 comparisonData,
-                 <|
-                    "AssoCritical" -> AssoCritical,
-                    "Status" -> status,
-                    "NumericBackendUsed" -> numericBackendUsedQ,
-                    "NumericBackendFallbackReason" -> numericBackendFallbackReason,
-                    "NumericBackendSolveTime" -> numericBackendSolveTime,
-                    "NumericBackendStrategy" -> numericBackendStrategy,
-                    "JFirstBackendUsed" -> jFirstBackendUsedQ,
-                    "JFirstBackendFallbackReason" -> jFirstBackendFallbackReason
-                 |>
-             ]]]
+        resultKind = If[AssoCritical === Null, "Failure", "Success"];
+        message = If[AssoCritical === Null,
+            If[validationFailedQ, "InvalidCriticalSolution", "NoSolution"], None];
+        BuildCriticalResult[PreEqs, resultKind, status, message, AssoCritical, telemetry]
     ];
 
 Options[IsCriticalSolution] = {

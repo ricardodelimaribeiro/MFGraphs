@@ -81,8 +81,8 @@ wolframscript -file Scripts/RunTests.wls all
 - Expected times on a typical Mac (as of March 2025):
   - `fast`: **~27 minutes** (solver-contracts + monotone tests with full solver runs)
   - `slow`: **significantly longer** (includes large-case solvers)
+- Test files are MUnit `.mt` files in `MFGraphs/Tests/`
 - Results go to standard Mathematica test output; no files are saved
-- Use this suite in CI for correctness regression checks
 
 #### Performance benchmarks (tier-based)
 
@@ -127,6 +127,10 @@ wolframscript -file Scripts/BenchmarkSuite.wls --tag "description of change" --r
 
 The package follows a linear pipeline: **network data → equations → solver**.
 
+**Unified entrypoint** — `SolveMFG[data, Method -> m]` accepts raw data or compiled equations and dispatches to the appropriate solver. With `Method -> "Automatic"`, it cascades: CriticalCongestion → Monotone → NonLinear, falling back on infeasibility or failure. Returns a standardized result envelope plus `"MethodUsed"` and `"MethodTrace"` keys.
+
+**Individual solvers** can also be called directly:
+
 ```
 Data (Association)
   ↓
@@ -141,15 +145,20 @@ NonLinearSolver[criticalResult]  or  MonotoneSolverFromData[data]
 
 **Solver selection**: `CriticalCongestionSolver` automatically dispatches to `DirectCriticalSolver` for networks with no switching costs (much faster); otherwise uses the full symbolic pipeline.
 
+**MonotoneSolver vs MonotoneSolverFromData**: `MonotoneSolverFromData[data]` accepts raw data and calls `DataToEquations` internally. `MonotoneSolver[d2e]` accepts pre-compiled equations. `SolveMFG` uses `MonotoneSolver` when given compiled input, `MonotoneSolverFromData` otherwise.
+
 ### Module load order
 
 Defined in `MFGraphs.wl`:
 1. `Examples/ExamplesData.wl` — 34 built-in test cases via `GetExampleData[key]`
-2. `DNFReduce.wl` — Boolean algebra solver (disjunctive normal form reduction with Solve/Reduce memoization, branch pruning, and post-reduction via `ReduceDisjuncts`/`SubsumptionPrune`)
-3. `DataToEquations.wl` — Core converter: network topology → equations; implements `DataToEquations`, `CriticalCongestionSolver`, `MFGSystemSolver`, `TripleClean`
-4. `NonLinearSolver.wl` — Iterative fixed-point solver (`NonLinearSolver`) using Hamiltonian framework (up to 15 iterations)
-5. `Monotone.wl` — ODE-based gradient flow solver on Kirchhoff matrix using `NDSolve`
-6. `TimeDependentSolver.wl` — Time-dependent MFG solver using backward-forward sweep on discretized time grid
+2. `Examples/TimeDependentExamples.wl` — Time-dependent example data
+3. `DNFReduce.wl` — Boolean algebra solver (disjunctive normal form reduction with Solve/Reduce memoization, branch pruning, and post-reduction via `ReduceDisjuncts`/`SubsumptionPrune`)
+4. `DataToEquations.wl` — Core converter: network topology → equations; implements `DataToEquations`, `CriticalCongestionSolver`, `MFGSystemSolver`, `TripleClean`
+5. `NonLinearSolver.wl` — Iterative fixed-point solver (`NonLinearSolver`) using Hamiltonian framework (up to 15 iterations)
+6. `Monotone.wl` — ODE-based gradient flow solver on Kirchhoff matrix using `NDSolve`
+7. `TimeDependentSolver.wl` — Time-dependent MFG solver using backward-forward sweep on discretized time grid
+
+After submodule loading, `MFGraphs.wl` defines `SolveMFG` — the unified entrypoint (see Pipeline overview).
 
 ### Symbol contexts
 
@@ -183,23 +192,23 @@ System decomposition (triple `{EE, NN, OR}`):
 
 `NonLinearSolver` expects the output of `CriticalCongestionSolver` (reads `"AssoCritical"` key). Benchmark suite follows: `DataToEquations → CriticalCongestionSolver → NonLinearSolver`.
 
-**Legacy format** (default):
-- `CriticalCongestionSolver`: returns `"AssoCritical"` (zero-flow equilibrium) + `"Status"` (`"Feasible"` or `"Infeasible"`)
-- `NonLinearSolver`: returns `"AssoNonCritical"` (general congestion solution) + `"Status"`
-- `MonotoneSolverFromData`: returns bare solution, `Null`, or message association
+All stationary solvers now return a **standardized result envelope** by default:
 
-**Standard format** (add `"ReturnShape" -> "Standard"`):
 ```mathematica
-result = NonLinearSolver[d2e, "ReturnShape" -> "Standard"]
-(* Returns normalized envelope: *)
 <| "Solver" -> "NonLinearSolver",
-   "ResultKind" -> "...",
+   "ResultKind" -> "Success"|"Failure"|"Degenerate"|"NonConverged",
    "Feasibility" -> "Feasible"|"Infeasible",
    "Message" -> "...",
    "Solution" -> {...},
-   "AssoNonCritical" -> {...}  (* solver-specific payload *)
+   "ComparableFlowVector" -> {...},
+   "KirchhoffResidual" -> ...,
+   "AssoNonCritical" -> {...}  (* solver-specific payload key *)
 |>
 ```
+
+Solver-specific payload keys: `"AssoCritical"`, `"AssoNonCritical"`, `"AssoMonotone"`.
+
+`SolveMFG` results additionally include `"MethodUsed"` and `"MethodTrace"`.
 
 **Checking solutions**:
 - `IsFeasible[result]` — accepts both legacy `"Status"` and standard `"Feasibility"`
@@ -386,6 +395,31 @@ result2 = CriticalCongestionSolver[d2e2];
 ```
 
 Failure to clear the cache can cause stale memoized results to leak into unrelated problems.
+
+## Code style conventions
+
+- Avoid single-letter `System` symbols (e.g., `K`, `D`, `C`) as variable names — they shadow built-ins. Use descriptive names or suffixes like `KM`.
+- For CLI scripts in `Scripts/`, suppress Wolfram Code Analysis warnings for `Print[]` with inline lint blocks:
+  ```wolfram
+  (* :!CodeAnalysis::BeginBlock:: *)
+  (* :!CodeAnalysis::Disable::SuspiciousSessionSymbol:: *)
+  ...
+  (* :!CodeAnalysis::EndBlock:: *)
+  ```
+- `API_REFERENCE.md` is auto-generated — edit `::usage` strings in source, then run `wolframscript -file Scripts/GenerateDocs.wls`
+- `DNF_PERFORMANCE_HISTORY.md` and `PARALLEL_PERFORMANCE_HISTORY.md` are auto-appended by benchmark scripts — do not manually edit
+
+## CI pipeline
+
+GitHub Actions (`.github/workflows/tests.yml`) runs on PRs and pushes to `master`:
+
+| Job | Trigger | What it does |
+|-----|---------|-------------|
+| **report_hygiene** | PRs + pushes | Scans for placeholder prose in report/history files |
+| **fast_tests** | PRs + pushes | `Scripts/RunTests.wls fast` |
+| **slow_tests** | pushes only | `Scripts/RunTests.wls slow` |
+| **benchmark_smoke** | pushes only | `Scripts/BenchmarkSuite.wls small case=1 timeout=10` |
+| **solver_compare_smoke** | pushes only | `Scripts/CompareSolvers.wls smoke` |
 
 ## Git workflow
 
