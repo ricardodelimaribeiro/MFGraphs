@@ -10,7 +10,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **Mathematica 12.0 or later** — required for Wolfram Language syntax and `NDSolve`
 - **wolframscript** — command-line tool included with Mathematica, used to run all scripts from the repository root
-- **Optional**: GitHub Actions setup requires `WOLFRAM_CI_ID` and `WOLFRAM_CI_PASS` environment secrets for running tests via `.github/workflows/tests.yml`
 - **Paclet info**: See `PacletInfo.m` for package metadata (name: "MFGraphs", version: "0.0.2")
 
 ## Quick Start
