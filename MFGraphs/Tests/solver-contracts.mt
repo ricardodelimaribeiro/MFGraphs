@@ -14,12 +14,31 @@ Test[
         AssociationQ[result["SignedEdgeFlows"]] &&
         VectorQ[result["ComparableFlowVector"], NumericQ] &&
         NumericQ[result["KirchhoffResidual"]] &&
+        NumericQ[result["BoundaryMassResidual"]] &&
+        KeyExistsQ[result, "UtilityClassResidual"] &&
         IsFeasible[result]
     ]
     ,
     True
     ,
     TestID -> "Standard return shape: critical congestion solver"
+]
+
+Test[
+    Module[{data, d2e, result},
+        data = GetExampleData["chain with two exits"] /. {I1 -> 80, U1 -> 0, U2 -> 10};
+        d2e = DataToEquations[data];
+        result = Quiet[CriticalCongestionSolver[d2e]];
+        Lookup[result, {"Solver", "ResultKind", "Feasibility", "Message"}] ===
+            {"CriticalCongestion", "Success", "Feasible", None} &&
+        Length[Lookup[data, "Exit Vertices and Terminal Costs", {}]] === 2 &&
+        NumericQ[Lookup[result, "BoundaryMassResidual", Missing["NotAvailable"]]] &&
+        Lookup[result, "BoundaryMassResidual", Infinity] <= 10^-10
+    ]
+    ,
+    True
+    ,
+    TestID -> "Critical solver: chain with two exits example is feasible and mass-conservative"
 ]
 
 Test[
@@ -106,6 +125,8 @@ Test[
         AssociationQ[result["SignedEdgeFlows"]] &&
         VectorQ[result["ComparableFlowVector"], NumericQ] &&
         NumericQ[result["KirchhoffResidual"]] &&
+        NumericQ[result["BoundaryMassResidual"]] &&
+        KeyExistsQ[result, "UtilityClassResidual"] &&
         AssociationQ[result["Convergence"]] &&
         NumericQ[result["Convergence"]["SolveTime"]] &&
         IsFeasible[result]
@@ -143,6 +164,8 @@ Test[
         AssociationQ[result["SignedEdgeFlows"]] &&
         VectorQ[result["ComparableFlowVector"], NumericQ] &&
         NumericQ[result["KirchhoffResidual"]] &&
+        KeyExistsQ[result, "BoundaryMassResidual"] &&
+        KeyExistsQ[result, "UtilityClassResidual"] &&
         AssociationQ[result["Convergence"]] &&
         NumericQ[result["Convergence"]["FinalResidual"]] &&
         IntegerQ[result["ReducedStateDimension"]] &&

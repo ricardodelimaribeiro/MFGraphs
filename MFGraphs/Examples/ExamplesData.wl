@@ -205,6 +205,24 @@ Begin["`Private`"];
         (*SwitchingCostsData=*){}
         },
 
+    (* Chain with two exits: 1 -> 2 -> 3, entry at 1, exits at 2 and 3 *)
+    "chain with two exits" -> {
+        (*VL=*){1, 2, 3},
+        (*AM=*){{0, 1, 0}, {0, 0, 1}, {0, 0, 0}},
+        (*DataIn=*){{1, I1}},
+        (*FinalCosts=*){{2, U1}, {3, U2}},
+        (*SwitchingCostsData=*){}
+        },
+
+    (* Numeric alias for chain with two exits *)
+    105 -> {
+        (*VL=*){1, 2, 3},
+        (*AM=*){{0, 1, 0}, {0, 0, 1}, {0, 0, 0}},
+        (*DataIn=*){{1, I1}},
+        (*FinalCosts=*){{2, U1}, {3, U2}},
+        (*SwitchingCostsData=*){}
+        },
+
     (* Y 2-in 1-out 3 vertices with switching *)
     15 -> {
         (*VL=*){1, 2, 3},
