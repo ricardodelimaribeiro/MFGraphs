@@ -830,8 +830,16 @@ BuildReducedMonotoneDynamics[reduced_Association, KM_, B_, cc_, useCache_:True] 
 (* --- MonotoneSolver --- *)
 
 MonotoneSolverFromData[Data_, opts:OptionsPattern[]] :=
-	Module[{d2e},
-		d2e = DataToEquations[Data];
+	Module[{d2e, potentialFunction, congestionExponentFunction, interactionFunction},
+        potentialFunction = OptionValue["PotentialFunction"];
+        congestionExponentFunction = OptionValue["CongestionExponentFunction"];
+        interactionFunction = OptionValue["InteractionFunction"];
+		d2e = WithHamiltonianFunctions[
+            potentialFunction,
+            congestionExponentFunction,
+            interactionFunction,
+            DataToEquations[Data]
+        ];
 		MonotoneSolver[d2e, opts]
 	];
 

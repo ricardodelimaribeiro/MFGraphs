@@ -425,10 +425,29 @@ SolveMFGIsCriticalQ[opts_List] :=
         ]
     ];
 
+SolveMFGCompileInput[input_Association, opts_List:{}] :=
+    Module[{potentialFunction, congestionExponentFunction, interactionFunction},
+        If[SolveMFGCompiledInputQ[input],
+            Return[input, Module]
+        ];
+        potentialFunction = Replace["PotentialFunction" /. opts, "PotentialFunction" -> Automatic];
+        congestionExponentFunction = Replace[
+            "CongestionExponentFunction" /. opts,
+            "CongestionExponentFunction" -> Automatic
+        ];
+        interactionFunction = Replace["InteractionFunction" /. opts, "InteractionFunction" -> Automatic];
+        WithHamiltonianFunctions[
+            potentialFunction,
+            congestionExponentFunction,
+            interactionFunction,
+            DataToEquations[input]
+        ]
+    ];
+
 SolveMFGAutomaticDispatch[input_Association, opts_List] :=
     Module[{d2e, result = Missing["NotAvailable"], decision, trace = {}, methodUsed = "Automatic",
             attempts, isCritical},
-        d2e = If[SolveMFGCompiledInputQ[input], input, Quiet @ Check[DataToEquations[input], $Failed]];
+        d2e = Quiet @ Check[SolveMFGCompileInput[input, opts], $Failed];
         If[!AssociationQ[d2e],
             Return[SolveMFGAbortResult["DataToEquationsFailed", methodUsed, trace], Module]
         ];
@@ -519,7 +538,7 @@ SolveMFG[input_Association, opts:OptionsPattern[]] :=
                 SolveMFGAutomaticDispatch[input, {opts}]
             ,
             "NonLinear" | "NonLinearSolver",
-                d2e = If[SolveMFGCompiledInputQ[input], input, DataToEquations[input]];
+                d2e = SolveMFGCompileInput[input, {opts}];
                 NonLinearSolver[
                     d2e,
                     Sequence @@ FilterRules[{opts}, Options[NonLinearSolver]]
