@@ -1930,7 +1930,7 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
          numericBackendUsedQ, numericBackendFallbackReason, numericBackendSolveTime,
          numericBackendStrategy, jFirstBackendUsedQ, jFirstBackendFallbackReason,
          numericCandidate, numericOutcome, forcedRejectQ, numericBackendTimeLimit,
-         symbolicTimeLimit, symbolicTimeoutQ,
+         symbolicTimeLimit,
          telemetry},
         ClearSolveCache[];
         validateQ = TrueQ[OptionValue["ValidateSolution"]];
@@ -1940,7 +1940,6 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
         numericBackendUsedQ = False;
         numericBackendSolveTime = Missing["NotAvailable"];
         numericBackendStrategy = "Symbolic";
-        symbolicTimeoutQ = False;
         jFirstBackendUsedQ = False;
         jFirstBackendFallbackReason = None;
         numericBackendRequestedQ = CriticalNumericBackendRequestedQ[Eqs];
@@ -1977,9 +1976,7 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
             "NumericBackendSolveTime" -> numericBackendSolveTime,
             "NumericBackendStrategy" -> numericBackendStrategy,
             "JFirstBackendUsed" -> jFirstBackendUsedQ,
-            "JFirstBackendFallbackReason" -> jFirstBackendFallbackReason,
-            "SymbolicSolverTimedOut" -> symbolicTimeoutQ,
-            "SymbolicSolverTimeLimit" -> symbolicTimeLimit
+            "JFirstBackendFallbackReason" -> jFirstBackendFallbackReason
         |>;
 
         (* Try the numeric backend first when explicitly forced or globally enabled. *)
@@ -2102,8 +2099,7 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
             ]
         ];
         js = Lookup[PreEqs, "js", $Failed];
-        Module[{symbolicTimeLimit, symbolicResult},
-            symbolicTimeLimit = OptionValue["SymbolicTimeLimit"];
+        Module[{symbolicResult},
             symbolicResult = TimeConstrained[
                 Module[{localAssoCritical, localStatus, localValidationFailedQ = False,
                         localResultKind, localMessage},

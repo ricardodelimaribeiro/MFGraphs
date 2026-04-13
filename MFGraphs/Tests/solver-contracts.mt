@@ -113,6 +113,8 @@ Test[
             MFGraphs`U3 -> 0
         };
         d2e = MFGraphs`DataToEquations[data];
+        (* Disable numeric backend to guarantee symbolic path is reached *)
+        d2e = Append[d2e, "CriticalNumericBackendMode" -> False];
         result = Quiet[MFGraphs`CriticalCongestionSolver[d2e, "SymbolicTimeLimit" -> 0.01]];
         Lookup[result, {"Solver", "ResultKind", "Feasibility", "Message"}] ===
             {"CriticalCongestion", "Failure", Missing["NotAvailable"], "SymbolicTimeout"} &&
@@ -323,6 +325,45 @@ Test[
     True
     ,
     TestID -> "Monotone reduced state: observable basis stays feasible and bounded by the Kirchhoff nullspace"
+]
+
+(* BuildPrunedSystem unit tests *)
+
+Test[
+    Module[{system, candidate, pruned},
+        system = {
+            {x == 1},
+            {x >= 0},
+            {x > 0 && y == 0, x == 0 && y > 0}
+        };
+        candidate = <|x -> 1, y -> 0|>;
+        pruned = MFGraphs`Private`BuildPrunedSystem[system, candidate];
+        pruned[[1]] === system[[1]] &&
+        pruned[[2]] === system[[2]] &&
+        Length[pruned[[3]]] === 1 &&
+        pruned[[3]] === {x > 0 && y == 0}
+    ]
+    ,
+    True
+    ,
+    TestID -> "BuildPrunedSystem: prunes unsatisfied Or-branches"
+]
+
+Test[
+    Module[{system, candidate, pruned},
+        system = {
+            {x == 1},
+            {x >= 0},
+            {x > 5 && y == 0, x > 10 && y > 0}
+        };
+        candidate = <|x -> 1, y -> 0|>;
+        pruned = MFGraphs`Private`BuildPrunedSystem[system, candidate];
+        pruned[[3]] === system[[3]]
+    ]
+    ,
+    True
+    ,
+    TestID -> "BuildPrunedSystem: falls back to full system when no branches match"
 ]
 
 Test[

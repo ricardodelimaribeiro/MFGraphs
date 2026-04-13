@@ -682,8 +682,8 @@ Test[
 
 Test[
     Module[{f},
-        f = NormalizeEdgeFunction[<|e[1, 2] -> 1.5, e[2, 3] -> 2.0|>];
-        {f[e[1, 2]], f[e[2, 3]], f[e[3, 4]]}
+        f = NormalizeEdgeFunction[<|{1, 2} -> 1.5, {2, 3} -> 2.0|>];
+        {f[{1, 2}], f[{2, 3}], f[{3, 4}]}
     ]
     ,
     {1.5, 2.0, 1}
