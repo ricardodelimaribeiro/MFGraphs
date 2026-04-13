@@ -1877,7 +1877,7 @@ SolveCriticalNumericBackend[Eqs_Association] :=
 
 (* BuildCriticalResult: single point for assembling the standardized result envelope.
    Eliminates duplication across numeric, direct, and symbolic solver paths. *)
-BuildCriticalResult[PreEqs_Association, resultKind_String, status_String, message_,
+BuildCriticalResult[PreEqs_Association, resultKind_String, status_, message_,
     candidate_, telemetry_Association] :=
     Module[{solution, comparisonData},
         solution = If[AssociationQ[candidate], candidate, Missing["NotAvailable"]];
@@ -1903,7 +1903,7 @@ Options[CriticalCongestionSolver] = {
     "ValidateSolution" -> True,
     "ValidationTolerance" -> $CriticalSolverTolerance,
     "ValidationVerbose" -> False,
-    "SymbolicTimeLimit" -> 5.
+    "SymbolicTimeLimit" -> 120.
 };
 
 CriticalCongestionSolver[$Failed, ___] :=
@@ -1954,7 +1954,7 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
             NumericQ[symbolicTimeLimit] && symbolicTimeLimit > 0,
                 N[symbolicTimeLimit],
             True,
-                5.
+                120.
         ];
 
         (* Helper: build telemetry association from current state *)
@@ -2080,26 +2080,26 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
         If[AssoCritical === $TimedOut,
             symbolicTimeoutQ = True;
             AssoCritical = Null;
-            status = "Infeasible";
+            status = Missing["NotAvailable"];
             resultKind = "Failure";
-            message = "NoSolution";
-            Return[BuildCriticalResult[PreEqs, resultKind, status, message, AssoCritical, telemetry], Module]
+            message = "SymbolicTimeout";
+            ,
+            status = CheckFlowFeasibility[AssoCritical];
+            If[validateQ && AssociationQ[AssoCritical] && status === "Feasible",
+                If[!TrueQ @ IsCriticalSolution[
+                    Join[PreEqs, <|"AssoCritical" -> AssoCritical, "Solution" -> AssoCritical|>],
+                    "Tolerance" -> validationTolerance,
+                    "Verbose" -> validationVerboseQ
+                ],
+                    validationFailedQ = True;
+                    AssoCritical = Null;
+                    status = "Infeasible";
+                ]
+            ];
+            resultKind = If[AssoCritical === Null, "Failure", "Success"];
+            message = If[AssoCritical === Null,
+                If[validationFailedQ, "InvalidCriticalSolution", "NoSolution"], None]
         ];
-        status = CheckFlowFeasibility[AssoCritical];
-        If[validateQ && AssociationQ[AssoCritical] && status === "Feasible",
-            If[!TrueQ @ IsCriticalSolution[
-                Join[PreEqs, <|"AssoCritical" -> AssoCritical, "Solution" -> AssoCritical|>],
-                "Tolerance" -> validationTolerance,
-                "Verbose" -> validationVerboseQ
-            ],
-                validationFailedQ = True;
-                AssoCritical = Null;
-                status = "Infeasible";
-            ]
-        ];
-        resultKind = If[AssoCritical === Null, "Failure", "Success"];
-        message = If[AssoCritical === Null,
-            If[validationFailedQ, "InvalidCriticalSolution", "NoSolution"], None];
         BuildCriticalResult[PreEqs, resultKind, status, message, AssoCritical, telemetry]
     ];
 

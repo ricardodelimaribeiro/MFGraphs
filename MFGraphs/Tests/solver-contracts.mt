@@ -113,9 +113,9 @@ Test[
             MFGraphs`U3 -> 0
         };
         d2e = MFGraphs`DataToEquations[data];
-        result = Quiet[MFGraphs`CriticalCongestionSolver[d2e]];
+        result = Quiet[MFGraphs`CriticalCongestionSolver[d2e, "SymbolicTimeLimit" -> 0.01]];
         Lookup[result, {"Solver", "ResultKind", "Feasibility", "Message"}] ===
-            {"CriticalCongestion", "Failure", "Infeasible", "NoSolution"} &&
+            {"CriticalCongestion", "Failure", Missing["NotAvailable"], "SymbolicTimeout"} &&
         TrueQ[Lookup[result, "SymbolicSolverTimedOut", False]] &&
         Lookup[result, "AssoCritical", Missing["NotAvailable"]] === Null &&
         result["Solution"] === Missing["NotAvailable"]
@@ -123,7 +123,7 @@ Test[
     ,
     True
     ,
-    TestID -> "Critical solver: infeasible Jamarat path times out symbolically and returns NoSolution envelope"
+    TestID -> "Critical solver: timed out symbolic path returns timeout envelope instead of infeasibility"
 ]
 
 Test[
