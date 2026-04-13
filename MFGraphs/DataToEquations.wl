@@ -1875,9 +1875,22 @@ SolveCriticalNumericBackend[Eqs_Association] :=
 
 (* --- CriticalCongestionSolver --- *)
 
+(* BuildPrunedSystem: given a numeric candidate solution and the symbolic system {EE, NN, OR},
+   retain only the Or-branches satisfied by the candidate. Falls back to the full system
+   if no branches are satisfied. *)
+BuildPrunedSystem[system_, candidateSolution_Association, tol_: 10^-6] :=
+    Module[{ee, nn, orBranches, activeOrBranches, prunedOr},
+        {ee, nn, orBranches} = system;
+        activeOrBranches = Select[orBranches,
+            TrueQ[LogicalSatisfiedQ[#, candidateSolution, tol]] &
+        ];
+        prunedOr = If[activeOrBranches === {}, orBranches, activeOrBranches];
+        {ee, nn, prunedOr}
+    ];
+
 (* BuildCriticalResult: single point for assembling the standardized result envelope.
    Eliminates duplication across numeric, direct, and symbolic solver paths. *)
-BuildCriticalResult[PreEqs_Association, resultKind_String, status_, message_,
+BuildCriticalResult[PreEqs_Association, resultKind_, status_, message_,
     candidate_, telemetry_Association] :=
     Module[{solution, comparisonData},
         solution = If[AssociationQ[candidate], candidate, Missing["NotAvailable"]];
@@ -2069,38 +2082,61 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
         ];
         (* Standard symbolic solver path *)
         PreEqs = EnsurePreprocessed[If[AssociationQ[PreEqs], PreEqs, Eqs]];
-        js = Lookup[PreEqs, "js", $Failed];
-        {time, AssoCritical} = AbsoluteTiming[
-            TimeConstrained[
-                MFGSystemSolver[PreEqs][AssociationThread[js, 0 js]],
-                symbolicTimeLimit,
-                $TimedOut
+        (* Oracle Bridge: if the numeric backend produced a candidate that failed validation,
+           use it to prune the symbolic Or-branches before the full symbolic solve. *)
+        If[AssociationQ[numericCandidate] &&
+            ListQ[Lookup[PreEqs, "NewSystem", $Failed]] &&
+            Length[Lookup[PreEqs, "NewSystem", {}]] === 3,
+            Module[{prunedSystem, originalBranchCount, prunedBranchCount},
+                originalBranchCount = Length[Lookup[PreEqs, "NewSystem"][[3]]];
+                prunedSystem = BuildPrunedSystem[
+                    Lookup[PreEqs, "NewSystem"],
+                    numericCandidate
+                ];
+                prunedBranchCount = Length[prunedSystem[[3]]];
+                If[prunedBranchCount < originalBranchCount,
+                    PreEqs = Append[PreEqs, "NewSystem" -> prunedSystem];
+                    MFGPrint["Oracle Bridge: pruned Or-branches from ", originalBranchCount,
+                        " to ", prunedBranchCount]
+                ]
             ]
         ];
-        If[AssoCritical === $TimedOut,
-            symbolicTimeoutQ = True;
-            AssoCritical = Null;
-            status = Missing["NotAvailable"];
-            resultKind = "Failure";
-            message = "SymbolicTimeout";
-            ,
-            status = CheckFlowFeasibility[AssoCritical];
-            If[validateQ && AssociationQ[AssoCritical] && status === "Feasible",
-                If[!TrueQ @ IsCriticalSolution[
-                    Join[PreEqs, <|"AssoCritical" -> AssoCritical, "Solution" -> AssoCritical|>],
-                    "Tolerance" -> validationTolerance,
-                    "Verbose" -> validationVerboseQ
+        js = Lookup[PreEqs, "js", $Failed];
+        Module[{symbolicTimeLimit, symbolicResult},
+            symbolicTimeLimit = OptionValue["SymbolicTimeLimit"];
+            symbolicResult = TimeConstrained[
+                Module[{localAssoCritical, localStatus, localValidationFailedQ = False,
+                        localResultKind, localMessage},
+                    localAssoCritical = MFGSystemSolver[PreEqs][AssociationThread[js, 0 js]];
+                    localStatus = CheckFlowFeasibility[localAssoCritical];
+                    If[validateQ && AssociationQ[localAssoCritical] && localStatus === "Feasible",
+                        If[!TrueQ @ IsCriticalSolution[
+                            Join[PreEqs, <|"AssoCritical" -> localAssoCritical, "Solution" -> localAssoCritical|>],
+                            "Tolerance" -> validationTolerance,
+                            "Verbose" -> validationVerboseQ
+                        ],
+                            localValidationFailedQ = True;
+                            localAssoCritical = Null;
+                            localStatus = "Infeasible";
+                        ]
+                    ];
+                    localResultKind = If[localAssoCritical === Null, "Failure", "Success"];
+                    localMessage = If[localAssoCritical === Null,
+                        If[localValidationFailedQ, "InvalidCriticalSolution", "NoSolution"], None];
+                    BuildCriticalResult[PreEqs, localResultKind, localStatus, localMessage, localAssoCritical, telemetry]
                 ],
-                    validationFailedQ = True;
-                    AssoCritical = Null;
-                    status = "Infeasible";
-                ]
+                symbolicTimeLimit,
+                $TimedOut
             ];
-            resultKind = If[AssoCritical === Null, "Failure", "Success"];
-            message = If[AssoCritical === Null,
-                If[validationFailedQ, "InvalidCriticalSolution", "NoSolution"], None]
-        ];
-        BuildCriticalResult[PreEqs, resultKind, status, message, AssoCritical, telemetry]
+            If[symbolicResult === $TimedOut,
+                BuildCriticalResult[PreEqs, "Failure", Missing["NotAvailable"],
+                    "SymbolicTimeout", Null,
+                    Join[telemetry, <|"SymbolicSolverTimedOut" -> True,
+                        "SymbolicSolverTimeLimit" -> symbolicTimeLimit|>]]
+                ,
+                symbolicResult
+            ]
+        ]
     ];
 
 Options[IsCriticalSolution] = {
@@ -2280,8 +2316,14 @@ IsCriticalSolution[Eqs_Association, OptionsPattern[]] :=
             Return[If[returnReportQ, report, False], Module]
         ];
 
-        flowApprox = Lookup[Eqs, "js", {}];
-        flowApprox = AssociationThread[flowApprox, 0 flowApprox];
+        flowApprox = Which[
+            AssociationQ[Lookup[Eqs, "AssoCritical", Missing["NotAvailable"]]],
+                KeyTake[Lookup[Eqs, "AssoCritical"], Lookup[Eqs, "js", {}]],
+            AssociationQ[Lookup[Eqs, "Solution", Missing["NotAvailable"]]],
+                KeyTake[Lookup[Eqs, "Solution"], Lookup[Eqs, "js", {}]],
+            True,
+                AssociationThread[Lookup[Eqs, "js", {}], 0 Lookup[Eqs, "js", {}]]
+        ];
         costpluscurrents = Lookup[Eqs, "costpluscurrents", Missing["NotAvailable"]];
         eqGeneralCritical =
             Lookup[Eqs, "EqGeneral", True] /.

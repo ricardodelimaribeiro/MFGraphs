@@ -667,7 +667,6 @@ Test[
     ,
     TestID -> "MonotoneSolverFromData: raw compile honors Association alpha override"
 ]
-
 (* NormalizeEdgeFunction unit tests *)
 
 Test[

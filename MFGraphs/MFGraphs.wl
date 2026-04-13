@@ -478,7 +478,7 @@ SolveMFGAutomaticDispatch[input_Association, opts_List] :=
     Module[{d2e, result = Missing["NotAvailable"], decision, trace = {}, methodUsed = "Automatic",
             attempts, isCritical, heldOpts},
         heldOpts = HoldComplete[opts];
-        d2e = Quiet @ Check[SolveMFGCompileInput[input, opts], $Failed];
+        d2e = If[SolveMFGCompiledInputQ[input], input, Quiet @ Check[SolveMFGCompileInput[input, opts], $Failed]];
         If[!AssociationQ[d2e],
             Return[SolveMFGAbortResult["DataToEquationsFailed", methodUsed, trace], Module]
         ];
@@ -582,7 +582,7 @@ SolveMFG[input_Association, opts:OptionsPattern[]] :=
                 SolveMFGAutomaticDispatch[input, {opts}]
             ,
             "NonLinear" | "NonLinearSolver",
-                d2e = SolveMFGCompileInput[input, {opts}];
+                d2e = If[SolveMFGCompiledInputQ[input], input, SolveMFGCompileInput[input, {opts}]];
                 NonLinearSolver[
                     d2e,
                     Sequence @@ FilterRules[{opts}, Options[NonLinearSolver]]
