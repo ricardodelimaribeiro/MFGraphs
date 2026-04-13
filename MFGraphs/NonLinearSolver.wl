@@ -37,8 +37,14 @@ alpha::usage =
 g::usage =
 "g[m, edge] is the edge-dependent interaction term as a function of density m. The default is -1/m^2.";
 
+NormalizeEdgeFunction::usage =
+"NormalizeEdgeFunction[spec, defaultVal] normalizes a user-provided per-edge specification \
+(scalar, Association, Function, or Automatic) into a guaranteed Function[edge, ...]. \
+Unlisted edges in an Association default to defaultVal (default 1).";
+
 WithHamiltonianFunctions::usage =
-"WithHamiltonianFunctions[vFun, alphaFun, gFun, expr] temporarily overrides the public MFGraphs Hamiltonian ingredients V, alpha, and g while evaluating expr. Any argument may be Automatic to keep the current definition.";
+"WithHamiltonianFunctions[vFun, alphaFun, gFun, expr] temporarily overrides the public MFGraphs Hamiltonian ingredients V, alpha, and g while evaluating expr. Any argument may be Automatic to keep the current definition. \
+alphaFun is normalized via NormalizeEdgeFunction so that scalar, Association, and Function specs all work.";
 
 U::usage =
 "U[x, edge, Eqs, sol] computes the value function at position x on the given edge."
@@ -64,12 +70,19 @@ Options[NonLinearSolver] = {
     "InteractionFunction" -> Automatic
 };
 
+NormalizeEdgeFunction[spec_, defaultVal_: 1] := Which[
+    spec === Automatic,    With[{d = defaultVal}, Function[edge, d]],
+    NumericQ[spec],        With[{v = spec}, Function[edge, v]],
+    AssociationQ[spec],    With[{a = spec, d = defaultVal}, Function[edge, Lookup[a, Key[edge], d]]],
+    True,                  spec
+];
+
 SetAttributes[WithHamiltonianFunctions, HoldRest];
 
 WithHamiltonianFunctions[vFun_:Automatic, alphaFun_:Automatic, gFun_:Automatic, expr_] :=
     Block[{V, alpha, g},
         V     = If[vFun     =!= Automatic, vFun,     Function[{x, edge}, 0]];
-        alpha = If[alphaFun =!= Automatic, alphaFun, 1&];
+        alpha = NormalizeEdgeFunction[alphaFun, 1];
         g     = If[gFun     =!= Automatic, gFun,     Function[{m, edge}, -1/m^2]];
         expr
     ];

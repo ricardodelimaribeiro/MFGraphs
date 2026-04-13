@@ -39,7 +39,10 @@ Options[TimeDependentSolver] = {
     "MaxOuterIterations" -> 20,
     "Tolerance" -> 10^-6,
     "SpatialSolverIterations" -> 0,
-    "ReturnShape" -> "Legacy"
+    "ReturnShape" -> "Legacy",
+    "PotentialFunction" -> Automatic,
+    "CongestionExponentFunction" -> Automatic,
+    "InteractionFunction" -> Automatic
 };
 
 Begin["`Private`"];
@@ -319,7 +322,8 @@ assembleResult[timeGrid_List, valueField_List, flowField_List,
 (* ============================================================ *)
 
 TimeDependentSolver[data_Association, opts:OptionsPattern[]] :=
-    Module[{d2e, T, Nt, timeGrid,
+    Module[{potentialFunction, congestionExponentFunction, interactionFunction,
+            d2e, T, Nt, timeGrid,
             maxIter, tol, spatialIter, returnShape,
             massField, valueField, flowField, prevFlowField,
             residual = Infinity, converged = False, iteration = 0,
@@ -341,66 +345,75 @@ TimeDependentSolver[data_Association, opts:OptionsPattern[]] :=
         tol = OptionValue["Tolerance"];
         spatialIter = OptionValue["SpatialSolverIterations"];
         returnShape = OptionValue["ReturnShape"];
+        potentialFunction = OptionValue["PotentialFunction"];
+        congestionExponentFunction = OptionValue["CongestionExponentFunction"];
+        interactionFunction = OptionValue["InteractionFunction"];
 
-        (* Time discretization *)
-        T = data["Time Horizon"];
-        Nt = Lookup[data, "Time Steps", 10];
-        timeGrid = N @ Subdivide[0, T, Nt];
+        WithHamiltonianFunctions[
+            potentialFunction,
+            congestionExponentFunction,
+            interactionFunction,
 
-        (* Build spatial structure once *)
-        MFGPrint["Building spatial structure..."];
-        {time, d2e} = AbsoluteTiming @ DataToEquations[data];
-        MFGPrint["DataToEquations took ", time, " seconds."];
+            (* Time discretization *)
+            T = data["Time Horizon"];
+            Nt = Lookup[data, "Time Steps", 10];
+            timeGrid = N @ Subdivide[0, T, Nt];
 
-        js = Lookup[d2e, "js", {}];
+            (* Build spatial structure once *)
+            MFGPrint["Building spatial structure..."];
+            {time, d2e} = AbsoluteTiming @ DataToEquations[data];
+            MFGPrint["DataToEquations took ", time, " seconds."];
 
-        (* Initialize: zero flows at all time steps *)
-        massField = Table[AssociationThread[js, 0 js], {Nt + 1}];
+            js = Lookup[d2e, "js", {}];
 
-        (* Outer backward-forward loop *)
-        Do[
-            MFGPrint["\n=== Outer iteration ", iteration, " / ", maxIter, " ==="];
+            (* Initialize: zero flows at all time steps *)
+            massField = Table[AssociationThread[js, 0 js], {Nt + 1}];
 
-            (* Backward pass: solve for value function *)
-            {time, {valueField, flowField}} = AbsoluteTiming @
-                backwardPass[d2e, data, timeGrid, massField, spatialIter];
-            MFGPrint["Backward pass took ", time, " seconds."];
+            (* Outer backward-forward loop *)
+            Do[
+                MFGPrint["\n=== Outer iteration ", iteration, " / ", maxIter, " ==="];
 
-            (* Convergence check: compare flow fields *)
-            If[iteration > 1,
-                residual = Max @ Table[
-                    If[AssociationQ[flowField[[k]]] && AssociationQ[prevFlowField[[k]]],
-                        Module[{diff = Values[flowField[[k]]] - Values[prevFlowField[[k]]]},
-                            If[AllTrue[diff, NumericQ],
-                                Max[Abs[diff]],
-                                Infinity
-                            ]
+                (* Backward pass: solve for value function *)
+                {time, {valueField, flowField}} = AbsoluteTiming @
+                    backwardPass[d2e, data, timeGrid, massField, spatialIter];
+                MFGPrint["Backward pass took ", time, " seconds."];
+
+                (* Convergence check: compare flow fields *)
+                If[iteration > 1,
+                    residual = Max @ Table[
+                        If[AssociationQ[flowField[[k]]] && AssociationQ[prevFlowField[[k]]],
+                            Module[{diff = Values[flowField[[k]]] - Values[prevFlowField[[k]]]},
+                                If[AllTrue[diff, NumericQ],
+                                    Max[Abs[diff]],
+                                    Infinity
+                                ]
+                            ],
+                            Infinity
                         ],
-                        Infinity
-                    ],
-                    {k, 1, Nt + 1}
-                ];
-                MFGPrint["Flow residual: ", residual];
+                        {k, 1, Nt + 1}
+                    ];
+                    MFGPrint["Flow residual: ", residual];
 
-                If[residual < tol,
-                    converged = True;
-                    MFGPrint["Converged!"];
-                    Break[]
-                ]
+                    If[residual < tol,
+                        converged = True;
+                        MFGPrint["Converged!"];
+                        Break[]
+                    ]
+                ];
+
+                prevFlowField = flowField;
+
+                (* Forward pass: update mass field from flows *)
+                massField = forwardPass[d2e, flowField, timeGrid];
+                MFGPrint["Forward pass complete."],
+
+                {iteration, 1, maxIter}
             ];
 
-            prevFlowField = flowField;
-
-            (* Forward pass: update mass field from flows *)
-            massField = forwardPass[d2e, flowField, timeGrid];
-            MFGPrint["Forward pass complete."],
-
-            {iteration, 1, maxIter}
-        ];
-
-        (* Assemble and return result *)
-        assembleResult[timeGrid, valueField, flowField, massField,
-            iteration, residual, converged, returnShape]
+            (* Assemble and return result *)
+            assembleResult[timeGrid, valueField, flowField, massField,
+                iteration, residual, converged, returnShape]
+        ]
     ]
 
 End[];

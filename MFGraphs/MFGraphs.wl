@@ -53,16 +53,25 @@ or Length[list] >= $MFGraphsParallelLaunchThreshold (when kernels must be launch
 This avoids paying ~3s kernel launch overhead for small workloads.";
 
 SolveMFG::usage =
-"SolveMFG[input, Method -> m] dispatches to the selected stationary solver and returns
-its standardized result association.
+"SolveMFG[input, Method -> m, opts] dispatches to the selected stationary solver and \
+returns its standardized result association.
 
 Supported methods:
-  \"Automatic\" (placeholder in phase 1, routes to CriticalCongestion)
+  \"Automatic\" — cascades CriticalCongestion -> Monotone -> NonLinear, falling back on \
+infeasibility or failure. When \"CongestionExponentFunction\" specifies alpha != 1, \
+CriticalCongestion is skipped (it only handles alpha=1).
   \"CriticalCongestion\"
   \"NonLinear\"
   \"Monotone\"
 
-input can be either raw data (association accepted by DataToEquations) or an already
+Hamiltonian options (forwarded to NonLinear and Monotone solvers):
+  \"PotentialFunction\" (default Automatic)
+  \"CongestionExponentFunction\" (default Automatic, meaning alpha=1). Accepts a scalar, \
+a Function[edge, ...], or an Association mapping edges to exponents (unlisted edges \
+default to 1).
+  \"InteractionFunction\" (default Automatic)
+
+input can be either raw data (association accepted by DataToEquations) or an already \
 compiled equation association.";
 
 $MFGraphsParallelLaunchThreshold::usage =
@@ -329,9 +338,15 @@ Get["MFGraphs`NonLinearSolver`"];
 Get["MFGraphs`Monotone`"];
 Get["MFGraphs`TimeDependentSolver`"];
 
-Options[SolveMFG] = {
-    Method -> "Automatic"
-};
+Options[SolveMFG] = DeleteDuplicatesBy[
+    Join[
+        {Method -> "Automatic"},
+        Options[NonLinearSolver],
+        Options[MonotoneSolverFromData],
+        Options[CriticalCongestionSolver]
+    ],
+    First
+];
 
 SolveMFGUnknownMethodResult[method_] :=
     <|
@@ -398,41 +413,61 @@ SolveMFGAbortResult[message_, methodUsed_, trace_List] :=
         "Convergence" -> Missing["NotApplicable"]
     |>;
 
+SolveMFGIsCriticalQ[opts_List] :=
+    Module[{alphaOpt},
+        alphaOpt = "CongestionExponentFunction" /. opts;
+        If[alphaOpt === "CongestionExponentFunction", alphaOpt = Automatic];
+        Which[
+            alphaOpt === Automatic, True,
+            NumericQ[alphaOpt], alphaOpt == 1,
+            AssociationQ[alphaOpt], AllTrue[Values[alphaOpt], # == 1 &],
+            True, False
+        ]
+    ];
+
 SolveMFGAutomaticDispatch[input_Association, opts_List] :=
-    Module[{d2e, result = Missing["NotAvailable"], decision, trace = {}, methodUsed = "Automatic", attempts},
+    Module[{d2e, result = Missing["NotAvailable"], decision, trace = {}, methodUsed = "Automatic",
+            attempts, isCritical},
         d2e = If[SolveMFGCompiledInputQ[input], input, Quiet @ Check[DataToEquations[input], $Failed]];
         If[!AssociationQ[d2e],
             Return[SolveMFGAbortResult["DataToEquationsFailed", methodUsed, trace], Module]
         ];
-        attempts = {
-            <|
-                "Method" -> "CriticalCongestion",
-                "Run" -> Function[
-                    CriticalCongestionSolver[
-                        d2e,
-                        Sequence @@ FilterRules[opts, Options[CriticalCongestionSolver]]
+        isCritical = SolveMFGIsCriticalQ[opts];
+        attempts = Join[
+            (* alpha=1: try CriticalCongestion first; alpha!=1: skip it *)
+            If[isCritical,
+                {<|
+                    "Method" -> "CriticalCongestion",
+                    "Run" -> Function[
+                        CriticalCongestionSolver[
+                            d2e,
+                            Sequence @@ FilterRules[opts, Options[CriticalCongestionSolver]]
+                        ]
                     ]
-                ]
-            |>,
-            <|
-                "Method" -> "Monotone",
-                "Run" -> Function[
-                    MonotoneSolver[
-                        d2e,
-                        Sequence @@ FilterRules[opts, Options[MonotoneSolver]]
+                |>},
+                {}
+            ],
+            {
+                <|
+                    "Method" -> "Monotone",
+                    "Run" -> Function[
+                        MonotoneSolver[
+                            d2e,
+                            Sequence @@ FilterRules[opts, Options[MonotoneSolver]]
+                        ]
                     ]
-                ]
-            |>,
-            <|
-                "Method" -> "NonLinear",
-                "Run" -> Function[
-                    NonLinearSolver[
-                        d2e,
-                        Sequence @@ FilterRules[opts, Options[NonLinearSolver]]
+                |>,
+                <|
+                    "Method" -> "NonLinear",
+                    "Run" -> Function[
+                        NonLinearSolver[
+                            d2e,
+                            Sequence @@ FilterRules[opts, Options[NonLinearSolver]]
+                        ]
                     ]
-                ]
-            |>
-        };
+                |>
+            }
+        ];
         Do[
             result = attempt["Run"][];
             decision = SolveMFGClassifyOutcome[result];
