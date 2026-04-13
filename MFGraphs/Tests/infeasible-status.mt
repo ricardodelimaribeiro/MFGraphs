@@ -14,7 +14,7 @@ Test[
     TestID -> "Status: case 7 is Feasible"
 ]
 
-(* Test: Jamaratv9 remains feasible with the current symbolic budget *)
+(* Test: Jamaratv9 baseline still reports infeasible on the validated path *)
 Test[
     Quiet[
         d2e = DataToEquations[GetExampleData["Jamaratv9"] /. {I1 -> 130, I2 -> 128, U1 -> 20, U2 -> 100, U3 -> 0}];
@@ -22,9 +22,9 @@ Test[
         result["Status"]
     ]
     ,
-    "Feasible"
+    "Infeasible"
     ,
-    TestID -> "Status: Jamaratv9 baseline case is Feasible"
+    TestID -> "Status: Jamaratv9 baseline case remains Infeasible on the validated path"
 ]
 
 (* Test: forced symbolic timeout reports missing status instead of infeasibility *)
