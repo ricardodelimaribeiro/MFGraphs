@@ -58,9 +58,10 @@ returns its standardized result association.
 
 Supported methods:
   \"Automatic\" — cascades CriticalCongestion -> Monotone -> NonLinear, falling back on \
-infeasibility or failure. When \"CongestionExponentFunction\" specifies alpha != 1, \
-CriticalCongestion is skipped (it only handles alpha=1).
-  \"CriticalCongestion\"
+infeasibility or failure. When \"CongestionExponentFunction\" is known to be non-1 or \
+cannot be proven to be 1, CriticalCongestion is skipped (it only handles alpha=1).
+  \"CriticalCongestion\" — requires \"CongestionExponentFunction\" -> 1. Unsupported \
+exponents return an immediate standardized failure without compiling raw input.
   \"NonLinear\"
   \"Monotone\"
 
@@ -413,10 +414,39 @@ SolveMFGAbortResult[message_, methodUsed_, trace_List] :=
         "Convergence" -> Missing["NotApplicable"]
     |>;
 
-SolveMFGIsCriticalQ[opts_List] :=
-    Module[{alphaOpt},
-        alphaOpt = "CongestionExponentFunction" /. opts;
-        If[alphaOpt === "CongestionExponentFunction", alphaOpt = Automatic];
+SolveMFGHeldOptionValue[heldOpts_HoldComplete, key_] :=
+    Module[{matches},
+        matches = Cases[
+            heldOpts,
+            HoldPattern[Rule[key, value_]] :> HoldComplete[value],
+            Infinity
+        ];
+        If[matches === {}, HoldComplete[Automatic], Last[matches]]
+    ];
+
+SolveMFGUnsupportedCriticalAlphaResult[] :=
+    <|
+        "Solver" -> "CriticalCongestion",
+        "ResultKind" -> "Failure",
+        "Feasibility" -> Missing["NotAvailable"],
+        "Message" -> "Method -> 'CriticalCongestion' only supports CongestionExponentFunction -> 1.",
+        "Solution" -> Missing["NotAvailable"],
+        "Convergence" -> Missing["NotApplicable"]
+    |>;
+
+SolveMFGIsCriticalQ[heldOpts_HoldComplete] :=
+    Module[{heldAlphaOpt, alphaOpt},
+        heldAlphaOpt = SolveMFGHeldOptionValue[heldOpts, "CongestionExponentFunction"];
+        If[
+            MatchQ[
+                heldAlphaOpt,
+                HoldComplete[
+                    HoldPattern[1 &] | HoldPattern[Function[_, 1]]
+                ]
+            ],
+            Return[True, Module]
+        ];
+        alphaOpt = ReleaseHold[heldAlphaOpt];
         Which[
             alphaOpt === Automatic, True,
             NumericQ[alphaOpt], alphaOpt == 1,
@@ -427,23 +457,32 @@ SolveMFGIsCriticalQ[opts_List] :=
 
 SolveMFGCompileInput[input_Association, opts_List:{}] :=
     Module[{potentialFunction, congestionExponentFunction, interactionFunction},
-        If[SolveMFGCompiledInputQ[input], Return[input, Module]];
+        If[SolveMFGCompiledInputQ[input],
+            Return[input, Module]
+        ];
         potentialFunction = Replace["PotentialFunction" /. opts, "PotentialFunction" -> Automatic];
         congestionExponentFunction = Replace[
-            "CongestionExponentFunction" /. opts, "CongestionExponentFunction" -> Automatic];
+            "CongestionExponentFunction" /. opts,
+            "CongestionExponentFunction" -> Automatic
+        ];
         interactionFunction = Replace["InteractionFunction" /. opts, "InteractionFunction" -> Automatic];
-        WithHamiltonianFunctions[potentialFunction, congestionExponentFunction, interactionFunction,
-            DataToEquations[input]]
+        WithHamiltonianFunctions[
+            potentialFunction,
+            congestionExponentFunction,
+            interactionFunction,
+            DataToEquations[input]
+        ]
     ];
 
 SolveMFGAutomaticDispatch[input_Association, opts_List] :=
     Module[{d2e, result = Missing["NotAvailable"], decision, trace = {}, methodUsed = "Automatic",
-            attempts, isCritical},
+            attempts, isCritical, heldOpts},
+        heldOpts = HoldComplete[opts];
         d2e = If[SolveMFGCompiledInputQ[input], input, Quiet @ Check[SolveMFGCompileInput[input, opts], $Failed]];
         If[!AssociationQ[d2e],
             Return[SolveMFGAbortResult["DataToEquationsFailed", methodUsed, trace], Module]
         ];
-        isCritical = SolveMFGIsCriticalQ[opts];
+        isCritical = SolveMFGIsCriticalQ[heldOpts];
         attempts = Join[
             (* alpha=1: try CriticalCongestion first; alpha!=1: skip it *)
             If[isCritical,
@@ -501,7 +540,8 @@ SolveMFGAutomaticDispatch[input_Association, opts_List] :=
     ];
 
 SolveMFG[input_Association, opts:OptionsPattern[]] :=
-    Module[{method, normalizedMethod, d2e},
+    Module[{method, normalizedMethod, d2e, heldOpts, isCritical},
+        heldOpts = HoldComplete[{opts}];
         method = OptionValue[Method];
         normalizedMethod = ToString[method];
 
@@ -520,10 +560,22 @@ SolveMFG[input_Association, opts:OptionsPattern[]] :=
                 ]
             ,
             "CriticalCongestion" | "CriticalCongestionSolver",
-                d2e = If[SolveMFGCompiledInputQ[input], input, SolveMFGCompileInput[input, {opts}]];
-                CriticalCongestionSolver[
-                    d2e,
-                    Sequence @@ FilterRules[{opts}, Options[CriticalCongestionSolver]]
+                If[
+                    SolveMFGCompiledInputQ[input],
+                    d2e = input;
+                    CriticalCongestionSolver[
+                        d2e,
+                        Sequence @@ FilterRules[{opts}, Options[CriticalCongestionSolver]]
+                    ],
+                    isCritical = SolveMFGIsCriticalQ[heldOpts];
+                    If[!TrueQ[isCritical],
+                        SolveMFGUnsupportedCriticalAlphaResult[],
+                        d2e = SolveMFGCompileInput[input, {opts}];
+                        CriticalCongestionSolver[
+                            d2e,
+                            Sequence @@ FilterRules[{opts}, Options[CriticalCongestionSolver]]
+                        ]
+                    ]
                 ]
             ,
             "Automatic",

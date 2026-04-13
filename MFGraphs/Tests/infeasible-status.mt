@@ -14,7 +14,7 @@ Test[
     TestID -> "Status: case 7 is Feasible"
 ]
 
-(* Test: Infeasible case returns "Infeasible" status *)
+(* Test: Jamaratv9 baseline still reports infeasible on the validated path *)
 Test[
     Quiet[
         d2e = DataToEquations[GetExampleData["Jamaratv9"] /. {I1 -> 130, I2 -> 128, U1 -> 20, U2 -> 100, U3 -> 0}];
@@ -24,7 +24,21 @@ Test[
     ,
     "Infeasible"
     ,
-    TestID -> "Status: Jamaratv9 infeasible case returns Infeasible"
+    TestID -> "Status: Jamaratv9 baseline case remains Infeasible on the validated path"
+]
+
+(* Test: forced symbolic timeout reports missing status instead of infeasibility *)
+Test[
+    Quiet[
+        d2e = DataToEquations[GetExampleData["Jamaratv9"] /. {I1 -> 130, I2 -> 128, U1 -> 20, U2 -> 100, U3 -> 0}];
+        d2e = Append[d2e, "CriticalNumericBackendMode" -> False];
+        result = CriticalCongestionSolver[d2e, "SymbolicTimeLimit" -> 0.0001];
+        result["Status"]
+    ]
+    ,
+    Missing["NotAvailable"]
+    ,
+    TestID -> "Status: Jamaratv9 symbolic timeout reports missing status"
 ]
 
 (* Test: IsFeasible helper *)

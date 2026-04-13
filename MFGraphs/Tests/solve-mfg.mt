@@ -386,6 +386,36 @@ solveMFGWithMockedSolvers[alphaSpec_] :=
         {result, criticalCalls}
     ];
 
+solveMFGExplicitCriticalWithMockCompile[alphaSpec_] :=
+    Module[{data, result, criticalCalls = 0, compileCallCount = 0},
+        data = <|"Mock" -> True|>;
+        result = Block[{SolveMFGCompileInput, CriticalCongestionSolver},
+            SolveMFGCompileInput[input_, opts_List:{}] :=
+                (
+                    compileCallCount++;
+                    <|"EqGeneral" -> True, "js" -> {}, "jts" -> {}, "CompiledInput" -> input, "CompileOpts" -> opts|>
+                );
+            CriticalCongestionSolver[eqs_, ___] :=
+                (
+                    criticalCalls++;
+                    <|
+                        "Solver" -> "CriticalCongestion",
+                        "ResultKind" -> "Success",
+                        "Feasibility" -> "Feasible",
+                        "Message" -> None,
+                        "Solution" -> eqs,
+                        "Convergence" -> Missing["NotApplicable"]
+                    |>
+                );
+            SolveMFG[
+                data,
+                Method -> "CriticalCongestion",
+                "CongestionExponentFunction" -> alphaSpec
+            ]
+        ];
+        {result, compileCallCount, criticalCalls}
+    ];
+
 Test[
     Module[{result, criticalCalls, trace},
         {result, criticalCalls} = solveMFGWithMockedSolvers[2&];
@@ -403,7 +433,7 @@ Test[
 
 Test[
     Module[{result, criticalCalls},
-        {result, criticalCalls} = solveMFGWithMockedSolvers[<|{1, 2} -> 1.5|>];
+        {result, criticalCalls} = solveMFGWithMockedSolvers[<|e[1, 2] -> 1.5|>];
         criticalCalls === 0 &&
         Lookup[result, "MethodUsed", None] === "Monotone"
     ]
@@ -415,7 +445,7 @@ Test[
 
 Test[
     Module[{result, criticalCalls},
-        {result, criticalCalls} = solveMFGWithMockedSolvers[<|{1, 2} -> 1, {2, 3} -> 1|>];
+        {result, criticalCalls} = solveMFGWithMockedSolvers[<|e[1, 2] -> 1, e[2, 3] -> 1|>];
         criticalCalls === 1 &&
         Lookup[result, "MethodUsed", None] === "CriticalCongestion"
     ]
@@ -428,14 +458,77 @@ Test[
 Test[
     Module[{result, criticalCalls},
         {result, criticalCalls} = solveMFGWithMockedSolvers[1&];
-        (* Function (1&) is not recognized as critical (conservative), so it skips Critical *)
-        criticalCalls === 0 &&
-        Lookup[result, "MethodUsed", None] === "Monotone"
+        criticalCalls === 1 &&
+        Lookup[result, "MethodUsed", None] === "CriticalCongestion"
     ]
     ,
     True
     ,
-    TestID -> "SolveMFG automatic: opaque Function alpha conservatively skips Critical"
+    TestID -> "SolveMFG automatic: pure-function alpha=1 still routes to Critical"
+]
+
+Test[
+    Module[{result, criticalCalls},
+        {result, criticalCalls} = solveMFGWithMockedSolvers[Function[edge, 1]];
+        criticalCalls === 1 &&
+        Lookup[result, "MethodUsed", None] === "CriticalCongestion"
+    ]
+    ,
+    True
+    ,
+    TestID -> "SolveMFG automatic: named Function alpha=1 still routes to Critical"
+]
+
+Test[
+    Module[{result, compileCallCount, criticalCalls},
+        {result, compileCallCount, criticalCalls} = solveMFGExplicitCriticalWithMockCompile[1.5];
+        Lookup[result, {"Solver", "ResultKind", "Feasibility", "Message", "Solution"}] === {
+            "CriticalCongestion",
+            "Failure",
+            Missing["NotAvailable"],
+            "Method -> 'CriticalCongestion' only supports CongestionExponentFunction -> 1.",
+            Missing["NotAvailable"]
+        } &&
+        compileCallCount === 0 &&
+        criticalCalls === 0
+    ]
+    ,
+    True
+    ,
+    TestID -> "SolveMFG critical routing: scalar alpha!=1 fails before compile"
+]
+
+Test[
+    Module[{result, compileCallCount, criticalCalls},
+        {result, compileCallCount, criticalCalls} =
+            solveMFGExplicitCriticalWithMockCompile[<|e[1, 2] -> 2|>];
+        Lookup[result, {"Solver", "ResultKind", "Feasibility", "Message", "Solution"}] === {
+            "CriticalCongestion",
+            "Failure",
+            Missing["NotAvailable"],
+            "Method -> 'CriticalCongestion' only supports CongestionExponentFunction -> 1.",
+            Missing["NotAvailable"]
+        } &&
+        compileCallCount === 0 &&
+        criticalCalls === 0
+    ]
+    ,
+    True
+    ,
+    TestID -> "SolveMFG critical routing: association alpha!=1 fails before compile"
+]
+
+Test[
+    Module[{result, compileCallCount, criticalCalls},
+        {result, compileCallCount, criticalCalls} = solveMFGExplicitCriticalWithMockCompile[1&];
+        compileCallCount > 0 &&
+        criticalCalls === 1 &&
+        Lookup[result, "Solver", None] === "CriticalCongestion"
+    ]
+    ,
+    True
+    ,
+    TestID -> "SolveMFG critical routing: pure-function alpha=1 compiles and runs critical"
 ]
 
 Test[
@@ -459,6 +552,121 @@ Test[
     TestID -> "SolveMFG routing: Hamiltonian options forwarded to NonLinear with scalar alpha"
 ]
 
+Test[
+    Module[{data, result, criticalCalls = 0},
+        data = <|"Mock" -> True|>;
+        result = Block[{DataToEquations, CriticalCongestionSolver, MonotoneSolver, NonLinearSolver},
+            DataToEquations[_] :=
+                <|
+                    "EqGeneral" -> alpha[{1, 2}],
+                    "js" -> {},
+                    "jts" -> {},
+                    "CompiledAlpha" -> alpha[{1, 2}]
+                |>;
+            CriticalCongestionSolver[___] := (criticalCalls++; $Failed);
+            MonotoneSolver[___] =
+                <|
+                    "Solver" -> "Monotone",
+                    "ResultKind" -> "Failure",
+                    "Feasibility" -> "Infeasible",
+                    "Message" -> "MockFailure",
+                    "Solution" -> Missing["NotAvailable"],
+                    "Convergence" -> Missing["NotApplicable"]
+                |>;
+            NonLinearSolver[d2e_, ___] :=
+                <|
+                    "Solver" -> "NonLinear",
+                    "ResultKind" -> "Success",
+                    "Feasibility" -> "Feasible",
+                    "Message" -> None,
+                    "Solution" -> <||>,
+                    "Convergence" -> <||>,
+                    "CompiledAlpha" -> Lookup[d2e, "CompiledAlpha", Missing["NotAvailable"]]
+                |>;
+            SolveMFG[
+                data,
+                Method -> "Automatic",
+                "CongestionExponentFunction" -> 1.5
+            ]
+        ];
+        criticalCalls === 0 &&
+        Lookup[result, "MethodUsed", None] === "NonLinear" &&
+        Lookup[result, "CompiledAlpha", Missing["NotAvailable"]] === 1.5
+    ]
+    ,
+    True
+    ,
+    TestID -> "SolveMFG automatic: raw alpha override recompiles equations before NonLinear fallback"
+]
+
+Test[
+    Module[{data, result},
+        data = <|"Mock" -> True|>;
+        result = Block[{DataToEquations, NonLinearSolver},
+            DataToEquations[_] :=
+                <|
+                    "EqGeneral" -> alpha[e[1, 2]],
+                    "js" -> {},
+                    "jts" -> {},
+                    "CompiledAlpha" -> alpha[e[1, 2]]
+                |>;
+            NonLinearSolver[d2e_, ___] :=
+                <|
+                    "Solver" -> "NonLinear",
+                    "ResultKind" -> "Success",
+                    "Feasibility" -> "Feasible",
+                    "Message" -> None,
+                    "Solution" -> <||>,
+                    "Convergence" -> <||>,
+                    "CompiledAlpha" -> Lookup[d2e, "CompiledAlpha", Missing["NotAvailable"]]
+                |>;
+            SolveMFG[
+                data,
+                Method -> "NonLinear",
+                "CongestionExponentFunction" -> <|e[1, 2] -> 1.5|>
+            ]
+        ];
+        Lookup[result, {"Solver", "CompiledAlpha"}] === {"NonLinear", 1.5}
+    ]
+    ,
+    True
+    ,
+    TestID -> "SolveMFG routing: raw NonLinear compile honors Association alpha override"
+]
+
+Test[
+    Module[{data, result},
+        data = <|"Mock" -> True|>;
+        result = Block[{DataToEquations, MonotoneSolver},
+            DataToEquations[_] :=
+                <|
+                    "EqGeneral" -> alpha[e[1, 2]],
+                    "js" -> {},
+                    "jts" -> {},
+                    "CompiledAlpha" -> alpha[e[1, 2]]
+                |>;
+            MonotoneSolver[d2e_, ___] :=
+                <|
+                    "Solver" -> "Monotone",
+                    "ResultKind" -> "Success",
+                    "Feasibility" -> "Feasible",
+                    "Message" -> None,
+                    "Solution" -> <||>,
+                    "Convergence" -> <||>,
+                    "CompiledAlpha" -> Lookup[d2e, "CompiledAlpha", Missing["NotAvailable"]]
+                |>;
+            MonotoneSolverFromData[
+                data,
+                "CongestionExponentFunction" -> <|e[1, 2] -> 1.5|>
+            ]
+        ];
+        Lookup[result, {"Solver", "CompiledAlpha"}] === {"Monotone", 1.5}
+    ]
+    ,
+    True
+    ,
+    TestID -> "MonotoneSolverFromData: raw compile honors Association alpha override"
+]
 (* NormalizeEdgeFunction unit tests *)
 
 Test[
@@ -474,8 +682,8 @@ Test[
 
 Test[
     Module[{f},
-        f = NormalizeEdgeFunction[<|{1, 2} -> 1.5, {2, 3} -> 2.0|>];
-        {f[{1, 2}], f[{2, 3}], f[{3, 4}]}
+        f = NormalizeEdgeFunction[<|e[1, 2] -> 1.5, e[2, 3] -> 2.0|>];
+        {f[e[1, 2]], f[e[2, 3]], f[e[3, 4]]}
     ]
     ,
     {1.5, 2.0, 1}

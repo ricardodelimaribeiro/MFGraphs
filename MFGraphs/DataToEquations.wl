@@ -1930,6 +1930,7 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
          numericBackendUsedQ, numericBackendFallbackReason, numericBackendSolveTime,
          numericBackendStrategy, jFirstBackendUsedQ, jFirstBackendFallbackReason,
          numericCandidate, numericOutcome, forcedRejectQ, numericBackendTimeLimit,
+         symbolicTimeLimit, symbolicTimeoutQ,
          telemetry},
         ClearSolveCache[];
         validateQ = TrueQ[OptionValue["ValidateSolution"]];
@@ -1939,6 +1940,7 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
         numericBackendUsedQ = False;
         numericBackendSolveTime = Missing["NotAvailable"];
         numericBackendStrategy = "Symbolic";
+        symbolicTimeoutQ = False;
         jFirstBackendUsedQ = False;
         jFirstBackendFallbackReason = None;
         numericBackendRequestedQ = CriticalNumericBackendRequestedQ[Eqs];
@@ -1958,6 +1960,15 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
             True,
                 30.
         ];
+        symbolicTimeLimit = OptionValue["SymbolicTimeLimit"];
+        symbolicTimeLimit = Which[
+            symbolicTimeLimit === Infinity || symbolicTimeLimit === DirectedInfinity[1],
+                Infinity,
+            NumericQ[symbolicTimeLimit] && symbolicTimeLimit > 0,
+                N[symbolicTimeLimit],
+            True,
+                120.
+        ];
 
         (* Helper: build telemetry association from current state *)
         telemetry := <|
@@ -1966,7 +1977,9 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
             "NumericBackendSolveTime" -> numericBackendSolveTime,
             "NumericBackendStrategy" -> numericBackendStrategy,
             "JFirstBackendUsed" -> jFirstBackendUsedQ,
-            "JFirstBackendFallbackReason" -> jFirstBackendFallbackReason
+            "JFirstBackendFallbackReason" -> jFirstBackendFallbackReason,
+            "SymbolicSolverTimedOut" -> symbolicTimeoutQ,
+            "SymbolicSolverTimeLimit" -> symbolicTimeLimit
         |>;
 
         (* Try the numeric backend first when explicitly forced or globally enabled. *)
