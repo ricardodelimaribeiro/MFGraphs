@@ -477,7 +477,7 @@ SolveMFGCompileInput[input_Association, opts_List:{}] :=
 SolveMFGAutomaticDispatch[input_Association, opts_List] :=
     Module[{d2e, result = Missing["NotAvailable"], decision, trace = {}, methodUsed = "Automatic",
             attempts, isCritical, heldOpts},
-        heldOpts = HoldComplete[opts];
+        heldOpts = HoldComplete[{opts}];
         d2e = If[SolveMFGCompiledInputQ[input], input, Quiet @ Check[SolveMFGCompileInput[input, opts], $Failed]];
         If[!AssociationQ[d2e],
             Return[SolveMFGAbortResult["DataToEquationsFailed", methodUsed, trace], Module]
