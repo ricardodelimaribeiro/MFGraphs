@@ -386,6 +386,36 @@ solveMFGWithMockedSolvers[alphaSpec_] :=
         {result, criticalCalls}
     ];
 
+solveMFGExplicitCriticalWithMockCompile[alphaSpec_] :=
+    Module[{data, result, criticalCalls = 0, compileCallCount = 0},
+        data = <|"Mock" -> True|>;
+        result = Block[{SolveMFGCompileInput, CriticalCongestionSolver},
+            SolveMFGCompileInput[input_, opts_List:{}] :=
+                (
+                    compileCallCount++;
+                    <|"EqGeneral" -> True, "js" -> {}, "jts" -> {}, "CompiledInput" -> input, "CompileOpts" -> opts|>
+                );
+            CriticalCongestionSolver[eqs_, ___] :=
+                (
+                    criticalCalls++;
+                    <|
+                        "Solver" -> "CriticalCongestion",
+                        "ResultKind" -> "Success",
+                        "Feasibility" -> "Feasible",
+                        "Message" -> None,
+                        "Solution" -> eqs,
+                        "Convergence" -> Missing["NotApplicable"]
+                    |>
+                );
+            SolveMFG[
+                data,
+                Method -> "CriticalCongestion",
+                "CongestionExponentFunction" -> alphaSpec
+            ]
+        ];
+        {result, compileCallCount, criticalCalls}
+    ];
+
 Test[
     Module[{result, criticalCalls, trace},
         {result, criticalCalls} = solveMFGWithMockedSolvers[2&];
@@ -428,14 +458,77 @@ Test[
 Test[
     Module[{result, criticalCalls},
         {result, criticalCalls} = solveMFGWithMockedSolvers[1&];
-        (* Function (1&) is not recognized as critical (conservative), so it skips Critical *)
-        criticalCalls === 0 &&
-        Lookup[result, "MethodUsed", None] === "Monotone"
+        criticalCalls === 1 &&
+        Lookup[result, "MethodUsed", None] === "CriticalCongestion"
     ]
     ,
     True
     ,
-    TestID -> "SolveMFG automatic: opaque Function alpha conservatively skips Critical"
+    TestID -> "SolveMFG automatic: pure-function alpha=1 still routes to Critical"
+]
+
+Test[
+    Module[{result, criticalCalls},
+        {result, criticalCalls} = solveMFGWithMockedSolvers[Function[edge, 1]];
+        criticalCalls === 1 &&
+        Lookup[result, "MethodUsed", None] === "CriticalCongestion"
+    ]
+    ,
+    True
+    ,
+    TestID -> "SolveMFG automatic: named Function alpha=1 still routes to Critical"
+]
+
+Test[
+    Module[{result, compileCallCount, criticalCalls},
+        {result, compileCallCount, criticalCalls} = solveMFGExplicitCriticalWithMockCompile[1.5];
+        Lookup[result, {"Solver", "ResultKind", "Feasibility", "Message", "Solution"}] === {
+            "CriticalCongestion",
+            "Failure",
+            Missing["NotAvailable"],
+            "Method -> 'CriticalCongestion' only supports CongestionExponentFunction -> 1.",
+            Missing["NotAvailable"]
+        } &&
+        compileCallCount === 0 &&
+        criticalCalls === 0
+    ]
+    ,
+    True
+    ,
+    TestID -> "SolveMFG critical routing: scalar alpha!=1 fails before compile"
+]
+
+Test[
+    Module[{result, compileCallCount, criticalCalls},
+        {result, compileCallCount, criticalCalls} =
+            solveMFGExplicitCriticalWithMockCompile[<|e[1, 2] -> 2|>];
+        Lookup[result, {"Solver", "ResultKind", "Feasibility", "Message", "Solution"}] === {
+            "CriticalCongestion",
+            "Failure",
+            Missing["NotAvailable"],
+            "Method -> 'CriticalCongestion' only supports CongestionExponentFunction -> 1.",
+            Missing["NotAvailable"]
+        } &&
+        compileCallCount === 0 &&
+        criticalCalls === 0
+    ]
+    ,
+    True
+    ,
+    TestID -> "SolveMFG critical routing: association alpha!=1 fails before compile"
+]
+
+Test[
+    Module[{result, compileCallCount, criticalCalls},
+        {result, compileCallCount, criticalCalls} = solveMFGExplicitCriticalWithMockCompile[1&];
+        compileCallCount > 0 &&
+        criticalCalls === 1 &&
+        Lookup[result, "Solver", None] === "CriticalCongestion"
+    ]
+    ,
+    True
+    ,
+    TestID -> "SolveMFG critical routing: pure-function alpha=1 compiles and runs critical"
 ]
 
 Test[
