@@ -301,3 +301,23 @@ Test[
     ,
     TestID -> "Monotone reduced state: observable basis stays feasible and bounded by the Kirchhoff nullspace"
 ]
+
+Test[
+    Module[{data, d2e, result},
+        (* Case 8 has switching costs, so the direct solver is skipped *)
+        data = GetExampleData[8] /. {I1 -> 100, U1 -> 0, U2 -> 0, S1 -> 1, S2 -> 1, S3 -> 1, S4 -> 1, S5 -> 1, S6 -> 1};
+        d2e = DataToEquations[data];
+        (* Disable numeric backend to force symbolic path *)
+        d2e = Append[d2e, "CriticalNumericBackendMode" -> False];
+        result = Quiet[CriticalCongestionSolver[d2e, "SymbolicTimeLimit" -> 0.0001]];
+        AssociationQ[result] &&
+        Lookup[result, "ResultKind"] === "Failure" &&
+        Lookup[result, "Feasibility"] === Missing["NotAvailable"] &&
+        Lookup[result, "Message"] === "SymbolicTimeout" &&
+        TrueQ[Lookup[result, "SymbolicSolverTimedOut", False]]
+    ]
+    ,
+    True
+    ,
+    TestID -> "CriticalCongestionSolver: symbolic timeout returns structured envelope, not $Failed"
+]
