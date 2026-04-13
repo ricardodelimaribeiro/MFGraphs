@@ -1807,11 +1807,13 @@ SolveCriticalNumericBackend[Eqs_Association] :=
         ];
 
         nVars = Length[reducedVars];
-        (* Minimize total flow to break counter-flow degeneracy:
-           flow variables get cost 1, u-variables get cost 0. *)
+        (* Infinitesimal flow-minimizing objective to break counter-flow
+           degeneracy without distorting the equilibrium.  The equilibrium
+           is fully pinned by the equality constraints; this epsilon
+           tiebreaker only selects the non-cycling vertex of the polytope. *)
         cVec = Developer`ToPackedArray @ N @ ReplacePart[
             ConstantArray[0., nVars],
-            Thread[flowIndices -> 1.]
+            Thread[flowIndices -> 10.^-12]
         ];
         aEq = If[Head[aMat] === SparseArray, aMat, SparseArray[aMat]];
         bEq = Developer`ToPackedArray @ N @ (-bVec);
