@@ -1133,6 +1133,92 @@ DirectCriticalSolver[Eqs_Association] :=
         result
     ]
 
+(* --- u-variable equivalence reduction (zero-switching-cost preprocessing) --- *)
+
+(* BuildUEquivalenceReduction: when switching costs are zero at a vertex,
+   all u[a,v] for that vertex v are equal.  We treat these equalities as
+   undirected edges in a graph over u-variables and collapse each connected
+   component to a single representative.  If a boundary value is known for
+   any member of the class, we prefer that member as representative so the
+   substitution injects the numeric constant directly. *)
+BuildUEquivalenceReduction[Eqs_Association] :=
+    Module[{us, auxPairs, switchingCosts, byVertex, edges, graph, components,
+        boundaryVars, representative, rules, liftRules, nEliminated},
+        us = Lookup[Eqs, "us", {}];
+        auxPairs = Cases[us, u[a_, b_] :> {a, b}];
+        switchingCosts = Lookup[Eqs, "SwitchingCosts", <||>];
+
+        (* Group auxiliary pairs by destination vertex *)
+        byVertex = GroupBy[auxPairs, Last];
+
+        (* Build undirected equality edges: u[a,v] == u[c,v] when S(a,v,c)=0 *)
+        edges = Flatten @ KeyValueMap[
+            Function[{v, pairs},
+                If[Length[pairs] <= 1, {},
+                    Select[
+                        Flatten[Table[
+                            UndirectedEdge[u @@ pairs[[i]], u @@ pairs[[j]]],
+                            {i, Length[pairs]}, {j, i + 1, Length[pairs]}
+                        ]],
+                        (* Both directions of switching must be zero *)
+                        With[{p1 = List @@ #[[1]], p2 = List @@ #[[2]]},
+                            Lookup[switchingCosts, Key[{p1[[1]], v, p2[[1]]}], Infinity] === 0 &&
+                            Lookup[switchingCosts, Key[{p2[[1]], v, p1[[1]]}], Infinity] === 0
+                        ] &
+                    ]
+                ]
+            ],
+            byVertex
+        ];
+
+        If[edges === {},
+            Return[<|
+                "SubstitutionRules" -> {},
+                "LiftRules" -> {},
+                "ReducedUVars" -> us,
+                "EliminatedCount" -> 0,
+                "ClassCount" -> Length[us],
+                "Classes" -> (List /@ us)
+            |>, Module]
+        ];
+
+        graph = Graph[us, edges];
+        components = ConnectedComponents[graph];
+
+        (* Identify boundary-valued u-variables for representative preference *)
+        boundaryVars = Join[
+            Keys[Lookup[Eqs, "RuleExitValues", <||>]],
+            Keys[Lookup[Eqs, "RuleEntryValues", <||>]]
+        ];
+
+        (* For each class, pick representative: prefer boundary vars, else first *)
+        rules = {};
+        liftRules = {};
+        Do[
+            representative = With[{bnd = Select[class, MemberQ[boundaryVars, #] &]},
+                If[bnd =!= {}, First[bnd], First[class]]
+            ];
+            Do[
+                If[var =!= representative,
+                    AppendTo[rules, var -> representative];
+                    AppendTo[liftRules, var -> representative];
+                ],
+                {var, class}
+            ],
+            {class, components}
+        ];
+
+        nEliminated = Length[rules];
+        <|
+            "SubstitutionRules" -> rules,
+            "LiftRules" -> liftRules,
+            "ReducedUVars" -> Complement[us, Keys[Association[rules]]],
+            "EliminatedCount" -> nEliminated,
+            "ClassCount" -> Length[components],
+            "Classes" -> components
+        |>
+    ];
+
 (* --- Critical numeric backend (internal, guarded) --- *)
 
 $CriticalNumericBackendEnabled = True;
@@ -1645,9 +1731,11 @@ SolveCriticalNumericBackendWithTelemetry[Eqs_Association] :=
     ];
 
 SolveCriticalNumericBackend[Eqs_Association] :=
-    Module[{constraints, equalities, flowVars, allVars,
+    Module[{constraints, equalities, flowVars, allVars, fullUs, fullJs, fullJts,
+        reduction, subRules, reducedUs, reducedVars,
         linearSystem, aMat, bVec, xCandidate, varIndex, flowIndices,
-        linResidual, flowMin, tol = $CriticalSolverTolerance, assoc, lpResult, lpVals, solvedAssoc,
+        linResidual, flowMin, tol = $CriticalSolverTolerance, assoc, lpResult, lpVals,
+        solvedAssoc, fullAssoc,
         nVars, cVec, aIneq, bIneq, aEq, bEq},
         constraints = BuildCriticalLinearConstraints[Eqs];
         If[constraints === $Failed || !AssociationQ[constraints],
@@ -1656,34 +1744,59 @@ SolveCriticalNumericBackend[Eqs_Association] :=
         equalities = Lookup[constraints, "Equalities", {}];
         flowVars = Lookup[constraints, "FlowVariables", {}];
         allVars = Lookup[constraints, "AllVariables", {}];
+        fullUs = Lookup[Eqs, "us", {}];
+        fullJs = Lookup[Eqs, "js", {}];
+        fullJts = Lookup[Eqs, "jts", {}];
         If[equalities === {} || allVars === {},
             Return[$Failed, Module]
         ];
-        varIndex = AssociationThread[allVars, Range[Length[allVars]]];
+
+        (* Apply u-variable equivalence reduction *)
+        reduction = BuildUEquivalenceReduction[Eqs];
+        subRules = Lookup[reduction, "SubstitutionRules", {}];
+        reducedUs = Lookup[reduction, "ReducedUVars", fullUs];
+        If[subRules =!= {},
+            equalities = DeleteDuplicates @ Cases[
+                DeleteCases[equalities /. subRules, True],
+                _Equal
+            ];
+            (* Remove tautologies like x == x that arise from substitution *)
+            equalities = Select[equalities, #[[1]] =!= #[[2]] &];
+            reducedVars = Join[reducedUs, fullJs, fullJts];
+            ,
+            reducedVars = allVars
+        ];
+        If[equalities === {} || reducedVars === {},
+            Return[$Failed, Module]
+        ];
+
+        varIndex = AssociationThread[reducedVars, Range[Length[reducedVars]]];
         flowIndices = Lookup[varIndex, flowVars, Missing["NotAvailable"]];
         If[MemberQ[flowIndices, _Missing] || flowIndices === {},
             Return[$Failed, Module]
         ];
 
-        linearSystem = BuildLinearSystemFromEqualities[equalities, allVars];
+        linearSystem = BuildLinearSystemFromEqualities[equalities, reducedVars];
         If[AssociationQ[linearSystem],
             aMat = linearSystem["A"];
             bVec = linearSystem["b"];
             xCandidate = LinearSolveCandidate[aMat, bVec];
-            If[VectorQ[xCandidate, NumericQ] && Length[xCandidate] === Length[allVars],
+            If[VectorQ[xCandidate, NumericQ] && Length[xCandidate] === Length[reducedVars],
                 linResidual = Quiet @ Check[N @ Norm[aMat . xCandidate - bVec, Infinity], Infinity];
                 flowMin = Min[xCandidate[[flowIndices]]];
                 If[NumericQ[linResidual] && linResidual <= tol && NumericQ[flowMin] && flowMin >= -tol,
-                    assoc = AssociationThread[allVars, xCandidate];
+                    assoc = AssociationThread[reducedVars, xCandidate];
+                    (* Lift eliminated u-vars back from their representatives *)
+                    fullAssoc = Join[assoc, Association[subRules /. assoc]];
                     solvedAssoc = Association @ KeyValueMap[
                         #1 -> If[Abs[#2] <= tol, 0., N[#2]] &,
-                        assoc
+                        fullAssoc
                     ];
                     Return[
                         Join[
-                            KeyTake[solvedAssoc, Lookup[Eqs, "us", {}]],
-                            KeyTake[solvedAssoc, Lookup[Eqs, "js", {}]],
-                            KeyTake[solvedAssoc, Lookup[Eqs, "jts", {}]]
+                            KeyTake[solvedAssoc, fullUs],
+                            KeyTake[solvedAssoc, fullJs],
+                            KeyTake[solvedAssoc, fullJts]
                         ],
                         Module
                     ]
@@ -1693,8 +1806,13 @@ SolveCriticalNumericBackend[Eqs_Association] :=
             Return[$Failed, Module]
         ];
 
-        nVars = Length[allVars];
-        cVec = Developer`ToPackedArray @ ConstantArray[0., nVars];
+        nVars = Length[reducedVars];
+        (* Minimize total flow to break counter-flow degeneracy:
+           flow variables get cost 1, u-variables get cost 0. *)
+        cVec = Developer`ToPackedArray @ N @ ReplacePart[
+            ConstantArray[0., nVars],
+            Thread[flowIndices -> 1.]
+        ];
         aEq = If[Head[aMat] === SparseArray, aMat, SparseArray[aMat]];
         bEq = Developer`ToPackedArray @ N @ (-bVec);
         aIneq = SparseArray[
@@ -1739,15 +1857,17 @@ SolveCriticalNumericBackend[Eqs_Association] :=
             lpVals === $Failed || !VectorQ[lpVals, NumericQ] || Length[lpVals] =!= nVars,
             Return[$Failed, Module]
         ];
-        assoc = AssociationThread[allVars, Developer`ToPackedArray @ N @ lpVals];
+        assoc = AssociationThread[reducedVars, Developer`ToPackedArray @ N @ lpVals];
+        (* Lift eliminated u-vars back from their representatives *)
+        fullAssoc = Join[assoc, Association[subRules /. assoc]];
         solvedAssoc = Association @ KeyValueMap[
             #1 -> If[Abs[#2] <= tol, 0., N[#2]] &,
-            assoc
+            fullAssoc
         ];
         Join[
-            KeyTake[solvedAssoc, Lookup[Eqs, "us", {}]],
-            KeyTake[solvedAssoc, Lookup[Eqs, "js", {}]],
-            KeyTake[solvedAssoc, Lookup[Eqs, "jts", {}]]
+            KeyTake[solvedAssoc, fullUs],
+            KeyTake[solvedAssoc, fullJs],
+            KeyTake[solvedAssoc, fullJts]
         ]
     ];
 
