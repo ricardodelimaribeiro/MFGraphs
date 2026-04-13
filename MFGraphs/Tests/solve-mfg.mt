@@ -340,3 +340,168 @@ Test[
     ,
     TestID -> "SolveMFG automatic: real-data run returns method trace and method used"
 ]
+
+(* ================================================================ *)
+(* Alpha-aware dispatch tests (issue #23)                           *)
+(* ================================================================ *)
+
+(* Helper: run SolveMFG with mocked solvers, returning {result, criticalCalls}. *)
+solveMFGWithMockedSolvers[alphaSpec_] :=
+    Module[{compiled, result, criticalCalls = 0},
+        compiled = <|"EqGeneral" -> True, "js" -> {}, "jts" -> {}|>;
+        result = Block[{CriticalCongestionSolver, MonotoneSolver, NonLinearSolver},
+            CriticalCongestionSolver[___] :=
+                (
+                    criticalCalls++;
+                    <|
+                        "Solver" -> "CriticalCongestion",
+                        "ResultKind" -> "Success",
+                        "Feasibility" -> "Feasible",
+                        "Message" -> None,
+                        "Solution" -> <||>,
+                        "Convergence" -> Missing["NotApplicable"]
+                    |>
+                );
+            MonotoneSolver[___] =
+                <|
+                    "Solver" -> "Monotone",
+                    "ResultKind" -> "Success",
+                    "Feasibility" -> "Feasible",
+                    "Message" -> None,
+                    "Solution" -> <||>,
+                    "Convergence" -> <||>
+                |>;
+            NonLinearSolver[___] =
+                <|
+                    "Solver" -> "NonLinear",
+                    "ResultKind" -> "Success",
+                    "Feasibility" -> "Feasible",
+                    "Message" -> None,
+                    "Solution" -> <||>,
+                    "Convergence" -> <||>
+                |>;
+            SolveMFG[compiled, Method -> "Automatic",
+                "CongestionExponentFunction" -> alphaSpec]
+        ];
+        {result, criticalCalls}
+    ];
+
+Test[
+    Module[{result, criticalCalls, trace},
+        {result, criticalCalls} = solveMFGWithMockedSolvers[2&];
+        trace = Lookup[result, "MethodTrace", {}];
+        criticalCalls === 0 &&
+        Lookup[result, "MethodUsed", None] === "Monotone" &&
+        Length[trace] === 1 &&
+        Lookup[trace[[1]], "Method", None] === "Monotone"
+    ]
+    ,
+    True
+    ,
+    TestID -> "SolveMFG automatic: alpha!=1 skips CriticalCongestion"
+]
+
+Test[
+    Module[{result, criticalCalls},
+        {result, criticalCalls} = solveMFGWithMockedSolvers[<|{1, 2} -> 1.5|>];
+        criticalCalls === 0 &&
+        Lookup[result, "MethodUsed", None] === "Monotone"
+    ]
+    ,
+    True
+    ,
+    TestID -> "SolveMFG automatic: Association alpha!=1 skips CriticalCongestion"
+]
+
+Test[
+    Module[{result, criticalCalls},
+        {result, criticalCalls} = solveMFGWithMockedSolvers[<|{1, 2} -> 1, {2, 3} -> 1|>];
+        criticalCalls === 1 &&
+        Lookup[result, "MethodUsed", None] === "CriticalCongestion"
+    ]
+    ,
+    True
+    ,
+    TestID -> "SolveMFG automatic: uniform alpha=1 Association still routes to Critical"
+]
+
+Test[
+    Module[{result, criticalCalls},
+        {result, criticalCalls} = solveMFGWithMockedSolvers[1&];
+        (* Function (1&) is not recognized as critical (conservative), so it skips Critical *)
+        criticalCalls === 0 &&
+        Lookup[result, "MethodUsed", None] === "Monotone"
+    ]
+    ,
+    True
+    ,
+    TestID -> "SolveMFG automatic: opaque Function alpha conservatively skips Critical"
+]
+
+Test[
+    Module[{data, result},
+        data = GetExampleData[3] /. {I1 -> 2, U1 -> 0};
+        result = Quiet[
+            SolveMFG[
+                data,
+                Method -> "NonLinear",
+                "MaxIterations" -> 20,
+                "Tolerance" -> 10^-8,
+                "CongestionExponentFunction" -> 1.5
+            ]
+        ];
+        Lookup[result, "Solver", None] === "NonLinear" &&
+        MemberQ[{"Success", "NonConverged"}, Lookup[result, "ResultKind", None]]
+    ]
+    ,
+    True
+    ,
+    TestID -> "SolveMFG routing: Hamiltonian options forwarded to NonLinear with scalar alpha"
+]
+
+(* NormalizeEdgeFunction unit tests *)
+
+Test[
+    Module[{f},
+        f = NormalizeEdgeFunction[2.5];
+        f[{1, 2}]
+    ]
+    ,
+    2.5
+    ,
+    TestID -> "NormalizeEdgeFunction: scalar input returns constant function"
+]
+
+Test[
+    Module[{f},
+        f = NormalizeEdgeFunction[<|{1, 2} -> 1.5, {2, 3} -> 2.0|>];
+        {f[{1, 2}], f[{2, 3}], f[{3, 4}]}
+    ]
+    ,
+    {1.5, 2.0, 1}
+    ,
+    TestID -> "NormalizeEdgeFunction: Association with default fallback"
+]
+
+Test[
+    Module[{f},
+        f = NormalizeEdgeFunction[Automatic];
+        f[{1, 2}]
+    ]
+    ,
+    1
+    ,
+    TestID -> "NormalizeEdgeFunction: Automatic returns default-valued function"
+]
+
+Test[
+    Module[{f, custom},
+        custom = Function[edge, Length[edge]];
+        f = NormalizeEdgeFunction[custom];
+        f[{1, 2}]
+    ]
+    ,
+    2
+    ,
+    TestID -> "NormalizeEdgeFunction: Function passthrough"
+]

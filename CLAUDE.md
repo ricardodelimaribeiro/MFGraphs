@@ -126,7 +126,7 @@ wolframscript -file Scripts/BenchmarkSuite.wls --tag "description of change" --r
 
 The package follows a linear pipeline: **network data → equations → solver**.
 
-**Unified entrypoint** — `SolveMFG[data, Method -> m]` accepts raw data or compiled equations and dispatches to the appropriate solver. With `Method -> "Automatic"`, it cascades: CriticalCongestion → Monotone → NonLinear, falling back on infeasibility or failure. Returns a standardized result envelope plus `"MethodUsed"` and `"MethodTrace"` keys.
+**Unified entrypoint** — `SolveMFG[data, Method -> m, opts]` accepts raw data or compiled equations and dispatches to the appropriate solver. With `Method -> "Automatic"`, it cascades: CriticalCongestion → Monotone → NonLinear, falling back on infeasibility or failure. When `"CongestionExponentFunction"` specifies alpha != 1 (scalar, Association, or Function), CriticalCongestion is skipped since it only handles alpha=1. Hamiltonian options (`"PotentialFunction"`, `"CongestionExponentFunction"`, `"InteractionFunction"`) and all downstream solver options are declared in `Options[SolveMFG]` and forwarded via `FilterRules`. `"CongestionExponentFunction"` accepts a scalar, `Function[edge, ...]`, or an `Association` mapping edges to exponents (unlisted edges default to 1); all forms are normalized by `NormalizeEdgeFunction`. Returns a standardized result envelope plus `"MethodUsed"` and `"MethodTrace"` keys.
 
 **Individual solvers** can also be called directly:
 
