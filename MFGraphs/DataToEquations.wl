@@ -1902,7 +1902,8 @@ EnsurePreprocessed[Eqs_Association] :=
 Options[CriticalCongestionSolver] = {
     "ValidateSolution" -> True,
     "ValidationTolerance" -> $CriticalSolverTolerance,
-    "ValidationVerbose" -> False
+    "ValidationVerbose" -> False,
+    "SymbolicTimeLimit" -> 5.
 };
 
 CriticalCongestionSolver[$Failed, ___] :=
@@ -1916,6 +1917,7 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
          numericBackendUsedQ, numericBackendFallbackReason, numericBackendSolveTime,
          numericBackendStrategy, jFirstBackendUsedQ, jFirstBackendFallbackReason,
          numericCandidate, numericOutcome, forcedRejectQ, numericBackendTimeLimit,
+         symbolicTimeLimit, symbolicTimeoutQ,
          telemetry},
         ClearSolveCache[];
         validateQ = TrueQ[OptionValue["ValidateSolution"]];
@@ -1925,6 +1927,7 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
         numericBackendUsedQ = False;
         numericBackendSolveTime = Missing["NotAvailable"];
         numericBackendStrategy = "Symbolic";
+        symbolicTimeoutQ = False;
         jFirstBackendUsedQ = False;
         jFirstBackendFallbackReason = None;
         numericBackendRequestedQ = CriticalNumericBackendRequestedQ[Eqs];
@@ -1944,6 +1947,15 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
             True,
                 30.
         ];
+        symbolicTimeLimit = OptionValue["SymbolicTimeLimit"];
+        symbolicTimeLimit = Which[
+            symbolicTimeLimit === Infinity || symbolicTimeLimit === DirectedInfinity[1],
+                Infinity,
+            NumericQ[symbolicTimeLimit] && symbolicTimeLimit > 0,
+                N[symbolicTimeLimit],
+            True,
+                5.
+        ];
 
         (* Helper: build telemetry association from current state *)
         telemetry := <|
@@ -1952,7 +1964,9 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
             "NumericBackendSolveTime" -> numericBackendSolveTime,
             "NumericBackendStrategy" -> numericBackendStrategy,
             "JFirstBackendUsed" -> jFirstBackendUsedQ,
-            "JFirstBackendFallbackReason" -> jFirstBackendFallbackReason
+            "JFirstBackendFallbackReason" -> jFirstBackendFallbackReason,
+            "SymbolicSolverTimedOut" -> symbolicTimeoutQ,
+            "SymbolicSolverTimeLimit" -> symbolicTimeLimit
         |>;
 
         (* Try the numeric backend first when explicitly forced or globally enabled. *)
@@ -2056,7 +2070,21 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
         (* Standard symbolic solver path *)
         PreEqs = EnsurePreprocessed[If[AssociationQ[PreEqs], PreEqs, Eqs]];
         js = Lookup[PreEqs, "js", $Failed];
-        AssoCritical = MFGSystemSolver[PreEqs][AssociationThread[js, 0 js]];
+        {time, AssoCritical} = AbsoluteTiming[
+            TimeConstrained[
+                MFGSystemSolver[PreEqs][AssociationThread[js, 0 js]],
+                symbolicTimeLimit,
+                $TimedOut
+            ]
+        ];
+        If[AssoCritical === $TimedOut,
+            symbolicTimeoutQ = True;
+            AssoCritical = Null;
+            status = "Infeasible";
+            resultKind = "Failure";
+            message = "NoSolution";
+            Return[BuildCriticalResult[PreEqs, resultKind, status, message, AssoCritical, telemetry], Module]
+        ];
         status = CheckFlowFeasibility[AssoCritical];
         If[validateQ && AssociationQ[AssoCritical] && status === "Feasible",
             If[!TrueQ @ IsCriticalSolution[

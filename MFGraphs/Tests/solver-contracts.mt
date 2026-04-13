@@ -105,6 +105,29 @@ Test[
 
 Test[
     Module[{data, d2e, result},
+        data = MFGraphs`GetExampleData["Jamaratv9"] /. {
+            MFGraphs`I1 -> 130,
+            MFGraphs`I2 -> 128,
+            MFGraphs`U1 -> 20,
+            MFGraphs`U2 -> 100,
+            MFGraphs`U3 -> 0
+        };
+        d2e = MFGraphs`DataToEquations[data];
+        result = Quiet[MFGraphs`CriticalCongestionSolver[d2e]];
+        Lookup[result, {"Solver", "ResultKind", "Feasibility", "Message"}] ===
+            {"CriticalCongestion", "Failure", "Infeasible", "NoSolution"} &&
+        TrueQ[Lookup[result, "SymbolicSolverTimedOut", False]] &&
+        Lookup[result, "AssoCritical", Missing["NotAvailable"]] === Null &&
+        result["Solution"] === Missing["NotAvailable"]
+    ]
+    ,
+    True
+    ,
+    TestID -> "Critical solver: infeasible Jamarat path times out symbolically and returns NoSolution envelope"
+]
+
+Test[
+    Module[{data, d2e, result},
         data = GetExampleData[3] /. {I1 -> 2, U1 -> 0};
         d2e = DataToEquations[data];
         result = Quiet[
