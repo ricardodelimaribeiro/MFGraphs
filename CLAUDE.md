@@ -214,6 +214,34 @@ Solver-specific payload keys: `"AssoCritical"`, `"AssoNonCritical"`, `"AssoMonot
 - `IsNonLinearSolution[result]` — validates solution structure
 - When `"Status"` is `"Infeasible"`, flow variables (`j[...]`) contain negative values (indicates no feasible solution)
 
+### Phase 5 & 6: Fictitious Play Backend (Internal v1)
+
+**Status**: Implemented and tested, but **internal-only** (not yet wired into `CriticalCongestionSolver`). Kept v1 pending resolution of 4 technical debt issues (GitHub issues #72–#75).
+
+**Phase 5: `SolveCriticalFictitiousPlayBackend`** (`MFGraphs.wl` lines 858–993)
+- Iterative wrapper using `NestWhileList` that threads four Fictitious Play phases until `OracleReadyQ → True` or `MaxIterations` exhausted
+- Pure functional state machine with immutable compound state Association
+- Returns standardized backend result envelope with History, IterationLog, and full state snapshots
+- Options: `MaxIterations` (20), `Temperature` (0.1), `Damping` (0.5), plus all Phase 4 thresholds
+- **Use case**: Future support discovery for non-linear cases (α ≠ 1) when exact symbolic path fails
+
+**Phase 6: `BuildOraclePrunedSystem`** (`DataToEquations.wl` lines 1912–1927)
+- Two-step Oracle pruning bridge translating `OracleState` from Phase 4 into a partially pruned `{EE, NN, OR}` triple
+- Step 1: Reuses existing `BuildPrunedSystem` for OR-branch filtering
+- Step 2: Injects explicit zero equalities for `PrunedZeroFlows` into EE
+- Safe by design: only injects variables classified as inactive; strengthens constraints
+- **Integration path (future)**: `OracleState` → `BuildOraclePrunedSystem` → pruned triple → `TripleClean` + `DNFSolveStep` → exact solver
+
+**Testing**: 9 comprehensive tests in `MFGraphs/Tests/numeric-state.mt` (lines 539–681) covering convergence, feasibility preservation, history tracking, OR reduction, and end-to-end pipeline.
+
+**Known limitations**:
+- **DAG-only**: assumes acyclic topological order (violated for cyclic networks, causing instability)
+- **Cost-scale fragility**: softmax transition probabilities poorly calibrated for heterogeneous switching costs
+- **Float-to-exact chasm**: numeric flow output may lose precision on >5-digit costs when converting to symbolic
+- **Cycle recovery**: no mechanism to detect and recover support when DAG assumption breaks
+
+**Future work**: Address vulnerabilities (#72–#75) before public API exposure. Wire Phase 5 as fallback in `CriticalCongestionSolver` when α ≠ 1 forces numeric-to-symbolic bridge.
+
 ## Configuration
 
 Set these global parameters before calling solvers to customize behavior:
