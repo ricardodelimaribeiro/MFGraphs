@@ -166,7 +166,7 @@ Test[
 
 Test[
     Module[{data, d2e, result},
-        data = GetExampleData[9] /. {I1 -> 100, I2 -> 40, U1 -> 0};
+        data = GetExampleData[7] /. {I1 -> 100, U1 -> 0, U2 -> 0};
         d2e = DataToEquations[data];
         result = Quiet[
             Block[

@@ -540,7 +540,7 @@ Test[
 
 Test[
     Module[{data, d2e, backendState, result},
-        data = GetExampleData[7];
+        data = GetExampleData[7] /. {I1 -> 100, U1 -> 0, U2 -> 0};
         d2e = DataToEquations[data];
         backendState = <|
             "Eqs" -> d2e,
@@ -569,7 +569,7 @@ Test[
 
 Test[
     Module[{data, d2e, backendState, result},
-        data = GetExampleData[7];
+        data = GetExampleData[7] /. {I1 -> 100, U1 -> 0, U2 -> 0};
         d2e = DataToEquations[data];
         backendState = <|
             "Eqs" -> d2e,
@@ -596,7 +596,7 @@ Test[
 
 Test[
     Module[{data, d2e, backendState, result, iterLog, allFeasible},
-        data = GetExampleData[7];
+        data = GetExampleData[7] /. {I1 -> 100, U1 -> 0, U2 -> 0};
         d2e = DataToEquations[data];
         backendState = <|
             "Eqs" -> d2e,
@@ -629,7 +629,7 @@ Test[
 
 Test[
     Module[{data, d2e, backendState, result, iterLog},
-        data = GetExampleData[7];
+        data = GetExampleData[7] /. {I1 -> 100, U1 -> 0, U2 -> 0};
         d2e = DataToEquations[data];
         backendState = <|
             "Eqs" -> d2e,
@@ -664,7 +664,7 @@ Test[
 
 Test[
     Module[{data, d2e, system, flowAssoc, oracleState, originalOrLength, prunedSystem, prunedOrLength},
-        data = GetExampleData[7];
+        data = GetExampleData[7] /. {I1 -> 100, U1 -> 0, U2 -> 0};
         d2e = DataToEquations[data];
         system = Lookup[d2e, "NewSystem", {}];
 
@@ -703,7 +703,7 @@ Test[
 
 Test[
     Module[{data, d2e, system, flowAssoc, oracleState, prunedSystem, prunedEE},
-        data = GetExampleData[7];
+        data = GetExampleData[7] /. {I1 -> 100, U1 -> 0, U2 -> 0};
         d2e = DataToEquations[data];
         system = Lookup[d2e, "NewSystem", {}];
 
@@ -737,7 +737,7 @@ Test[
 
 Test[
     Module[{data, d2e, system, flowAssoc, oracleState, prunedSystem},
-        data = GetExampleData[7];
+        data = GetExampleData[7] /. {I1 -> 100, U1 -> 0, U2 -> 0};
         d2e = DataToEquations[data];
         system = Lookup[d2e, "NewSystem", {}];
 
@@ -773,7 +773,7 @@ Test[
 
 Test[
     Module[{data, d2e, system, flowAssoc, oracleState, prunedSystem, prunedTriple},
-        data = GetExampleData[7];
+        data = GetExampleData[7] /. {I1 -> 100, U1 -> 0, U2 -> 0};
         d2e = DataToEquations[data];
         system = Lookup[d2e, "NewSystem", {}];
 
@@ -804,7 +804,7 @@ Test[
 
 Test[
     Module[{data, d2e, backendState, result, origSystem, prunedSystem, tripleCleanResult, finalSolution},
-        data = GetExampleData[7];
+        data = GetExampleData[7] /. {I1 -> 100, U1 -> 0, U2 -> 0};
         d2e = DataToEquations[data];
         origSystem = Lookup[d2e, "NewSystem", {}];
 

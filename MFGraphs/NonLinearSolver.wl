@@ -73,7 +73,7 @@ Options[NonLinearSolver] = {
 NormalizeEdgeFunction[spec_, defaultVal_: 1] := Which[
     spec === Automatic,    With[{d = defaultVal}, Function[edge, d]],
     NumericQ[spec],        With[{v = spec}, Function[edge, v]],
-    AssociationQ[spec],    With[{a = spec, d = defaultVal}, Function[edge, Lookup[a, edge, d]]],
+    AssociationQ[spec],    With[{a = spec, d = defaultVal}, Function[edge, Lookup[a, Key[edge], d]]],
     True,                  spec
 ];
 

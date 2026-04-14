@@ -12,6 +12,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **wolframscript** — command-line tool included with Mathematica, used to run all scripts from the repository root
 - **Paclet info**: See `PacletInfo.m` for package metadata (name: "MFGraphs", version: "0.0.2")
 
+### Setting up wolframscript
+
+Ensure `wolframscript` is on your PATH before running scripts:
+
+```bash
+# Check if available
+which wolframscript
+
+# If not found, add to PATH (edit ~/.zshrc, ~/.bash_profile, or ~/.bashrc):
+export PATH="/Applications/Wolfram Desktop.app/Contents/MacOS:$PATH"
+# or (for typical Mathematica installations):
+export PATH="/opt/Wolfram/WolframEngine/12.0/Executables:$PATH"
+
+# Verify installation and version
+wolframscript -version
+```
+
+If `wolframscript` is not available, install Mathematica or Wolfram Engine from https://www.wolfram.com/download/.
+
 ## Quick Start
 
 ### Load the package
@@ -57,6 +76,32 @@ data = GetExampleData[12] /. {I1 -> 100, U1 -> 0}  (* Replace symbolic parameter
 
 For the complete list of 34 cases (both numeric and named), their definitions, and topologies, see `MFGraphs/Examples/ExamplesData.wl`. Many cases include symbolic parameters (e.g., `I1`, `U1`, `S1`) that must be substituted with numeric values before solving. Default substitutions for the benchmark suite are in `Scripts/BenchmarkHelpers.wls` (`$DefaultParams`).
 
+### Testing a single case interactively
+
+To verify package setup or debug a specific case, run in Mathematica/Wolfram Desktop:
+
+```mathematica
+<< MFGraphs`
+data = GetExampleData[12] /. {I1 -> 100, U1 -> 0};
+d2e = DataToEquations[data];
+result = CriticalCongestionSolver[d2e];
+IsFeasible[result]  (* should return True *)
+```
+
+### Quick Reference
+
+Common operations at a glance:
+
+| Task | Command |
+|------|---------|
+| Run fast tests (9 files, ~27 min) | `wolframscript -file Scripts/RunTests.wls fast` |
+| Run all tests (19 files, slower) | `wolframscript -file Scripts/RunTests.wls all` |
+| Run specific test file | `wolframscript -file MFGraphs/Tests/solver-contracts.mt` |
+| Benchmark single case | `wolframscript -file Scripts/BenchmarkSuite.wls core case=12 timeout=300` |
+| Regenerate API docs | `wolframscript -file Scripts/GenerateDocs.wls` |
+| Clear solver cache | `ClearSolveCache[]` (in Mathematica) |
+| Enable verbose output | `$MFGraphsVerbose = True` (in Mathematica) |
+
 ### Run tests and benchmarks
 
 All scripts use `wolframscript` and must be run from the repository root.
@@ -76,12 +121,30 @@ wolframscript -file Scripts/RunTests.wls slow
 wolframscript -file Scripts/RunTests.wls all
 ```
 
-**Test suite notes**:
-- Expected times on a typical Mac (as of March 2025):
-  - `fast`: **~27 minutes** (solver-contracts + monotone tests with full solver runs)
-  - `slow`: **significantly longer** (includes large-case solvers)
-- Test files are MUnit `.mt` files in `MFGraphs/Tests/`
+**Test execution expectations** (Mac with 8 cores, as of April 2026):
+- `fast`: **~27 minutes** (9 test files: solver-contracts + monotone tests with full solver runs)
+- `all`: **~60+ minutes** (all 19 test files, includes large-case solvers like Grid1010)
+- Individual `.mt` file: **2–10 minutes** typical; `numeric-state.mt` and `critical-numeric-backend.mt` slower
+
+**Test organization**:
+- Test files are MUnit `.mt` files in `MFGraphs/Tests/` (19 total files)
+- Run individual test files to isolate features:
+  ```bash
+  wolframscript -file MFGraphs/Tests/solver-contracts.mt       # Core solver validation
+  wolframscript -file MFGraphs/Tests/numeric-state.mt          # Phase 5/6 Fictitious Play backend tests
+  wolframscript -file MFGraphs/Tests/critical-numeric-backend.mt
+  wolframscript -file MFGraphs/Tests/infeasible-status.mt      # Expected failure modes
+  wolframscript -file MFGraphs/Tests/monotone-solver.mt        # Monotone operator solver
+  ```
 - Results go to standard Mathematica test output; no files are saved
+
+#### Expected test behavior
+
+Some test cases validate **failure modes** by design — these are not bugs:
+
+- Tests in `infeasible-status.mt` verify that networks with insufficient capacity correctly return `"Infeasible"`
+- Tests with switching costs that violate the triangle inequality are expected to fail feasibility validation (feature validation)
+- Grid1020 (vlarge tier) is designed to hit `RecursionLimit` — intentional stress testing, not a regression
 
 #### Performance benchmarks (tier-based)
 
@@ -119,6 +182,20 @@ wolframscript -file Scripts/BenchmarkSuite.wls --tag "description of change" --r
 - Use `--tag` with `--rationale`, `--changes`, and `--interpretation` to track performance history in `DNF_PERFORMANCE_HISTORY.md` and `PARALLEL_PERFORMANCE_HISTORY.md`
 - Test cases that fail validation due to switching costs violating the triangle inequality are **expected failures** (feature validation)
 - `medium` is a legacy alias for `core` (supported for backward compatibility)
+
+## Recent Changes & Highlights (April 2026)
+
+**Test isolation and reliability improvements:**
+- Fixed all remaining 9 test failures in critical congestion solver paths (commit 624136c)
+- Implemented automatic test isolation to prevent state leakage between test cases
+- Test runner now outputs failed test IDs directly for faster debugging
+- Tests `J9F-critical_congestion.mt` and `Jm9-critical_congestion.mt` updated with proper resource cleanup
+
+**Phase 5/6 Fictitious Play backend:**
+- Numeric state machine fully implemented for cases where symbolic solver struggles
+- 9 comprehensive tests in `numeric-state.mt` validate convergence and feasibility preservation
+- **Not yet public API** — pending resolution of 4 technical debt issues (#72–#75)
+- See Phase 5 & 6 section below for full details
 
 ## Architecture
 
@@ -214,18 +291,29 @@ Solver-specific payload keys: `"AssoCritical"`, `"AssoNonCritical"`, `"AssoMonot
 - `IsNonLinearSolution[result]` — validates solution structure
 - When `"Status"` is `"Infeasible"`, flow variables (`j[...]`) contain negative values (indicates no feasible solution)
 
+### Choosing the right solver
+
+| Solver | Best For | Speed | Notes |
+|--------|----------|-------|-------|
+| **CriticalCongestionSolver** | Symbolic, congestion exponent α=1, understanding structure | Seconds–minutes | Always try this first; serves as initial guess for other solvers. Fast path for zero-switching-cost networks. |
+| **NonLinearSolver** | General non-linear (α≠1), fixed-point iteration | Minutes–hours | Requires potential function `V` defined. Starts from critical congestion seed. Up to 15 iterations. |
+| **MonotoneSolver** | Gradient flow, ODE-based alternative | Minutes–hours | Uses Kirchhoff matrix. Good for comparison/validation. Slower but sometimes finds solutions NonLinear misses. |
+| **SolveMFG with Method→"Automatic"** | Auto-routing, fallback cascades | Varies | Cascades: CriticalCongestion → Monotone → NonLinear. Adds `"MethodUsed"` and `"MethodTrace"` to results. |
+
+**When you'll use Phase 5/6 (Fictitious Play backend):** If you add support for non-linear congestion exponents (α ≠ 1) to `CriticalCongestionSolver`, the symbolic `DNFReduce` pipeline may timeout or fail, triggering the numeric backend as fallback. Phase 5/6 prepares this handoff (currently internal-only pending issue resolution).
+
 ### Phase 5 & 6: Fictitious Play Backend (Internal v1)
 
 **Status**: Implemented and tested, but **internal-only** (not yet wired into `CriticalCongestionSolver`). Kept v1 pending resolution of 4 technical debt issues (GitHub issues #72–#75).
 
-**Phase 5: `SolveCriticalFictitiousPlayBackend`** (`MFGraphs.wl` lines 858–993)
+**Phase 5: `SolveCriticalFictitiousPlayBackend`** (`MFGraphs.wl` line ~858)
 - Iterative wrapper using `NestWhileList` that threads four Fictitious Play phases until `OracleReadyQ → True` or `MaxIterations` exhausted
 - Pure functional state machine with immutable compound state Association
 - Returns standardized backend result envelope with History, IterationLog, and full state snapshots
 - Options: `MaxIterations` (20), `Temperature` (0.1), `Damping` (0.5), plus all Phase 4 thresholds
 - **Use case**: Future support discovery for non-linear cases (α ≠ 1) when exact symbolic path fails
 
-**Phase 6: `BuildOraclePrunedSystem`** (`DataToEquations.wl` lines 1912–1927)
+**Phase 6: `BuildOraclePrunedSystem`** (`DataToEquations.wl` line ~1922)
 - Two-step Oracle pruning bridge translating `OracleState` from Phase 4 into a partially pruned `{EE, NN, OR}` triple
 - Step 1: Reuses existing `BuildPrunedSystem` for OR-branch filtering
 - Step 2: Injects explicit zero equalities for `PrunedZeroFlows` into EE
