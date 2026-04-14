@@ -335,3 +335,23 @@ Test[
     True,
     TestID -> "ForceOptimizer: Simplex path gives correct result"
 ]
+
+Test[
+    Module[{data, d2e, result},
+        data = GetExampleData[1] /. {I1 -> 100, U1 -> 0};
+        d2e = DataToEquations[data];
+        result = Quiet[
+            CriticalCongestionSolver[
+                Join[d2e, <|"CriticalNumericBackendMode" -> "Force"|>],
+                "ForceOptimizer" -> None
+            ]
+        ];
+        (* Numeric backend is blocked; solver falls through to symbolic engine *)
+        Lookup[result, {"ResultKind", "Feasibility"}] === {"Success", "Feasible"} &&
+        !TrueQ[Lookup[result, "NumericBackendUsed", True]] &&
+        Lookup[result, "NumericBackendStrategy", Missing["NotAvailable"]] === "Symbolic" &&
+        IsCriticalSolution[result]
+    ],
+    True,
+    TestID -> "ForceOptimizer: None bypasses numeric tier, symbolic fallback succeeds"
+]
