@@ -57,4 +57,14 @@ Print["Tests run: ", report["TestsSucceededCount"] + report["TestsFailedCount"]]
 Print["Passed: ", report["TestsSucceededCount"]];
 Print["Failed: ", report["TestsFailedCount"]];
 
-If[report["TestsFailedCount"] > 0, Exit[1], Exit[0]];
+If[report["TestsFailedCount"] > 0,
+    Print["\nFailed Tests:"];
+    failed = Select[report["TestResults"], !MatchQ[#["Outcome"], "Success"] &];
+    KeyValueMap[
+        (Print["  [", #2["Outcome"], "] ", #2["TestID"]]) &,
+        failed
+    ];
+    Exit[1]
+,
+    Exit[0]
+];
