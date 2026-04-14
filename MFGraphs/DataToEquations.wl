@@ -600,8 +600,7 @@ DataToEquations[Data_Association] :=
             ];
         Which[
             consistentCosts === False,
-                Message[DataToEquations::switchingcosts];
-                Return[$Failed, Module]
+                Message[DataToEquations::switchingcosts]
             ,
             consistentCosts =!= True,
                 MFGPrint["Switching costs conditions are ", consistentCosts
@@ -614,8 +613,32 @@ DataToEquations[Data_Association] :=
            AltFlowOp[j][{b,a}] produce identical Or-conditions. *)
         AltFlows = And @@ (AltFlowOp[j] /@ Join[
             inAuxEntryPairs, outAuxExitPairs, halfPairs]);
-        AltTransitionFlows = And @@ (AltFlowOp[j] /@
-            Select[auxTriples, OrderedQ[{First[#], Last[#]}]&]);
+        AltTransitionFlows =
+            If[consistentCosts === False,
+                And @@ DeleteDuplicates[
+                    Sort /@ Flatten @ KeyValueMap[
+                        Function[{k, trips},
+                            Module[{bySource, byTarget},
+                                bySource = GroupBy[trips, First];
+                                byTarget = GroupBy[trips, Last];
+                                KeyValueMap[
+                                    Function[{v, t1s},
+                                        Table[
+                                            j @@ t1 == 0 || j @@ t2 == 0,
+                                            {t1, t1s},
+                                            {t2, Lookup[bySource, v, {}]}
+                                        ]
+                                    ],
+                                    byTarget
+                                ]
+                            ]
+                        ],
+                        GroupBy[auxTriples, #[[2]] &]
+                    ]
+                ],
+                And @@ (AltFlowOp[j] /@
+                    Select[auxTriples, OrderedQ[{First[#], Last[#]}]&])
+            ];
         splittingPairs = Join[inAuxEntryPairs, inAuxExitPairs, pairs]
             ;
         BalanceSplittingFlows = (j @@ # - Total[j @@@ FlowSplitting[auxTriples
