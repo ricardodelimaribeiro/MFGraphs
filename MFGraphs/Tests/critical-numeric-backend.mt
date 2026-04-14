@@ -298,3 +298,40 @@ Test[
     True,
     TestID -> "Telemetry: LP and Simplex retry telemetry keys always present"
 ]
+
+Test[
+    Module[{data, d2e, result},
+        data = GetExampleData[27] /. {I1 -> 100, U1 -> 0};
+        d2e = DataToEquations[data];
+        result = Quiet[
+            CriticalCongestionSolver[
+                Join[d2e, <|"CriticalNumericBackendMode" -> "Force"|>],
+                "ForceOptimizer" -> "LinearOptimization"
+            ]
+        ];
+        Lookup[result, {"ResultKind", "Feasibility"}] === {"Success", "Feasible"} &&
+        TrueQ[Lookup[result, "NumericBackendLPUsed", False]] &&
+        !TrueQ[Lookup[result, "NumericBackendLPSimplexRetryUsed", False]] &&
+        IsCriticalSolution[result]
+    ],
+    True,
+    TestID -> "ForceOptimizer: LinearOptimization path gives correct result"
+]
+
+Test[
+    Module[{data, d2e, result},
+        data = GetExampleData[27] /. {I1 -> 100, U1 -> 0};
+        d2e = DataToEquations[data];
+        result = Quiet[
+            CriticalCongestionSolver[
+                Join[d2e, <|"CriticalNumericBackendMode" -> "Force"|>],
+                "ForceOptimizer" -> "Simplex"
+            ]
+        ];
+        Lookup[result, {"ResultKind", "Feasibility"}] === {"Success", "Feasible"} &&
+        TrueQ[Lookup[result, "NumericBackendLPSimplexRetryUsed", False]] &&
+        IsCriticalSolution[result]
+    ],
+    True,
+    TestID -> "ForceOptimizer: Simplex path gives correct result"
+]

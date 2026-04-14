@@ -1758,7 +1758,8 @@ SolveCriticalNumericBackend[Eqs_Association] :=
         linResidual, flowMin, tol = $CriticalSolverTolerance, assoc, lpResult, lpVals,
         solvedAssoc, fullAssoc,
         nVars, cVec, aIneq, bIneq, aEq, bEq,
-        lpUsed = False, simplexRetryUsed = False},
+        lpUsed = False, simplexRetryUsed = False, forceOpt},
+        forceOpt = Lookup[Eqs, "ForceOptimizer", Automatic];
         constraints = BuildCriticalLinearConstraints[Eqs];
         If[constraints === $Failed || !AssociationQ[constraints],
             Return[$Failed, Module]
@@ -1802,27 +1803,34 @@ SolveCriticalNumericBackend[Eqs_Association] :=
         If[AssociationQ[linearSystem],
             aMat = linearSystem["A"];
             bVec = linearSystem["b"];
-            xCandidate = LinearSolveCandidate[aMat, bVec];
-            If[VectorQ[xCandidate, NumericQ] && Length[xCandidate] === Length[reducedVars],
-                linResidual = Quiet @ Check[N @ Norm[aMat . xCandidate - bVec, Infinity], Infinity];
-                flowMin = Min[xCandidate[[flowIndices]]];
-                If[NumericQ[linResidual] && linResidual <= tol && NumericQ[flowMin] && flowMin >= -tol,
-                    assoc = AssociationThread[reducedVars, xCandidate];
-                    (* Lift eliminated u-vars back from their representatives *)
-                    fullAssoc = Join[assoc, Association[subRules /. assoc]];
-                    solvedAssoc = Association @ KeyValueMap[
-                        #1 -> If[Abs[#2] <= tol, 0., N[#2]] &,
-                        fullAssoc
-                    ];
-                    Return[
-                        Join[
-                            KeyTake[solvedAssoc, fullUs],
-                            KeyTake[solvedAssoc, fullJs],
-                            KeyTake[solvedAssoc, fullJts],
-                            <|"LPUsed" -> lpUsed, "SimplexRetryUsed" -> simplexRetryUsed|>
-                        ],
-                        Module
+            (* Tier 1: LinearSolveCandidate - only if not forced to use LP or Simplex *)
+            If[forceOpt === Automatic || forceOpt === "LinearSolve",
+                xCandidate = LinearSolveCandidate[aMat, bVec];
+                If[VectorQ[xCandidate, NumericQ] && Length[xCandidate] === Length[reducedVars],
+                    linResidual = Quiet @ Check[N @ Norm[aMat . xCandidate - bVec, Infinity], Infinity];
+                    flowMin = Min[xCandidate[[flowIndices]]];
+                    If[NumericQ[linResidual] && linResidual <= tol && NumericQ[flowMin] && flowMin >= -tol,
+                        assoc = AssociationThread[reducedVars, xCandidate];
+                        (* Lift eliminated u-vars back from their representatives *)
+                        fullAssoc = Join[assoc, Association[subRules /. assoc]];
+                        solvedAssoc = Association @ KeyValueMap[
+                            #1 -> If[Abs[#2] <= tol, 0., N[#2]] &,
+                            fullAssoc
+                        ];
+                        Return[
+                            Join[
+                                KeyTake[solvedAssoc, fullUs],
+                                KeyTake[solvedAssoc, fullJs],
+                                KeyTake[solvedAssoc, fullJts],
+                                <|"LPUsed" -> lpUsed, "SimplexRetryUsed" -> simplexRetryUsed|>
+                            ],
+                            Module
+                        ]
                     ]
+                ];
+                (* If forceOpt === "LinearSolve", fail immediately instead of falling through to LP *)
+                If[forceOpt === "LinearSolve",
+                    Return[$Failed, Module]
                 ]
             ]
             ,
@@ -1847,21 +1855,31 @@ SolveCriticalNumericBackend[Eqs_Association] :=
             {Length[flowIndices], nVars}
         ];
         bIneq = Developer`ToPackedArray @ ConstantArray[0., Length[flowIndices]];
-        lpUsed = True;
-        lpResult = Quiet @ Check[
-            LinearOptimization[
-                cVec,
-                {aIneq, bIneq},
-                {aEq, bEq},
-                Tolerance -> tol
+
+        (* Tier 2: Interior-point LinearOptimization *)
+        If[forceOpt === Automatic || forceOpt === "LinearOptimization",
+            lpUsed = True;
+            lpResult = Quiet @ Check[
+                LinearOptimization[
+                    cVec,
+                    {aIneq, bIneq},
+                    {aEq, bEq},
+                    Tolerance -> tol
+                ],
+                $Failed
+            ];
+            lpVals = If[
+                VectorQ[lpResult, NumericQ] && Length[lpResult] === nVars,
+                Developer`ToPackedArray @ N @ lpResult,
+                $Failed
+            ];
+            If[lpVals === $Failed && forceOpt === "LinearOptimization",
+                Return[$Failed, Module]  (* Forced LP path, no Simplex fallback *)
             ],
-            $Failed
+            lpVals = $Failed  (* Forced Simplex path, skip interior-point LP *)
         ];
-        lpVals = If[
-            VectorQ[lpResult, NumericQ] && Length[lpResult] === nVars,
-            Developer`ToPackedArray @ N @ lpResult,
-            $Failed
-        ];
+
+        (* Tier 3: Simplex retry or forced Simplex *)
         If[lpVals === $Failed,
             simplexRetryUsed = True;
             lpResult = Quiet @ Check[
@@ -1980,7 +1998,8 @@ Options[CriticalCongestionSolver] = {
     "ValidateSolution" -> True,
     "ValidationTolerance" -> $CriticalSolverTolerance,
     "ValidationVerbose" -> False,
-    "SymbolicTimeLimit" -> 120.
+    "SymbolicTimeLimit" -> 120.,
+    "ForceOptimizer" -> Automatic
 };
 
 CriticalCongestionSolver[$Failed, ___] :=
@@ -2056,7 +2075,9 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
             {numericBackendSolveTime, numericOutcome} =
                 AbsoluteTiming[
                     TimeConstrained[
-                        SolveCriticalNumericBackendWithTelemetry[Eqs],
+                        SolveCriticalNumericBackendWithTelemetry[
+                            Append[Eqs, "ForceOptimizer" -> OptionValue["ForceOptimizer"]]
+                        ],
                         numericBackendTimeLimit,
                         $TimedOut
                     ]
