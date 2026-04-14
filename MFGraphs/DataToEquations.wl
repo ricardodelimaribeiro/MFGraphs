@@ -1556,8 +1556,7 @@ SolveCriticalJFirstBackend[Eqs_Association, numericState_Association] :=
       nVars, massAssoc = <||>, xCandidate, candidateResidual, flowMin, rank,
       objectiveExpr, qpVars, qpRules, objectiveQP, constraintsQP,
       optimizerOrder, optimizer, rawSolution = $Failed, massVec,
-      flowAssoc, uVars, utilityAssoc, solvedAssoc, expectedVars,
-      $optimizerUsed = None},
+      flowAssoc, uVars, utilityAssoc, solvedAssoc, expectedVars},
         decoupling = Lookup[numericState, "CriticalDecoupling", Missing["NotAvailable"]];
         If[!AssociationQ[decoupling],
             Return[CriticalJFirstFailure["MissingDecoupling"], Module]
@@ -1594,8 +1593,7 @@ SolveCriticalJFirstBackend[Eqs_Association, numericState_Association] :=
                 If[
                     NumericQ[candidateResidual] && candidateResidual <= tol &&
                     NumericQ[flowMin] && flowMin >= -tol,
-                    massAssoc = AssociationThread[massVars, xCandidate];
-                    $optimizerUsed = "LinearSolve"
+                    massAssoc = AssociationThread[massVars, xCandidate]
                 ]
             ]
         ];
@@ -1629,7 +1627,6 @@ SolveCriticalJFirstBackend[Eqs_Association, numericState_Association] :=
                         $Failed
                     ];
                     If[MatchQ[rawSolution, {_Rule ..}],
-                        $optimizerUsed = optimizer;
                         Break[]
                     ],
                     {optimizer, optimizerOrder}
@@ -1644,12 +1641,8 @@ SolveCriticalJFirstBackend[Eqs_Association, numericState_Association] :=
                     ],
                     $Failed
                 ];
-                If[MatchQ[rawSolution, {_Rule ..}],
-                    $optimizerUsed = "LinearOptimization"
-                ]
             ];
             If[!MatchQ[rawSolution, {_Rule ..}],
-                $optimizerUsed = "FlowInfeasible";
                 Return[CriticalJFirstFailure["FlowInfeasible"], Module]
             ];
             massAssoc = AssociationThread[massVars, N @ (qpVars /. rawSolution)];
@@ -1685,29 +1678,19 @@ SolveCriticalJFirstBackend[Eqs_Association, numericState_Association] :=
         If[!And @@ (KeyExistsQ[solvedAssoc, #] & /@ expectedVars),
             Return[CriticalJFirstFailure["IncompleteCandidate"], Module]
         ];
-        {
-            Join[
-                KeyTake[solvedAssoc, Lookup[Eqs, "us", {}]],
-                KeyTake[solvedAssoc, Lookup[Eqs, "js", {}]],
-                KeyTake[solvedAssoc, Lookup[Eqs, "jts", {}]]
-            ],
-            $optimizerUsed
-        }
+        Join[
+            KeyTake[solvedAssoc, Lookup[Eqs, "us", {}]],
+            KeyTake[solvedAssoc, Lookup[Eqs, "js", {}]],
+            KeyTake[solvedAssoc, Lookup[Eqs, "jts", {}]]
+        ]
     ];
 
 SolveCriticalNumericBackendWithTelemetry[Eqs_Association] :=
-    Module[{numericState, jFirstResult, jFirstOptimizer, jFirstCandidate, jFirstReason, coupledCandidate,
+    Module[{numericState, jFirstCandidate, jFirstReason, coupledCandidate,
       jFirstStatus, jFirstValidQ, forcedRejectQ},
-        (* ForceOptimizer -> None means "symbolic only": skip the entire numeric tier *)
-        If[Lookup[Eqs, "ForceOptimizer", Automatic] === None, Return[$Failed, Module]];
         numericState = Lookup[Eqs, "NumericState", <||>];
         forcedRejectQ = TrueQ[Lookup[Eqs, "ForceNumericBackendValidationFailure", False]];
-        jFirstResult = SolveCriticalJFirstBackend[Eqs, numericState];
-        If[ListQ[jFirstResult] && Length[jFirstResult] === 2,
-            {jFirstCandidate, jFirstOptimizer} = jFirstResult,
-            jFirstCandidate = jFirstResult;
-            jFirstOptimizer = None
-        ];
+        jFirstCandidate = SolveCriticalJFirstBackend[Eqs, numericState];
         If[AssociationQ[jFirstCandidate],
             jFirstStatus = CheckFlowFeasibility[jFirstCandidate];
             jFirstValidQ =
@@ -1726,10 +1709,7 @@ SolveCriticalNumericBackendWithTelemetry[Eqs_Association] :=
                         "Candidate" -> jFirstCandidate,
                         "Strategy" -> "JFirst",
                         "JFirstBackendUsed" -> True,
-                        "JFirstBackendFallbackReason" -> None,
-                        "JFirstOptimizerUsed" -> jFirstOptimizer,
-                        "NumericBackendLPUsed" -> (jFirstOptimizer === "LinearOptimization"),
-                        "NumericBackendLPSimplexRetryUsed" -> False
+                        "JFirstBackendFallbackReason" -> None
                     |>,
                     Module
                 ]
@@ -1746,10 +1726,7 @@ SolveCriticalNumericBackendWithTelemetry[Eqs_Association] :=
             "Candidate" -> coupledCandidate,
             "Strategy" -> "Coupled",
             "JFirstBackendUsed" -> False,
-            "JFirstBackendFallbackReason" -> jFirstReason,
-            "JFirstOptimizerUsed" -> None,
-            "NumericBackendLPUsed" -> TrueQ[Lookup[coupledCandidate, "LPUsed", False]],
-            "NumericBackendLPSimplexRetryUsed" -> TrueQ[Lookup[coupledCandidate, "SimplexRetryUsed", False]]
+            "JFirstBackendFallbackReason" -> jFirstReason
         |>
     ];
 
@@ -1759,10 +1736,7 @@ SolveCriticalNumericBackend[Eqs_Association] :=
         linearSystem, aMat, bVec, xCandidate, varIndex, flowIndices,
         linResidual, flowMin, tol = $CriticalSolverTolerance, assoc, lpResult, lpVals,
         solvedAssoc, fullAssoc,
-        nVars, cVec, aIneq, bIneq, aEq, bEq,
-        lpUsed = False, simplexRetryUsed = False, forceOpt},
-        forceOpt = Lookup[Eqs, "ForceOptimizer", Automatic];
-        If[forceOpt === None, Return[$Failed, Module]];
+        nVars, cVec, aIneq, bIneq, aEq, bEq},
         constraints = BuildCriticalLinearConstraints[Eqs];
         If[constraints === $Failed || !AssociationQ[constraints],
             Return[$Failed, Module]
@@ -1806,34 +1780,26 @@ SolveCriticalNumericBackend[Eqs_Association] :=
         If[AssociationQ[linearSystem],
             aMat = linearSystem["A"];
             bVec = linearSystem["b"];
-            (* Tier 1: LinearSolveCandidate - only if not forced to use LP or Simplex *)
-            If[forceOpt === Automatic || forceOpt === "LinearSolve",
-                xCandidate = LinearSolveCandidate[aMat, bVec];
-                If[VectorQ[xCandidate, NumericQ] && Length[xCandidate] === Length[reducedVars],
-                    linResidual = Quiet @ Check[N @ Norm[aMat . xCandidate - bVec, Infinity], Infinity];
-                    flowMin = Min[xCandidate[[flowIndices]]];
-                    If[NumericQ[linResidual] && linResidual <= tol && NumericQ[flowMin] && flowMin >= -tol,
-                        assoc = AssociationThread[reducedVars, xCandidate];
-                        (* Lift eliminated u-vars back from their representatives *)
-                        fullAssoc = Join[assoc, Association[subRules /. assoc]];
-                        solvedAssoc = Association @ KeyValueMap[
-                            #1 -> If[Abs[#2] <= tol, 0., N[#2]] &,
-                            fullAssoc
-                        ];
-                        Return[
-                            Join[
-                                KeyTake[solvedAssoc, fullUs],
-                                KeyTake[solvedAssoc, fullJs],
-                                KeyTake[solvedAssoc, fullJts],
-                                <|"LPUsed" -> lpUsed, "SimplexRetryUsed" -> simplexRetryUsed|>
-                            ],
-                            Module
-                        ]
+            xCandidate = LinearSolveCandidate[aMat, bVec];
+            If[VectorQ[xCandidate, NumericQ] && Length[xCandidate] === Length[reducedVars],
+                linResidual = Quiet @ Check[N @ Norm[aMat . xCandidate - bVec, Infinity], Infinity];
+                flowMin = Min[xCandidate[[flowIndices]]];
+                If[NumericQ[linResidual] && linResidual <= tol && NumericQ[flowMin] && flowMin >= -tol,
+                    assoc = AssociationThread[reducedVars, xCandidate];
+                    (* Lift eliminated u-vars back from their representatives *)
+                    fullAssoc = Join[assoc, Association[subRules /. assoc]];
+                    solvedAssoc = Association @ KeyValueMap[
+                        #1 -> If[Abs[#2] <= tol, 0., N[#2]] &,
+                        fullAssoc
+                    ];
+                    Return[
+                        Join[
+                            KeyTake[solvedAssoc, fullUs],
+                            KeyTake[solvedAssoc, fullJs],
+                            KeyTake[solvedAssoc, fullJts]
+                        ],
+                        Module
                     ]
-                ];
-                (* If forceOpt === "LinearSolve", fail immediately instead of falling through to LP *)
-                If[forceOpt === "LinearSolve",
-                    Return[$Failed, Module]
                 ]
             ]
             ,
@@ -1858,33 +1824,21 @@ SolveCriticalNumericBackend[Eqs_Association] :=
             {Length[flowIndices], nVars}
         ];
         bIneq = Developer`ToPackedArray @ ConstantArray[0., Length[flowIndices]];
-
-        (* Tier 2: Interior-point LinearOptimization *)
-        If[forceOpt === Automatic || forceOpt === "LinearOptimization",
-            lpUsed = True;
-            lpResult = Quiet @ Check[
-                LinearOptimization[
-                    cVec,
-                    {aIneq, bIneq},
-                    {aEq, bEq},
-                    Tolerance -> tol
-                ],
-                $Failed
-            ];
-            lpVals = If[
-                VectorQ[lpResult, NumericQ] && Length[lpResult] === nVars,
-                Developer`ToPackedArray @ N @ lpResult,
-                $Failed
-            ];
-            If[lpVals === $Failed && forceOpt === "LinearOptimization",
-                Return[$Failed, Module]  (* Forced LP path, no Simplex fallback *)
+        lpResult = Quiet @ Check[
+            LinearOptimization[
+                cVec,
+                {aIneq, bIneq},
+                {aEq, bEq},
+                Tolerance -> tol
             ],
-            lpVals = $Failed  (* Forced Simplex path, skip interior-point LP *)
+            $Failed
         ];
-
-        (* Tier 3: Simplex retry or forced Simplex *)
+        lpVals = If[
+            VectorQ[lpResult, NumericQ] && Length[lpResult] === nVars,
+            Developer`ToPackedArray @ N @ lpResult,
+            $Failed
+        ];
         If[lpVals === $Failed,
-            simplexRetryUsed = True;
             lpResult = Quiet @ Check[
                 LinearOptimization[
                     cVec,
@@ -1915,8 +1869,7 @@ SolveCriticalNumericBackend[Eqs_Association] :=
         Join[
             KeyTake[solvedAssoc, fullUs],
             KeyTake[solvedAssoc, fullJs],
-            KeyTake[solvedAssoc, fullJts],
-            <|"LPUsed" -> lpUsed, "SimplexRetryUsed" -> simplexRetryUsed|>
+            KeyTake[solvedAssoc, fullJts]
         ]
     ];
 
@@ -2001,8 +1954,7 @@ Options[CriticalCongestionSolver] = {
     "ValidateSolution" -> True,
     "ValidationTolerance" -> $CriticalSolverTolerance,
     "ValidationVerbose" -> False,
-    "SymbolicTimeLimit" -> 120.,
-    "ForceOptimizer" -> Automatic  (* Automatic | "LinearSolve" | "LinearOptimization" | "Simplex" | None *)
+    "SymbolicTimeLimit" -> 120.
 };
 
 CriticalCongestionSolver[$Failed, ___] :=
@@ -2017,7 +1969,6 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
          numericBackendStrategy, jFirstBackendUsedQ, jFirstBackendFallbackReason,
          numericCandidate, numericOutcome, forcedRejectQ, numericBackendTimeLimit,
          symbolicTimeLimit,
-         jFirstOptimizerUsed, numericBackendLPUsed, numericBackendLPSimplexRetryUsed,
          telemetry},
         ClearSolveCache[];
         validateQ = TrueQ[OptionValue["ValidateSolution"]];
@@ -2029,9 +1980,6 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
         numericBackendStrategy = "Symbolic";
         jFirstBackendUsedQ = False;
         jFirstBackendFallbackReason = None;
-        jFirstOptimizerUsed = None;
-        numericBackendLPUsed = False;
-        numericBackendLPSimplexRetryUsed = False;
         numericBackendRequestedQ = CriticalNumericBackendRequestedQ[Eqs];
         numericBackendEligibleQ = CriticalNumericBackendEligibleQ[Eqs];
         numericBackendFallbackReason = Which[
@@ -2066,10 +2014,7 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
             "NumericBackendSolveTime" -> numericBackendSolveTime,
             "NumericBackendStrategy" -> numericBackendStrategy,
             "JFirstBackendUsed" -> jFirstBackendUsedQ,
-            "JFirstBackendFallbackReason" -> jFirstBackendFallbackReason,
-            "JFirstOptimizerUsed" -> jFirstOptimizerUsed,
-            "NumericBackendLPUsed" -> numericBackendLPUsed,
-            "NumericBackendLPSimplexRetryUsed" -> numericBackendLPSimplexRetryUsed
+            "JFirstBackendFallbackReason" -> jFirstBackendFallbackReason
         |>;
 
         (* Try the numeric backend first when explicitly forced or globally enabled. *)
@@ -2078,9 +2023,7 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
             {numericBackendSolveTime, numericOutcome} =
                 AbsoluteTiming[
                     TimeConstrained[
-                        SolveCriticalNumericBackendWithTelemetry[
-                            Append[Eqs, "ForceOptimizer" -> OptionValue["ForceOptimizer"]]
-                        ],
+                        SolveCriticalNumericBackendWithTelemetry[Eqs],
                         numericBackendTimeLimit,
                         $TimedOut
                     ]
@@ -2097,22 +2040,14 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
                 ];
                 numericCandidate = $Failed;
                 ,
-                If[!AssociationQ[numericOutcome],
-                    (* Backend returned a non-Association (e.g. $Failed from ForceOptimizer->None) *)
-                    numericCandidate = $Failed
-                    ,
-                    numericCandidate = Lookup[numericOutcome, "Candidate", $Failed];
-                    numericBackendStrategy = Lookup[numericOutcome, "Strategy", "Coupled"];
-                    jFirstBackendUsedQ = TrueQ[Lookup[numericOutcome, "JFirstBackendUsed", False]];
-                    jFirstBackendFallbackReason = Lookup[
-                        numericOutcome,
-                        "JFirstBackendFallbackReason",
-                        "NotAttempted"
-                    ];
-                    jFirstOptimizerUsed = Lookup[numericOutcome, "JFirstOptimizerUsed", None];
-                    numericBackendLPUsed = TrueQ[Lookup[numericOutcome, "NumericBackendLPUsed", False]];
-                    numericBackendLPSimplexRetryUsed = TrueQ[Lookup[numericOutcome, "NumericBackendLPSimplexRetryUsed", False]]
-                ]
+                numericCandidate = Lookup[numericOutcome, "Candidate", $Failed];
+                numericBackendStrategy = Lookup[numericOutcome, "Strategy", "Coupled"];
+                jFirstBackendUsedQ = TrueQ[Lookup[numericOutcome, "JFirstBackendUsed", False]];
+                jFirstBackendFallbackReason = Lookup[
+                    numericOutcome,
+                    "JFirstBackendFallbackReason",
+                    "NotAttempted"
+                ];
             ];
             If[AssociationQ[numericCandidate] && numericCandidate =!= $Failed,
                 status = CheckFlowFeasibility[numericCandidate];
