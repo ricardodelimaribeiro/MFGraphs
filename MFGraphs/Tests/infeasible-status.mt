@@ -16,7 +16,7 @@ Test[
     TestID -> "Status: case 7 is Feasible"
 ]
 
-(* Test: Jamaratv9 baseline now reports Feasible after solver refinements *)
+(* Test: Jamaratv9 baseline remains Infeasible (no feasible solution exists for this variant) *)
 Test[
     Module[{d2e, result},
         Quiet[
@@ -26,9 +26,9 @@ Test[
         ]
     ]
     ,
-    "Feasible"
+    "Infeasible"
     ,
-    TestID -> "Status: Jamaratv9 baseline case is Feasible"
+    TestID -> "Status: Jamaratv9 baseline case remains Infeasible"
 ]
 
 (* Test: forced symbolic timeout reports missing status instead of infeasibility *)

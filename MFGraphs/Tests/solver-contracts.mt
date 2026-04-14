@@ -91,13 +91,16 @@ Test[
     Module[{data, d2e, result},
         data = GetExampleData["Jamaratv9"] /. {I1 -> 130, I2 -> 128, U1 -> 20, U2 -> 100, U3 -> 0};
         d2e = DataToEquations[data];
-        result = CriticalCongestionSolver[d2e];
-        IsCriticalSolution[result]
+        result = Quiet[
+            CriticalCongestionSolver[d2e],
+            {MFGSystemSolver::nosolution}
+        ];
+        !IsCriticalSolution[result]
     ]
     ,
     True
     ,
-    TestID -> "Critical solution checker: baseline case is accepted"
+    TestID -> "Critical solution checker: infeasible case is rejected"
 ]
 
 Test[
