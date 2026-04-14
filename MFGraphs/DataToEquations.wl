@@ -1888,6 +1888,35 @@ BuildPrunedSystem[system_, candidateSolution_Association, tol_: 10^-6] :=
         {ee, nn, prunedOr}
     ];
 
+(* BuildOraclePrunedSystem: Translate OracleState payload from ClassifyAndCheckStability
+   into a partially pruned {EE, NN, OR} triple. Uses two complementary strategies:
+   1. LogicalSatisfiedQ-based OR pruning (existing BuildPrunedSystem machinery)
+   2. Injection of explicit zero equalities into EE for confirmed-inactive variables
+
+   PRECISION WARNING: The EE injection of j[e]==0 relies on floating-point thresholds
+   (10^-5 for flow). If true equilibrium requires j[e] slightly below this threshold,
+   over-constraining EE may cause symbolic solve to fail. See project memory
+   "Phase 5/6 Technical Debt" for mitigation strategy (safety bands).
+
+   Safe because PrunedZeroFlows contains only variables classified inactive by rigorous
+   hysteresis thresholds. Ambiguous variables are untouched. *)
+BuildOraclePrunedSystem[system_, flowAssoc_Association, oracleState_Association, tol_: 10^-6] :=
+    Module[{prunedSystem, ee, nn, or, inactiveVars, newEE},
+        (* Step 1: filter OR branches using existing LogicalSatisfiedQ machinery *)
+        prunedSystem = BuildPrunedSystem[system, flowAssoc, tol];
+        {ee, nn, or} = prunedSystem;
+
+        (* Step 2: inject explicit zero equalities for confirmed-inactive variables into EE.
+           This lets TripleClean propagate substitutions before DNFSolveStep runs,
+           compounding the OR-branch reduction from step 1. *)
+        inactiveVars = Lookup[oracleState, "PrunedZeroFlows", {}];
+        newEE = If[ListQ[inactiveVars] && inactiveVars =!= {},
+            ee && (And @@ (# == 0 & /@ inactiveVars)),
+            ee
+        ];
+        {newEE, nn, or}
+    ];
+
 (* BuildCriticalResult: single point for assembling the standardized result envelope.
    Eliminates duplication across numeric, direct, and symbolic solver paths. *)
 BuildCriticalResult[PreEqs_Association, resultKind_, status_, message_,
