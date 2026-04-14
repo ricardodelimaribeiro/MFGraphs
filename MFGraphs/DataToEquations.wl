@@ -600,8 +600,7 @@ DataToEquations[Data_Association] :=
             ];
         Which[
             consistentCosts === False,
-                Message[DataToEquations::switchingcosts];
-                Return[$Failed, Module]
+                Message[DataToEquations::switchingcosts]
             ,
             consistentCosts =!= True,
                 MFGPrint["Switching costs conditions are ", consistentCosts
@@ -614,8 +613,45 @@ DataToEquations[Data_Association] :=
            AltFlowOp[j][{b,a}] produce identical Or-conditions. *)
         AltFlows = And @@ (AltFlowOp[j] /@ Join[
             inAuxEntryPairs, outAuxExitPairs, halfPairs]);
-        AltTransitionFlows = And @@ (AltFlowOp[j] /@
-            Select[auxTriples, OrderedQ[{First[#], Last[#]}]&]);
+        (* Transition flow constraints: for each vertex pair {a,b}, at least one
+           transition through {a,b} must have zero flow (complementarity).
+
+           When switching costs are CONSISTENT (satisfy triangle inequality):
+           Use original method: AltFlowOp on ordered vertex pairs only.
+
+           When switching costs are INCONSISTENT (violate triangle inequality):
+           Use disjunctive constraint strategy: For each target vertex v, for each
+           pair of incoming transitions (t1, t2), require j(t1)==0 OR j(t2)==0.
+           Groups auxTriples by intermediate vertex (midpoint), then for each target,
+           constructs disjunctions among all paths reaching that target.
+           This weaker constraint allows solver to find solutions when triangle
+           inequality fails, while still enforcing some complementarity. *)
+        AltTransitionFlows =
+            If[consistentCosts === False,
+                And @@ DeleteDuplicates[
+                    Sort /@ Flatten @ KeyValueMap[
+                        Function[{k, trips},
+                            Module[{bySource, byTarget},
+                                bySource = GroupBy[trips, First];
+                                byTarget = GroupBy[trips, Last];
+                                KeyValueMap[
+                                    Function[{v, t1s},
+                                        Table[
+                                            j @@ t1 == 0 || j @@ t2 == 0,
+                                            {t1, t1s},
+                                            {t2, Lookup[bySource, v, {}]}
+                                        ]
+                                    ],
+                                    byTarget
+                                ]
+                            ]
+                        ],
+                        GroupBy[auxTriples, #[[2]] &]
+                    ]
+                ],
+                And @@ (AltFlowOp[j] /@
+                    Select[auxTriples, OrderedQ[{First[#], Last[#]}]&])
+            ];
         splittingPairs = Join[inAuxEntryPairs, inAuxExitPairs, pairs]
             ;
         BalanceSplittingFlows = (j @@ # - Total[j @@@ FlowSplitting[auxTriples
@@ -912,7 +948,7 @@ MFGPreprocessing[Eqs_] :=
          AltOptCond, EqBalanceSplittingFlows, AltFlows, AltTransitionFlows, IneqJs,
          IneqJts, ModuleVarsNames, ModulesVars, NewSystem, Rules, EqGeneral,
         utilityReductionData,
-        RuleEntryValues, temp, time},
+        RuleEntryValues, time},
         RuleBalanceGatheringFlows = Lookup[Eqs, "RuleBalanceGatheringFlows",
              $Failed];
         EqEntryIn = Lookup[Eqs, "EqEntryIn", $Failed];
@@ -969,24 +1005,18 @@ MFGPreprocessing[Eqs_] :=
             MFGPrint["Switching costs (zero): extracted equalities in ",
                 time, " seconds."];
             ,
-            temp = MFGPrintTemporary["Simplifying inequalities involving Switching Costs...",
-                 IneqSwitchingByVertex];
             With[{items = IneqSwitchingByVertex /. InitRules},
                 {time, IneqSwitchingByVertex} = AbsoluteTiming[And @@ MFGParallelMap[
                     Simplify, items]]
             ];
-            NotebookDelete[temp];
             MFGPrint["Switching costs simplified in ", time, " seconds."];
         ];
         EqBalanceSplittingFlows = EqBalanceSplittingFlows /. InitRules
             ;
         EqValueAuxiliaryEdges = EqValueAuxiliaryEdges /. InitRules;
-        temp = MFGPrintTemporary["Solving some balance equations: ", 
-            EqBalanceSplittingFlows && EqValueAuxiliaryEdges];
         {time, Rules} = AbsoluteTiming[First @ Solve[EqBalanceSplittingFlows
              && EqValueAuxiliaryEdges] // Quiet];
         InitRules = Join[InitRules /. Rules, Association @ Rules];
-        NotebookDelete[temp];
         MFGPrint["Balance equations solved in ", time, " seconds."];
         utilityReductionData = BuildUtilityReductionData[
             Eqs,
@@ -1001,14 +1031,13 @@ MFGPreprocessing[Eqs_] :=
         ];
         (* Resolve Or-conditions using graph distance before TripleClean
            substitutes variables and obscures the j[a,b]==0 patterns *)
-        {time, NewSystem} = AbsoluteTiming[
+        (* Disabled: GraphDistance heuristic makes wrong zero-flow assumptions
+           for heterogeneous-exit-cost cases (e.g. chain with two exits). *)
+        (* {time, NewSystem} = AbsoluteTiming[
             ResolveOrByGraphDistance[Eqs, NewSystem]];
-        MFGPrint["Graph-distance Or-resolution took ", time, " seconds."];
-        temp = MFGPrintTemporary["TripleClean will work on\n", NewSystem,
-             "\nwith: ", InitRules];
+        MFGPrint["Graph-distance Or-resolution took ", time, " seconds."]; *)
         {time, {NewSystem, InitRules}} = AbsoluteTiming @ TripleClean[
             {NewSystem, InitRules}];
-        NotebookDelete[temp];
         MFGPrint["TripleClean took ", time, " seconds."];
         ModuleVarsNames = {"InitRules", "NewSystem", "UtilityReduction"};
         ModulesVars = {InitRules, NewSystem, utilityReductionData};
@@ -2140,7 +2169,7 @@ CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
             symbolicResult = TimeConstrained[
                 Module[{localAssoCritical, localStatus, localValidationFailedQ = False,
                         localResultKind, localMessage},
-                    localAssoCritical = MFGSystemSolver[PreEqs][AssociationThread[js, 0 js]];
+                    localAssoCritical = MFGSystemSolver[PreEqs][AssociationThread[js, ConstantArray[0, Length[js]]]];
                     localStatus = CheckFlowFeasibility[localAssoCritical];
                     If[validateQ && AssociationQ[localAssoCritical] && localStatus === "Feasible",
                         If[!TrueQ @ IsCriticalSolution[
@@ -2443,7 +2472,7 @@ IsCriticalSolution[Eqs_Association, OptionsPattern[]] :=
 
 MFGSystemSolver[Eqs_][approxJs_] :=
     Module[{NewSystem, InitRules, pickOne, vars, System, Ncpc, costpluscurrents,
-         us, js, jts, jjtsR, usR, time, temp, ineqsByTransition,
+         us, js, jts, jjtsR, usR, time, ineqsByTransition,
          ineqsWithoutTransition = {}},
         ClearSolveCache[];
         us = Lookup[Eqs, "us", $Failed];
@@ -2469,8 +2498,6 @@ MFGSystemSolver[Eqs_][approxJs_] :=
     
     
     *)
-        temp = MFGPrintTemporary["MFGSS: Selecting inequalities by transition flow..."
-            ];
         If[NewSystem[[2]] === True,
             ineqsByTransition = ConstantArray[True, Length[jts]];
             ineqsWithoutTransition = {};
@@ -2505,11 +2532,8 @@ MFGSystemSolver[Eqs_][approxJs_] :=
                     ]
                 ]
         ];
-        NotebookDelete[temp];
         MFGPrint["MFGSS: Selecting inequalities by transition flow took ",
              time, " seconds. ", Length[ineqsByTransition]];
-        temp = MFGPrintTemporary["MFGSS: Simplifying inequalities by transition flow..."
-            ];
         (* Pre-substitute known rules: many inequalities become True immediately *)
         ineqsByTransition = ineqsByTransition /. InitRules;
         ineqsByTransition = Replace[ineqsByTransition,
@@ -2525,7 +2549,6 @@ MFGSystemSolver[Eqs_][approxJs_] :=
                 ]
             ];
         (* Restore True entries for any that were already resolved *)
-        NotebookDelete[temp];
         MFGPrint["MFGSS: Simplifying inequalities by transition flow took ",
              time, " seconds. "];
         NewSystem[[2]] = (And @@ Join[ineqsByTransition, ineqsWithoutTransition]);
@@ -2611,7 +2634,7 @@ DNFSolveStep[{{EE_?BooleanQ, NN_?BooleanQ, OR_?BooleanQ}, rules_}] :=
     {{EE, NN, OR}, rules}
 
 DNFSolveStep[{{EE_, NN_, OO_}, rules_}] :=
-    Module[{NewSystem, newrules, sorted = True, time, temp},
+    Module[{NewSystem, newrules, sorted = True, time},
         {NewSystem, newrules} = TripleClean[{{EE, NN, OO}, rules}];
         If[NewSystem[[3]] === True,
             Return[{NewSystem, newrules}, Module]
@@ -2625,11 +2648,8 @@ DNFSolveStep[{{EE_, NN_, OO_}, rules_}] :=
                 sorted = And @@ SortBy[List @@ sorted, -LeafCount[#] &]
             ];
         ];
-        temp = MFGPrintTemporary["Final: Iterative DNF conversion on ",
-             Length[sorted], " disjunctions..."];
         {time, NewSystem} = AbsoluteTiming[DNFReduce[And @@ Most[NewSystem
             ], sorted]];
-        NotebookDelete[temp];
         MFGPrint["Final: Iterative DNF conversion on ", Length[sorted
             ], " disjunctions took ", time, " seconds to terminate."];
         {time, NewSystem} = AbsoluteTiming[ReduceDisjuncts[NewSystem]
