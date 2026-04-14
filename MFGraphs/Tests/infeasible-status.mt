@@ -82,3 +82,36 @@ Test[
     ,
     TestID -> "MFGSystemSolver: early exit when inequality block is False"
 ]
+
+(* Test: DataToEquations handles inconsistent switching costs gracefully
+   (violates triangle inequality) instead of returning $Failed.
+   The solver should issue a warning but attempt to find a solution
+   using disjunctive constraint strategy. *)
+Test[
+    Module[{data, d2e, result},
+        data = <|
+            "Vertices List" -> {1, 2, 3},
+            "Adjacency Matrix" -> {{0, 1, 1}, {0, 0, 1}, {0, 0, 0}},
+            "Entrance Vertices and Flows" -> {{1, 100}},
+            "Exit Vertices and Terminal Costs" -> {{3, 0}},
+            (* Inconsistent switching costs: violate triangle inequality
+               Cost(1→2→3) = 5+5=10 < Cost(1→3) = 3, violating triangle inequality *)
+            "Switching Costs" -> {{1, 2, 3, 5}, {1, 3, 2, 5}}
+        |>;
+        Quiet[
+            d2e = DataToEquations[data];
+            (* Check that DataToEquations didn't fail *)
+            result = CriticalCongestionSolver[d2e, "SymbolicTimeLimit" -> 60];
+            (* Result should be either Feasible or Infeasible, not $Failed *)
+            And[
+                result =!= $Failed,
+                MemberQ[{"Feasible", "Infeasible"},
+                    Lookup[result, "Feasibility", Missing[]]]
+            ]
+        ]
+    ]
+    ,
+    True
+    ,
+    TestID -> "Inconsistent switching costs: solver handles gracefully without $Failed"
+]

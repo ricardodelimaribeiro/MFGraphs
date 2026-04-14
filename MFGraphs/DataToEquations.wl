@@ -613,6 +613,19 @@ DataToEquations[Data_Association] :=
            AltFlowOp[j][{b,a}] produce identical Or-conditions. *)
         AltFlows = And @@ (AltFlowOp[j] /@ Join[
             inAuxEntryPairs, outAuxExitPairs, halfPairs]);
+        (* Transition flow constraints: for each vertex pair {a,b}, at least one
+           transition through {a,b} must have zero flow (complementarity).
+
+           When switching costs are CONSISTENT (satisfy triangle inequality):
+           Use original method: AltFlowOp on ordered vertex pairs only.
+
+           When switching costs are INCONSISTENT (violate triangle inequality):
+           Use disjunctive constraint strategy: For each target vertex v, for each
+           pair of incoming transitions (t1, t2), require j(t1)==0 OR j(t2)==0.
+           Groups auxTriples by intermediate vertex (midpoint), then for each target,
+           constructs disjunctions among all paths reaching that target.
+           This weaker constraint allows solver to find solutions when triangle
+           inequality fails, while still enforcing some complementarity. *)
         AltTransitionFlows =
             If[consistentCosts === False,
                 And @@ DeleteDuplicates[
