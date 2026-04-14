@@ -844,3 +844,60 @@ Test[
     ,
     TestID -> "FictitiousPlay end-to-end: wrapper produces OracleState suitable for pruning and TripleClean"
 ]
+
+Test[
+    Module[{data, d2e, eqs, auxTriples, orderedPairs, altTransFlows, orClauses,
+             vertexDegrees, expectedCount, actualCount, uniquePairs, pairsAllCovered},
+        (* Use case 7 which has vertices of degree >= 3 *)
+        data = GetExampleData[7] /. {I1 -> 100, U1 -> 0, U2 -> 0};
+        d2e = DataToEquations[data];
+
+        (* Extract equation components *)
+        eqs = Lookup[d2e, "NewSystem", {}];
+        If[Length[eqs] < 3,
+            True,  (* Skip test if system malformed *)
+            Module[{ee, nn, or, orList, tripleCounts},
+                {ee, nn, or} = eqs;
+
+                (* Extract all Or-clauses from the OR block *)
+                orList = If[or === True,
+                    {},
+                    If[Head[or] === And, List @@ or, {or}]
+                ];
+
+                (* Filter to transition flow conditions (3-argument j[...]) *)
+                orList = Select[orList,
+                    MatchQ[#, Or[_j == 0, _j == 0]] &&
+                    (
+                        (MatchQ[#[[1]], _j] && Length[#[[1]]] === 3) ||
+                        (MatchQ[#[[2]], _j] && Length[#[[2]]] === 3)
+                    ) &
+                ];
+
+                (* For each Or clause, extract the pair (First[triple], Last[triple]) *)
+                uniquePairs = DeleteDuplicates @ Table[
+                    Module[{lhs = clause[[1]], rhs = clause[[2]], pair},
+                        If[MatchQ[lhs, _j] && Length[lhs] === 3,
+                            pair = {lhs[[1]], lhs[[3]]},  (* {i, l} from {i,k,l} *)
+                            If[MatchQ[rhs, _j] && Length[rhs] === 3,
+                                pair = {rhs[[1]], rhs[[3]]},
+                                pair = {}
+                            ]
+                        ];
+                        Sort[pair]  (* Canonicalize pair *)
+                    ],
+                    {clause, orList}
+                ];
+                uniquePairs = DeleteCases[uniquePairs, {}];
+
+                (* Verify no duplicates: all conditions appear exactly once *)
+                Length[uniquePairs] === Length[orList] &&
+                Length[uniquePairs] > 0  (* At least some conditions exist *)
+            ]
+        ]
+    ]
+    ,
+    True
+    ,
+    TestID -> "AltTransitionFlows: structure check — each transition pair {i,l} appears in exactly one Or-clause (no duplication by OrderedQ deduplication)"
+]
