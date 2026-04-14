@@ -15,9 +15,9 @@ Test[
         Lookup[result, "ResultKind"] === "Success" &&
         Lookup[result, "Status"] === "Feasible" &&
         AssociationQ[asso] &&
-        Lookup[asso, MFGraphs`Private`j[2, 3], Missing[]] === 4 &&
-        Lookup[asso, MFGraphs`Private`j[2, ex2], Missing[]] === 0 &&
-        Lookup[asso, MFGraphs`Private`j[3, ex3], Missing[]] === 4
+        Lookup[asso, MFGraphs`Private`j[2, 3], Missing[]] == 4 &&
+        Lookup[asso, MFGraphs`Private`j[2, ex2], Missing[]] == 0 &&
+        Lookup[asso, MFGraphs`Private`j[3, ex3], Missing[]] == 4
     ],
     True,
     TestID -> "Exit pass-through: iota=4 routes all mass to the cheaper exit at v3"
@@ -38,9 +38,9 @@ Test[
         Lookup[result, "ResultKind"] === "Success" &&
         Lookup[result, "Status"] === "Feasible" &&
         AssociationQ[asso] &&
-        Lookup[asso, MFGraphs`Private`j[2, 3], Missing[]] === 10 &&
-        Lookup[asso, MFGraphs`Private`j[2, ex2], Missing[]] === 2 &&
-        Lookup[asso, MFGraphs`Private`j[3, ex3], Missing[]] === 10
+        Lookup[asso, MFGraphs`Private`j[2, 3], Missing[]] == 10 &&
+        Lookup[asso, MFGraphs`Private`j[2, ex2], Missing[]] == 2 &&
+        Lookup[asso, MFGraphs`Private`j[3, ex3], Missing[]] == 10
     ],
     True,
     TestID -> "Exit pass-through: iota=12 saturates v3 path and sends remainder to v2 exit"

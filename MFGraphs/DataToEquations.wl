@@ -1879,19 +1879,18 @@ SolveCriticalNumericBackend[Eqs_Association] :=
    retain only the Or-branches satisfied by the candidate. Falls back to the full system
    if no branches are satisfied. *)
 BuildPrunedSystem[system_, candidateSolution_Association, tol_: 10^-6] :=
-    Module[{ee, nn, orBranches, activeOrBranches, prunedOr},
+    Module[{ee, nn, orBranches, prunedOr},
         {ee, nn, orBranches} = system;
-        (* If orBranches is True (no disjunctions), return as-is; otherwise Select *)
         If[orBranches === True,
             prunedOr = True,
-            Module[{branchList},
-                branchList = If[Head[orBranches] === And, List @@ orBranches, {orBranches}];
-                activeOrBranches = Select[branchList,
-                    TrueQ[LogicalSatisfiedQ[#, candidateSolution, tol]] &
+            prunedOr = If[Head[orBranches] === List, Or @@ orBranches, orBranches];
+            prunedOr = prunedOr /. HoldPattern[Or[args__]] :>
+                Module[{satisfied, lst = {args}},
+                    satisfied = Select[lst, TrueQ[LogicalSatisfiedQ[#, candidateSolution, tol]] &];
+                    If[satisfied === {}, Or[args], If[Length[satisfied] === 1, satisfied[[1]], Or @@ satisfied]]
                 ];
-                prunedOr = If[activeOrBranches === {}, orBranches,
-                    If[Length[activeOrBranches] === 1, activeOrBranches[[1]], And @@ activeOrBranches]
-                ]
+            If[Head[orBranches] === List,
+                prunedOr = If[Head[prunedOr] === Or, List @@ prunedOr, {prunedOr}]
             ]
         ];
         {ee, nn, prunedOr}
