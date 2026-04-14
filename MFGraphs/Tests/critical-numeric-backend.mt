@@ -208,3 +208,93 @@ Test[
     True,
     TestID -> "Critical j-first backend telemetry: additive keys are always present"
 ]
+
+Test[
+    Module[{data, d2e, result},
+        data = GetExampleData[1] /. {I1 -> 100, U1 -> 0};
+        d2e = DataToEquations[data];
+        result = Quiet[
+            Block[
+                {
+                    QuadraticOptimization = (Function[{args___}, $Failed]),
+                    ConvexOptimization = (Function[{args___}, $Failed])
+                },
+                CriticalCongestionSolver[
+                    Join[d2e, <|"CriticalNumericBackendMode" -> "Force"|>]
+                ]
+            ]
+        ];
+        Lookup[result, {"ResultKind", "Feasibility"}] === {"Success", "Feasible"} &&
+        Lookup[result, "NumericBackendStrategy", Missing["NotAvailable"]] === "JFirst" &&
+        Lookup[result, "JFirstOptimizerUsed", Missing["NotAvailable"]] === "LinearOptimization" &&
+        IsCriticalSolution[result]
+    ],
+    True,
+    TestID -> "LinearOptimization path: J-First fallback after QP optimizers fail"
+]
+
+Test[
+    Module[{data, d2e, result},
+        data = GetExampleData[7] /. {I1 -> 100, U1 -> 0, U2 -> 0};
+        d2e = DataToEquations[data];
+        result = Quiet[
+            CriticalCongestionSolver[
+                Join[d2e, <|"CriticalNumericBackendMode" -> "Force"|>]
+            ]
+        ];
+        (* Test that LP-related telemetry keys are boolean and properly initialized *)
+        Lookup[result, {"ResultKind", "Feasibility"}] === {"Success", "Feasible"} &&
+        BooleanQ[Lookup[result, "NumericBackendLPUsed", False]] &&
+        BooleanQ[Lookup[result, "NumericBackendLPSimplexRetryUsed", False]] &&
+        IsCriticalSolution[result]
+    ],
+    True,
+    TestID -> "LP telemetry validation: LP-related keys are properly initialized as booleans"
+]
+
+Test[
+    Module[{data, d2e, result},
+        data = GetExampleData[1] /. {I1 -> 100, U1 -> 0};
+        d2e = DataToEquations[data];
+        result = Quiet[
+            Block[
+                {
+                    QuadraticOptimization = (Function[{___}, $Failed]),
+                    ConvexOptimization    = (Function[{___}, $Failed]),
+                    LinearOptimization    = (Function[{___}, $Failed])
+                },
+                CriticalCongestionSolver[
+                    Join[d2e, <|"CriticalNumericBackendMode" -> "Force"|>]
+                ]
+            ]
+        ];
+        Lookup[result, {"ResultKind", "Feasibility"}] === {"Success", "Feasible"} &&
+        Lookup[result, "JFirstBackendFallbackReason", Missing["NotAvailable"]] === "FlowInfeasible" &&
+        Lookup[result, "NumericBackendStrategy", Missing["NotAvailable"]] === "Coupled" &&
+        IsCriticalSolution[result]
+    ],
+    True,
+    TestID -> "J-First FlowInfeasible: all optimizers fail, fallback to Coupled succeeds"
+]
+
+Test[
+    Module[{data, d2e, result},
+        data = GetExampleData[7] /. {I1 -> 100, U1 -> 0, U2 -> 0};
+        d2e = DataToEquations[data];
+        result = Quiet[CriticalCongestionSolver[d2e]];
+        KeyExistsQ[result, "JFirstOptimizerUsed"]
+    ],
+    True,
+    TestID -> "Telemetry: JFirstOptimizerUsed key always present"
+]
+
+Test[
+    Module[{data, d2e, result},
+        data = GetExampleData[7] /. {I1 -> 100, U1 -> 0, U2 -> 0};
+        d2e = DataToEquations[data];
+        result = Quiet[CriticalCongestionSolver[d2e]];
+        KeyExistsQ[result, "NumericBackendLPUsed"] && KeyExistsQ[result, "NumericBackendLPSimplexRetryUsed"]
+    ],
+    True,
+    TestID -> "Telemetry: LP and Simplex retry telemetry keys always present"
+]
