@@ -1881,10 +1881,19 @@ SolveCriticalNumericBackend[Eqs_Association] :=
 BuildPrunedSystem[system_, candidateSolution_Association, tol_: 10^-6] :=
     Module[{ee, nn, orBranches, activeOrBranches, prunedOr},
         {ee, nn, orBranches} = system;
-        activeOrBranches = Select[orBranches,
-            TrueQ[LogicalSatisfiedQ[#, candidateSolution, tol]] &
+        (* If orBranches is True (no disjunctions), return as-is; otherwise Select *)
+        If[orBranches === True,
+            prunedOr = True,
+            Module[{branchList},
+                branchList = If[Head[orBranches] === And, List @@ orBranches, {orBranches}];
+                activeOrBranches = Select[branchList,
+                    TrueQ[LogicalSatisfiedQ[#, candidateSolution, tol]] &
+                ];
+                prunedOr = If[activeOrBranches === {}, orBranches,
+                    If[Length[activeOrBranches] === 1, activeOrBranches[[1]], And @@ activeOrBranches]
+                ]
+            ]
         ];
-        prunedOr = If[activeOrBranches === {}, orBranches, activeOrBranches];
         {ee, nn, prunedOr}
     ];
 
