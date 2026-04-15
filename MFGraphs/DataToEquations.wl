@@ -1985,10 +1985,15 @@ Options[CriticalCongestionSolver] = {
     "SymbolicTimeLimit" -> 120.
 };
 
+CriticalCongestionSolver::noassoc = "Expected an Association for Eqs, but received `1`. Ensure input is pre-processed via DataToEquations.";
+
 CriticalCongestionSolver[$Failed, ___] :=
     $Failed
 
-CriticalCongestionSolver[Eqs_, OptionsPattern[]] :=
+CriticalCongestionSolver[Eqs : Except[_Association | $Failed], OptionsPattern[]] :=
+    (Message[CriticalCongestionSolver::noassoc, Head[Eqs]]; $Failed)
+
+CriticalCongestionSolver[Eqs_Association, OptionsPattern[]] :=
     Module[{PreEqs, js, AssoCritical, time, status,
          resultKind, message,
          validateQ, validationTolerance, validationVerboseQ, validationFailedQ,

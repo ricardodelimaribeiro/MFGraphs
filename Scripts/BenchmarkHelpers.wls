@@ -69,7 +69,14 @@ SafeExecuteIsolated[expr_, timeout_:300, opts:OptionsPattern[]] :=
     outFile = CreateFile[];
 
     heldExpr = HoldComplete[expr];
-    concretizedExpr = heldExpr /. s_Symbol /; (Context[s] === "Global`" && OwnValues[s] =!= {}) :> Evaluate[s];
+    (* Inline caller-bound symbols into the child script. Two pitfalls this avoids:
+       1. Evaluate[s] inside HoldComplete is inert — must use RuleCondition to force RHS eval.
+       2. Symbols can land outside Global`: Module creates local contexts (e.g. foo$123`),
+          and name collisions with MFGraphs` exports put user variables in MFGraphs`.
+       We inline any non-System symbol that has OwnValues. *)
+    concretizedExpr = heldExpr /. s_Symbol /;
+        (!StringStartsQ[Context[s], "System`"] && OwnValues[s] =!= {}) :>
+      RuleCondition[s /. OwnValues[s], True];
     exprString = StringReplace[
       ToString[concretizedExpr, InputForm],
       {
