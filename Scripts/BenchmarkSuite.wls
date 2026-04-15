@@ -22,7 +22,7 @@ $HistoryLength = 0;
 Get[FileNameJoin[{Directory[], "Scripts", "BenchmarkHelpers.wls"}]];
 
 (* --- Parse command-line arguments --- *)
-(* Support: wolframscript -file Scripts/BenchmarkSuite.wls [tier] [case=key] [timeout=seconds] [isolation=process|inprocess|auto] [tag=description] *)
+(* Support: wolframscript -file Scripts/BenchmarkSuite.wls [tier] [case=key] [timeout=seconds] [isolation=process|inprocess|auto] [kernelpath=path] [tag=description] *)
 NormalizeCaseArg[arg_String] := If[StringMatchQ[arg, NumberString], ToExpression[arg], arg];
 NormalizeCaseArg[arg_] := arg;
 NormalizeIsolationMode[arg_String] := Switch[ToLowerCase[arg],
@@ -41,6 +41,7 @@ $SelectedTier = "all";
 $SelectedCase = All;
 $TimeoutOverride = Automatic;
 $IsolationModeArg = "auto";
+$KernelPathArg = Automatic;
 
 Module[{args = Rest[$ScriptCommandLine], i = 1, arg, parsedTimeout, parsedIsolation},
   While[i <= Length[args],
@@ -72,6 +73,9 @@ Module[{args = Rest[$ScriptCommandLine], i = 1, arg, parsedTimeout, parsedIsolat
       "--isolation",
         i++;
         If[i <= Length[args], $IsolationModeArg = args[[i]]],
+      "--kernelpath",
+        i++;
+        If[i <= Length[args], $KernelPathArg = args[[i]]],
       _ /; StringStartsQ[arg, "case="],
         $SelectedCase = NormalizeCaseArg[StringDrop[arg, StringLength["case="]]],
       _ /; StringStartsQ[arg, "timeout="],
@@ -81,6 +85,8 @@ Module[{args = Rest[$ScriptCommandLine], i = 1, arg, parsedTimeout, parsedIsolat
         ],
       _ /; StringStartsQ[arg, "isolation="],
         $IsolationModeArg = StringDrop[arg, StringLength["isolation="]],
+      _ /; StringStartsQ[arg, "kernelpath="],
+        $KernelPathArg = StringDrop[arg, StringLength["kernelpath="]],
       _ /; StringStartsQ[arg, "tag="],
         $HistoryTag = StringDrop[arg, StringLength["tag="]],
       _ /; StringStartsQ[arg, "rationale="],
@@ -103,6 +109,10 @@ Module[{args = Rest[$ScriptCommandLine], i = 1, arg, parsedTimeout, parsedIsolat
   ];
   $RequestedIsolationMode = parsedIsolation;
   $SafeExecuteMode = If[$RequestedIsolationMode === "Auto", "InProcess", $RequestedIsolationMode];
+  $SafeExecuteKernelPath = Replace[$KernelPathArg, {
+    s_String /; StringLength[StringTrim[s]] > 0 :> StringTrim[s],
+    _ :> ResolveWolframScriptKernelPath[]
+  }];
 ];
 
 $RequestedTier = $SelectedTier;
@@ -113,6 +123,7 @@ If[$RequestedTier =!= $SelectedTier, Print["Requested alias: ", $RequestedTier]]
 If[$SelectedCase =!= All, Print["Selected case: ", $SelectedCase]];
 If[NumericQ[$TimeoutOverride], Print["Timeout override: ", $TimeoutOverride, "s"]];
 Print["Isolation mode: ", If[$RequestedIsolationMode === "Auto", "Auto (tier-routed)", $RequestedIsolationMode]];
+Print["Process kernel path: ", $SafeExecuteKernelPath];
 If[$HistoryTag =!= None, Print["History tag:   ", $HistoryTag]];
 If[$HistoryTag =!= None &&
    MemberQ[{$HistoryRationale, $HistoryChanges, $HistoryInterpretation}, None],
