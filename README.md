@@ -213,21 +213,32 @@ Use `GetExampleData[key]` to load predefined test cases:
 | `13` | Attraction without middle edge (numerical) |
 | `14` | Triangle with switching |
 | `15` | Y-network, 3 vertices, 2 entrances, with switching |
+| `16` | Invalid switching-cost example |
 | `17`, `18` | 2-edge variants |
 | `19` | Y-network with 2 entrances and switching |
 | `20`–`23` | Larger multi-entrance, multi-exit networks |
 | `27` | Cycle (2 vertices, undirected) |
 | `104` | Triangle with 2 entrances and 3 exits |
+| `105` | Numeric alias for chain with two exits |
+| `"triangle with two exits"` | Triangle with 1 entrance and 2 exits |
+| `"chain with two exits"` | Chain with 1 entrance and 2 exits |
 | `"Braess split"` | Braess paradox — split variant |
 | `"Braess congest"` | Braess paradox — congestion variant |
 | `"New Braess"` | Braess with edge-dependent costs |
 | `"Big Braess split"` | Extended Braess — split variant |
 | `"Big Braess congest"` | Extended Braess — congestion variant |
 | `"Jamaratv9"` | Jamarat pilgrimage network (9 vertices) |
+| `"HRF Scenario 1"` | HRF reference scenario |
 | `"Paper example"` | 4-vertex network with 2 entrances, 2 exits, and switching |
+| `"Inconsistent Y shortcut"` | Y-network with deliberately inconsistent switching costs |
+| `"Inconsistent attraction shortcut"` | Attraction network with a deliberately inconsistent shortcut turn |
 | `"Grid0303"` | 3 x 3 grid graph |
+| `"Grid0404"` | 4 x 4 grid graph |
+| `"Grid0505"` | 5 x 5 grid graph |
+| `"Grid0707"` | 7 x 7 grid graph |
+| `"Grid0710"` | 7 x 10 grid graph |
+| `"Grid1010"` | 10 x 10 grid graph |
 | `"Grid1020"` | 10 x 20 grid graph |
-| `"triangle with two exits"` | Triangle with 1 entrance and 2 exits |
 
 ## Configuration
 
