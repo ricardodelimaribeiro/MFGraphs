@@ -1052,6 +1052,7 @@ Get["MFGraphs`Examples`ExamplesData`"];
 Get["MFGraphs`Examples`TimeDependentExamples`"];
 Get["MFGraphs`DNFReduce`"];
 Get["MFGraphs`DataToEquations`"];
+Get["MFGraphs`Solvers`"];
 Get["MFGraphs`NonLinearSolver`"];
 Get["MFGraphs`Monotone`"];
 Get["MFGraphs`TimeDependentSolver`"];
