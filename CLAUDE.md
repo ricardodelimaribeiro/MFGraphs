@@ -526,15 +526,7 @@ Failure to clear the cache can cause stale memoized results to leak into unrelat
 
 ## CI pipeline
 
-GitHub Actions (`.github/workflows/tests.yml`) runs on PRs and pushes to `master`:
-
-| Job | Trigger | What it does |
-|-----|---------|-------------|
-| **report_hygiene** | PRs + pushes | Scans for placeholder prose in report/history files |
-| **fast_tests** | PRs + pushes | `Scripts/RunTests.wls fast` |
-| **slow_tests** | pushes only | `Scripts/RunTests.wls slow` |
-| **benchmark_smoke** | pushes only | `Scripts/BenchmarkSuite.wls small case=1 timeout=10` |
-| **solver_compare_smoke** | pushes only | `Scripts/CompareSolvers.wls smoke` |
+None. GitHub Actions workflows were removed in commit `64a3ee9` — there is no `.github/workflows/` directory. All test and benchmark runs must be performed locally per the "Run tests and benchmarks" section above before opening a PR.
 
 ## Git workflow
 
