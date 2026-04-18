@@ -12,6 +12,7 @@ $TestsDir = FileNameJoin[{Directory[], "MFGraphs", "Tests"}];
 $TestSuites = <|
     "fast" -> {
         "package-loading.mt",
+        "graphics-public-api.mt",
         "007-critical_congestion.mt",
         "007-critical_congestion_ok.mt",
         "012-critical_congestion.mt",
