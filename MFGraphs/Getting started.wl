@@ -106,69 +106,19 @@ DescribeOutput[title_String, description_String, expr_] :=
         Spacings -> {0.2, 0.7}
     ];
 
+(* Reuse canonical visualization helpers from Graphics.wl to avoid workbook drift. *)
 AssociationValue[assoc_Association, key_, default_: Missing["NotAvailable"]] :=
-    If[KeyExistsQ[assoc, key], assoc[key], default];
+    MFGraphs`AssociationValue[assoc, key, default];
 
 (* Net flow on each displayed edge, after eliminating dependent current variables. *)
 NetEdgeFlows[d2e_Association, solution_Association, pairs_: Automatic] :=
-    Module[{selectedPairs, rules},
-        selectedPairs = Replace[
-            pairs,
-            Automatic -> (List @@@ Lookup[d2e, "edgeList", {}])
-        ];
-        rules = Join[
-            Lookup[d2e, "RuleBalanceGatheringFlows", <||>],
-            Lookup[d2e, "RuleExitFlowsIn", <||>],
-            Lookup[d2e, "RuleEntryOut", <||>]
-        ];
-        AssociationThread[
-            selectedPairs,
-            N[((Lookup[d2e, "SignedFlows", <||>] /@ selectedPairs) /. rules /. solution)]
-        ]
-    ];
-
-vertexPropertyMap[entryVertices_, exitVertices_, internalVertices_, entryVal_, exitVal_, internalVal_] :=
-    Join[
-        AssociationThread[entryVertices, ConstantArray[entryVal, Length[entryVertices]]],
-        AssociationThread[exitVertices, ConstantArray[exitVal, Length[exitVertices]]],
-        AssociationThread[internalVertices, ConstantArray[internalVal, Length[internalVertices]]]
-    ];
+    MFGraphs`NetEdgeFlows[d2e, solution, pairs];
 
 NetworkVisualData[d2e_Association] :=
-    Module[{graph, layoutGraph, coords, coordArray, extent,
-      entryVertices, exitVertices, internalVertices},
-        graph = Lookup[d2e, "graph", Graph[{}]];
-        layoutGraph = Graph[graph, GraphLayout -> "SpringElectricalEmbedding"];
-        coords = AssociationThread[VertexList[layoutGraph], N @ GraphEmbedding[layoutGraph]];
-        coordArray = Values[coords];
-        extent = If[coordArray === {},
-            1.,
-            Max[(Max /@ Transpose[coordArray]) - (Min /@ Transpose[coordArray])]
-        ];
-        extent = Max[extent, 1.];
-        entryVertices = Lookup[d2e, "entryVertices", {}];
-        exitVertices = Lookup[d2e, "exitVertices", {}];
-        internalVertices = Complement[VertexList[graph], entryVertices, exitVertices];
-        <|
-            "graph" -> graph,
-            "coords" -> coords,
-            "vertexColors" -> vertexPropertyMap[entryVertices, exitVertices, internalVertices,
-                RGBColor[0.22, 0.6, 0.3], RGBColor[0.82, 0.27, 0.2], GrayLevel[0.75]],
-            "vertexSizes" -> vertexPropertyMap[entryVertices, exitVertices, internalVertices,
-                0.34, 0.34, 0.28],
-            "vertexRadii" -> vertexPropertyMap[entryVertices, exitVertices, internalVertices,
-                0.045 extent, 0.045 extent, 0.035 extent]
-        |>
-    ];
+    MFGraphs`NetworkVisualData[d2e];
 
 FlowStyleDirective[flow_?NumericQ, maxFlow_?NumericQ] :=
-    Directive[
-        If[flow >= 0, RGBColor[0.12, 0.45, 0.78], RGBColor[0.82, 0.39, 0.2]],
-        AbsoluteThickness[
-            Rescale[Abs[flow], {0, Max[maxFlow, 10^-9]}, {1.5, 8}]
-        ],
-        Opacity[0.9]
-    ];
+    MFGraphs`FlowStyleDirective[flow, maxFlow];
 
 (* NetworkGraphPlot and SolutionFlowPlot now live in Graphics.wl. *)
 

@@ -1115,26 +1115,28 @@ CriticalCongestionSolver[Eqs_Association, OptionsPattern[]] :=
                     numericBackendUsedQ = True;
                     numericBackendFallbackReason = None;
                     PreEqs = EnsurePreprocessed[Eqs];
-                    If[validateQ,
-                        If[forcedRejectQ || !TrueQ @ IsCriticalSolution[
-                            Join[PreEqs, <|"AssoCritical" -> numericCandidate, "Solution" -> numericCandidate|>],
-                            "Tolerance" -> validationTolerance,
-                            "Verbose" -> validationVerboseQ
-                        ],
-                            numericBackendUsedQ = False;
-                            numericBackendStrategy = "Symbolic";
-                            If[
-                                TrueQ[jFirstBackendUsedQ] &&
-                                (jFirstBackendFallbackReason === None || jFirstBackendFallbackReason === "NotAttempted"),
-                                jFirstBackendFallbackReason =
-                                    If[forcedRejectQ, "ForcedValidationFailure", "CriticalValidationFailed"]
-                            ];
-                            jFirstBackendUsedQ = False;
-                            numericBackendFallbackReason =
+                    If[
+                        validateQ &&
+                        (
+                            forcedRejectQ ||
+                            !TrueQ @ IsCriticalSolution[
+                                Join[PreEqs, <|"AssoCritical" -> numericCandidate, "Solution" -> numericCandidate|>],
+                                "Tolerance" -> validationTolerance,
+                                "Verbose" -> validationVerboseQ
+                            ]
+                        ),
+                        numericBackendUsedQ = False;
+                        numericBackendStrategy = "Symbolic";
+                        If[
+                            TrueQ[jFirstBackendUsedQ] &&
+                            (jFirstBackendFallbackReason === None || jFirstBackendFallbackReason === "NotAttempted"),
+                            jFirstBackendFallbackReason =
                                 If[forcedRejectQ, "ForcedValidationFailure", "CriticalValidationFailed"]
-                            ,
-                            Return[BuildCriticalResult[PreEqs, "Success", status, None, numericCandidate, telemetry], Module]
-                        ],
+                        ];
+                        jFirstBackendUsedQ = False;
+                        numericBackendFallbackReason =
+                            If[forcedRejectQ, "ForcedValidationFailure", "CriticalValidationFailed"]
+                        ,
                         Return[BuildCriticalResult[PreEqs, "Success", status, None, numericCandidate, telemetry], Module]
                     ],
                     numericBackendFallbackReason = "FlowFeasibilityFailed"
@@ -1158,16 +1160,15 @@ CriticalCongestionSolver[Eqs_Association, OptionsPattern[]] :=
                 status = CheckFlowFeasibility[AssoCritical];
                 If[status === "Feasible",
                     PreEqs = EnsurePreprocessed[Eqs];
-                    If[validateQ,
-                        If[!TrueQ @ IsCriticalSolution[
+                    If[
+                        validateQ &&
+                        !TrueQ @ IsCriticalSolution[
                             Join[PreEqs, <|"AssoCritical" -> AssoCritical, "Solution" -> AssoCritical|>],
                             "Tolerance" -> validationTolerance,
                             "Verbose" -> validationVerboseQ
                         ],
-                            MFGPrint["Direct solver validation failed, falling back to symbolic solver."]
-                            ,
-                            Return[BuildCriticalResult[PreEqs, "Success", status, None, AssoCritical, telemetry], Module]
-                        ],
+                        MFGPrint["Direct solver validation failed, falling back to symbolic solver."]
+                        ,
                         Return[BuildCriticalResult[PreEqs, "Success", status, None, AssoCritical, telemetry], Module]
                     ],
                     MFGPrint["Direct solver produced infeasible result, falling back to symbolic solver."]
@@ -1342,6 +1343,19 @@ RulesConjunction[rules_] :=
         ]
     ];
 
+CriticalSolutionAssociation[Eqs_Association] :=
+    Module[{candidate},
+        candidate = Lookup[Eqs, "AssoCritical", Missing["NotAvailable"]];
+        If[AssociationQ[candidate],
+            candidate,
+            candidate = Lookup[Eqs, "Solution", Missing["NotAvailable"]];
+            If[AssociationQ[candidate], candidate, Missing["NotAvailable"]]
+        ]
+    ];
+
+CriticalFlowApproximation[Eqs_Association, solution_Association] :=
+    KeyTake[solution, Lookup[Eqs, "js", {}]];
+
 IsCriticalSolution[Eqs_Association, OptionsPattern[]] :=
     Module[{tol, verboseQ, returnReportQ, solution, blocks, blockResults,
          residual, residualPass, allBlocksPass, overall, report, flowApprox,
@@ -1387,14 +1401,7 @@ IsCriticalSolution[Eqs_Association, OptionsPattern[]] :=
             Return[If[returnReportQ, report, False], Module]
         ];
 
-        solution = Which[
-            AssociationQ[Lookup[Eqs, "AssoCritical", Missing["NotAvailable"]]],
-                Lookup[Eqs, "AssoCritical"],
-            AssociationQ[Lookup[Eqs, "Solution", Missing["NotAvailable"]]],
-                Lookup[Eqs, "Solution"],
-            True,
-                Missing["NotAvailable"]
-        ];
+        solution = CriticalSolutionAssociation[Eqs];
 
         If[!AssociationQ[solution],
             report = <|
@@ -1410,14 +1417,7 @@ IsCriticalSolution[Eqs_Association, OptionsPattern[]] :=
             Return[If[returnReportQ, report, False], Module]
         ];
 
-        flowApprox = Which[
-            AssociationQ[Lookup[Eqs, "AssoCritical", Missing["NotAvailable"]]],
-                KeyTake[Lookup[Eqs, "AssoCritical"], Lookup[Eqs, "js", {}]],
-            AssociationQ[Lookup[Eqs, "Solution", Missing["NotAvailable"]]],
-                KeyTake[Lookup[Eqs, "Solution"], Lookup[Eqs, "js", {}]],
-            True,
-                AssociationThread[Lookup[Eqs, "js", {}], 0 Lookup[Eqs, "js", {}]]
-        ];
+        flowApprox = CriticalFlowApproximation[Eqs, solution];
         costpluscurrents = Lookup[Eqs, "costpluscurrents", Missing["NotAvailable"]];
         eqGeneralCritical =
             Lookup[Eqs, "EqGeneral", True] /.
