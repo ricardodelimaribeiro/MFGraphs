@@ -14,6 +14,53 @@ Test[
     TestID -> "SolveMFG routing: Automatic defaults to critical congestion"
 ]
 
+(* Baseline matrix for Plan A step 1: freeze SolveMFG stage-routing behavior on a core case. *)
+Test[
+    Module[{data, d2e, matrix, nonLinearOpts, monotoneOpts},
+        data = GetExampleData[12] /. {I1 -> 80, U1 -> 0};
+        d2e = DataToEquations[data];
+        nonLinearOpts = {
+            "MaxIterations" -> 5,
+            "Tolerance" -> 10^-6,
+            "PotentialFunction" -> Function[{x, edge}, 0],
+            "CongestionExponentFunction" -> Function[edge, 1],
+            "InteractionFunction" -> Function[{m, edge}, -1/m^2]
+        };
+        monotoneOpts = {
+            "ResidualTolerance" -> 10^-6,
+            "MaxTime" -> 5,
+            "MaxSteps" -> 1000,
+            "PotentialFunction" -> Function[{x, edge}, 0],
+            "CongestionExponentFunction" -> Function[edge, 1],
+            "InteractionFunction" -> Function[{m, edge}, -1/m^2]
+        };
+        matrix = <|
+            "Automatic" -> Lookup[Quiet[SolveMFG[d2e]], {"Solver", "ResultKind", "Feasibility"}],
+            "CriticalCongestion" -> Lookup[
+                Quiet[SolveMFG[d2e, Method -> "CriticalCongestion"]],
+                {"Solver", "ResultKind", "Feasibility"}
+            ],
+            "NonLinear" -> Lookup[
+                Quiet[SolveMFG[d2e, Method -> "NonLinear", Sequence @@ nonLinearOpts]],
+                {"Solver", "ResultKind", "Feasibility"}
+            ],
+            "Monotone" -> Lookup[
+                Quiet[SolveMFG[d2e, Method -> "Monotone", Sequence @@ monotoneOpts]],
+                {"Solver", "ResultKind", "Feasibility"}
+            ]
+        |>;
+        matrix["Automatic"][[1]] === "CriticalCongestion" &&
+        matrix["CriticalCongestion"] === {"CriticalCongestion", "Success", "Feasible"} &&
+        matrix["NonLinear"] === {"NonLinear", "Success", "Feasible"} &&
+        matrix["Monotone"][[1]] === "Monotone" &&
+        MemberQ[{"Success", "NonConverged"}, matrix["Monotone"][[2]]]
+    ]
+    ,
+    True
+    ,
+    TestID -> "SolveMFG baseline matrix: core case preserves stage-routing envelopes"
+]
+
 Test[
     Module[{data, d2e, direct, routed, drift},
         data = GetExampleData[7] /. {I1 -> 100, U1 -> 0, U2 -> 0};
