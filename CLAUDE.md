@@ -97,7 +97,8 @@ Common operations at a glance:
 | Run fast tests (9 files, ~27 min) | `wolframscript -file Scripts/RunTests.wls fast` |
 | Run all tests (19 files, slower) | `wolframscript -file Scripts/RunTests.wls all` |
 | Run specific test file | `wolframscript -file MFGraphs/Tests/solver-contracts.mt` |
-| Benchmark single case | `wolframscript -file Scripts/BenchmarkSuite.wls core case=12 timeout=300` |
+| Benchmark single case (critical only) | `wolframscript -file Scripts/BenchmarkSuite.wls core case=12 timeout=300` |
+| Benchmark single case (all solvers) | `wolframscript -file Scripts/BenchmarkSuite.wls core case=12 solver=all` |
 | Regenerate API docs | `wolframscript -file Scripts/GenerateDocs.wls` |
 | Clear solver cache | `ClearSolveCache[]` (in Mathematica) |
 | Enable verbose output | `$MFGraphsVerbose = True` (in Mathematica) |
@@ -158,8 +159,14 @@ wolframscript -file Scripts/BenchmarkSuite.wls
 wolframscript -file Scripts/BenchmarkSuite.wls small
 wolframscript -file Scripts/BenchmarkSuite.wls core
 
-# Single case with custom timeout
+# Single case with custom timeout (CriticalCongestion only — the default)
 wolframscript -file Scripts/BenchmarkSuite.wls small case=1 timeout=60
+
+# Run all three solvers on a case
+wolframscript -file Scripts/BenchmarkSuite.wls core case=12 solver=all
+
+# Solver options: critical (default), nonlinear, monotone, all
+# "nonlinear" and "monotone" also run CriticalCongestion first as seed
 
 # Track performance impact of changes (records in docs/history/DNF_PERFORMANCE_HISTORY.md)
 wolframscript -file Scripts/BenchmarkSuite.wls --tag "description of change" --rationale "why" --changes "what changed"
