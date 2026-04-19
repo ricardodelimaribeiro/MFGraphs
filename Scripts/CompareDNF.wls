@@ -300,6 +300,7 @@ Do[
       If[r["DNF_Time"] >= 0, ToString@N[r["DNF_Time"], 3], "TIMEOUT"] <> " | " <>
       If[r["Pipe_Time"] >= 0, ToString@N[r["Pipe_Time"], 3], "TIMEOUT"] <> " | " <>
       If[r["Speedup_Pipe_over_DNF"] > 0, ToString@N[r["Speedup_Pipe_over_DNF"], 2] <> "x", "N/A"] <> " | " <>
+
       ToString[r["BC_Disjuncts"]] <> " | " <>
       ToString[r["DNF_Disjuncts"]] <> " | " <>
       ToString[r["Pipe_Disjuncts"]] <> " | " <>
