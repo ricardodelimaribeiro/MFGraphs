@@ -19,6 +19,19 @@ MFGraphs converts network topology (vertices, edges, entry/exit flows, switching
 
 For developer guidance, see [CLAUDE.md](CLAUDE.md). For troubleshooting, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
+## Repository layout
+
+| Path | Purpose |
+|---|---|
+| `MFGraphs/` | Package source (`.wl` files, tests, examples) |
+| `Scripts/` | Test runner, benchmarks, documentation generator |
+| `Results/` | Benchmark and profiling outputs (mostly gitignored) |
+| `docs/` | Internal planning and validation notes |
+| `research/papers/` | Reference papers |
+| `repro/` | One-off debugging and reproduction scripts |
+| `DNF_PERFORMANCE_HISTORY.md` | Auto-appended by `CompareDNF.wls` — do not edit manually |
+| `PARALLEL_PERFORMANCE_HISTORY.md` | Auto-appended by `BenchmarkSuite.wls` — do not edit manually |
+
 ## Installation
 
 Clone this repository and load the package in Mathematica:
@@ -269,19 +282,25 @@ V = Function[{x, edge}, 0.5 Sin[2 Pi (x + 1/4)]^2];
 
 ```
 MFGraphs/
-  MFGraphs.wl             Package loader, verbose flag, MFGPrint helpers
+  MFGraphs.wl             Package loader, SolveMFG unified entrypoint
   DNFReduce.wl            Boolean algebra (disjunctive normal form reduction)
-  DataToEquations.wl      Data-to-equations converter and critical congestion solver
+  DataToEquations.wl      Network topology → equation converter
+  Solvers.wl              Critical-congestion solver suite (extracted Phase 3)
   NonLinearSolver.wl      Iterative non-linear solver and Hamiltonian framework
   Monotone.wl             Monotone operator (ODE-based) solver
+  TimeDependentSolver.wl  Time-dependent MFG solver
+  Graphics.wl             Public visualization helpers (NetworkGraphPlot, SolutionFlowPlot, ExitFlowPlot)
   Examples/
-    ExamplesData.wl        Built-in test cases and GetExampleData function
+    ExamplesData.wl        34 built-in test cases via GetExampleData[key]
+  Tests/
+    *.mt                   MUnit test files
   Kernel/
     init.m                 Paclet initialization
 Scripts/
   RunTests.wls             Test suite runner
-  GenerateDocs.wls         Automated API documentation generator
   BenchmarkSuite.wls       Performance benchmarking tool
+  CompareDNF.wls           DNF solver before/after comparison
+  GenerateDocs.wls         Automated API documentation generator
 ```
 
 ### Maintenance

@@ -15,7 +15,10 @@
                  The entry includes the current git commit hash, date, results table,
                  and the supplied rationale / changes / interpretation prose.
 *)
-
+(*TODO: It looks like we are not using Reduce after BooleanConvert in the actual code, 
+but we should add that as a third method to compare against DNFReduce, since that is what we currently do after DNFReduce. 
+The idea is to see how much of the benefit of DNFReduce comes from Reduce's algebraic simplification vs the DNF conversion itself. *)
+(*Compare Reduce on the leafs of BooleanConvert and DNFReduce.*)
 Print["=== BooleanConvert vs DNFReduce Comparison ==="];
 Print["Date: ", DateString[]];
 Print["Mathematica: ", $Version];

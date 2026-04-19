@@ -13,12 +13,12 @@ ClearAll[
     NetEdgeFlows,
     NetworkVisualData,
     FlowStyleDirective,
-    BaseNetworkGraphic,
-    SolutionNetworkGraphic,
+    NetworkGraphPlot,
+    SolutionFlowPlot,
     DensityNetworkGraphic,
     MassDensityCurve,
     ValueFunctionCurve,
-    ExitFlowChart,
+    ExitFlowPlot,
     JamaratScenario
 ];
 
@@ -58,6 +58,9 @@ ClearMFGraphsNotebookShadows[] :=
             "IsSwitchingCostConsistent",
             "PlotMassDensity",
             "PlotValueFunction",
+            "NetworkGraphPlot",
+            "SolutionFlowPlot",
+            "ExitFlowPlot",
             "I1", "I2", "I3",
             "U1", "U2", "U3",
             "S1", "S2", "S3", "S4", "S5", "S6",
@@ -167,60 +170,7 @@ FlowStyleDirective[flow_?NumericQ, maxFlow_?NumericQ] :=
         Opacity[0.9]
     ];
 
-BaseNetworkGraphic[d2e_Association, title_: Automatic] :=
-    Module[{visual, plotTitle},
-        visual = NetworkVisualData[d2e];
-        plotTitle = Replace[title, Automatic -> "Network structure"];
-        Graph[
-            visual["graph"],
-            GraphLayout -> "SpringElectricalEmbedding",
-            VertexLabels -> Placed["Name", Center],
-            VertexStyle -> Normal[visual["vertexColors"]],
-            VertexSize -> Normal[visual["vertexSizes"]],
-            EdgeStyle -> Directive[GrayLevel[0.6], AbsoluteThickness[2]],
-            PlotLabel -> Style[plotTitle, 14, Bold],
-            ImageSize -> Large
-        ]
-    ];
-
-SolutionNetworkGraphic[d2e_Association, solution_Association, title_: Automatic] :=
-    Module[{visual, pairs, graphEdges, flows, flowValues, maxFlow, edgeStyles,
-      edgeLabels, plotTitle},
-        visual = NetworkVisualData[d2e];
-        graphEdges = Lookup[d2e, "edgeList", {}];
-        pairs = List @@@ graphEdges;
-        flows = NetEdgeFlows[d2e, solution, pairs];
-        flowValues = N[Lookup[flows, pairs]];
-        maxFlow = Max[Append[Abs[flowValues], 0]];
-        edgeStyles = AssociationThread[
-            graphEdges,
-            FlowStyleDirective[#, maxFlow] & /@ flowValues
-        ];
-        edgeLabels = AssociationThread[
-            graphEdges,
-            Placed[
-                Style[
-                    NumberForm[Chop[#, 10^-8], {Infinity, 1}],
-                    11,
-                    Black,
-                    Background -> White
-                ],
-                Center
-            ] & /@ flowValues
-        ];
-        plotTitle = Replace[title, Automatic -> "Net edge flows"];
-        Graph[
-            visual["graph"],
-            GraphLayout -> "SpringElectricalEmbedding",
-            VertexLabels -> Placed["Name", Center],
-            VertexStyle -> Normal[visual["vertexColors"]],
-            VertexSize -> Normal[visual["vertexSizes"]],
-            EdgeStyle -> Normal[edgeStyles],
-            EdgeLabels -> Normal[edgeLabels],
-            PlotLabel -> Style[plotTitle, 14, Bold],
-            ImageSize -> Large
-        ]
-    ];
+(* NetworkGraphPlot and SolutionFlowPlot now live in Graphics.wl. *)
 
 DensityNetworkGraphic[d2e_Association, solution_Association, title_: Automatic, samples_Integer: 24] :=
     Module[{visual, coords, pairs, flows, sampleXs, densitiesByPair, allDensities,
@@ -350,21 +300,7 @@ ValueFunctionCurve[result_Association, pair_List] :=
         AxesLabel -> {"Position on edge", "Value"}
     ];
 
-ExitFlowChart[exitFlows_Association, title_: Automatic] :=
-    Module[{vertices, values, plotTitle},
-        vertices = Keys[exitFlows];
-        values = N[Values[exitFlows]];
-        plotTitle = Replace[title, Automatic -> "Exit flow totals"];
-        BarChart[
-            values,
-            ChartLabels -> Placed[vertices, Below],
-            ChartStyle -> Table[ColorData[97][k], {k, Length[values]}],
-            AxesLabel -> {"Exit", "Flow"},
-            PlotLabel -> Style[plotTitle, 14, Bold],
-            GridLines -> Automatic,
-            ImageSize -> Large
-        ]
-    ];
+(* ExitFlowPlot now lives in Graphics.wl. *)
 
 (* Jamarat helper: solve one release/cost scenario and summarize exit usage. *)
 JamaratScenario[params_List] :=
@@ -432,7 +368,7 @@ Column[{
     DescribeOutput[
         "Custom network topology",
         "Green vertices are entrances, red vertices are exits, and gray vertices are interior junctions.",
-        BaseNetworkGraphic[customD2E, "Custom network topology"]
+        NetworkGraphPlot[customD2E, "Custom network topology"]
     ]
 }]
 
@@ -459,7 +395,7 @@ Column[{
     DescribeOutput[
         "Net edge flows",
         "Edge thickness and labels show the signed net flow on each interior edge. Positive values follow the stored edge orientation.",
-        SolutionNetworkGraphic[
+        SolutionFlowPlot[
             criticalD2E,
             criticalStandard["Solution"],
             "Critical-congestion net flows"
@@ -540,7 +476,7 @@ Module[{potentialFunction, congestionExponentFunction, interactionFunction},
         DescribeOutput[
             "Non-linear equilibrium net flows",
             "Thickness and labels summarize the net current on each edge after the non-linear congestion update converges.",
-            SolutionNetworkGraphic[
+            SolutionFlowPlot[
                 nonlinearD2E,
                 nonlinearResult["Solution"],
                 "Non-linear equilibrium net flows"
@@ -612,7 +548,7 @@ Module[{potentialFunction, congestionExponentFunction, interactionFunction},
         DescribeOutput[
             "Monotone solver net flows",
             "This graph shows the final net currents produced by the monotone solver on the simple path example.",
-            SolutionNetworkGraphic[
+            SolutionFlowPlot[
                 DataToEquations[monotoneData],
                 monotoneResult["Solution"],
                 "Monotone solver net flows"
@@ -662,7 +598,7 @@ Column[{
     DescribeOutput[
         "Jamarat baseline net flows",
         "The network view shows where the pilgrims are routed through the interior corridors under the baseline release and exit-cost assumptions.",
-        SolutionNetworkGraphic[
+        SolutionFlowPlot[
             jamaratBase["Model"],
             jamaratBase["Solution"],
             "Jamarat baseline net flows"
@@ -685,7 +621,7 @@ Column[{
     DescribeOutput[
         "Jamarat exit split",
         "Bar heights summarize the total predicted outflow through each exit in the feasible baseline scenario.",
-        ExitFlowChart[jamaratBase["ExitFlows"], "Jamarat baseline exit split"]
+        ExitFlowPlot[jamaratBase["ExitFlows"], "Jamarat baseline exit split"]
     ],
     DescribeOutput[
         "Jamarat exit totals",
@@ -714,7 +650,7 @@ Column[{
     DescribeOutput[
         "Jamarat network structure",
         "When a scenario is infeasible, it is still useful to inspect the topology alone before changing releases or costs.",
-        BaseNetworkGraphic[jamaratOverload["Model"], "Jamarat network structure"]
+        NetworkGraphPlot[jamaratOverload["Model"], "Jamarat network structure"]
     ]
 }]
 

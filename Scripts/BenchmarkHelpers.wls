@@ -18,12 +18,28 @@ SafeExecuteIsolated::usage =
 Returns the same status envelope as SafeExecute and prevents child-kernel crashes from
 terminating the benchmark master process.";
 
+ResolveWolframScriptKernelPath[] :=
+  Module[{parentExecutable},
+    parentExecutable = Quiet @ Check[First[$CommandLine], $Failed];
+    Which[
+      StringQ[parentExecutable] &&
+        StringContainsQ[ToLowerCase[parentExecutable], "wolframscript"] &&
+        FileExistsQ[parentExecutable],
+        parentExecutable,
+      FileExistsQ["/usr/local/bin/wolframscript"],
+        "/usr/local/bin/wolframscript",
+      True,
+        "wolframscript"
+    ]
+  ];
+
 Options[SafeExecuteIsolated] = {
-  "KernelPath" -> "wolframscript",
+  "KernelPath" -> ResolveWolframScriptKernelPath[],
   "ProcessTimeBuffer" -> 5
 };
 
 $SafeExecuteMode = "InProcess";
+$SafeExecuteKernelPath = Automatic;
 
 SetAttributes[SafeExecuteIsolated, HoldFirst];
 SetAttributes[SafeExecuteInProcess, HoldFirst];
@@ -188,9 +204,16 @@ SafeExecuteIsolated[expr_, timeout_:300, opts:OptionsPattern[]] :=
   ];
 
 SafeExecute[expr_, timeout_:300] :=
-  If[$SafeExecuteMode === "Process",
-    SafeExecuteIsolated[expr, timeout],
-    SafeExecuteInProcess[expr, timeout]
+  Module[{kernelPathOption},
+    kernelPathOption = Replace[$SafeExecuteKernelPath, {
+      s_String /; StringLength[StringTrim[s]] > 0 :>
+        Sequence["KernelPath" -> StringTrim[s]],
+      _ :> Sequence[]
+    }];
+    If[$SafeExecuteMode === "Process",
+      SafeExecuteIsolated[expr, timeout, kernelPathOption],
+      SafeExecuteInProcess[expr, timeout]
+    ]
   ];
 
 (* --- Residual computation --- *)

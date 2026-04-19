@@ -1056,6 +1056,7 @@ Get["MFGraphs`Solvers`"];
 Get["MFGraphs`NonLinearSolver`"];
 Get["MFGraphs`Monotone`"];
 Get["MFGraphs`TimeDependentSolver`"];
+Get["MFGraphs`Graphics`"];
 
 Options[SolveMFG] = DeleteDuplicatesBy[
     Join[
