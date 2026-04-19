@@ -1,3 +1,4 @@
+#!/usr/bin/env wolframscript
 (* Usage: wolframscript -file Scripts/BenchmarkSuite.wls [tier] [case=key] [timeout=seconds] [isolation=mode] [solver=name] [tag=label] [rationale=...] [changes=...] [interpretation=...] *)
 (* tier: "small", "core", "stress", "paper", "inconsistent-switching", "large", "vlarge", legacy "medium", or "all" (default: "all") *)
 (* solver: "critical" (default), "nonlinear", "monotone", "all" *)
@@ -44,11 +45,15 @@ $TimeoutOverride = Automatic;
 $IsolationModeArg = "auto";
 $KernelPathArg = Automatic;
 $SelectedSolverArg = "critical";   (* default: CriticalCongestion only *)
+$SelectedProfile = None;
 
 Module[{args = Rest[$ScriptCommandLine], i = 1, arg, parsedTimeout, parsedIsolation},
   While[i <= Length[args],
     arg = args[[i]];
     Switch[arg,
+      "--profile",
+        i++;
+        If[i <= Length[args], $SelectedProfile = args[[i]]],
       "--tag",
         i++;
         $HistoryTag = If[i <= Length[args], args[[i]], "untagged"],
@@ -122,25 +127,65 @@ Module[{args = Rest[$ScriptCommandLine], i = 1, arg, parsedTimeout, parsedIsolat
   }];
 ];
 
-(* Resolve solver selection *)
-$SolversToRun = Switch[$SelectedSolverArg,
-  "critical" | "criticalcongestion", {"CriticalCongestion"},
-  "nonlinear" | "nl",               {"CriticalCongestion", "NonLinearSolver"},
-  "monotone" | "mono",              {"CriticalCongestion", "Monotone"},
-  "all",                            {"CriticalCongestion", "NonLinearSolver", "Monotone"},
-  _,
-    Print["Unknown solver argument: ", $SelectedSolverArg,
-          ". Valid values: critical, nonlinear, monotone, all."];
-    Exit[2]
+(* Apply profile if selected *)
+If[$SelectedProfile =!= None,
+  Module[{profileData = Lookup[$BenchmarkProfiles, $SelectedProfile]},
+    If[AssociationQ[profileData],
+      Print["Applying profile: ", $SelectedProfile];
+      $SelectedTier = "profile-derived";
+      $SolversToRun = Lookup[profileData, "Solvers", {"critical"}];
+      $SolversToRun = Switch[#,
+        "critical" | "criticalcongestion", "CriticalCongestion",
+        "nonlinear" | "nl",               "NonLinearSolver",
+        "monotone" | "mono",              "Monotone",
+        "all",                            {"CriticalCongestion", "NonLinearSolver", "Monotone"},
+        s_String, s,
+        l_List, l,
+        _, "CriticalCongestion"
+      ] & /@ $SolversToRun;
+      $SolversToRun = Flatten[$SolversToRun];
+      If[$SelectedCase === All,
+        $CasesToRun = Flatten[Lookup[$BenchmarkTiers, #, {}] & /@ Lookup[profileData, "Tiers", {}]],
+        $CasesToRun = {$SelectedCase}
+      ];
+      ,
+      Print["Unknown profile: ", $SelectedProfile];
+      Print["Available profiles: ", StringRiffle[Keys[$BenchmarkProfiles], ", "]];
+      Exit[2]
+    ];
+  ],
+  (* Default behavior if no profile *)
+  (* Resolve solver selection *)
+  $SolversToRun = Switch[$SelectedSolverArg,
+    "critical" | "criticalcongestion", {"CriticalCongestion"},
+    "nonlinear" | "nl",               {"CriticalCongestion", "NonLinearSolver"},
+    "monotone" | "mono",              {"CriticalCongestion", "Monotone"},
+    "all",                            {"CriticalCongestion", "NonLinearSolver", "Monotone"},
+    _,
+      Print["Unknown solver argument: ", $SelectedSolverArg,
+            ". Valid values: critical, nonlinear, monotone, all."];
+      Exit[2]
+  ];
+
+  $RequestedTier = $SelectedTier;
+  $SelectedTier = Lookup[$BenchmarkTierAliases, $SelectedTier, $SelectedTier];
+
+  (* --- Determine which cases to run --- *)
+  $CasesToRun = If[$SelectedCase =!= All,
+    {$SelectedCase},
+    If[$SelectedTier === "all",
+      Flatten[Lookup[$BenchmarkTiers, $DefaultBenchmarkTiers]],
+      Lookup[$BenchmarkTiers, $SelectedTier, {}]
+    ]
+  ];
 ];
+
 (* When only CriticalCongestion is requested, suppress the seed-only runs *)
 $CriticalOnlyMode = $SolversToRun === {"CriticalCongestion"};
 
-$RequestedTier = $SelectedTier;
-$SelectedTier = Lookup[$BenchmarkTierAliases, $SelectedTier, $SelectedTier];
-
+Print["Selected profile: ", If[$SelectedProfile === None, "None", $SelectedProfile]];
 Print["Selected tier: ", $SelectedTier];
-If[$RequestedTier =!= $SelectedTier, Print["Requested alias: ", $RequestedTier]];
+If[$SelectedProfile === None && $RequestedTier =!= $SelectedTier, Print["Requested alias: ", $RequestedTier]];
 If[$SelectedCase =!= All, Print["Selected case: ", $SelectedCase]];
 If[NumericQ[$TimeoutOverride], Print["Timeout override: ", $TimeoutOverride, "s"]];
 Print["Solvers: ", StringRiffle[$SolversToRun, ", "]];
@@ -154,15 +199,6 @@ If[$HistoryTag =!= None &&
 ];
 Print["Subkernels:    ", $KernelCount, " (of ", $ProcessorCount, " processors)"];
 Print[];
-
-(* --- Determine which cases to run --- *)
-$CasesToRun = If[$SelectedCase =!= All,
-  {$SelectedCase},
-  If[$SelectedTier === "all",
-    Flatten[Lookup[$BenchmarkTiers, $DefaultBenchmarkTiers]],
-    Lookup[$BenchmarkTiers, $SelectedTier, {}]
-  ]
-];
 
 GetTier[key_] := SelectFirst[Keys[$BenchmarkTiers], MemberQ[$BenchmarkTiers[#], key] &, "unknown"];
 ResolveCaseIsolationMode[tier_String] :=
