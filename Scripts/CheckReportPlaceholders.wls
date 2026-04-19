@@ -2,8 +2,8 @@
 (* Fails when committed history/report files still contain placeholder prose. *)
 
 targets = {
-  "DNF_PERFORMANCE_HISTORY.md",
-  "PARALLEL_PERFORMANCE_HISTORY.md",
+  "docs/history/DNF_PERFORMANCE_HISTORY.md",
+  "docs/history/PARALLEL_PERFORMANCE_HISTORY.md",
   "History/DEVELOPMENT_HISTORY.md",
   "Results/compare_dnf.md",
   "Results/preprocessing_profile_report.md",

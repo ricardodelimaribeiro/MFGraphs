@@ -430,7 +430,7 @@ If[$HistoryTag =!= None,
   Module[{histPath, commitResult, commitHash, date, tier, rows, tierRows,
           entry, lines, existingContent, insertPos},
 
-    histPath = FileNameJoin[{Directory[], "PARALLEL_PERFORMANCE_HISTORY.md"}];
+    histPath = FileNameJoin[{Directory[], "docs", "history", "PARALLEL_PERFORMANCE_HISTORY.md"}];
     commitResult = RunProcess[{"git", "rev-parse", "--short", "HEAD"}];
     commitHash = StringTrim[commitResult["StandardOutput"]];
     date = DateString[{"Year", "-", "Month", "-", "Day"}];
@@ -514,7 +514,7 @@ If[$HistoryTag =!= None,
       existingContent = existingContent <> "\n---\n\n" <> entry
     ];
     Export[histPath, existingContent, "Text"];
-    Print["History entry appended to PARALLEL_PERFORMANCE_HISTORY.md (tag: ", $HistoryTag, ")"];
+    Print["History entry appended to docs/history/PARALLEL_PERFORMANCE_HISTORY.md (tag: ", $HistoryTag, ")"];
   ]
 (* :!CodeAnalysis::EndBlock:: *)
 ];

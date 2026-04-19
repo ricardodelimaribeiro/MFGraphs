@@ -161,7 +161,7 @@ wolframscript -file Scripts/BenchmarkSuite.wls core
 # Single case with custom timeout
 wolframscript -file Scripts/BenchmarkSuite.wls small case=1 timeout=60
 
-# Track performance impact of changes (records in DNF_PERFORMANCE_HISTORY.md)
+# Track performance impact of changes (records in docs/history/DNF_PERFORMANCE_HISTORY.md)
 wolframscript -file Scripts/BenchmarkSuite.wls --tag "description of change" --rationale "why" --changes "what changed"
 ```
 
@@ -179,7 +179,7 @@ wolframscript -file Scripts/BenchmarkSuite.wls --tag "description of change" --r
 
 **Benchmark notes**:
 - Results (CSV, JSON, markdown) go to `Results/` (gitignored except `Results/compare_dnf.md`)
-- Use `--tag` with `--rationale`, `--changes`, and `--interpretation` to track performance history in `DNF_PERFORMANCE_HISTORY.md` and `PARALLEL_PERFORMANCE_HISTORY.md`
+- Use `--tag` with `--rationale`, `--changes`, and `--interpretation` to track performance history in `docs/history/DNF_PERFORMANCE_HISTORY.md` and `docs/history/PARALLEL_PERFORMANCE_HISTORY.md`
 - Test cases that fail validation due to switching costs violating the triangle inequality are **expected failures** (feature validation)
 - `medium` is a legacy alias for `core` (supported for backward compatibility)
 
@@ -376,7 +376,7 @@ Symbolic parameters (e.g., `I1`, `U1`, `S1`) can be used and substituted with `/
 
 **Important**: Call `ClearSolveCache[]` between different problem instances to prevent stale cached results.
 
-Performance history tracked in `DNF_PERFORMANCE_HISTORY.md`. When modifying `DNFReduce.wl`, run `CompareDNF.wls --tag "description"` to record impact.
+Performance history tracked in `docs/history/DNF_PERFORMANCE_HISTORY.md`. When modifying `DNFReduce.wl`, run `CompareDNF.wls --tag "description"` to record impact.
 
 ### Parallelization
 
@@ -388,7 +388,7 @@ Parallelized sites: `Simplify` over switching-cost inequalities, `Select`/`Simpl
 - `ParallelNeeds["pkg`"]` is a no-op if context exists; use `DistributeDefinitions` instead
 - `Block[{sym}]` clears all `DownValues` — provide explicit defaults when wrapping solver parameters
 
-Performance history tracked in `PARALLEL_PERFORMANCE_HISTORY.md`. Use `BenchmarkSuite.wls --tag "description"` to record entries.
+Performance history tracked in `docs/history/PARALLEL_PERFORMANCE_HISTORY.md`. Use `BenchmarkSuite.wls --tag "description"` to record entries.
 
 ## Utility Scripts
 
@@ -409,7 +409,7 @@ wolframscript -file Scripts/CompareDNF.wls --tag "after optimization"
 # Compare performance on a single case
 wolframscript -file Scripts/CompareDNF.wls case=7
 ```
-Results are recorded in `DNF_PERFORMANCE_HISTORY.md` and `Results/compare_dnf.md`.
+Results are recorded in `docs/history/DNF_PERFORMANCE_HISTORY.md` and `Results/compare_dnf.md`.
 
 **`CompareSolvers.wls`** — Compare performance across all three solvers (CriticalCongestion, NonLinear, Monotone) on representative test cases.
 
@@ -478,7 +478,7 @@ wolframscript -file Scripts/CompareDNF.wls --tag "after optimization"
 wolframscript -file Scripts/CompareDNF.wls Y_switch
 ```
 
-Results are recorded in `DNF_PERFORMANCE_HISTORY.md` and `Results/compare_dnf.md`.
+Results are recorded in `docs/history/DNF_PERFORMANCE_HISTORY.md` and `Results/compare_dnf.md`.
 
 ### Debug parallel kernel issues
 
@@ -526,7 +526,7 @@ Failure to clear the cache can cause stale memoized results to leak into unrelat
   (* :!CodeAnalysis::EndBlock:: *)
   ```
 - `API_REFERENCE.md` is auto-generated — edit `::usage` strings in source, then run `wolframscript -file Scripts/GenerateDocs.wls`
-- `DNF_PERFORMANCE_HISTORY.md` and `PARALLEL_PERFORMANCE_HISTORY.md` are auto-appended by benchmark scripts — do not manually edit
+- `docs/history/DNF_PERFORMANCE_HISTORY.md` and `docs/history/PARALLEL_PERFORMANCE_HISTORY.md` are auto-appended by benchmark scripts — do not manually edit
 
 ## CI pipeline
 
