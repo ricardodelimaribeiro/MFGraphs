@@ -28,6 +28,8 @@ Test[
         NumericQ[result["KirchhoffResidual"]] &&
         NumericQ[result["BoundaryMassResidual"]] &&
         KeyExistsQ[result, "UtilityClassResidual"] &&
+        KeyExistsQ[result, "UnresolvedEquations"] &&
+        result["UnresolvedEquations"] === True &&
         IsFeasible[result]
     ]
     ,
@@ -396,4 +398,26 @@ Test[
     True
     ,
     TestID -> "CriticalCongestionSolver: symbolic timeout returns structured envelope, not $Failed"
+]
+
+Test[
+    Module[{data, d2e, result},
+        data = Append[
+            GetExampleData["chain with two exits"] /. {I1 -> 100, U1 -> 0, U2 -> 0},
+            "Switching Costs" -> {{1, 2, 3, 10}}
+        ];
+        d2e = Quiet[DataToEquations[data], {DataToEquations::switchingcosts}];
+        result = Quiet[CriticalCongestionSolver[d2e, "SymbolicTimeLimit" -> 60], {DataToEquations::switchingcosts}];
+        Lookup[result, {"Solver", "ResultKind", "Feasibility", "Message"}] ===
+            {"CriticalCongestion", "Success", "Feasible", None} &&
+        AssociationQ[result["UnresolvedEquations"]] &&
+        AllTrue[
+            Values @ KeySelect[result["AssoCritical"], MatchQ[#, j[__]] &],
+            NumericQ
+        ]
+    ]
+    ,
+    True
+    ,
+    TestID -> "Critical solver: underdetermined inconsistent-switching is Success/Feasible with symbolic UnresolvedEquations"
 ]

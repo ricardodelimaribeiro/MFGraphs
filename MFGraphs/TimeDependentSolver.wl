@@ -173,14 +173,14 @@ solveAtTimeStep[d2e_Association, entranceFlowValues_List,
         MFGPrint["  Preprocessing took ", time, " seconds."];
 
         (* Solve the spatial system *)
-        solution = MFGSystemSolver[preStep][approxJs];
+        solution = MFGSystemSolver[preStep][approxJs]["Solution"];
 
         (* Optional nonlinear iterations *)
         If[spatialIter > 0 && AssociationQ[solution],
             js = Lookup[preStep, "js", {}];
             Do[
                 ClearSolveCache[];
-                solution = MFGSystemSolver[preStep][KeyTake[solution, js]],
+                solution = MFGSystemSolver[preStep][KeyTake[solution, js]]["Solution"],
                 {spatialIter}
             ]
         ];

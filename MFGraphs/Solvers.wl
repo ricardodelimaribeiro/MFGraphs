@@ -233,7 +233,7 @@ DirectCriticalSolver[Eqs_Association] :=
                 ]
             ]
         ];
-        Do[If[!KeyExistsQ[result, var], result[var] = 0], {var, allVars}];
+        Do[If[!KeyExistsQ[result, var] && MatchQ[var, j[__]], result[var] = 0], {var, allVars}];
         (* Only resolve transitive chains if there are symbolic values *)
         If[!AllTrue[Values[result], NumericQ],
             result = Expand /@ FixedPoint[Function[r, ReplaceAll[r] /@ r], result, 10]
@@ -984,13 +984,16 @@ SolveCriticalNumericBackend[Eqs_Association] :=
 
 
 BuildCriticalResult[PreEqs_Association, resultKind_, status_, message_,
-    candidate_, telemetry_Association] :=
+    candidate_, telemetry_Association, unresolvedEqs_: True] :=
     Module[{solution, comparisonData},
         solution = If[AssociationQ[candidate], candidate, Missing["NotAvailable"]];
         comparisonData = BuildSolverComparisonData[PreEqs, solution];
         Join[PreEqs, MakeSolverResult["CriticalCongestion", resultKind,
             status, message, solution,
-            Join[comparisonData, <|"AssoCritical" -> candidate, "Status" -> status|>, telemetry]
+            Join[comparisonData,
+                <|"AssoCritical" -> candidate, "Status" -> status,
+                  "UnresolvedEquations" -> unresolvedEqs|>,
+                telemetry]
         ]]
     ];
 
@@ -1115,27 +1118,41 @@ CriticalCongestionSolver[Eqs_Association, OptionsPattern[]] :=
                     numericBackendUsedQ = True;
                     numericBackendFallbackReason = None;
                     PreEqs = EnsurePreprocessed[Eqs];
-                    If[
-                        validateQ &&
-                        (
-                            forcedRejectQ ||
-                            !TrueQ @ IsCriticalSolution[
-                                Join[PreEqs, <|"AssoCritical" -> numericCandidate, "Solution" -> numericCandidate|>],
-                                "Tolerance" -> validationTolerance,
-                                "Verbose" -> validationVerboseQ
+                    If[validateQ,
+                        Module[{valReport},
+                            valReport = If[forcedRejectQ,
+                                <|"Valid" -> False, "Reason" -> "ForcedValidationFailure",
+                                  "IndeterminateResiduals" -> <||>|>,
+                                IsCriticalSolution[
+                                    Join[PreEqs, <|"AssoCritical" -> numericCandidate, "Solution" -> numericCandidate|>],
+                                    "Tolerance" -> validationTolerance,
+                                    "Verbose" -> validationVerboseQ,
+                                    "ReturnReport" -> True
+                                ]
+                            ];
+                            Which[
+                                valReport["Reason"] === "IndeterminateConstraints",
+                                    Return[BuildCriticalResult[PreEqs, "Success", status, None,
+                                        numericCandidate, telemetry,
+                                        Lookup[valReport, "IndeterminateResiduals", <||>]], Module]
+                                ,
+                                !TrueQ[valReport["Valid"]],
+                                    numericBackendUsedQ = False;
+                                    numericBackendStrategy = "Symbolic";
+                                    If[
+                                        TrueQ[jFirstBackendUsedQ] &&
+                                        (jFirstBackendFallbackReason === None || jFirstBackendFallbackReason === "NotAttempted"),
+                                        jFirstBackendFallbackReason =
+                                            If[forcedRejectQ, "ForcedValidationFailure", "CriticalValidationFailed"]
+                                    ];
+                                    jFirstBackendUsedQ = False;
+                                    numericBackendFallbackReason =
+                                        If[forcedRejectQ, "ForcedValidationFailure", "CriticalValidationFailed"]
+                                ,
+                                True,
+                                    Return[BuildCriticalResult[PreEqs, "Success", status, None, numericCandidate, telemetry], Module]
                             ]
-                        ),
-                        numericBackendUsedQ = False;
-                        numericBackendStrategy = "Symbolic";
-                        If[
-                            TrueQ[jFirstBackendUsedQ] &&
-                            (jFirstBackendFallbackReason === None || jFirstBackendFallbackReason === "NotAttempted"),
-                            jFirstBackendFallbackReason =
-                                If[forcedRejectQ, "ForcedValidationFailure", "CriticalValidationFailed"]
-                        ];
-                        jFirstBackendUsedQ = False;
-                        numericBackendFallbackReason =
-                            If[forcedRejectQ, "ForcedValidationFailure", "CriticalValidationFailed"]
+                        ]
                         ,
                         Return[BuildCriticalResult[PreEqs, "Success", status, None, numericCandidate, telemetry], Module]
                     ],
@@ -1160,14 +1177,27 @@ CriticalCongestionSolver[Eqs_Association, OptionsPattern[]] :=
                 status = CheckFlowFeasibility[AssoCritical];
                 If[status === "Feasible",
                     PreEqs = EnsurePreprocessed[Eqs];
-                    If[
-                        validateQ &&
-                        !TrueQ @ IsCriticalSolution[
-                            Join[PreEqs, <|"AssoCritical" -> AssoCritical, "Solution" -> AssoCritical|>],
-                            "Tolerance" -> validationTolerance,
-                            "Verbose" -> validationVerboseQ
-                        ],
-                        MFGPrint["Direct solver validation failed, falling back to symbolic solver."]
+                    If[validateQ,
+                        Module[{valReport},
+                            valReport = IsCriticalSolution[
+                                Join[PreEqs, <|"AssoCritical" -> AssoCritical, "Solution" -> AssoCritical|>],
+                                "Tolerance" -> validationTolerance,
+                                "Verbose"   -> validationVerboseQ,
+                                "ReturnReport" -> True
+                            ];
+                            Which[
+                                valReport["Reason"] === "IndeterminateConstraints",
+                                    Return[BuildCriticalResult[PreEqs, "Success", status, None,
+                                        AssoCritical, telemetry,
+                                        Lookup[valReport, "IndeterminateResiduals", <||>]], Module]
+                                ,
+                                !TrueQ[valReport["Valid"]],
+                                    MFGPrint["Direct solver validation failed, falling back to symbolic solver."]
+                                ,
+                                True,
+                                    Return[BuildCriticalResult[PreEqs, "Success", status, None, AssoCritical, telemetry], Module]
+                            ]
+                        ]
                         ,
                         Return[BuildCriticalResult[PreEqs, "Success", status, None, AssoCritical, telemetry], Module]
                     ],
@@ -1201,18 +1231,34 @@ CriticalCongestionSolver[Eqs_Association, OptionsPattern[]] :=
         Module[{symbolicResult},
             symbolicResult = TimeConstrained[
                 Module[{localAssoCritical, localStatus, localValidationFailedQ = False,
-                        localResultKind, localMessage},
-                    localAssoCritical = MFGSystemSolver[PreEqs][AssociationThread[js, ConstantArray[0, Length[js]]]];
+                        localResultKind, localMessage, mfgssResult, unresolvedUConstraints, valReport},
+                    mfgssResult = MFGSystemSolver[PreEqs][AssociationThread[js, ConstantArray[0, Length[js]]]];
+                    localAssoCritical = mfgssResult["Solution"];
+                    unresolvedUConstraints = mfgssResult["UnresolvedConstraints"];
                     localStatus = CheckFlowFeasibility[localAssoCritical];
                     If[validateQ && AssociationQ[localAssoCritical] && localStatus === "Feasible",
-                        If[!TrueQ @ IsCriticalSolution[
+                        valReport = IsCriticalSolution[
                             Join[PreEqs, <|"AssoCritical" -> localAssoCritical, "Solution" -> localAssoCritical|>],
                             "Tolerance" -> validationTolerance,
-                            "Verbose" -> validationVerboseQ
-                        ],
-                            localValidationFailedQ = True;
-                            localAssoCritical = Null;
-                            localStatus = "Infeasible";
+                            "Verbose"   -> validationVerboseQ,
+                            "ReturnReport" -> True
+                        ];
+                        Which[
+                            valReport["Reason"] === "IndeterminateConstraints",
+                                Return[BuildCriticalResult[PreEqs, "Success", localStatus, None,
+                                    localAssoCritical, telemetry,
+                                    If[unresolvedUConstraints =!= None,
+                                        Join[Lookup[valReport, "IndeterminateResiduals", <||>],
+                                             <|"FlowSolveResidual" -> unresolvedUConstraints|>],
+                                        Lookup[valReport, "IndeterminateResiduals", <||>]
+                                    ]], Module]
+                            ,
+                            !TrueQ[valReport["Valid"]],
+                                localValidationFailedQ = True;
+                                localAssoCritical = Null;
+                                localStatus = "Infeasible"
+                            ,
+                            True, Null (* valid — fall through *)
                         ]
                     ];
                     localResultKind = If[localAssoCritical === Null, "Failure", "Success"];
@@ -1250,7 +1296,7 @@ NumericRelationSatisfiedQ[expr_, tol_?NumericQ] :=
                     HoldComplete[Inactive[Equal][l_, r_]] :> {l, r}
                 }];
                 delta = Quiet @ Check[N[pair[[1]] - pair[[2]]], $Failed];
-                NumericQ[delta] && Abs[delta] <= tol
+                Which[delta === $Failed, False, NumericQ[delta], Abs[delta] <= tol, True, Indeterminate]
             ,
             MatchQ[held, HoldComplete[LessEqual[_, _]] | HoldComplete[Inactive[LessEqual][_, _]]],
                 pair = Replace[held, {
@@ -1258,7 +1304,7 @@ NumericRelationSatisfiedQ[expr_, tol_?NumericQ] :=
                     HoldComplete[Inactive[LessEqual][l_, r_]] :> {l, r}
                 }];
                 delta = Quiet @ Check[N[pair[[1]] - pair[[2]]], $Failed];
-                NumericQ[delta] && delta <= tol
+                Which[delta === $Failed, False, NumericQ[delta], delta <= tol, True, Indeterminate]
             ,
             MatchQ[held, HoldComplete[GreaterEqual[_, _]] | HoldComplete[Inactive[GreaterEqual][_, _]]],
                 pair = Replace[held, {
@@ -1266,7 +1312,7 @@ NumericRelationSatisfiedQ[expr_, tol_?NumericQ] :=
                     HoldComplete[Inactive[GreaterEqual][l_, r_]] :> {l, r}
                 }];
                 delta = Quiet @ Check[N[pair[[2]] - pair[[1]]], $Failed];
-                NumericQ[delta] && delta <= tol
+                Which[delta === $Failed, False, NumericQ[delta], delta <= tol, True, Indeterminate]
             ,
             MatchQ[held, HoldComplete[Less[_, _]] | HoldComplete[Inactive[Less][_, _]]],
                 pair = Replace[held, {
@@ -1274,7 +1320,7 @@ NumericRelationSatisfiedQ[expr_, tol_?NumericQ] :=
                     HoldComplete[Inactive[Less][l_, r_]] :> {l, r}
                 }];
                 delta = Quiet @ Check[N[pair[[1]] - pair[[2]]], $Failed];
-                NumericQ[delta] && delta < -tol
+                Which[delta === $Failed, False, NumericQ[delta], delta < -tol, True, Indeterminate]
             ,
             MatchQ[held, HoldComplete[Greater[_, _]] | HoldComplete[Inactive[Greater][_, _]]],
                 pair = Replace[held, {
@@ -1282,7 +1328,7 @@ NumericRelationSatisfiedQ[expr_, tol_?NumericQ] :=
                     HoldComplete[Inactive[Greater][l_, r_]] :> {l, r}
                 }];
                 delta = Quiet @ Check[N[pair[[2]] - pair[[1]]], $Failed];
-                NumericQ[delta] && delta < -tol
+                Which[delta === $Failed, False, NumericQ[delta], delta < -tol, True, Indeterminate]
             ,
             MatchQ[held, HoldComplete[Unequal[_, _]] | HoldComplete[Inactive[Unequal][_, _]]],
                 pair = Replace[held, {
@@ -1290,7 +1336,7 @@ NumericRelationSatisfiedQ[expr_, tol_?NumericQ] :=
                     HoldComplete[Inactive[Unequal][l_, r_]] :> {l, r}
                 }];
                 delta = Quiet @ Check[N[pair[[1]] - pair[[2]]], $Failed];
-                NumericQ[delta] && Abs[delta] > tol
+                Which[delta === $Failed, False, NumericQ[delta], Abs[delta] > tol, True, Indeterminate]
             ,
             True,
                 False
@@ -1325,7 +1371,13 @@ LogicalSatisfiedQ[expr_, rules_Association, tol_?NumericQ] :=
                 ];
                 If[evaluated === $Failed,
                     False,
-                    TrueQ[Simplify[evaluated]]
+                    Module[{simplified = Simplify[evaluated]},
+                        Which[
+                            TrueQ[simplified],    True,
+                            simplified === False,  False,
+                            True,                  Indeterminate
+                        ]
+                    ]
                 ]
         ]
     ];
@@ -1358,9 +1410,10 @@ CriticalFlowApproximation[Eqs_Association, solution_Association] :=
 
 IsCriticalSolution[Eqs_Association, OptionsPattern[]] :=
     Module[{tol, verboseQ, returnReportQ, solution, blocks, blockResults,
-         residual, residualPass, allBlocksPass, overall, report, flowApprox,
+         residual, residualPass, overall, report, flowApprox,
          costpluscurrents, eqGeneralCritical, eqResidualPairs, eqResidualDeltas,
-         requiredKeys, missingKeys},
+         requiredKeys, missingKeys,
+         concretelyFailed, indeterminateBlocks, hasIndeterminate, indeterminateResiduals},
         tol = OptionValue["Tolerance"];
         verboseQ = TrueQ[OptionValue["Verbose"]];
         returnReportQ = TrueQ[OptionValue["ReturnReport"]];
@@ -1448,7 +1501,13 @@ IsCriticalSolution[Eqs_Association, OptionsPattern[]] :=
             #1 -> LogicalSatisfiedQ[#2, solution, tol] &,
             blocks
         ];
-        allBlocksPass = And @@ Values[blockResults];
+        concretelyFailed    = Keys @ Select[blockResults, (# === False) &];
+        indeterminateBlocks = Keys @ Select[blockResults, (# === Indeterminate) &];
+        hasIndeterminate    = indeterminateBlocks =!= {};
+        indeterminateResiduals = If[hasIndeterminate,
+            KeyTake[Map[Simplify[# /. solution] &, blocks], indeterminateBlocks],
+            <||>
+        ];
 
         eqResidualPairs =
             Cases[
@@ -1471,33 +1530,47 @@ IsCriticalSolution[Eqs_Association, OptionsPattern[]] :=
             ];
         residualPass =
             Which[
-                NumericQ[residual], residual <= tol,
+                NumericQ[residual],                  residual <= tol,
                 residual === Missing["NotAvailable"], TrueQ[Lookup[blockResults, "EqGeneralCritical", False]],
-                True, False
+                True,                                Indeterminate
             ];
 
-        overall = allBlocksPass && residualPass;
+        overall = Which[
+            concretelyFailed =!= {} || residualPass === False, False,
+            hasIndeterminate || residualPass === Indeterminate,  Indeterminate,
+            True,                                                True
+        ];
 
         If[verboseQ,
-            Print["IsCriticalSolution: all blocks pass = ", allBlocksPass];
-            If[!allBlocksPass,
-                Print["  Failed blocks: ", Keys @ Select[blockResults, !TrueQ[#]&]]
+            Print["IsCriticalSolution: overall = ", overall];
+            If[concretelyFailed =!= {},
+                Print["  Concretely failed blocks: ", concretelyFailed]
+            ];
+            If[indeterminateBlocks =!= {},
+                Print["  Indeterminate blocks: ", indeterminateBlocks]
             ];
             Print["IsCriticalSolution: equation residual = ", residual, " (tol=", tol, ")"];
             Print["IsCriticalSolution: equation residual pass = ", residualPass];
         ];
 
         report = <|
-            "Valid" -> overall,
-            "Reason" -> If[overall, None, "ConstraintViolation"],
-            "MissingKeys" -> {},
-            "BlockChecks" -> blockResults,
-            "EquationResidual" -> residual,
-            "EquationResidualPass" -> residualPass,
-            "Tolerance" -> tol
+            "Valid"                  -> overall,
+            "Reason"                 -> Which[
+                                            overall === True,  None,
+                                            hasIndeterminate ||
+                                            residualPass === Indeterminate, "IndeterminateConstraints",
+                                            True,             "ConstraintViolation"],
+            "IndeterminateResiduals" -> indeterminateResiduals,
+            "ConcretelyFailedBlocks" -> concretelyFailed,
+            "MissingKeys"            -> {},
+            "BlockChecks"            -> blockResults,
+            "EquationResidual"       -> residual,
+            "EquationResidualPass"   -> residualPass,
+            "Tolerance"              -> tol
         |>;
 
-        If[returnReportQ, report, overall]
+        (* Backward-compatible boolean: True for valid AND indeterminate, False only for concrete failure *)
+        If[returnReportQ, report, !MemberQ[{False}, overall]]
     ];
 
 

@@ -118,6 +118,7 @@ NonLinearSolver[Eqs_, OptionsPattern[]] :=
              status, resultKind, message, solution, comparisonData, convergenceData,
              flowDelta = Missing["NotAvailable"], iterations, stopReason, solveTime,
              seedMethod, timingResult, residualHistory = {}, demotedDueToFeasibilityQ},
+                js = Lookup[PreEqs, "js", {}];
                 {solveTime, timingResult} = AbsoluteTiming[
                     If[ KeyExistsQ[PreEqs, "AssoNonCritical"],
                         AssoNonCritical = PreEqs["AssoNonCritical"];
@@ -136,7 +137,10 @@ NonLinearSolver[Eqs_, OptionsPattern[]] :=
                                 ]
                         ]
                     ];
-                js = Lookup[PreEqs, "js", {}];
+                If[!AssociationQ[AssoNonCritical] && js =!= {},
+                    AssoNonCritical = AssociationThread[js, ConstantArray[0, Length[js]]];
+                    seedMethod = "ZeroFlowSeed"
+                ];
                 NonCriticalList =
                     If[!AssociationQ[AssoNonCritical],
                         {Null},
@@ -252,7 +256,7 @@ nonLinearStep[Eqs_][approxSol_] :=
         Nrhs = Lookup[Eqs, "Nrhs", $Failed];
         Nlhs = Lookup[Eqs, "Nlhs", $Failed];
         approxJs = KeyTake[approxSol, js];
-        approx = MFGSystemSolver[Eqs][approxJs];
+        approx = MFGSystemSolver[Eqs][approxJs]["Solution"];
         Newlhs = N[Nlhs/.approx];
         Newrhs = Nrhs/.approx;
         MFGPrint[Newlhs,"\n",Newrhs];
