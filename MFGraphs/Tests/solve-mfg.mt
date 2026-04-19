@@ -26,10 +26,11 @@ Test[
             "CongestionExponentFunction" -> Function[edge, 1],
             "InteractionFunction" -> Function[{m, edge}, -1/m^2]
         };
+        (* MaxSteps caps iteration count (deterministic); no wall-clock MaxTime.
+           Case 12 is a 4-vertex network — 2000 steps is enough for convergence. *)
         monotoneOpts = {
             "ResidualTolerance" -> 10^-6,
-            "MaxTime" -> 5,
-            "MaxSteps" -> 1000,
+            "MaxSteps" -> 2000,
             "PotentialFunction" -> Function[{x, edge}, 0],
             "CongestionExponentFunction" -> Function[edge, 1],
             "InteractionFunction" -> Function[{m, edge}, -1/m^2]
@@ -52,8 +53,10 @@ Test[
         matrix["Automatic"][[1]] === "CriticalCongestion" &&
         matrix["CriticalCongestion"] === {"CriticalCongestion", "Success", "Feasible"} &&
         matrix["NonLinear"] === {"NonLinear", "Success", "Feasible"} &&
+        (* Monotone: assert correct solver and feasible solution — ResultKind may be
+           "Success" or "NonConverged" depending on step count, but flows must be valid. *)
         matrix["Monotone"][[1]] === "Monotone" &&
-        MemberQ[{"Success", "NonConverged"}, matrix["Monotone"][[2]]]
+        matrix["Monotone"][[3]] === "Feasible"
     ]
     ,
     True
