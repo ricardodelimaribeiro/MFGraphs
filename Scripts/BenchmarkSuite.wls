@@ -1,5 +1,6 @@
-(* Usage: wolframscript -file Scripts/BenchmarkSuite.wls [tier] [case=key] [timeout=seconds] [isolation=mode] [tag=label] [rationale=...] [changes=...] [interpretation=...] *)
+(* Usage: wolframscript -file Scripts/BenchmarkSuite.wls [tier] [case=key] [timeout=seconds] [isolation=mode] [solver=name] [tag=label] [rationale=...] [changes=...] [interpretation=...] *)
 (* tier: "small", "core", "stress", "paper", "inconsistent-switching", "large", "vlarge", legacy "medium", or "all" (default: "all") *)
+(* solver: "critical" (default), "nonlinear", "monotone", "all" *)
 
 (* :!CodeAnalysis::Disable::SuspiciousSessionSymbol::Print *)
 
@@ -42,6 +43,7 @@ $SelectedCase = All;
 $TimeoutOverride = Automatic;
 $IsolationModeArg = "auto";
 $KernelPathArg = Automatic;
+$SelectedSolverArg = "critical";   (* default: CriticalCongestion only *)
 
 Module[{args = Rest[$ScriptCommandLine], i = 1, arg, parsedTimeout, parsedIsolation},
   While[i <= Length[args],
@@ -76,6 +78,9 @@ Module[{args = Rest[$ScriptCommandLine], i = 1, arg, parsedTimeout, parsedIsolat
       "--kernelpath",
         i++;
         If[i <= Length[args], $KernelPathArg = args[[i]]],
+      "--solver",
+        i++;
+        If[i <= Length[args], $SelectedSolverArg = ToLowerCase[args[[i]]]],
       _ /; StringStartsQ[arg, "case="],
         $SelectedCase = NormalizeCaseArg[StringDrop[arg, StringLength["case="]]],
       _ /; StringStartsQ[arg, "timeout="],
@@ -87,6 +92,8 @@ Module[{args = Rest[$ScriptCommandLine], i = 1, arg, parsedTimeout, parsedIsolat
         $IsolationModeArg = StringDrop[arg, StringLength["isolation="]],
       _ /; StringStartsQ[arg, "kernelpath="],
         $KernelPathArg = StringDrop[arg, StringLength["kernelpath="]],
+      _ /; StringStartsQ[arg, "solver="],
+        $SelectedSolverArg = ToLowerCase[StringDrop[arg, StringLength["solver="]]],
       _ /; StringStartsQ[arg, "tag="],
         $HistoryTag = StringDrop[arg, StringLength["tag="]],
       _ /; StringStartsQ[arg, "rationale="],
@@ -115,6 +122,20 @@ Module[{args = Rest[$ScriptCommandLine], i = 1, arg, parsedTimeout, parsedIsolat
   }];
 ];
 
+(* Resolve solver selection *)
+$SolversToRun = Switch[$SelectedSolverArg,
+  "critical" | "criticalcongestion", {"CriticalCongestion"},
+  "nonlinear" | "nl",               {"CriticalCongestion", "NonLinearSolver"},
+  "monotone" | "mono",              {"CriticalCongestion", "Monotone"},
+  "all",                            {"CriticalCongestion", "NonLinearSolver", "Monotone"},
+  _,
+    Print["Unknown solver argument: ", $SelectedSolverArg,
+          ". Valid values: critical, nonlinear, monotone, all."];
+    Exit[2]
+];
+(* When only CriticalCongestion is requested, suppress the seed-only runs *)
+$CriticalOnlyMode = $SolversToRun === {"CriticalCongestion"};
+
 $RequestedTier = $SelectedTier;
 $SelectedTier = Lookup[$BenchmarkTierAliases, $SelectedTier, $SelectedTier];
 
@@ -122,6 +143,7 @@ Print["Selected tier: ", $SelectedTier];
 If[$RequestedTier =!= $SelectedTier, Print["Requested alias: ", $RequestedTier]];
 If[$SelectedCase =!= All, Print["Selected case: ", $SelectedCase]];
 If[NumericQ[$TimeoutOverride], Print["Timeout override: ", $TimeoutOverride, "s"]];
+Print["Solvers: ", StringRiffle[$SolversToRun, ", "]];
 Print["Isolation mode: ", If[$RequestedIsolationMode === "Auto", "Auto (tier-routed)", $RequestedIsolationMode]];
 Print["Process kernel path: ", $SafeExecuteKernelPath];
 If[$HistoryTag =!= None, Print["History tag:   ", $HistoryTag]];
@@ -352,7 +374,7 @@ BenchmarkCase[key_] :=
 
     d2e = d2eResult["Result"];
 
-    (* Run each solver *)
+    (* Run CriticalCongestion — always needed as seed or as the primary result *)
     criticalRun = BenchmarkOneSolver[
       key, tier, "CriticalCongestion", d2e, timeout,
       "ReturnExecution" -> True
@@ -366,23 +388,27 @@ BenchmarkCase[key_] :=
     monotoneInput = If[criticalSeedAvailable, criticalExec["Result"], d2e];
     criticalSolveTime = Lookup[criticalExec, "Time", Missing["N/A"]];
 
-    AppendTo[results,
-      BenchmarkOneSolver[
-        key, tier, "NonLinearSolver", nonlinearInput, timeout,
-        "RunContext" -> <|
-          "UsedCriticalSeed" -> criticalSeedAvailable,
-          "CriticalSolveTime" -> criticalSolveTime
-        |>
-      ]];
+    If[MemberQ[$SolversToRun, "NonLinearSolver"],
+      AppendTo[results,
+        BenchmarkOneSolver[
+          key, tier, "NonLinearSolver", nonlinearInput, timeout,
+          "RunContext" -> <|
+            "UsedCriticalSeed" -> criticalSeedAvailable,
+            "CriticalSolveTime" -> criticalSolveTime
+          |>
+        ]]
+    ];
 
-    AppendTo[results,
-      BenchmarkOneSolver[
-        key, tier, "Monotone", monotoneInput, timeout,
-        "RunContext" -> <|
-          "UsedCriticalSeed" -> criticalSeedAvailable,
-          "CriticalSolveTime" -> criticalSolveTime
-        |>
-      ]];
+    If[MemberQ[$SolversToRun, "Monotone"],
+      AppendTo[results,
+        BenchmarkOneSolver[
+          key, tier, "Monotone", monotoneInput, timeout,
+          "RunContext" -> <|
+            "UsedCriticalSeed" -> criticalSeedAvailable,
+            "CriticalSolveTime" -> criticalSolveTime
+          |>
+        ]]
+    ];
 
     (* Store D2E time in all results *)
     results = Map[Append[#, "D2ETime" -> d2eTime] &, results];
