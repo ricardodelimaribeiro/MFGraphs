@@ -1197,6 +1197,21 @@ SolveMFGCompileInput[input_Association, opts_List:{}] :=
         ]
     ];
 
+(* SolveMFGRunStage — central dispatcher for one solver stage.
+
+   dispatchMode semantics
+   ----------------------
+   "Direct"    — called from SolveMFG with user-supplied input that may be raw or
+                 pre-compiled. The CriticalCongestion branch enforces the alpha guard here.
+
+   "Automatic" — called from SolveMFGAutomaticDispatch, which always pre-compiles input
+                 to a d2e before invoking this function. Two invariants hold:
+                   • SolveMFGCompiledInputQ[input] is True for every branch, so the
+                     SolveMFGCompileInput fallbacks below are dead code in this path.
+                   • "CriticalCongestion" only appears in the attempt list when
+                     isCritical=True, so the alpha guard is intentionally skipped.
+                 The SolveMFGCompileInput branches exist so Direct callers work correctly
+                 without a separate pre-compilation step. Do not remove them. *)
 SolveMFGRunStage[
     method_String,
     input_Association,
@@ -1210,6 +1225,9 @@ SolveMFGRunStage[
                 If[
                     SolveMFGCompiledInputQ[input],
                     d2e = input,
+                    (* Direct only: guard against alpha != 1 before compiling.
+                       Automatic callers guarantee isCritical=True before placing this
+                       stage in the attempt list, so the guard is skipped there. *)
                     If[dispatchMode === "Direct",
                         isCritical = SolveMFGIsCriticalQ[heldOpts];
                         If[!TrueQ[isCritical],
@@ -1224,6 +1242,11 @@ SolveMFGRunStage[
                 ]
             ,
             "Monotone",
+                (* Direct mode: raw input goes to MonotoneSolverFromData (which calls
+                   DataToEquations internally); pre-compiled input goes to MonotoneSolver.
+                   These are distinct entry points — MonotoneSolver requires a compiled d2e.
+                   Automatic mode: input is always pre-compiled, so MonotoneSolver is used
+                   directly and the SolveMFGCompileInput branch is dead code. *)
                 If[
                     dispatchMode === "Automatic",
                     d2e = If[SolveMFGCompiledInputQ[input], input, SolveMFGCompileInput[input, opts]];
@@ -1245,6 +1268,7 @@ SolveMFGRunStage[
                 ]
             ,
             "NonLinear",
+                (* SolveMFGCompileInput is a no-op when input is already compiled. *)
                 d2e = If[SolveMFGCompiledInputQ[input], input, SolveMFGCompileInput[input, opts]];
                 NonLinearSolver[
                     d2e,

@@ -383,6 +383,23 @@ $TierTimeouts = <|
   "vlarge" -> 1800
 |>;
 
+(* --- Benchmark Profiles --- *)
+
+$BenchmarkProfiles = <|
+  "critical-core" -> <|
+    "Tiers" -> {"small", "core"},
+    "Solvers" -> {"critical"}
+  |>,
+  "nonlinear-kkt" -> <|
+    "Tiers" -> {"core", "stress", "paper"},
+    "Solvers" -> {"nonlinear"}
+  |>,
+  "dnf-paper" -> <|
+    "Tiers" -> {"paper", "inconsistent-switching"},
+    "Solvers" -> {"all"}
+  |>
+|>;
+
 (* --- Results formatting --- *)
 
 FormatTime[t_?NumericQ] := ToString[CForm[N[t]]];
