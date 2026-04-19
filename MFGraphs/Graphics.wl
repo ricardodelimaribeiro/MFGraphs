@@ -20,6 +20,18 @@ SolutionFlowPlot::usage =
 ExitFlowPlot::usage =
 "ExitFlowPlot[exitFlows] produces a bar chart of exit-flow totals from an association mapping exit vertices to numeric flow values. An optional second argument sets the plot title.";
 
+AssociationValue::usage =
+"AssociationValue[assoc, key, default] returns assoc[key] when key exists, otherwise default (Missing[\"NotAvailable\"] by default).";
+
+NetEdgeFlows::usage =
+"NetEdgeFlows[d2e, solution, pairs] returns the net signed flow on each requested edge pair after applying balance and boundary flow rules. pairs defaults to all model edges.";
+
+NetworkVisualData::usage =
+"NetworkVisualData[d2e] builds reusable graph layout and vertex styling metadata used by plotting helpers.";
+
+FlowStyleDirective::usage =
+"FlowStyleDirective[flow, maxFlow] returns an edge style directive (color/thickness/opacity) scaled by flow magnitude and sign.";
+
 Begin["`Private`"];
 
 AssociationValue[assoc_Association, key_, default_: Missing["NotAvailable"]] :=

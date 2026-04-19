@@ -1,6 +1,18 @@
 (* Wolfram Language Test file *)
 (* Contract tests for the standardized stationary-solver return shape. *)
 
+If[!MemberQ[$Packages, "MFGraphs`"],
+    Get[
+        FileNameJoin[
+            {
+                DirectoryName[$InputFileName],
+                "..",
+                "MFGraphs.wl"
+            }
+        ]
+    ]
+];
+
 Test[
     Module[{data, d2e, result},
         data = GetExampleData[7] /. {I1 -> 100, U1 -> 0, U2 -> 0};
