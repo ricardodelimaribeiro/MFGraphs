@@ -306,6 +306,72 @@ GraphMetadata[data_Association] :=
     |>
   ];
 
+(* --- DNF Benchmark Helpers --- *)
+
+ExtractDNFInput::usage =
+"ExtractDNFInput[eqs] extracts the boolean system (xp, sorted, initRules) that would be passed to DNFReduce.";
+
+ExtractDNFInput[eqs_Association] :=
+  Module[{preEqs, newSystem, initRules, sorted, xp},
+    (* Run preprocessing if not already done *)
+    preEqs = If[KeyExistsQ[eqs, "InitRules"],
+      eqs,
+      MFGPreprocessing[eqs]
+    ];
+    initRules = Lookup[preEqs, "InitRules", <||>];
+    newSystem = Lookup[preEqs, "NewSystem", {True, True, True}];
+
+    (* Simulate what MFGSystemSolver does before DNFSolveStep: *)
+    (* Apply zero-flow (critical congestion) substitution *)
+    Module[{js, approxJs, costpluscurrents, Ncpc},
+      js = Lookup[preEqs, "js", {}];
+      approxJs = AssociationThread[js, 0 js];
+      costpluscurrents = Lookup[preEqs, "costpluscurrents", {}];
+      Ncpc = Expand /@ (costpluscurrents /. approxJs);
+      initRules = Expand /@ (initRules /. Ncpc);
+      newSystem = newSystem /. Ncpc;
+    ];
+
+    (* TripleClean *)
+    {newSystem, initRules} = TripleClean[{newSystem, initRules}];
+
+    (* Build the arguments that DNFSolveStep passes to DNFReduce *)
+    If[newSystem[[3]] === True,
+      (* No disjunctions — nothing interesting to compare *)
+      {True, True, initRules, "trivial"},
+      sorted = DeduplicateByComplexity[newSystem[[3]]];
+      xp = And @@ Most[newSystem];
+      {xp, sorted, initRules, "nontrivial"}
+    ]
+  ];
+
+(* Count the number of disjuncts in a DNF expression *)
+CountDisjuncts[expr_Or] := Length[expr];
+CountDisjuncts[False] := 0;
+CountDisjuncts[True] := 1;
+CountDisjuncts[_] := 1;
+
+(* Count conjuncts per disjunct *)
+ConjunctsPerDisjunct[expr_Or] := Length /@ (List @@ expr) /. {n_Integer :> n, x_ :> 1};
+ConjunctsPerDisjunct[expr_And] := {Length[expr]};
+ConjunctsPerDisjunct[_] := {1};
+
+(* --- Solver Result Verification Utilities --- *)
+
+SuccessResultQ::usage =
+"SuccessResultQ[result] returns True if the solver result Association indicates a successful solve with a valid solution.";
+
+SuccessResultQ[result_Association] :=
+  Lookup[result, "ResultKind", "Failure"] === "Success" &&
+  AssociationQ[Lookup[result, "Solution", Missing["NotAvailable"]]];
+
+VectorDifference::usage =
+"VectorDifference[a, b] returns the infinity-norm difference between two numeric vectors, or Infinity if not comparable.";
+
+VectorDifference[a_, b_] /; VectorQ[a, NumericQ] && VectorQ[b, NumericQ] :=
+  Max[Abs[a - b]];
+VectorDifference[_, _] := Infinity;
+
 (* --- Default parameter substitution rules --- *)
 
 $DefaultParams = {
@@ -348,6 +414,23 @@ $CaseParams = <|
   "Grid0710" -> {},
   "Grid1010" -> {},
   "Grid1020" -> {}
+|>;
+
+(* Named cases for specific benchmark scripts (CompareDNF, etc.) *)
+$NamedBenchmarkCases = <|
+  "Y_noswitch" -> {7, {I1 -> 50, U1 -> 0, U2 -> 0}},
+  "Y_switch" -> {8, {I1 -> 100, U1 -> 0, U2 -> 10, S1 -> 2, S2 -> 3, S3 -> 2, S4 -> 1, S5 -> 3, S6 -> 1}},
+  "Attraction_noswitch" -> {12, {I1 -> 100, U1 -> 0}},
+  "Attraction_switch" -> {11, {I1 -> 100, U1 -> 0, S1 -> 1, S2 -> 1, S3 -> 1, S4 -> 1}},
+  "Triangle_switch" -> {14, {I1 -> 100, U1 -> 0, U2 -> 0, S1 -> 1, S2 -> 1, S3 -> 1, S4 -> 1, S5 -> 1, S6 -> 1}},
+  "Braess" -> {"Braess congest", {}},
+  "Paper" -> {"Paper example", {I1 -> 100, I2 -> 50, U1 -> 0, U2 -> 0, S1 -> 1, S2 -> 1, S3 -> 1, S4 -> 1, S5 -> 1, S6 -> 1, S7 -> 1, S8 -> 1, S9 -> 1, S10 -> 1, S11 -> 1, S12 -> 1, S13 -> 1, S14 -> 1, S15 -> 1, S16 -> 1}},
+  "Multi_20" -> {20, {I1 -> 80, I2 -> 60, U1 -> 0, U2 -> 0, U3 -> 0}},
+  "Grid0303" -> {"Grid0303", {}},
+  "Grid0505" -> {"Grid0505", {}},
+  "Grid0710" -> {"Grid0710", {}},
+  "Grid1010" -> {"Grid1010", {}},
+  "Grid1020" -> {"Grid1020", {}}
 |>;
 
 GetParams[key_] := Lookup[$CaseParams, key, $DefaultParams];

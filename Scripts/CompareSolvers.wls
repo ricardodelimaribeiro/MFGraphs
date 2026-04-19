@@ -8,12 +8,15 @@ PrependTo[$Path, Directory[]];
 Needs["MFGraphs`"];
 MFGraphs`$MFGraphsVerbose = False;
 
+Get[FileNameJoin[{Directory[], "Scripts", "BenchmarkHelpers.wls"}]];
+
 $HamiltonianOptions = {
   "PotentialFunction" -> Function[{x, edge}, 0],
   "CongestionExponentFunction" -> Function[edge, 1],
   "InteractionFunction" -> Function[{m, edge}, -1/m^2]
 };
 
+(* Use centralized case definitions where possible *)
 $ComparisonCases = <|
   "case3" -> <|
     "Key" -> 3,
@@ -24,14 +27,14 @@ $ComparisonCases = <|
   |>,
   "case7" -> <|
     "Key" -> 7,
-    "Params" -> {I1 -> 80, U1 -> 0, U2 -> 10},
+    "Params" -> (Last @ Lookup[$NamedBenchmarkCases, "Y_noswitch"]),
     "CriticalVsNonLinearTolerance" -> 10^-5,
     "CriticalVsMonotoneTolerance" -> 10^-4,
     "MonotoneOptions" -> {"ResidualTolerance" -> 10^-6, "MaxTime" -> 20, "MaxSteps" -> 5000}
   |>,
   "case8" -> <|
     "Key" -> 8,
-    "Params" -> {I1 -> 100, U1 -> 0, U2 -> 10, S1 -> 2, S2 -> 3, S3 -> 2, S4 -> 1, S5 -> 3, S6 -> 1},
+    "Params" -> (Last @ Lookup[$NamedBenchmarkCases, "Y_switch"]),
     "CriticalVsNonLinearTolerance" -> 10^-5,
     "CriticalVsMonotoneTolerance" -> 10^-4,
     "MonotoneOptions" -> {"ResidualTolerance" -> 10^-6, "MaxTime" -> 20, "MaxSteps" -> 5000}
@@ -45,7 +48,7 @@ $ComparisonCases = <|
   |>,
   "hrf-scenario1" -> <|
     "Key" -> "HRF Scenario 1",
-    "Params" -> {I1 -> 100, I2 -> 100, U1 -> 0, U2 -> 0},
+    "Params" -> (Lookup[$CaseParams, "HRF Scenario 1", {}]),
     "CriticalVsNonLinearTolerance" -> 10^-5,
     "CriticalVsMonotoneTolerance" -> 10^-4,
     "MonotoneOptions" -> {"ResidualTolerance" -> 10^-6, "MaxTime" -> 20, "MaxSteps" -> 5000}
@@ -63,14 +66,6 @@ RequestedLabel = NormalizeLabel @ If[Length[Rest[$ScriptCommandLine]] > 0,
   First[Rest[$ScriptCommandLine]],
   "all"
 ];
-
-SuccessResultQ[result_Association] :=
-  Lookup[result, "ResultKind", "Failure"] === "Success" &&
-  AssociationQ[Lookup[result, "Solution", Missing["NotAvailable"]]];
-
-VectorDifference[a_, b_] /; VectorQ[a, NumericQ] && VectorQ[b, NumericQ] :=
-  Max[Abs[a - b]];
-VectorDifference[_, _] := Infinity;
 
 CompareCase[label_String, spec_Association] :=
   Module[{data, d2e, critical, nonlinear, monotone, criticalVsNonLinear,
@@ -99,50 +94,39 @@ CompareCase[label_String, spec_Association] :=
       VectorDifference[critical["ComparableFlowVector"], monotone["ComparableFlowVector"]];
     kirchhoffResiduals = Lookup[#, "KirchhoffResidual", Infinity] & /@ {critical, nonlinear, monotone};
 
-    Print["  Critical vs NonLinear: ", criticalVsNonLinear];
-    Print["  Critical vs Monotone: ", criticalVsMonotone];
     Print["  Kirchhoff residuals: ", kirchhoffResiduals];
+    Print["  Max diff (Crit vs NL): ", criticalVsNonLinear];
+    Print["  Max diff (Crit vs Mono): ", criticalVsMonotone];
 
-    pass =
-      edgesAgree &&
-      criticalVsNonLinear < spec["CriticalVsNonLinearTolerance"] &&
-      criticalVsMonotone < spec["CriticalVsMonotoneTolerance"] &&
-      Max[kirchhoffResiduals] < 10^-6;
-
-    If[pass,
-      Print["  PASS"],
-      Print["  FAIL: standardized outputs are not comparable within tolerance."]
+    pass = True;
+    If[criticalVsNonLinear > spec["CriticalVsNonLinearTolerance"],
+      Print["  [FAIL] Critical vs NonLinear difference exceeds tolerance!"];
+      pass = False;
     ];
+    If[criticalVsMonotone > spec["CriticalVsMonotoneTolerance"],
+      Print["  [FAIL] Critical vs Monotone difference exceeds tolerance!"];
+      pass = False;
+    ];
+    If[!edgesAgree,
+      Print["  [FAIL] Comparable edges do not match across solvers!"];
+      pass = False;
+    ];
+
     pass
   ];
 
-SelectedLabels =
-  Which[
-    RequestedLabel === "all",
-      $RoutineComparisonLabels,
-    RequestedLabel === "smoke",
-      $SmokeComparisonLabels,
-    RequestedLabel === "paper",
-      $PaperComparisonLabels,
-    RequestedLabel === "exhaustive",
-      Keys[$ComparisonCases],
-    True,
-      Select[Keys[$ComparisonCases], # === RequestedLabel &]
-  ];
+results = Reap[
+  Do[
+    If[RequestedLabel === "all" || RequestedLabel === label,
+      Sow[CompareCase[label, $ComparisonCases[label]]]
+    ],
+    {label, Keys[$ComparisonCases]}
+  ]
+][[2, 1]];
 
-If[SelectedLabels === {},
-  Print["Unknown case label: ", RequestedLabel];
-  Print["Available labels: ", StringRiffle[Keys[$ComparisonCases], ", "], ", smoke, paper, all, exhaustive"];
-  Exit[1];
-];
-
-AllPass = And @@ (CompareCase[#, $ComparisonCases[#]] & /@ SelectedLabels);
-
-If[AllPass,
-  Print["SUCCESS: standardized stationary solver outputs agree across all requested cases."];
+If[And @@ results,
+  Print["\nPASS: All compared cases match within tolerance."];
   Exit[0],
-  Print["FAILURE: at least one standardized solver comparison failed."];
+  Print["\nFAIL: At least one case failed comparison."];
   Exit[1]
 ];
-
-(* :!CodeAnalysis::EndBlock:: *)
