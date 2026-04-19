@@ -16,36 +16,6 @@ $MFGraphsVerbose = False;
 
 Get[FileNameJoin[{Directory[], "Scripts", "BenchmarkHelpers.wls"}]];
 
-$ComparisonCases = <|
-  "Attraction_noswitch" -> {12, {I1 -> 100, U1 -> 0}},
-  "Attraction_switch" -> {11, {I1 -> 100, U1 -> 0, S1 -> 1, S2 -> 1, S3 -> 1, S4 -> 1}},
-  "Braess" -> {"Braess congest", {}},
-  "Multi_20" -> {20, {I1 -> 80, I2 -> 60, U1 -> 0, U2 -> 0, U3 -> 0}}
-|>;
-
-(* --- Extract DNF input (same as CompareDNF.wls) --- *)
-ExtractDNFInput[eqs_Association] :=
-  Module[{preEqs, newSystem, initRules, sorted, xp},
-    preEqs = If[KeyExistsQ[eqs, "InitRules"], eqs, MFGPreprocessing[eqs]];
-    initRules = Lookup[preEqs, "InitRules", <||>];
-    newSystem = Lookup[preEqs, "NewSystem", {True, True, True}];
-    Module[{js, approxJs, costpluscurrents, Ncpc},
-      js = Lookup[preEqs, "js", {}];
-      approxJs = AssociationThread[js, 0 js];
-      costpluscurrents = Lookup[preEqs, "costpluscurrents", {}];
-      Ncpc = Expand /@ (costpluscurrents /. approxJs);
-      initRules = Expand /@ (initRules /. Ncpc);
-      newSystem = newSystem /. Ncpc;
-    ];
-    {newSystem, initRules} = TripleClean[{newSystem, initRules}];
-    If[newSystem[[3]] === True,
-      {True, True, initRules, "trivial"},
-      sorted = DeduplicateByComplexity[newSystem[[3]]];
-      xp = And @@ Most[newSystem];
-      {xp, sorted, initRules, "nontrivial"}
-    ]
-  ];
-
 (* ================================================================ *)
 (* Strategy 1: Subsumption pruning                                   *)
 (* If branch A => branch B (A implies B), then B is redundant.       *)
@@ -100,142 +70,57 @@ FullReduceStrategy[branches_List, timeout_:300] :=
       TimeConstrained[Quiet@Reduce[expr, Reals], timeout, $TimedOut]
     ];
     If[result === $TimedOut,
-      Print["    FullReduce: TIMED OUT at ", timeout, "s"];
-      {$TimedOut, t, -1},
-      Module[{nDisjuncts},
-        nDisjuncts = If[Head[result] === Or, Length[result], 1];
-        Print["    FullReduce: ", t, "s, ", nDisjuncts, " disjuncts, ", LeafCount[result], " leaves"];
-        {result, t, nDisjuncts}
-      ]
+      Print["    FAILED: FullReduce timed out"];
+      Return[{$TimedOut, t}],
+      Print["    FullReduce done: ", LeafCount[result], " leaves in ", t, "s"];
+      Return[{result, t}]
     ]
   ];
 
 (* ================================================================ *)
-(* Strategy 3: Group by equality skeleton, merge inequalities        *)
-(* Extract equalities from each branch, group branches sharing the   *)
-(* same equalities, then try to simplify within each group.          *)
+(* Main profiling logic                                             *)
 (* ================================================================ *)
-ExtractEqualities[branch_And] :=
-  Module[{parts = List @@ branch, eqs, ineqs},
-    eqs = SortBy[Select[parts, Head[#] === Equal &], LeafCount];
-    ineqs = Select[parts, Head[#] =!= Equal &];
-    {eqs, ineqs}
-  ];
-ExtractEqualities[branch_Equal] := {{branch}, {}};
-ExtractEqualities[branch_] := {{}, {branch}};
 
-GroupAndMergeStrategy[branches_List, perGroupTimeout_:30] :=
-  Module[{grouped, keys, result = {}, t, groupResult},
-    Print["    GroupAndMerge: ", Length[branches], " branches"];
-    grouped = GroupBy[branches, First@ExtractEqualities[#] &];
-    keys = Keys[grouped];
-    Print["    Found ", Length[keys], " equality groups"];
-    Do[
-      Module[{group, eqs, ineqSets, mergedIneqs},
-        group = grouped[k];
-        eqs = k;
-        ineqSets = Last@ExtractEqualities[#] & /@ group;
-        Print["    Group (", Length[eqs], " eqs): ", Length[group], " branches"];
-        If[Length[group] === 1,
-          AppendTo[result, group[[1]]],
-          (* Try to simplify the Or of inequality conjunctions *)
-          mergedIneqs = Or @@ (And @@@ ineqSets);
-          {t, groupResult} = AbsoluteTiming[
-            TimeConstrained[Quiet@Reduce[mergedIneqs, Reals], perGroupTimeout, $TimedOut]
-          ];
-          If[groupResult === $TimedOut,
-            Print["      Merge timed out (", perGroupTimeout, "s), keeping ", Length[group], " branches"];
-            result = Join[result, group],
-            Module[{mergedBranches},
-              mergedBranches = If[Head[groupResult] === Or,
-                (And @@ Join[eqs, If[Head[#] === And, List @@ #, {#}]]) & /@ (List @@ groupResult),
-                {And @@ Join[eqs, If[Head[groupResult] === And, List @@ groupResult, {groupResult}]]}
-              ];
-              Print["      Merged ", Length[group], " -> ", Length[mergedBranches], " in ", t, "s"];
-              result = Join[result, mergedBranches]
-            ]
-          ]
-        ]
-      ],
-      {k, keys}
-    ];
-    Print["    GroupAndMerge done: ", Length[branches], " -> ", Length[result], " branches"];
-    result
+RunProfile[label_String] := Module[
+  {caseSpec, caseID, params, data, d2e, xp, sorted, initRules, tag,
+   branches, result1, result2, time1, time2, final1, final2},
+
+  caseSpec = Lookup[$NamedBenchmarkCases, label, $Failed];
+  If[caseSpec === $Failed,
+    Print["Unknown case: ", label];
+    Return[]
+  ];
+  {caseID, params} = caseSpec;
+
+  Print["Loading data for ", label, " (ID: ", caseID, ")..."];
+  data = GetExampleData[caseID] /. params;
+  d2e = DataToEquations[data];
+
+  Print["Extracting DNF input..."];
+  {xp, sorted, initRules, tag} = ExtractDNFInput[d2e];
+  If[tag === "trivial", Print["Trivial case, skipping."]; Return[]];
+
+  branches = List @@ sorted;
+  Print["Input branches: ", Length[branches]];
+
+  Print["\n--- Running Strategy 1: Subsumption Pruning ---"];
+  {time1, result1} = AbsoluteTiming[SubsumptionPrune[branches]];
+  final1 = Or @@ result1;
+  Print["Strategy 1 Result: ", Length[result1], " branches, ", LeafCount[final1], " leaves"];
+
+  Print["\n--- Running Strategy 2: Full Reduce ---"];
+  {result2, time2} = FullReduceStrategy[branches];
+  If[result2 =!= $TimedOut,
+    final2 = result2;
+    Print["Strategy 2 Result: ", LeafCount[final2], " leaves"]
   ];
 
-(* ================================================================ *)
-(* Main: load case, run DNFReduce, then try each strategy            *)
-(* ================================================================ *)
-
-$caseSpec = $ComparisonCases[$caseKey];
-If[!ListQ[$caseSpec],
-  Print["ERROR: Unknown case key '", $caseKey, "'"];
-  Quit[1]
+  Print["\n--- Summary ---"];
+  Print["Strategy 1 Time: ", time1, "s"];
+  Print["Strategy 2 Time: ", time2, "s"];
+  If[result2 =!= $TimedOut,
+    Print["LeafCount Ratio (S2/S1): ", N[LeafCount[final2]/LeafCount[final1]]];
+  ];
 ];
 
-$exampleKey = $caseSpec[[1]];
-$params = $caseSpec[[2]];
-
-Print["Loading case ", $exampleKey, "..."];
-$data = GetExampleData[$exampleKey];
-If[$params =!= {}, $data = $data /. $params];
-$d2e = DataToEquations[$data];
-ClearSolveCache[];
-
-{$xp, $sorted, $initRules, $tag} = Quiet@Check[ExtractDNFInput[$d2e], {$Failed, $Failed, <||>, "failed"}];
-If[$tag === "trivial" || $tag === "failed",
-  Print["  Case is ", $tag, ". Nothing to profile."];
-  Quit[]
-];
-
-Print["  Input: ", LeafCount[$xp], " leaves, ", If[Head[$sorted] === Or, Length[$sorted], 1], " disjuncts"];
-
-(* Run DNFReduce *)
-Print["\n--- Running DNFReduce ---"];
-ClearSolveCache[];
-{$dnfTime, $dnfResult} = AbsoluteTiming[
-  TimeConstrained[Quiet@Check[DNFReduce[$xp, $sorted], $Failed], 300, $TimedOut]
-];
-If[$dnfResult === $TimedOut || $dnfResult === $Failed,
-  Print["  DNFReduce ", If[$dnfResult === $TimedOut, "TIMED OUT", "FAILED"]];
-  Quit[]
-];
-
-$branches = If[Head[$dnfResult] === Or, List @@ $dnfResult, {$dnfResult}];
-Print["  DNFReduce: ", $dnfTime, "s, ", Length[$branches], " disjuncts, ", LeafCount[$dnfResult], " leaves"];
-
-If[Length[$branches] <= 1,
-  Print["\n  Only 1 disjunct — nothing to reduce further."];
-  Quit[]
-];
-
-(* --- Strategy 1: Subsumption --- *)
-Print["\n=== Strategy 1: Subsumption Pruning ==="];
-If[Length[$branches] > 500,
-  Print["  Skipping: too many branches (", Length[$branches], ") for pairwise checks"];
-  Print["  Estimated checks: ", Length[$branches] (Length[$branches] - 1) / 2];
-  (* Try on a random sample *)
-  Print["  Running on first 50 branches as sample..."];
-  {$s1Time, $s1Result} = AbsoluteTiming[SubsumptionPrune[$branches[[;;50]], 1]];
-  Print["  Sample: ", 50, " -> ", Length[$s1Result], " in ", $s1Time, "s"],
-
-  {$s1Time, $s1Result} = AbsoluteTiming[SubsumptionPrune[$branches, 2]];
-  Print["  Result: ", Length[$branches], " -> ", Length[$s1Result], " in ", $s1Time, "s"]
-];
-
-(* --- Strategy 2: Full Reduce --- *)
-Print["\n=== Strategy 2: Full Reduce ==="];
-{$s2Time, $s2Data} = AbsoluteTiming[FullReduceStrategy[$branches, 120]];
-
-(* --- Strategy 3: Group and Merge --- *)
-Print["\n=== Strategy 3: Group by Equality Skeleton ==="];
-{$s3Time, $s3Result} = AbsoluteTiming[GroupAndMergeStrategy[$branches, 30]];
-Print["  Result: ", Length[$branches], " -> ", Length[$s3Result], " in ", $s3Time, "s"];
-
-(* --- Summary --- *)
-Print["\n=== SUMMARY ==="];
-Print["Case: ", $caseKey, " (", $exampleKey, ")"];
-Print["DNFReduce output: ", Length[$branches], " disjuncts"];
-Print["Strategy 1 (Subsumption):     ", If[ValueQ[$s1Result], ToString[Length[$s1Result]] <> " disjuncts, " <> ToString@Round[N[$s1Time], 0.01] <> "s", "skipped/sampled"]];
-Print["Strategy 2 (Full Reduce):     ", If[$s2Data[[1]] === $TimedOut, "TIMED OUT", ToString[$s2Data[[3]]] <> " disjuncts, " <> ToString@Round[N[$s2Data[[2]]], 0.01] <> "s"]];
-Print["Strategy 3 (Group & Merge):   ", ToString[Length[$s3Result]], " disjuncts, ", ToString@Round[N[$s3Time], 0.01], "s"];
+RunProfile[$caseKey];

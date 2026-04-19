@@ -18,39 +18,10 @@ $MFGraphsVerbose = False;
 
 Get[FileNameJoin[{Directory[], "Scripts", "BenchmarkHelpers.wls"}]];
 
-$ComparisonCases = <|
-  "Attraction_noswitch" -> {12, {I1 -> 100, U1 -> 0}},
-  "Attraction_switch" -> {11, {I1 -> 100, U1 -> 0, S1 -> 1, S2 -> 1, S3 -> 1, S4 -> 1}},
-  "Braess" -> {"Braess congest", {}}
-|>;
-
-(* --- Extract DNF input (same as CompareDNF.wls) --- *)
-ExtractDNFInput[eqs_Association] :=
-  Module[{preEqs, newSystem, initRules, sorted, xp},
-    preEqs = If[KeyExistsQ[eqs, "InitRules"], eqs, MFGPreprocessing[eqs]];
-    initRules = Lookup[preEqs, "InitRules", <||>];
-    newSystem = Lookup[preEqs, "NewSystem", {True, True, True}];
-    Module[{js, approxJs, costpluscurrents, Ncpc},
-      js = Lookup[preEqs, "js", {}];
-      approxJs = AssociationThread[js, 0 js];
-      costpluscurrents = Lookup[preEqs, "costpluscurrents", {}];
-      Ncpc = Expand /@ (costpluscurrents /. approxJs);
-      initRules = Expand /@ (initRules /. Ncpc);
-      newSystem = newSystem /. Ncpc;
-    ];
-    {newSystem, initRules} = TripleClean[{newSystem, initRules}];
-    If[newSystem[[3]] === True,
-      {True, True, initRules, "trivial"},
-      sorted = DeduplicateByComplexity[newSystem[[3]]];
-      xp = And @@ Most[newSystem];
-      {xp, sorted, initRules, "nontrivial"}
-    ]
-  ];
-
 (* --- Main --- *)
-$caseSpec = $ComparisonCases[$caseKey];
-If[!ListQ[$caseSpec] || Length[$caseSpec] =!= 2,
-  Print["ERROR: Unknown case key '", $caseKey, "'. Available keys: ", Keys[$ComparisonCases]];
+$caseSpec = Lookup[$NamedBenchmarkCases, $caseKey, $Failed];
+If[$caseSpec === $Failed,
+  Print["ERROR: Unknown case key '", $caseKey, "'. Available keys: ", Keys[$NamedBenchmarkCases]];
   Quit[1]
 ];
 
@@ -63,13 +34,14 @@ If[$params =!= {}, $data = $data /. $params];
 $d2e = DataToEquations[$data];
 ClearSolveCache[];
 
+(* Extract DNF input using centralized helper *)
 {$xp, $sorted, $initRules, $tag} = Quiet @ Check[ExtractDNFInput[$d2e], {$Failed, $Failed, <||>, "failed"}];
 If[$tag === "trivial" || $tag === "failed",
   Print["  Case is ", $tag, ". Nothing to profile."];
   Quit[]
 ];
 
-Print["  xp: ", LeafCount[$xp], " leaves, sorted: ", If[Head[$sorted] === Or, Length[$sorted], 1], " disjuncts"];
+Print["  xp: ", LeafCount[$xp], " leaves, sorted: ", CountDisjuncts[$sorted], " disjuncts"];
 
 (* Run BooleanConvert *)
 Print["  Running BooleanConvert..."];
@@ -98,14 +70,17 @@ Print["\n  Running Reduce[bc \\[Equivalent] dnf, Reals] with ", $equivTimeout, "
 {$equivTime, $equiv} = AbsoluteTiming[
   TimeConstrained[
     Quiet @ Check[Reduce[$bcResult \[Equivalent] $dnfResult, Reals], "ERROR"],
-    $equivTimeout, "EQUIV_TIMEOUT"
+    $equivTimeout,
+    "TIMEOUT"
   ]
 ];
 
-Print["  Result: ", Which[
-  $equiv === True, "EQUIVALENT",
-  $equiv === "EQUIV_TIMEOUT", "EQUIV_TIMEOUT (still running at " <> ToString[$equivTimeout] <> "s)",
-  $equiv === "ERROR", "EQUIV_ERROR",
-  True, "NOT_EQUIVALENT: " <> ToString[InputForm[$equiv]]
-]];
-Print["  Time: ", ToString@N[$equivTime, 6], "s"];
+Print["  Equivalence: ", $equiv, " (", ToString@N[$equivTime, 4], "s)"];
+If[$equiv === "TIMEOUT",
+  Print["  [FAIL] Equivalence check exceeded the extended timeout of ", $equivTimeout, "s."]
+];
+If[$equiv === False,
+  Print["  [FAIL] DNFReduce is NOT EQUIVALENT to BooleanConvert for this case!"]
+];
+
+Print["\nProfile completed at ", DateString[]];

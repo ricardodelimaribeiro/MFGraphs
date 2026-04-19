@@ -15,10 +15,6 @@
                  The entry includes the current git commit hash, date, results table,
                  and the supplied rationale / changes / interpretation prose.
 *)
-(*TODO: It looks like we are not using Reduce after BooleanConvert in the actual code, 
-but we should add that as a third method to compare against DNFReduce, since that is what we currently do after DNFReduce. 
-The idea is to see how much of the benefit of DNFReduce comes from Reduce's algebraic simplification vs the DNF conversion itself. *)
-(*Compare Reduce on the leafs of BooleanConvert and DNFReduce.*)
 Print["=== BooleanConvert vs DNFReduce Comparison ==="];
 Print["Date: ", DateString[]];
 Print["Mathematica: ", $Version];
@@ -30,54 +26,6 @@ Needs["MFGraphs`"];
 $MFGraphsVerbose = False;
 
 Get[FileNameJoin[{Directory[], "Scripts", "BenchmarkHelpers.wls"}]];
-
-(* --- Utility functions --- *)
-
-(* Count the number of disjuncts in a DNF expression *)
-CountDisjuncts[expr_Or] := Length[expr];
-CountDisjuncts[False] := 0;
-CountDisjuncts[True] := 1;
-CountDisjuncts[_] := 1;
-
-(* Count conjuncts per disjunct *)
-ConjunctsPerDisjunct[expr_Or] := Length /@ (List @@ expr) /. {n_Integer :> n, x_ :> 1};
-ConjunctsPerDisjunct[expr_And] := {Length[expr]};
-ConjunctsPerDisjunct[_] := {1};
-
-(* Extract the system that DNFSolveStep would pass to DNFReduce *)
-ExtractDNFInput[eqs_Association] :=
-  Module[{preEqs, newSystem, initRules, sorted, xp},
-    (* Run preprocessing to get the system *)
-    preEqs = If[KeyExistsQ[eqs, "InitRules"],
-      eqs,
-      MFGPreprocessing[eqs]
-    ];
-    initRules = Lookup[preEqs, "InitRules", <||>];
-    newSystem = Lookup[preEqs, "NewSystem", {True, True, True}];
-
-    (* Simulate what MFGSystemSolver does before DNFSolveStep: *)
-    (* Apply zero-flow (critical congestion) substitution *)
-    Module[{js, approxJs, costpluscurrents, Ncpc},
-      js = Lookup[preEqs, "js", {}];
-      approxJs = AssociationThread[js, 0 js];
-      costpluscurrents = Lookup[preEqs, "costpluscurrents", {}];
-      Ncpc = Expand /@ (costpluscurrents /. approxJs);
-      initRules = Expand /@ (initRules /. Ncpc);
-      newSystem = newSystem /. Ncpc;
-    ];
-
-    (* TripleClean *)
-    {newSystem, initRules} = TripleClean[{newSystem, initRules}];
-
-    (* Build the arguments that DNFSolveStep passes to DNFReduce *)
-    If[newSystem[[3]] === True,
-      (* No disjunctions — nothing interesting to compare *)
-      {True, True, initRules, "trivial"},
-      sorted = DeduplicateByComplexity[newSystem[[3]]];
-      xp = And @@ Most[newSystem];
-      {xp, sorted, initRules, "nontrivial"}
-    ]
-  ];
 
 (* --- Comparison runner --- *)
 
@@ -267,24 +215,6 @@ CompareMethods[key_, params_] :=
     |>
   ];
 
-(* --- Test cases --- *)
-(* Select cases that have nontrivial Or-branches (switching costs) *)
-$ComparisonCases = <|
-  "Y_noswitch" -> {7, {I1 -> 50, U1 -> 0, U2 -> 0}},
-  "Y_switch" -> {8, {I1 -> 100, U1 -> 0, U2 -> 0, S1 -> 2, S2 -> 3, S3 -> 2, S4 -> 1, S5 -> 3, S6 -> 1}},
-  "Attraction_noswitch" -> {12, {I1 -> 100, U1 -> 0}},
-  "Attraction_switch" -> {11, {I1 -> 100, U1 -> 0, S1 -> 1, S2 -> 1, S3 -> 1, S4 -> 1}},
-  "Triangle_switch" -> {14, {I1 -> 100, U1 -> 0, U2 -> 0, S1 -> 1, S2 -> 1, S3 -> 1, S4 -> 1, S5 -> 1, S6 -> 1}},
-  "Braess" -> {"Braess congest", {}},
-  "Paper" -> {"Paper example", {I1 -> 100, I2 -> 50, U1 -> 0, U2 -> 0, S1 -> 1, S2 -> 1, S3 -> 1, S4 -> 1, S5 -> 1, S6 -> 1, S7 -> 1, S8 -> 1, S9 -> 1, S10 -> 1, S11 -> 1, S12 -> 1, S13 -> 1, S14 -> 1, S15 -> 1, S16 -> 1}},
-  "Multi_20" -> {20, {I1 -> 80, I2 -> 60, U1 -> 0, U2 -> 0, U3 -> 0}},
-  "Grid0303" -> {"Grid0303", {}},
-  "Grid0505" -> {"Grid0505", {}},
-  "Grid0710" -> {"Grid0710", {}},
-  "Grid1010" -> {"Grid1010", {}},
-  "Grid1020" -> {"Grid1020", {}}
-|>;
-
 (* --- CLI argument parsing --- *)
 
 Module[{args = Rest[$ScriptCommandLine], tagPos},
@@ -339,12 +269,12 @@ $results = {};
 
 Do[
   Module[{key, params, result},
-    {key, params} = $ComparisonCases[label];
+    {key, params} = $NamedBenchmarkCases[label];
     If[$requestedCase =!= "all" && label =!= $requestedCase, Continue[]];
     result = CompareMethods[key, params];
     AppendTo[$results, result];
   ],
-  {label, Keys[$ComparisonCases]}
+  {label, Keys[$NamedBenchmarkCases]}
 ];
 
 (* --- Generate Markdown report --- *)
@@ -370,6 +300,7 @@ Do[
       If[r["DNF_Time"] >= 0, ToString@N[r["DNF_Time"], 3], "TIMEOUT"] <> " | " <>
       If[r["Pipe_Time"] >= 0, ToString@N[r["Pipe_Time"], 3], "TIMEOUT"] <> " | " <>
       If[r["Speedup_Pipe_over_DNF"] > 0, ToString@N[r["Speedup_Pipe_over_DNF"], 2] <> "x", "N/A"] <> " | " <>
+
       ToString[r["BC_Disjuncts"]] <> " | " <>
       ToString[r["DNF_Disjuncts"]] <> " | " <>
       ToString[r["Pipe_Disjuncts"]] <> " | " <>
