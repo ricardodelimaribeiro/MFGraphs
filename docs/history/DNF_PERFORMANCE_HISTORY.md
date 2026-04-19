@@ -28,14 +28,18 @@ Alternatively, copy the template at the bottom of this document and fill it in m
 
 | Column | Meaning |
 |--------|---------|
-| **BC Time** | Wall-clock time for `BooleanConvert[expr, "DNF"]` |
-| **DNF Time** | Wall-clock time for `DNFReduce[xp, sorted]` |
-| **Speedup** | BC Time / DNF Time — values > 1 mean DNFReduce is faster |
-| **BC Disjuncts** | Number of Or-branches in BooleanConvert output |
-| **DNF Disjuncts** | Number of Or-branches in DNFReduce output |
-| **BC Leaves** | LeafCount of BooleanConvert output (expression size) |
-| **DNF Leaves** | LeafCount of DNFReduce output (expression size) |
-| **Equiv** | Whether outputs are logically equivalent (verified by Reduce) |
+| **In Lv** | LeafCount of the input expression |
+| **BC (s)** | Wall-clock time for `BooleanConvert[expr, "DNF"]` |
+| **DNF (s)** | Wall-clock time for `DNFReduce[xp, sorted]` |
+| **Pipe (s)** | Wall-clock time for `BooleanConvert` + `Reduce` (Method 3) |
+| **Speedup** | (BC Time + Pipe Time) / DNF Time — values > 1 mean DNFReduce is faster |
+| **BC Dj** | Number of Or-branches in BooleanConvert output |
+| **DNF Dj** | Number of Or-branches in DNFReduce output |
+| **Pipe Dj** | Number of Or-branches in Pipe output |
+| **BC Lv** | LeafCount of BooleanConvert output |
+| **DNF Lv** | LeafCount of DNFReduce output |
+| **Pipe Lv** | LeafCount of Pipe output |
+| **Eq** | Whether outputs are logically equivalent (verified by Reduce) |
 
 ---
 
@@ -51,6 +55,8 @@ Alternatively, copy the template at the bottom of this document and fill it in m
 | `Braess congest` | Braess paradox congestion variant | "Braess congest" | No |
 | `Paper example` | 4-vertex, 2 entrances, 2 exits | "Paper example" | Yes |
 | `20` | 9-vertex multi-entrance/exit | 20 | No |
+| `Grid0303` | 3x3 Grid Network | "Grid0303" | No |
+| `Grid1010` | 10x10 Grid Network | "Grid1010" | No |
 
 ---
 
@@ -573,6 +579,9 @@ Removed Paper example from CompareDNF, removed Paper example and case 17 from Be
 
 All remaining cases should have consistent switching costs
 
+
+---
+
 ## Future entries (template)
 
 When implementing a new optimization, copy this template:
@@ -594,8 +603,8 @@ _Code diff or pseudocode showing what changed._
 
 #### Measured performance
 
-| Case | Input Leaves | BC Time (s) | DNF Time (s) | **Speedup** | BC Disjuncts | DNF Disjuncts | BC Leaves | DNF Leaves | Equiv |
-|------|-------------|-------------|--------------|-------------|-------------|--------------|-----------|-----------|-------|
+| Case | In Lv | BC (s) | DNF (s) | Pipe (s) | **Speedup** | BC Dj | DNF Dj | Pipe Dj | BC Lv | DNF Lv | Pipe Lv | Eq |
+|------|-------|--------|---------|----------|-------------|-------|--------|---------|-------|--------|---------|----|
 | ... |
 
 _Run `wolframscript -file Scripts/CompareDNF.wls --tag "vX.Y name"` to auto-generate._
