@@ -62,6 +62,45 @@ IsFeasible::usage =
 "IsFeasible[result] returns True if a solver result is feasible, checking legacy \
 \"Status\" or standardized \"Feasibility\" keys.";
 
+ClassifyKKT::usage =
+"ClassifyKKT[result] classifies a NonLinearSolver result against three KKT \
+conditions and returns a four-key Association:
+  \"KKTClass\"      -> \"Feasible\" | \"Borderline\" | \"Infeasible\"
+  \"KKTReason\"     -> string naming the binding condition, or None when Feasible
+  \"KKTMetrics\"    -> <|\"PrimalMinFlow\", \"KirchhoffResidual\", \"ConvergenceResidual\"|>
+  \"KKTViolations\" -> list of violated condition names (subset of {\"Primal\", \
+\"Kirchhoff\", \"Convergence\"})
+
+The three conditions and their two-tier thresholds:
+  Primal      - min flow value must be >= PrimalFeasibleThreshold (default 0); \
+within PrimalBorderlineThreshold (default -10^-6) is Borderline; below that, Infeasible.
+  Kirchhoff   - flow conservation residual ||Kj - b||_inf must be <= \
+KirchhoffFeasibleThreshold (default 10^-6); up to KirchhoffBorderlineThreshold \
+(default 10^-3) is Borderline; above that, Infeasible.
+  Convergence - final flow-change residual from iteration must be <= \
+ConvergenceFeasibleThreshold (default 10^-8); up to ConvergenceBorderlineThreshold \
+(default 10^-4) is Borderline; above that, Infeasible. Missing residual (e.g. exact \
+fixed-point reached in one step) is treated as Feasible.
+
+Classification rule: a result is Infeasible if any condition exceeds its Borderline \
+threshold; Borderline if no condition is Infeasible but at least one exceeds its \
+Feasible threshold or a metric is uncomputable; Feasible otherwise.
+
+ClassifyKKT is read-only: it never modifies the input result, and all metrics are \
+extracted from data already present in the result envelope (no expensive recomputation).";
+
+Options[ClassifyKKT] = {
+    (* Primal: min(j[e]) thresholds. Values above PrimalFeasibleThreshold are fully feasible. *)
+    "PrimalFeasibleThreshold"      -> 0,
+    "PrimalBorderlineThreshold"    -> -10^-6,
+    (* Kirchhoff: ||Kj - b||_inf thresholds. Values at or below Feasible are fully feasible. *)
+    "KirchhoffFeasibleThreshold"   -> 10^-6,
+    "KirchhoffBorderlineThreshold" -> 10^-3,
+    (* Convergence: final flow-change residual between last two iterates. *)
+    "ConvergenceFeasibleThreshold"   -> 10^-8,
+    "ConvergenceBorderlineThreshold" -> 10^-4
+};
+
 Options[NonLinearSolver] = {
     "MaxIterations" -> 15,
     "Tolerance" -> 0,
@@ -494,5 +533,132 @@ PlotValueFunctions[Eqs_, string_] :=
 
 IsFeasible[result_Association] :=
     Lookup[result, "Feasibility", Lookup[result, "Status", "Unknown"]] === "Feasible";
+
+(* --- KKT gate --- *)
+
+(* Match flow keys by head symbol name so both MFGraphs`j[...] and Global`j[...] are accepted. *)
+kktFlowKeyQ[key_] := MatchQ[key, _Symbol[__]] && SymbolName[Head[key]] === "j";
+
+(* Extract the three KKT metrics from an already-computed result envelope.
+   All three read fields that NonLinearSolver writes unconditionally, so no
+   expensive recomputation (NIntegrate, FindRoot, etc.) is triggered. *)
+kktExtractMetrics[result_Association] :=
+    Module[{solution, flowAssoc, flowVals, minFlow, kirchhoff, convergence},
+        (* Primal: minimum value among all j[...] flow variables in the solution *)
+        solution = Lookup[result, "AssoNonCritical",
+                       Lookup[result, "Solution", Missing["NotAvailable"]]];
+        minFlow =
+            If[AssociationQ[solution],
+                (
+                    flowAssoc = KeySelect[solution, kktFlowKeyQ];
+                    flowVals = Values[flowAssoc];
+                    Which[
+                        flowVals === {}, Missing["NotAvailable"],
+                        !VectorQ[flowVals, NumericQ], Missing["NotAvailable"],
+                        True, N @ Min[flowVals]
+                    ]
+                ),
+                Missing["NotAvailable"]
+            ];
+        (* Conservation: Kirchhoff residual written by BuildSolverComparisonData *)
+        kirchhoff = Lookup[result, "KirchhoffResidual", Missing["NotAvailable"]];
+        (* Convergence: final flow-change between last two iterates, written by NonLinearSolver *)
+        convergence =
+            Lookup[
+                Lookup[result, "Convergence", <||>],
+                "FinalResidual",
+                Missing["NotAvailable"]
+            ];
+        <|
+            "PrimalMinFlow"       -> minFlow,
+            "KirchhoffResidual"   -> kirchhoff,
+            "ConvergenceResidual" -> convergence
+        |>
+    ];
+
+(* Classify a single metric value against its two-tier thresholds.
+   Returns "Feasible", "Borderline", or "Infeasible", with "Borderline" for Missing. *)
+kktClassifyMetric[value_, feasibleTol_, borderlineTol_, lowerIsBetter_:True] :=
+    Which[
+        MissingQ[value] || !NumericQ[value], "Borderline",
+        lowerIsBetter,
+            Which[
+                value <= feasibleTol,   "Feasible",
+                value <= borderlineTol, "Borderline",
+                True,                   "Infeasible"
+            ],
+        (* higher is better (primal: higher min-flow is better) *)
+        True,
+            Which[
+                value >= feasibleTol,   "Feasible",
+                value >= borderlineTol, "Borderline",
+                True,                   "Infeasible"
+            ]
+    ];
+
+ClassifyKKT[result_Association, opts:OptionsPattern[]] :=
+    Module[{
+        primalFeasTol, primalBorderTol,
+        kirchhoffFeasTol, kirchhoffBorderTol,
+        convFeasTol, convBorderTol,
+        metrics,
+        primalClass, kirchhoffClass, convClass,
+        violations, kktClass, reason, anyMetricMissingQ
+    },
+        primalFeasTol      = OptionValue["PrimalFeasibleThreshold"];
+        primalBorderTol    = OptionValue["PrimalBorderlineThreshold"];
+        kirchhoffFeasTol   = OptionValue["KirchhoffFeasibleThreshold"];
+        kirchhoffBorderTol = OptionValue["KirchhoffBorderlineThreshold"];
+        convFeasTol        = OptionValue["ConvergenceFeasibleThreshold"];
+        convBorderTol      = OptionValue["ConvergenceBorderlineThreshold"];
+
+        metrics = kktExtractMetrics[result];
+        anyMetricMissingQ = AnyTrue[Values[metrics], MissingQ];
+
+        primalClass    = kktClassifyMetric[metrics["PrimalMinFlow"],
+                             primalFeasTol, primalBorderTol, False (* higher is better *)];
+        kirchhoffClass = kktClassifyMetric[metrics["KirchhoffResidual"],
+                             kirchhoffFeasTol, kirchhoffBorderTol, True (* lower is better *)];
+        (* Missing convergence residual means exact fixed-point in FixedPointList — treat as Feasible *)
+        convClass =
+            If[MissingQ[metrics["ConvergenceResidual"]],
+                "Feasible",
+                kktClassifyMetric[metrics["ConvergenceResidual"],
+                    convFeasTol, convBorderTol, True (* lower is better *)]
+            ];
+
+        violations = Join[
+            If[primalClass    =!= "Feasible", {"Primal"},      {}],
+            If[kirchhoffClass =!= "Feasible", {"Kirchhoff"},   {}],
+            If[convClass      =!= "Feasible", {"Convergence"}, {}]
+        ];
+
+        kktClass =
+            Which[
+                MemberQ[{primalClass, kirchhoffClass, convClass}, "Infeasible"], "Infeasible",
+                violations =!= {},                                               "Borderline",
+                True,                                                            "Feasible"
+            ];
+
+        reason =
+            Which[
+                kktClass === "Feasible",            None,
+                primalClass    === "Infeasible",    "NegativeFlow",
+                kirchhoffClass === "Infeasible",    "KirchhoffViolation",
+                convClass      === "Infeasible",    "NotConverged",
+                anyMetricMissingQ,                  "MetricsUnavailable",
+                primalClass    === "Borderline",    "SmallNegativeFlow",
+                kirchhoffClass === "Borderline",    "SmallKirchhoffViolation",
+                convClass      === "Borderline",    "SlowConvergence",
+                True,                               "MetricsUnavailable"
+            ];
+
+        <|
+            "KKTClass"      -> kktClass,
+            "KKTReason"     -> reason,
+            "KKTMetrics"    -> metrics,
+            "KKTViolations" -> violations
+        |>
+    ];
 
 End[];
