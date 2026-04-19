@@ -24,6 +24,7 @@ $TestSuites = <|
         "monotone-solver.mt",
         "numeric-state.mt",
         "solve-mfg.mt",
+        "scenario-kernel.mt",
         "solver-contracts.mt",
         "time-dependent-data.mt"
     },

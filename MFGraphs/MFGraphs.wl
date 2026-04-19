@@ -4,9 +4,12 @@
    
    Main Components:
    - DataToEquations: Symbolic graph-to-equation converter.
+   - Solvers: Critical-congestion solver suite (extracted Phase 3).
    - NonLinearSolver: Iterative solver for general congestion.
    - Monotone: Hessian Riemannian Flow numerical solver.
    - DNFReduce: Symbolic logical reduction engine.
+   - Graphics: Public visualization helpers.
+   - Scenario: Typed scenario kernel (makeScenario, validateScenario, etc.).
 *)
 
 (* Created by the Wolfram Workbench May 5, 2020 *)
@@ -1057,6 +1060,7 @@ Get["MFGraphs`NonLinearSolver`"];
 Get["MFGraphs`Monotone`"];
 Get["MFGraphs`TimeDependentSolver`"];
 Get["MFGraphs`Graphics`"];
+Get["MFGraphs`Scenario`"];
 
 Options[SolveMFG] = DeleteDuplicatesBy[
     Join[
