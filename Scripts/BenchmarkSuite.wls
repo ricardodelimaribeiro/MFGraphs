@@ -539,9 +539,10 @@ If[$HistoryTag =!= None,
       StringRiffle[tableLines, "\n"]
     ];
 
-    tiers = If[$SelectedTier === "all",
-      $DefaultBenchmarkTiers,
-      {$SelectedTier}
+    tiers = Which[
+      $SelectedTier === "all", $DefaultBenchmarkTiers,
+      $SelectedProfile =!= None, Lookup[Lookup[$BenchmarkProfiles, $SelectedProfile, <||>], "Tiers", {$SelectedTier}],
+      True, {$SelectedTier}
     ];
     tierTables = StringRiffle[
       Select[BuildTierTable /@ tiers, StringLength[#] > 0&],
