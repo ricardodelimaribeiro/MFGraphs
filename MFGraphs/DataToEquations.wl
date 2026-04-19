@@ -45,8 +45,10 @@ MFGPreprocessing::usage = "MFGPreprocessing[Eqs] returns the association Eqs wit
 
 
 
-MFGSystemSolver::usage = "MFGSystemSolver[Eqs][edgeEquations] returns the
-association with rules to the solution";
+MFGSystemSolver::usage = "MFGSystemSolver[Eqs][edgeEquations] returns an Association \
+<|\"Solution\" -> assoc_or_Null, \"UnresolvedConstraints\" -> expr_or_None|>. \
+\"Solution\" is Null on failure; \"UnresolvedConstraints\" is non-None when flows were determined \
+but u-variables remain symbolically underdetermined.";
 
 DNFSolveStep::usage = "DNFSolveStep[{EE,NN,OR}, rules] takes a grouped system and some Association of rules (a partial solution). It returns the result of applying DNFReduce.";
 
@@ -996,8 +998,8 @@ BuildOraclePrunedSystem[system_, flowAssoc_Association, oracleState_Association,
 (* --- MFGSystemSolver --- *)
 
 MFGSystemSolver[Eqs_][approxJs_] :=
-    Module[{NewSystem, InitRules, pickOne, vars, System, Ncpc, costpluscurrents,
-         us, js, jts, jjtsR, usR, time, ineqsByTransition,
+    Module[{NewSystem, InitRules, pickOne, pickOneFlowOnly, vars, System, Ncpc, costpluscurrents,
+         us, js, jts, jjtsR, time, ineqsByTransition, uResidual,
          ineqsWithoutTransition = {}},
         ClearSolveCache[];
         us = Lookup[Eqs, "us", $Failed];
@@ -1016,7 +1018,7 @@ MFGSystemSolver[Eqs_][approxJs_] :=
            triple infeasible, so stop before attempting inequality bucketing. *)
         If[MemberQ[NewSystem, False],
             Message[MFGSystemSolver::nosolution];
-            Return[Null, Module]
+            Return[<|"Solution" -> Null, "UnresolvedConstraints" -> None|>, Module]
         ];
 (* Retrieve some equalities from the inequalities: group by transition flow 
     
@@ -1091,7 +1093,7 @@ MFGSystemSolver[Eqs_][approxJs_] :=
         Which[
             System === False,
                 Message[MFGSystemSolver::nosolution];
-                Return[Null, Module]
+                Return[<|"Solution" -> Null, "UnresolvedConstraints" -> None|>, Module]
             ,
             System =!= True,
                 MFGPrint["MFGSS: (Possibly) Multiple solutions:\n", System
@@ -1102,8 +1104,7 @@ MFGSystemSolver[Eqs_][approxJs_] :=
                 vars = Complement[vars, Keys[InitRules]];
                 jjtsR = Select[vars, MatchQ[#, j[_, _, _] | j[_, _]]&
                     ];
-                usR = Select[vars, MatchQ[#, u[_, _, _] | u[_, _]]&];
-                    
+
 (* Pick one solution so that all the currents have numerical values 
     *)
                 If[Length[vars] > 0,
@@ -1121,9 +1122,25 @@ MFGSystemSolver[Eqs_][approxJs_] :=
                         InitRules = Expand /@ Join[InitRules /. pickOne,
                              pickOne]
                         ,
-                        MFGPrint["MFGSS: No feasible solution found"]
-                            ;
-                        Return[Null, Module]
+                        (* Both full-variable attempts failed. Try flows-only: WL existentially
+                           quantifies over u vars, finding j values for which some u satisfies System. *)
+                        pickOneFlowOnly = If[jjtsR =!= {},
+                            FindInstance[System && And @@ ((# >= 0)& /@ jjtsR), jjtsR, Reals],
+                            {}
+                        ];
+                        If[pickOneFlowOnly =!= {},
+                            pickOneFlowOnly = Association @ First @ pickOneFlowOnly;
+                            MFGPrint["MFGSS: Flow-only solution found (u underdetermined): ", pickOneFlowOnly];
+                            InitRules = Expand /@ Join[InitRules /. pickOneFlowOnly, pickOneFlowOnly];
+                            uResidual = Simplify[System /. pickOneFlowOnly];
+                            (* Resolve transitive chains early so the result is usable downstream *)
+                            InitRules = Expand /@ FixedPoint[Function[r, ReplaceAll[r] /@ r], InitRules, 10];
+                            InitRules = Join[KeyTake[InitRules, us], KeyTake[InitRules, js], KeyTake[InitRules, jts]];
+                            Return[<|"Solution" -> InitRules, "UnresolvedConstraints" -> uResidual|>, Module]
+                            ,
+                            MFGPrint["MFGSS: No feasible solution found"];
+                            Return[<|"Solution" -> Null, "UnresolvedConstraints" -> None|>, Module]
+                        ]
                     ]
                     ,
 (* All variables already solved — nothing to pick 
@@ -1150,7 +1167,7 @@ MFGSystemSolver[Eqs_][approxJs_] :=
                 ];
         InitRules = Join[KeyTake[InitRules, us], KeyTake[InitRules, js
             ], KeyTake[InitRules, jts]];
-        InitRules
+        <|"Solution" -> InitRules, "UnresolvedConstraints" -> None|>
     ];
 
 (* --- DNFSolveStep --- *)

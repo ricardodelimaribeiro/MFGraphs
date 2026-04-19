@@ -74,7 +74,7 @@ Test[
                 "NewSystem" -> {True, False, True},
                 "costpluscurrents" -> <||>
             |>;
-            MFGSystemSolver[fakeSystem][<||>] === Null
+            MFGSystemSolver[fakeSystem][<||>]["Solution"] === Null
         ]
     ]
     ,
