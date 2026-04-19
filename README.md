@@ -29,8 +29,8 @@ For developer guidance, see [CLAUDE.md](CLAUDE.md). For troubleshooting, see [TR
 | `docs/` | Internal planning and validation notes |
 | `research/papers/` | Reference papers |
 | `repro/` | One-off debugging and reproduction scripts |
-| `DNF_PERFORMANCE_HISTORY.md` | Auto-appended by `CompareDNF.wls` — do not edit manually |
-| `PARALLEL_PERFORMANCE_HISTORY.md` | Auto-appended by `BenchmarkSuite.wls` — do not edit manually |
+| `docs/history/DNF_PERFORMANCE_HISTORY.md` | Auto-appended by `CompareDNF.wls` — do not edit manually |
+| `docs/history/PARALLEL_PERFORMANCE_HISTORY.md` | Auto-appended by `BenchmarkSuite.wls` — do not edit manually |
 
 ## Installation
 

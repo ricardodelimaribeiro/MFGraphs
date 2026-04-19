@@ -11,7 +11,7 @@
      wolframscript -file Scripts/CompareDNF.wls <case_key> --tag "Description" \
        rationale="..." changes="..." interpretation="..."
 
-   --tag "..."   Run all cases and append a new entry to DNF_PERFORMANCE_HISTORY.md.
+   --tag "..."   Run all cases and append a new entry to docs/history/DNF_PERFORMANCE_HISTORY.md.
                  The entry includes the current git commit hash, date, results table,
                  and the supplied rationale / changes / interpretation prose.
 *)
@@ -291,7 +291,7 @@ If[$historyTag =!= None,
     Print["History entries require explicit rationale, changes, and interpretation text."];
     Exit[2]
   ];
-  Print["Will append entry to DNF_PERFORMANCE_HISTORY.md"]
+  Print["Will append entry to docs/history/DNF_PERFORMANCE_HISTORY.md"]
 ];
 
 $results = {};
@@ -389,7 +389,7 @@ If[$historyTag =!= None,
       "unknown"
     ];
 
-    historyPath = FileNameJoin[{Directory[], "DNF_PERFORMANCE_HISTORY.md"}];
+    historyPath = FileNameJoin[{Directory[], "docs", "history", "DNF_PERFORMANCE_HISTORY.md"}];
 
     (* Build the table rows *)
     okResults = Select[$results, #["Status"] === "OK" &];
