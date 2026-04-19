@@ -1197,6 +1197,65 @@ SolveMFGCompileInput[input_Association, opts_List:{}] :=
         ]
     ];
 
+SolveMFGRunStage[
+    method_String,
+    input_Association,
+    opts_List,
+    heldOpts_HoldComplete,
+    dispatchMode_String : "Direct"
+] :=
+    Module[{d2e, isCritical},
+        Switch[method,
+            "CriticalCongestion",
+                If[
+                    SolveMFGCompiledInputQ[input],
+                    d2e = input,
+                    If[dispatchMode === "Direct",
+                        isCritical = SolveMFGIsCriticalQ[heldOpts];
+                        If[!TrueQ[isCritical],
+                            Return[SolveMFGUnsupportedCriticalAlphaResult[], Module]
+                        ]
+                    ];
+                    d2e = SolveMFGCompileInput[input, opts]
+                ];
+                CriticalCongestionSolver[
+                    d2e,
+                    Sequence @@ FilterRules[opts, Options[CriticalCongestionSolver]]
+                ]
+            ,
+            "Monotone",
+                If[
+                    dispatchMode === "Automatic",
+                    d2e = If[SolveMFGCompiledInputQ[input], input, SolveMFGCompileInput[input, opts]];
+                    MonotoneSolver[
+                        d2e,
+                        Sequence @@ FilterRules[opts, Options[MonotoneSolver]]
+                    ],
+                    If[
+                        SolveMFGCompiledInputQ[input],
+                        MonotoneSolver[
+                            input,
+                            Sequence @@ FilterRules[opts, Options[MonotoneSolver]]
+                        ],
+                        MonotoneSolverFromData[
+                            input,
+                            Sequence @@ FilterRules[opts, Options[MonotoneSolverFromData]]
+                        ]
+                    ]
+                ]
+            ,
+            "NonLinear",
+                d2e = If[SolveMFGCompiledInputQ[input], input, SolveMFGCompileInput[input, opts]];
+                NonLinearSolver[
+                    d2e,
+                    Sequence @@ FilterRules[opts, Options[NonLinearSolver]]
+                ]
+            ,
+            _,
+                SolveMFGUnknownMethodResult[method]
+        ]
+    ];
+
 SolveMFGAutomaticDispatch[input_Association, opts_List] :=
     Module[{d2e, result = Missing["NotAvailable"], decision, trace = {}, methodUsed = "Automatic",
             attempts, isCritical, heldOpts},
@@ -1208,43 +1267,13 @@ SolveMFGAutomaticDispatch[input_Association, opts_List] :=
         isCritical = SolveMFGIsCriticalQ[heldOpts];
         attempts = Join[
             (* alpha=1: try CriticalCongestion first; alpha!=1: skip it *)
-            If[isCritical,
-                {<|
-                    "Method" -> "CriticalCongestion",
-                    "Run" -> Function[
-                        CriticalCongestionSolver[
-                            d2e,
-                            Sequence @@ FilterRules[opts, Options[CriticalCongestionSolver]]
-                        ]
-                    ]
-                |>},
-                {}
-            ],
-            {
-                <|
-                    "Method" -> "Monotone",
-                    "Run" -> Function[
-                        MonotoneSolver[
-                            d2e,
-                            Sequence @@ FilterRules[opts, Options[MonotoneSolver]]
-                        ]
-                    ]
-                |>,
-                <|
-                    "Method" -> "NonLinear",
-                    "Run" -> Function[
-                        NonLinearSolver[
-                            d2e,
-                            Sequence @@ FilterRules[opts, Options[NonLinearSolver]]
-                        ]
-                    ]
-                |>
-            }
+            If[isCritical, {"CriticalCongestion"}, {}],
+            {"Monotone", "NonLinear"}
         ];
         Do[
-            result = attempt["Run"][];
+            result = SolveMFGRunStage[attempt, d2e, opts, heldOpts, "Automatic"];
             decision = SolveMFGClassifyOutcome[result];
-            methodUsed = attempt["Method"];
+            methodUsed = attempt;
             trace = Append[trace, SolveMFGBuildTraceEntry[methodUsed, result, decision]];
             Switch[decision,
                 "Done",
@@ -1263,53 +1292,23 @@ SolveMFGAutomaticDispatch[input_Association, opts_List] :=
     ];
 
 SolveMFG[input_Association, opts:OptionsPattern[]] :=
-    Module[{method, normalizedMethod, d2e, heldOpts, isCritical},
+    Module[{method, normalizedMethod, heldOpts},
         heldOpts = HoldComplete[{opts}];
         method = OptionValue[Method];
         normalizedMethod = ToString[method];
 
         Switch[normalizedMethod,
             "Monotone" | "MonotoneSolver",
-                If[
-                    SolveMFGCompiledInputQ[input],
-                    MonotoneSolver[
-                        input,
-                        Sequence @@ FilterRules[{opts}, Options[MonotoneSolver]]
-                    ],
-                    MonotoneSolverFromData[
-                        input,
-                        Sequence @@ FilterRules[{opts}, Options[MonotoneSolverFromData]]
-                    ]
-                ]
+                SolveMFGRunStage["Monotone", input, {opts}, heldOpts, "Direct"]
             ,
             "CriticalCongestion" | "CriticalCongestionSolver",
-                If[
-                    SolveMFGCompiledInputQ[input],
-                    d2e = input;
-                    CriticalCongestionSolver[
-                        d2e,
-                        Sequence @@ FilterRules[{opts}, Options[CriticalCongestionSolver]]
-                    ],
-                    isCritical = SolveMFGIsCriticalQ[heldOpts];
-                    If[!TrueQ[isCritical],
-                        SolveMFGUnsupportedCriticalAlphaResult[],
-                        d2e = SolveMFGCompileInput[input, {opts}];
-                        CriticalCongestionSolver[
-                            d2e,
-                            Sequence @@ FilterRules[{opts}, Options[CriticalCongestionSolver]]
-                        ]
-                    ]
-                ]
+                SolveMFGRunStage["CriticalCongestion", input, {opts}, heldOpts, "Direct"]
             ,
             "Automatic",
                 SolveMFGAutomaticDispatch[input, {opts}]
             ,
             "NonLinear" | "NonLinearSolver",
-                d2e = If[SolveMFGCompiledInputQ[input], input, SolveMFGCompileInput[input, {opts}]];
-                NonLinearSolver[
-                    d2e,
-                    Sequence @@ FilterRules[{opts}, Options[NonLinearSolver]]
-                ]
+                SolveMFGRunStage["NonLinear", input, {opts}, heldOpts, "Direct"]
             ,
             _,
                 SolveMFGUnknownMethodResult[method]
