@@ -333,6 +333,10 @@ BenchmarkOneSolver[key_, tier_String, solverName_String, d2e_Association, timeou
       "Residual" -> residual,
       "EquationResidual" -> equationResidual,
       "UsedCriticalSeed" -> If[MemberQ[{"NonLinearSolver", "Monotone"}, solverName], criticalSeedUsed, Missing["N/A"]],
+      "NumericBackendUsed" -> If[solverName === "CriticalCongestion",
+        TrueQ[Lookup[rawResult, "NumericBackendUsed", False]],
+        Missing["N/A"]
+      ],
       "IncrementalSolveTime" -> If[MemberQ[{"NonLinearSolver", "Monotone"}, solverName], result["Time"], Missing["N/A"]],
       "EstimatedStandaloneSolveTime" -> If[MemberQ[{"NonLinearSolver", "Monotone"}, solverName], estimatedStandaloneSolveTime, Missing["N/A"]],
       "StopReason" -> stopReason,
@@ -506,9 +510,14 @@ If[$HistoryTag =!= None,
       tierRows2 = Select[$AllResults, #["Tier"] === tierName &];
       If[Length[tierRows2] === 0, Return[""]];
       caseKeys = DeleteDuplicates[#["Key"] & /@ tierRows2];
-      tableLines = {"#### Tier: " <> tierName, "",
-        "| Case | D2E (s) | CritSolver (s) | NLSolver inc (s) | NLSolver standalone est (s) | Monotone inc (s) | Monotone standalone est (s) | Total (s) | Case Status |",
-        "|------|---------|---------------|------------------|----------------------------|------------------|-----------------------------|-----------|-------------|"};
+      Module[{hCrit, hNL, hMono},
+        hCrit = DisplaySolverName[<|"Solver" -> "CriticalCongestion", "NumericBackendUsed" -> True|>]; (* Generic numeric as placeholder header *)
+        hNL = DisplaySolverName[<|"Solver" -> "NonLinearSolver", "UsedCriticalSeed" -> True|>];
+        hMono = DisplaySolverName[<|"Solver" -> "Monotone", "UsedCriticalSeed" -> True|>];
+        tableLines = {"#### Tier: " <> tierName, "",
+          "| Case | D2E (s) | " <> hCrit <> " (s) | " <> hNL <> " inc (s) | NL standalone est (s) | " <> hMono <> " inc (s) | Mono standalone est (s) | Total (s) | Case Status |",
+          "|------|---------|---------------|------------------|----------------------------|------------------|-----------------------------|-----------|-------------|"}
+      ];
       Do[
         Module[{caseRows, d2eT, critT, nlT, monoT, totalT, caseStatus, nlEstST, monoEstST},
           caseRows = Select[tierRows2, #["Key"] === k &];

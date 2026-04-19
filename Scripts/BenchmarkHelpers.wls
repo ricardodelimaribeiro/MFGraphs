@@ -485,6 +485,33 @@ $BenchmarkProfiles = <|
 
 (* --- Results formatting --- *)
 
+DisplaySolverName[r_Association] :=
+  Module[{base, details = {}},
+    base = Switch[r["Solver"],
+      "CriticalCongestion", "Critical",
+      "NonLinearSolver", "NonLinear",
+      "Monotone", "Monotone",
+      "ALL", "Combined",
+      "DataToEquations", "Preprocessing",
+      _, r["Solver"]
+    ];
+
+    (* Add seeding info *)
+    If[TrueQ[r["UsedCriticalSeed"]], AppendTo[details, "seeded"]];
+
+    (* Add critical strategy details if available *)
+    If[r["Solver"] === "CriticalCongestion" && KeyExistsQ[r, "NumericBackendUsed"],
+      AppendTo[details, If[TrueQ[r["NumericBackendUsed"]], "numeric", "symbolic"]]
+    ];
+
+    If[details === {},
+      base,
+      base <> " (" <> StringRiffle[details, ", "] <> ")"
+    ]
+  ];
+
+DisplaySolverName[name_String] := DisplaySolverName[<|"Solver" -> name|>]
+
 FormatTime[t_?NumericQ] := ToString[CForm[N[t]]];
 FormatTime[_] := "N/A";
 
@@ -531,7 +558,7 @@ PrintResultsSummary[results_List] :=
       If[Length[stats] > 0,
         Print[Style["--- Tier: " <> tier <> " ---", Bold]];
         Do[
-          Print["  ", r["Key"], " | ", r["Solver"], " | ",
+          Print["  ", r["Key"], " | ", DisplaySolverName[r], " | ",
                 FormatTime[r["SolveTime"]], "s | ",
                 FormatMemoryMB[r["SolveMemory"]], " MB | ",
                 r["Status"]],
@@ -541,4 +568,5 @@ PrintResultsSummary[results_List] :=
       ],
       {tier, {"small", "core", "stress", "paper", "inconsistent-switching", "large", "vlarge"}}
     ];
+
   ];
