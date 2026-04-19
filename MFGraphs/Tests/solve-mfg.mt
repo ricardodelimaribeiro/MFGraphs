@@ -1,6 +1,18 @@
 (* Wolfram Language Test file *)
 (* Thin-routing tests for SolveMFG (phase 1 unified API). *)
 
+If[!MemberQ[$Packages, "MFGraphs`"],
+    Get[
+        FileNameJoin[
+            {
+                DirectoryName[$InputFileName],
+                "..",
+                "MFGraphs.wl"
+            }
+        ]
+    ]
+];
+
 Test[
     Module[{data, result},
         data = GetExampleData[7] /. {I1 -> 100, U1 -> 0, U2 -> 0};
