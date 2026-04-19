@@ -9,7 +9,8 @@ Test[
     NameQ["MFGraphs`GetExampleData"] && NameQ["MFGraphs`DNFReduce"] &&
     NameQ["MFGraphs`GetKirchhoffLinearSystem"] && NameQ["MFGraphs`V"] &&
     NameQ["MFGraphs`alpha"] && NameQ["MFGraphs`g"] &&
-    NameQ["MFGraphs`WithHamiltonianFunctions"]
+    NameQ["MFGraphs`WithHamiltonianFunctions"] &&
+    NameQ["MFGraphs`makeScenario"] && NameQ["MFGraphs`scenarioQ"]
     ,
     True
     ,
