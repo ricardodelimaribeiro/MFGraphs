@@ -122,3 +122,46 @@ Test[
     ,
     TestID -> "Scenario kernel: ScenarioData returns association"
 ]
+
+(* Test: partial Identity override — user name is preserved and contentHash is always computed *)
+Test[
+    Module[{data, s, identity},
+        data = GetExampleData[12] /. {I1 -> 100, U1 -> 0};
+        s = makeScenario[<|"Model" -> data, "Identity" -> <|"name" -> "my-scenario"|>|>];
+        identity = ScenarioData[s, "Identity"];
+        StringQ[identity["contentHash"]] && identity["name"] === "my-scenario"
+    ]
+    ,
+    True
+    ,
+    TestID -> "Scenario kernel: partial Identity override preserves name and computes hash"
+]
+
+(* Test: contentHash is stable — same input produces the same hash *)
+Test[
+    Module[{data, s1, s2},
+        data = GetExampleData[12] /. {I1 -> 100, U1 -> 0};
+        s1 = makeScenario[<|"Model" -> data|>];
+        s2 = makeScenario[<|"Model" -> data|>];
+        ScenarioData[s1, "Identity"]["contentHash"] === ScenarioData[s2, "Identity"]["contentHash"]
+    ]
+    ,
+    True
+    ,
+    TestID -> "Scenario kernel: contentHash is stable for identical input"
+]
+
+(* Test: completeScenario can be called directly on a validated scenario *)
+Test[
+    Module[{data, raw, validated, completed},
+        data      = GetExampleData[12] /. {I1 -> 100, U1 -> 0};
+        raw       = scenario[<|"Model" -> data|>];
+        validated = validateScenario[raw];
+        completed = completeScenario[validated];
+        scenarioQ[completed] && StringQ[ScenarioData[completed, "Identity"]["contentHash"]]
+    ]
+    ,
+    True
+    ,
+    TestID -> "Scenario kernel: completeScenario callable directly on validated scenario"
+]

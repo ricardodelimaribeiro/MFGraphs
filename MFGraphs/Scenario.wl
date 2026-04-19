@@ -125,7 +125,8 @@ completeScenario[s_scenario] :=
         (* Compute content hash from the canonical string of the Model. *)
         hash = Hash[ToString[model, InputForm], "SHA256", "HexString"];
 
-        identity  = Join[<|"contentHash" -> hash|>, identity];
+        (* Computed hash always wins: placed on the right so it overrides any user-supplied value. *)
+        identity  = Join[identity, <|"contentHash" -> hash|>];
         benchmark = Join[
             <|"Tier" -> $DefaultBenchmarkTier, "Timeout" -> $DefaultBenchmarkTimeout|>,
             benchmark

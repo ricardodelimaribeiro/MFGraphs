@@ -23,8 +23,8 @@ $TestSuites = <|
         "monotone-monotonicity.mt",
         "monotone-solver.mt",
         "numeric-state.mt",
-        "solve-mfg.mt",
         "scenario-kernel.mt",
+        "solve-mfg.mt",
         "solver-contracts.mt",
         "time-dependent-data.mt"
     },
