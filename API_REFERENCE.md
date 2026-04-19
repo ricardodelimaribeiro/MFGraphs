@@ -2,14 +2,6 @@
 
 This document is automatically generated from the Wolfram Language package usage metadata.
 
-## alpha
-
-alpha[edge] is the edge-dependent congestion exponent used in the Hamiltonian. The default is 1.
-
-## alphaFun
-
-MFGraphs`alphaFun
-
 ## AltFlowOp
 
 AltFlowOp[j][list] returns the alternative: j@@list ==0 || j@@Reverse@list ==0.
@@ -51,17 +43,6 @@ switching costs too, does not have a numerical value.
 
 CriticalCongestionSolver[Eqs] returns Eqs with an association "AssoCritical" with rules to
 the solution to the critical congestion case. Option: "ReturnShape" (default "Legacy"); use "Standard" to add normalized solver-result keys.
-
-## Data2Equations
-
-DataToEquations[Data] returns the equations, inequalities, and alternatives associated to the Data. 
-
-## DataG
-
-GetExampleData[n] returns an Association with keys "Vertices List", "Adjacency Matrix",
-"Entrance Vertices and Flows", "Exit Vertices and Terminal Costs", and "Switching Costs"
-from the test case test[n].
-Supports test cases with 5 fields (basic), 6 fields (+cost function 'a'), or 7 fields (+alpha).
 
 ## DataToEquations
 
@@ -121,86 +102,6 @@ FlowGathering[auxTriples_List][x_] returns the triples that end with x.
 
 FlowSplitting[AT][UndirectedEdge[a, b]] returns the splitting that start with {a,b}.
 
-## g
-
-g[m, edge] is the edge-dependent interaction term as a function of density m. The default is -1/m^2.
-
-## GetExampleData
-
-GetExampleData[n] returns an Association with keys "Vertices List", "Adjacency Matrix",
-"Entrance Vertices and Flows", "Exit Vertices and Terminal Costs", and "Switching Costs"
-from the test case test[n].
-Supports test cases with 5 fields (basic), 6 fields (+cost function 'a'), or 7 fields (+alpha).
-
-## GetKirchhoffLinearSystem
-
-GetKirchhoffLinearSystem[d2e] returns the entry current vector, Kirchhoff matrix, and the variables in the order corresponding to the Kirchhoff matrix.
-
-## GetKirchhoffMatrix
-
-GetKirchhoffMatrix[d2e] returns the entry current vector, Kirchhoff matrix, (critical congestion) cost function placeholder, and the variables in the order corresponding to the Kirchhoff matrix. The third slot is retained for backward compatibility and should not be used by new code.
-
-## GetTimeDependentExampleData
-
-GetTimeDependentExampleData[key] returns an Association with all standard network keys
-plus time-dependent keys ("Time Horizon", "Time Steps", etc.).
-Available keys: "TD-1" through "TD-5".
-
-## gFun
-
-MFGraphs`gFun
-
-## GradientProjection
-
-GradientProjection[x, A, dim, At] returns the projected gradient operator matrix.
-This is InverseHessian[x] . (I - At . PseudoInverse[A . InverseHessian[x] . At] . A . InverseHessian[x]).
-
-## Hess
-
-Hess[j] returns a numeric diagonal matrix with the reciprocals of the elements in the (numeric) vector j.
-
-## HessianSandwich
-
-HessianSandwich[j, A, At] returns the product A . InverseHessian[j] . At.
-
-## I1
-
-Symbolic parameter: input flow at entrance 1.
-
-## I2
-
-Symbolic parameter: input flow at entrance 2.
-
-## I3
-
-Symbolic parameter: input flow at entrance 3.
-
-## IneqSwitch
-
-IneqSwitch[u, switchingCosts][v, e1, e2] returns the optimality condition at the vertex v related to switching from e1 to e2. Namely,
-u[v, e1] <= u[v, e2] + switchingCosts[{v, e1, e2}]
-
-## InverseHessian
-
-InverseHessian[j] returns a diagonal matrix with the (numeric) vector j. This is the inverse of the matrix Hess[j].
-
-## IsFeasible
-
-IsFeasible[result] returns True if a solver result is feasible, checking legacy "Status" or standardized "Feasibility" keys.
-
-## IsNonLinearSolution
-
-IsNonLinearSolution[Eqs] extracts AssoNonCritical and checks equations and inequalities. The right and left hand sides of the nonlinear equations are shown with the sup-norm of the difference.
-
-## IsSwitchingCostConsistent
-
-IsSwitchingCostConsistent[List of switching costs] is True if all switching costs satisfy the triangle inequality. If some switching costs are symbolic, then it returns the consistency conditions.
-
-## IsTimeDependentQ
-
-IsTimeDependentQ[data] returns True if the data Association contains time-dependent keys
-(specifically, "Time Horizon").
-
 ## list
 
 MFGraphs`list
@@ -231,30 +132,6 @@ MFGPrintTemporary[args___] prints a temporary message only when $MFGraphsVerbose
 MFGSystemSolver[Eqs][edgeEquations] returns the
 association with rules to the solution
 
-## MonotoneSolver
-
-MonotoneSolver[d2e] solves the MFG problem using the monotone operator method.
-Options: "TimeSteps" (default 100), "UseCachedGradient" (default True), "ReturnShape" (default "Legacy"; use "Standard" for a normalized solver-result association), "PotentialFunction", "CongestionExponentFunction", and "InteractionFunction" (default Automatic, meaning use the current global MFGraphs` definitions of V, alpha, and g).
-
-## MonotoneSolverFromData
-
-MonotoneSolverFromData[Data] solves the MFG problem from raw Data using the monotone operator method.
-Options: "TimeSteps" (default 100), "UseCachedGradient" (default True), "ReturnShape" (default "Legacy"; use "Standard" for a normalized solver-result association), "PotentialFunction", "CongestionExponentFunction", and "InteractionFunction" (default Automatic, meaning use the current global MFGraphs` definitions of V, alpha, and g).
-
-## MonotoneSolverODE
-
-MonotoneSolverODE[x0, KM, jj, cc] solves the gradient flow ODE from initial condition x0.
-Options: "TimeSteps" (default 100), "UseCachedGradient" (default True).
-
-## m$
-
-MFGraphs`m$
-
-## NonLinearSolver
-
-NonLinearSolver[Eqs] takes an association resulting from DataToEquations and returns an approximation to the solution of the non-critical congestion case with alpha = value, specified by alpha[edge_] := value.
-Options: "MaxIterations" (default 15), "Tolerance" (default 0), "ReturnShape" (default "Legacy"; use "Standard" to add normalized solver-result keys), "PotentialFunction", "CongestionExponentFunction", and "InteractionFunction" (default Automatic, meaning use the current global MFGraphs` definitions of V, alpha, and g). When Tolerance > 0, iteration stops early when the infinity-norm change in flow variables between consecutive steps falls below the given tolerance.
-
 ## NumberMatrixQ
 
 NumberMatrixQ[A] returns True if the elements of the matrix A are numeric.
@@ -266,12 +143,6 @@ NumberVectorQ[j] returns True if the vector j is numeric.
 ## p
 
 MFGraphs`p
-
-## PrecomputeM
-
-PrecomputeM[jMin, jMax, edge, nPoints] precomputes M[j,x,edge] on a grid and returns
-an InterpolatingFunction. This avoids per-point FindRoot calls during NIntegrate.
-nPoints controls the grid resolution (default 50).
 
 ## ReduceDisjuncts
 
@@ -366,16 +237,6 @@ Otherwise, it simplifies the whole expression.
 SystemToTriple[sys] returns a triple {equalities, inequalities, alternatives} from sys.
 The input should be a system of equations, inequalities and (simple) alternatives.
 
-## TimeDependentSolver
-
-TimeDependentSolver[data] solves the time-dependent MFG problem on a network.
-The data Association must include "Time Horizon" and optionally
-"Time Steps", "Initial Mass Distribution", "Terminal Cost Function",
-"Time Dependent Entrance Flows", and "Time Dependent Switching Costs".
-Options: "MaxOuterIterations" (default 20), "Tolerance" (default 10^-6),
-"SpatialSolverIterations" (default 0; when > 0, runs nonlinear iterations per step),
-"ReturnShape" (default "Legacy"; use "Standard" for normalized output).
-
 ## TripleClean
 
 TripleClean[{{EE,NN,OR},Rules}] composes TripleStep until it reaches a fixed point, that is, {{True,NewNN,NewOR},NewRules} such that replacement of NewRules in NewNN and NewOR do not produce equalities.
@@ -400,23 +261,6 @@ Symbolic parameter: terminal cost at exit 2.
 
 Symbolic parameter: terminal cost at exit 3.
 
-## V
-
-V[x, edge] is the along-edge potential term in the Hamiltonian. Lower values make locations on an edge more attractive to agents. The default is 0.
-
-## ValidateTimeDependentData
-
-ValidateTimeDependentData[data] checks that the required time-dependent keys are present
-and consistent. Returns True or a failure message string.
-
-## vFun
-
-MFGraphs`vFun
-
-## WithHamiltonianFunctions
-
-WithHamiltonianFunctions[vFun, alphaFun, gFun, expr] temporarily overrides the public MFGraphs Hamiltonian ingredients V, alpha, and g while evaluating expr. Any argument may be Automatic to keep the current definition.
-
 ## x
 
 MFGraphs`x
@@ -435,4 +279,4 @@ False is the symbol for the Boolean value false.
 
 ## $MFGraphsVerbose
 
-False is the symbol for the Boolean value false. 
+True is the symbol for the Boolean value true. 
