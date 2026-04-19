@@ -1,31 +1,27 @@
 # BooleanConvert vs DNFReduce Comparison
 
-Generated: Mon 6 Apr 2026 10:56:49
-Mathematica: 14.0.0 for Mac OS X ARM (64-bit) (December 13, 2023)
+Generated: Sun 19 Apr 2026 10:16:34
+Mathematica: 14.3.0 for Mac OS X ARM (64-bit) (July 8, 2025)
 
 ## Summary
 
-| Case | Input Disjuncts | BC Time (s) | DNF Time (s) | Speedup | BC Disjuncts | DNF Disjuncts | BC Leaves | DNF Leaves | Equivalence |
-|---|---|---|---|---|---|---|---|---|---|
-| 7 | - | - | - | - | - | - | - | - | TRIVIAL |
-| 8 | 1 | 0.000057 | 0.023938 | 0.00238115x | 4 | 1 | 313 | 16 | EQUIVALENT |
-| 12 | 1 | 0.000041 | 0.000434 | 0.09447x | 1 | 1 | 23 | 6 | EQUIVALENT |
-| 11 | 1 | 0.022839 | 0.045009 | 0.507432x | 12 | 20 | 5763 | 6869 | EQUIV_TIMEOUT |
-| 14 | 2 | 0.000046 | 0.00117 | 0.0393162x | 2 | 1 | 82 | 6 | EQUIVALENT |
-| Braess congest | 1 | 0.000163 | 0.005943 | 0.0274272x | 4 | 1 | 649 | 67 | EQUIVALENT |
-| 20 | 1 | 0.000267 | 0.005819 | 0.0458842x | 8 | 4 | 1289 | 240 | EQUIVALENT |
+| Case | Input Disjuncts | BC Time (s) | DNF Time (s) | Pipe Time (s) | **Speedup (Pipe)** | BC Disjuncts | DNF Disjuncts | Pipe Disjuncts | BC Leaves | DNF Leaves | Pipe Leaves | Equiv |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 7 | 1 | 0.001915 | 0.024675 | 0.252005 | 10.2906x | 12 | 1 | 1 | 1491 | 20 | 18 | ✓ |
 
 ## Interpretation
 
-- **Speedup > 1**: BooleanConvert is slower than DNFReduce (our method is faster)
-- **Speedup < 1**: BooleanConvert is faster than DNFReduce
+- **Speedup (Pipe)**: How much faster `DNFReduce` is compared to the `BooleanConvert` + `Reduce` pipeline.
+- **BC Time**: Time for pure boolean conversion.
+- **Pipe Time**: Time for boolean conversion followed by algebraic simplification (`Reduce`). This is the fair baseline for `DNFReduce`.
 - **Disjuncts**: Fewer disjuncts = simpler output (fewer solution branches)
 - **Leaves**: Smaller LeafCount = more compact expression
 
 ## Method details
 
-- **BooleanConvert**: Mathematica's built-in `BooleanConvert[expr, "DNF"]`. Treats the expression as a pure boolean formula and converts to disjunctive normal form without exploiting equation structure.
-- **DNFReduce**: Our custom solver that (1) solves equalities by substitution, (2) caches Solve/Reduce results, (3) prunes inconsistent branches early, (4) short-circuits when a branch already covers the expression.
+- **BooleanConvert**: Mathematica's built-in `BooleanConvert[expr, "DNF"]`. Treats the expression as a pure boolean formula.
+- **DNFReduce**: Our custom solver that interleaves algebraic solving (substitution and pruning) with DNF conversion.
+- **Pipe (Method 3)**: `BooleanConvert` followed by `Reduce[..., Reals]`. This isolates whether the benefit of `DNFReduce` comes from the simplification itself or the interleaved strategy.
 
 ## Key differences
 
@@ -34,7 +30,4 @@ DNFReduce is *not* a pure boolean conversion. It interleaves algebraic solving w
 - Branches that become False after substitution are pruned immediately
 - The output is a simplified DNF where each disjunct has had equalities resolved
 
-BooleanConvert treats the entire expression as a boolean formula and does not perform algebraic simplification. This can lead to:
-- More disjuncts (redundant branches not eliminated)
-- Larger expressions (equalities not resolved)
-- Potentially faster for small problems where the boolean structure is simple
+BooleanConvert treats the entire expression as a boolean formula and does not perform algebraic simplification. Method 3 (Pipe) adds that simplification as a post-processing step.
