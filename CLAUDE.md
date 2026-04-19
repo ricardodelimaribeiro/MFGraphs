@@ -212,7 +212,7 @@ Data (Association)
   ↓
 DataToEquations[data]                    (DataToEquations.wl)
   ↓
-CriticalCongestionSolver[d2e]           (DataToEquations.wl, uses DNFReduce.wl)
+CriticalCongestionSolver[d2e]           (Solvers.wl, uses DNFReduce.wl)
   ├─ DirectCriticalSolver[d2e]           (fast path for zero-switching-cost networks)
   └─ MFGSystemSolver + DNFSolveStep      (general case with switching costs)
   ↓
@@ -229,10 +229,12 @@ Defined in `MFGraphs.wl`:
 1. `Examples/ExamplesData.wl` — 34 built-in test cases via `GetExampleData[key]`
 2. `Examples/TimeDependentExamples.wl` — Time-dependent example data
 3. `DNFReduce.wl` — Boolean algebra solver (disjunctive normal form reduction with Solve/Reduce memoization, branch pruning, and post-reduction via `ReduceDisjuncts`/`SubsumptionPrune`)
-4. `DataToEquations.wl` — Core converter: network topology → equations; implements `DataToEquations`, `CriticalCongestionSolver`, `MFGSystemSolver`, `TripleClean`
-5. `NonLinearSolver.wl` — Iterative fixed-point solver (`NonLinearSolver`) using Hamiltonian framework (up to 15 iterations)
-6. `Monotone.wl` — ODE-based gradient flow solver on Kirchhoff matrix using `NDSolve`
-7. `TimeDependentSolver.wl` — Time-dependent MFG solver using backward-forward sweep on discretized time grid
+4. `DataToEquations.wl` — Core converter: network topology → equations; implements `DataToEquations`, `MFGSystemSolver`, `MFGPreprocessing`, `TripleClean`
+5. `Solvers.wl` — Critical-congestion solver suite extracted from `DataToEquations.wl` (Phase 3 refactor); implements `CriticalCongestionSolver`, `DirectCriticalSolver`, `IsCriticalSolution`
+6. `NonLinearSolver.wl` — Iterative fixed-point solver (`NonLinearSolver`) using Hamiltonian framework (up to 15 iterations)
+7. `Monotone.wl` — ODE-based gradient flow solver on Kirchhoff matrix using `NDSolve`
+8. `TimeDependentSolver.wl` — Time-dependent MFG solver using backward-forward sweep on discretized time grid
+9. `Graphics.wl` — Public visualization helpers: `NetworkGraphPlot`, `SolutionFlowPlot`, `ExitFlowPlot`
 
 After submodule loading, `MFGraphs.wl` defines `SolveMFG` — the unified entrypoint (see Pipeline overview).
 
@@ -246,7 +248,7 @@ Each submodule uses `Begin["`Private`"]` / `End[]` to isolate internal helpers:
 
 ### Inner solver pipeline
 
-The critical congestion solver inside `DataToEquations.wl` uses a multi-stage pipeline:
+The critical congestion solver (in `Solvers.wl`, with supporting stages in `DataToEquations.wl`) uses a multi-stage pipeline:
 
 ```
 CriticalCongestionSolver
@@ -428,6 +430,8 @@ Produces `Results/bottleneck_report.md` with call counts and timing for each pro
 ### Helper scripts
 
 **`BenchmarkHelpers.wls`** — Loaded by `BenchmarkSuite.wls`; defines tier configurations, default parameters, and helper functions. Contains `$DefaultParams` substitutions and tier definitions.
+
+**`RunBenchmarkCI.wls`** — Runs `small` and `core` tiers in CI mode (in-process isolation), writes results to `Results/benchmark_latest.json`. Use this for quick automated validation across the stable case set.
 
 **`GenerateDocs.wls`** — Regenerate auto-generated documentation (e.g., `API_REFERENCE.md` from `::usage` declarations).
 

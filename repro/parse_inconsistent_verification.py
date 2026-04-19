@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-path = Path('/Users/ribeirrd/Documents/GitHub/MFGraphs/Results/inconsistent_examples_verification.json')
+path = Path(__file__).parent.parent / "Results" / "inconsistent_examples_verification.json"
 data = json.loads(path.read_text())
 for item in data:
     alt = item['AltTransitionFlows']

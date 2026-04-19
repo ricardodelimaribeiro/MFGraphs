@@ -1,4 +1,4 @@
-SetDirectory[DirectoryName[$InputFileName]];
+SetDirectory[ParentDirectory[ParentDirectory[DirectoryName[ExpandFileName[$InputFileName]]]]];
 PrependTo[$Path, Directory[]];
 Needs["MFGraphs`"];
 

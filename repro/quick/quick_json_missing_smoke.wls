@@ -1,4 +1,4 @@
-SetDirectory[DirectoryName[$InputFileName]];
+SetDirectory[ParentDirectory[ParentDirectory[DirectoryName[ExpandFileName[$InputFileName]]]]];
 
 FormatValue[x_] := Replace[x, m_Missing :> ToString[m, InputForm]];
 
