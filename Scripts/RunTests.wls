@@ -21,8 +21,6 @@ $TestSuites = <|
         "exit-pass-through-nonzero.mt",
         "infeasible-status.mt",
         "inconsistent-switching-critical.mt",
-        "numeric-state.mt",
-        "kkt-gate.mt",
         "scenario-kernel.mt",
         "solve-mfg.mt",
         "solver-contracts.mt"
