@@ -19,6 +19,7 @@ $TestSuites = <|
         "critical-numeric-backend.mt",
         "exit-pass-through.mt",
         "exit-pass-through-nonzero.mt",
+        "exact-mode.mt",
         "infeasible-status.mt",
         "inconsistent-switching-critical.mt",
         "scenario-kernel.mt",
