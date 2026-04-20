@@ -26,10 +26,44 @@ Test[
 
 (* Test: Backward compatibility aliases resolve correctly *)
 Test[
-    DataG === GetExampleData && Data2Equations === DataToEquations && FinalStep === DNFSolveStep &&
+    DataG === GetExampleData && FinalStep === DNFSolveStep &&
     RemoveDuplicates === DeduplicateByComplexity && ReplaceSolution === SubstituteSolution
     ,
     True
     ,
     TestID -> "Package loading: backward compatibility aliases"
+]
+
+(* Test: Deprecated Data2Equations remains behavior-compatible with DataToEquations *)
+Test[
+    Module[{data, d2e1, d2e2},
+        data = GetExampleData[3] /. {I1 -> 2, U1 -> 0};
+        d2e1 = DataToEquations[data];
+        d2e2 = Quiet[Data2Equations[data], Data2Equations::deprecated];
+        AssociationQ[d2e1] && d2e1 === d2e2
+    ]
+    ,
+    True
+    ,
+    TestID -> "Package loading: Data2Equations deprecated wrapper is behavior-compatible"
+]
+
+(* Test: Data2Equations emits deprecation message *)
+Test[
+    Module[{data},
+        data = GetExampleData[3] /. {I1 -> 2, U1 -> 0};
+        Quiet[
+            Check[
+                Data2Equations[data];
+                False,
+                True,
+                Data2Equations::deprecated
+            ],
+            Data2Equations::deprecated
+        ]
+    ]
+    ,
+    True
+    ,
+    TestID -> "Package loading: Data2Equations emits deprecation warning"
 ]

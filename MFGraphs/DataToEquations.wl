@@ -59,11 +59,12 @@ TripleStep::usage = "TripleStep[{{EE,NN,OR},Rules}] returns {{NewEE, NewNN, NewO
 
 TripleClean::usage = "TripleClean[{{EE,NN,OR},Rules}] composes TripleStep until it reaches a fixed point, that is, {{True,NewNN,NewOR},NewRules} such that replacement of NewRules in NewNN and NewOR do not produce equalities."
 
-Data2Equations::usage = "Data2Equations is a backward-compatibility alias for DataToEquations.";
+Data2Equations::usage = "Data2Equations[Data] is a deprecated compatibility wrapper for DataToEquations[Data]. It will be removed in the next release.";
 
 FinalStep::usage = "FinalStep is a backward-compatibility alias for DNFSolveStep.";
 
 DataToEquations::switchingcosts = "Switching costs are inconsistent.";
+Data2Equations::deprecated = "Data2Equations is deprecated. Please use DataToEquations instead. It will be removed in the next release.";
 
 MFGSystemSolver::nosolution = "There is no feasible symbolic solution for the current system.";
 
@@ -1000,16 +1001,21 @@ BuildOraclePrunedSystem[system_, flowAssoc_Association, oracleState_Association,
 MFGSystemSolver[Eqs_][approxJs_] :=
     Module[{NewSystem, InitRules, pickOne, pickOneFlowOnly, vars, System, Ncpc, costpluscurrents,
          us, js, jts, jjtsR, time, ineqsByTransition, uResidual,
-         ineqsWithoutTransition = {}},
+         ineqsWithoutTransition = {}, exactModeQ},
         ClearSolveCache[];
+        exactModeQ = TrueQ[Lookup[Eqs, "ExactMode", False]];
         us = Lookup[Eqs, "us", $Failed];
         js = Lookup[Eqs, "js", $Failed];
         jts = Lookup[Eqs, "jts", $Failed];
         InitRules = Lookup[Eqs, "InitRules", $Failed];
         NewSystem = Lookup[Eqs, "NewSystem", $Failed];
         costpluscurrents = Lookup[Eqs, "costpluscurrents", $Failed];
-        {time, Ncpc} = AbsoluteTiming[RoundValues @ (Expand /@ (costpluscurrents
-             /. approxJs))];
+        {time, Ncpc} = AbsoluteTiming[
+            If[exactModeQ,
+                Expand /@ (costpluscurrents /. approxJs),
+                RoundValues @ (Expand /@ (costpluscurrents /. approxJs))
+            ]
+        ];
         MFGPrint["MFGSS: Calculated the cost plus currents for the flow in ",
              time, " seconds."];
         InitRules = Expand /@ (InitRules /. Ncpc);
@@ -1098,6 +1104,17 @@ MFGSystemSolver[Eqs_][approxJs_] :=
             System =!= True,
                 MFGPrint["MFGSS: (Possibly) Multiple solutions:\n", System
                     ];
+                (* Exact mode: skip FindInstance and return the determined rules
+                   alongside the unresolved constraint region. *)
+                If[exactModeQ,
+                    InitRules = Expand /@ FixedPoint[Function[r, ReplaceAll[r] /@ r], InitRules, 10];
+                    InitRules = Join[KeyTake[InitRules, us], KeyTake[InitRules, js], KeyTake[InitRules, jts]];
+                    Return[<|
+                        "Solution" -> InitRules,
+                        "SymbolicRegion" -> System,
+                        "UnresolvedConstraints" -> System
+                    |>, Module]
+                ];
                 (* Extract all unsolved variables from System *)
                 vars = Select[Variables[System], MatchQ[#, j[_, _, _]
                      | j[_, _] | u[_, _] | u[_, _, _]]&];
@@ -1105,7 +1122,7 @@ MFGSystemSolver[Eqs_][approxJs_] :=
                 jjtsR = Select[vars, MatchQ[#, j[_, _, _] | j[_, _]]&
                     ];
 
-(* Pick one solution so that all the currents have numerical values 
+(* Pick one solution so that all the currents have numerical values
     *)
                 If[Length[vars] > 0,
                     (* Attempt to find a solution *)
@@ -1294,7 +1311,11 @@ TripleClean[{{EE_, NN_, OR_}, rules_}] :=
 
 (* --- Backward compatibility aliases --- *)
 
-Data2Equations = DataToEquations;
+Data2Equations[args___] :=
+    (
+        Message[Data2Equations::deprecated];
+        DataToEquations[args]
+    );
 
 FinalStep = DNFSolveStep;
 
