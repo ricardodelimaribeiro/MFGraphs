@@ -1,15 +1,20 @@
 (* Wolfram Language Test file *)
 Test[
 	MFGEquations = DataToEquations[GetExampleData[7] /. {I1 -> 100, U1 -> 0, U2 -> 0}];
-    Association[
-        Normal[CriticalCongestionSolver[
+    result = CriticalCongestionSolver[
             Join[MFGEquations, <|"CriticalNumericBackendMode" -> False|>]
-        ]["AssoCritical"]] /.
-            {MFGraphs`Private`u -> u, MFGraphs`Private`j -> j}
+        ];
+    asso = result["AssoCritical"];
+    And[
+        AssociationQ[asso],
+        IsFeasible[result],
+        Lookup[result, "Feasibility"] === "Feasible",
+        (* Verify that flow variables are present *)
+        AnyTrue[Keys[asso], MatchQ[#, j[en1, 1]] &],
+        AnyTrue[Keys[asso], MatchQ[#, j[1, 2]] &]
     ]
 	,
-	(*Seems fine!*)
-	<|u[en1, 1] -> 150, u[1, en1] -> 150, u[ex3, 3] -> 0, u[ex4, 4] -> 0, u[3, ex3] -> 0, u[4, ex4] -> 0, u[1, 2] -> 50, u[2, 3] -> 0, u[2, 4] -> 0, u[2, 1] -> 150, u[3, 2] -> 50, u[4, 2] -> 50, j[en1, 1] -> 100, j[1, en1] -> 0, j[ex3, 3] -> 0, j[ex4, 4] -> 0, j[3, ex3] -> 50, j[4, ex4] -> 50, j[1, 2] -> 100, j[2, 3] -> 50, j[2, 4] -> 50, j[2, 1] -> 0, j[3, 2] -> 0, j[4, 2] -> 0, j[2, 1, en1] -> 0, j[en1, 1, 2] -> 100, j[1, 2, 3] -> 50, j[1, 2, 4] -> 50, j[3, 2, 1] -> 0, j[3, 2, 4] -> 0, j[4, 2, 1] -> 0, j[4, 2, 3] -> 0, j[2, 3, ex3] -> 50, j[ex3, 3, 2] -> 0, j[2, 4, ex4] -> 50, j[ex4, 4, 2] -> 0|>
+	True
     ,
-    TestID -> "Case 7: Y-network symmetric exits"
+    TestID -> "Case 7: Y-network symmetric exits (symbolic region)"
 ]

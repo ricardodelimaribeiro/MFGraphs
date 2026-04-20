@@ -10,6 +10,8 @@ $MFGraphsVerbose = False;
 $TestsDir = FileNameJoin[{Directory[], "MFGraphs", "Tests"}];
 
 $TestSuites = <|
+    (* `fast` is the critical-only public gate.
+       Keep archive files and unsupported legacy surfaces out of this list. *)
     "fast" -> {
         "package-loading.mt",
         "graphics-public-api.mt",
@@ -22,6 +24,7 @@ $TestSuites = <|
         "exact-mode.mt",
         "infeasible-status.mt",
         "inconsistent-switching-critical.mt",
+        "symbolic-underdetermined.mt",
         "scenario-kernel.mt",
         "solve-mfg.mt",
         "solver-contracts.mt"
