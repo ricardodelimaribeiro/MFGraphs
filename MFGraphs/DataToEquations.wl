@@ -1211,7 +1211,6 @@ DNFSolveStep[{{EE_, NN_, OO_}, rules_}] :=
             ,
             " seconds."
         ];
-        NewSystem = BooleanConvert @ NewSystem;
         NewSystem = SystemToTriple[NewSystem];
         {NewSystem, newrules} = TripleClean[{NewSystem, newrules}];
         MFGPrint["Now: ", TimeObject[Now], " The new rules are: ", newrules,
