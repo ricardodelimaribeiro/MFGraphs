@@ -56,17 +56,17 @@ Test[
 ]
 
 Test[
-    Module[{data, result, trace, methodUsed},
+    Module[{data, result, trace},
         data = GetExampleData[7] /. {I1 -> 100, U1 -> 0, U2 -> 0};
         result = Quiet[SolveMFG[data, Method -> "Automatic"]];
         trace = Lookup[result, "MethodTrace", {}];
-        methodUsed = Lookup[result, "MethodUsed", Missing["NotAvailable"]];
-        Lookup[result, {"ResultKind", "Feasibility"}] === {"Success", "Feasible"} &&
-        ListQ[trace] && Length[trace] >= 1 &&
-        methodUsed === "CriticalCongestion"
+        Lookup[result, {"Solver", "MethodUsed", "ResultKind", "Feasibility"}] ===
+            {"CriticalCongestion", "CriticalCongestion", "Success", "Feasible"} &&
+        Length[trace] === 1 &&
+        Lookup[First[trace], "Decision", None] === "Done"
     ]
     ,
     True
     ,
-    TestID -> "SolveMFG automatic: real-data run returns critical method trace"
+    TestID -> "SolveMFG automatic: trace records single critical stage"
 ]

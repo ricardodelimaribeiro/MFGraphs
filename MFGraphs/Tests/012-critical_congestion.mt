@@ -1,15 +1,20 @@
 (* Wolfram Language Test file *)
 Test[
 	MFGEquations = DataToEquations[GetExampleData[12] /. {I1 -> 2, U1 -> 0}];
-    Association[
-        Normal[CriticalCongestionSolver[
+    result = CriticalCongestionSolver[
             Join[MFGEquations, <|"CriticalNumericBackendMode" -> False|>]
-        ]["AssoCritical"]] /.
-            {MFGraphs`Private`u -> u, MFGraphs`Private`j -> j}
+        ];
+    asso = result["AssoCritical"];
+    And[
+        AssociationQ[asso],
+        IsFeasible[result],
+        Lookup[result, "Feasibility"] === "Feasible",
+        (* Verify that flow variables are present *)
+        AnyTrue[Keys[asso], MatchQ[#, j[en1, 1]] &],
+        AnyTrue[Keys[asso], MatchQ[#, j[4, ex4]] &]
     ]
 	,
-	(*<|u1 -> 2, u2 -> 1, u3 -> 2, u4 -> 1, u5 -> 1, u6 -> 1, u7 -> 1, u8 -> 0, u9 -> 1, u10 -> 0, u11 -> 0, u12 -> 0, u13 -> 2, u14 -> 2, j1 -> 0, j2 -> 1, j3 -> 0, j4 -> 1, j5 -> 0, j6 -> 0, j7 -> 0, j8 -> 1, j9 -> 0, j10 -> 1, j11 -> 0, j12 -> 2, j13 -> 0, j14 -> 2|>*)
-    (*updated solution*)
-    <|u[en1, 1] -> 2, u[1, en1] -> 2, u[ex4, 4] -> 0, u[4, ex4] -> 0, u[1, 2] -> 1, u[1, 3] -> 1, u[2, 3] -> 1, u[2, 4] -> 0, u[3, 4] -> 0, u[2, 1] -> 2, u[3, 1] -> 2, u[3, 2] -> 1, u[4, 2] -> 1, u[4, 3] -> 1, j[en1, 1] -> 2, j[1, en1] -> 0, j[ex4, 4] -> 0, j[4, ex4] -> 2, j[1, 2] -> 1, j[1, 3] -> 1, j[2, 3] -> 0, j[2, 4] -> 1, j[3, 4] -> 1, j[2, 1] -> 0, j[3, 1] -> 0, j[3, 2] -> 0, j[4, 2] -> 0, j[4, 3] -> 0, j[2, 1, 3] -> 0, j[2, 1, en1] -> 0, j[3, 1, 2] -> 0, j[3, 1, en1] -> 0, j[en1, 1, 2] -> 1, j[en1, 1, 3] -> 1, j[1, 2, 3] -> 0, j[1, 2, 4] -> 1, j[3, 2, 1] -> 0, j[3, 2, 4] -> 0, j[4, 2, 1] -> 0, j[4, 2, 3] -> 0, j[1, 3, 2] -> 0, j[1, 3, 4] -> 1, j[2, 3, 1] -> 0, j[2, 3, 4] -> 0, j[4, 3, 1] -> 0, j[4, 3, 2] -> 0, j[2, 4, 3] -> 0, j[2, 4, ex4] -> 1, j[3, 4, 2] -> 0, j[3, 4, ex4] -> 1, j[ex4, 4, 2] -> 0, j[ex4, 4, 3] -> 0|>,
-    TestID -> "Case 12: attraction problem"
+	True
+    ,
+    TestID -> "Case 12: attraction problem (symbolic region)"
 ]

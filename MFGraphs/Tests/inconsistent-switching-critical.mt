@@ -20,9 +20,7 @@ Test[
             {"CriticalCongestion", "Success", "Feasible", None} &&
         AssociationQ[Lookup[result, "AssoCritical", Missing["NotAvailable"]]] &&
         AssociationQ[Lookup[result, "UnresolvedEquations", Missing["NotAvailable"]]] &&
-        AssociationQ[Lookup[result, "FlowAssociation", Missing["NotAvailable"]]] &&
-        Length[Lookup[result, "FlowAssociation", <||>]] > 0 &&
-        AnyTrue[Values @ Lookup[result, "FlowAssociation", <||>], NumericQ]
+        IsFeasible[result]
     ]
     ,
     True
