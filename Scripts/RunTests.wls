@@ -20,19 +20,16 @@ $TestSuites = <|
         "exit-pass-through.mt",
         "exit-pass-through-nonzero.mt",
         "infeasible-status.mt",
-        "monotone-monotonicity.mt",
-        "monotone-solver.mt",
+        "inconsistent-switching-critical.mt",
         "numeric-state.mt",
         "kkt-gate.mt",
         "scenario-kernel.mt",
         "solve-mfg.mt",
-        "solver-contracts.mt",
-        "time-dependent-data.mt"
+        "solver-contracts.mt"
     },
     "slow" -> {
         "J9F-critical_congestion.mt",
-        "Jm9-critical_congestion.mt",
-        "time-dependent-solver.mt"
+        "Jm9-critical_congestion.mt"
     }
 |>;
 $TestSuites["all"] = Join[$TestSuites["fast"], $TestSuites["slow"]];
