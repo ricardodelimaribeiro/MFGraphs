@@ -18,7 +18,7 @@ containing solver metadata, feasibility, comparison fields, and the solver-speci
 payload key \"AssoCritical\". Options: \"ValidateSolution\" (default True), \
 \"ValidationTolerance\" (default $CriticalSolverTolerance), \"ValidationVerbose\" (default False), \
 \"SymbolicTimeLimit\" (default 120., time budget in seconds for the symbolic pipeline), and \
-\"ExactMode\" (default False; when True, skips numeric/direct/oracle paths and returns \"SymbolicRegion\" for undetermined variables).";
+\"ExactMode\" (default False; when True, skips numeric/direct/oracle paths).";
 
 IsCriticalSolution::usage =
 "IsCriticalSolution[Eqs] validates whether the critical-congestion solution stored \
@@ -1213,9 +1213,6 @@ CriticalCongestionSolver[Eqs_Association, OptionsPattern[]] :=
         ];
         (* Standard symbolic solver path *)
         PreEqs = EnsurePreprocessed[If[AssociationQ[PreEqs], PreEqs, Eqs]];
-        If[exactModeQ,
-            PreEqs = Append[PreEqs, "ExactMode" -> True]
-        ];
         (* Oracle Bridge: if the numeric backend produced a candidate that failed validation,
            use it to prune the symbolic Or-branches before the full symbolic solve. *)
         If[!exactModeQ &&
@@ -1241,12 +1238,11 @@ CriticalCongestionSolver[Eqs_Association, OptionsPattern[]] :=
             symbolicResult = TimeConstrained[
                 Module[{localAssoCritical, localStatus, localValidationFailedQ = False,
                         localResultKind, localMessage, mfgssResult, unresolvedUConstraints, valReport,
-                        symbolicRegion, symbolicTelemetry},
+                        symbolicTelemetry},
                     mfgssResult = MFGSystemSolver[PreEqs][AssociationThread[js, ConstantArray[0, Length[js]]]];
                     localAssoCritical = mfgssResult["Solution"];
                     unresolvedUConstraints = mfgssResult["UnresolvedConstraints"];
-                    symbolicRegion = Lookup[mfgssResult, "SymbolicRegion", None];
-                    symbolicTelemetry = Append[telemetry, "SymbolicRegion" -> symbolicRegion];
+                    symbolicTelemetry = Append[telemetry, "SymbolicRegion" -> unresolvedUConstraints];
                     localStatus = CheckFlowFeasibility[localAssoCritical];
                     If[validateQ && AssociationQ[localAssoCritical] && localStatus === "Feasible",
                         valReport = IsCriticalSolution[

@@ -999,11 +999,10 @@ BuildOraclePrunedSystem[system_, flowAssoc_Association, oracleState_Association,
 (* --- MFGSystemSolver --- *)
 
 MFGSystemSolver[Eqs_][approxJs_] :=
-    Module[{NewSystem, InitRules, pickOne, pickOneFlowOnly, vars, System, Ncpc, costpluscurrents,
-         us, js, jts, jjtsR, time, ineqsByTransition, uResidual,
-         ineqsWithoutTransition = {}, exactModeQ},
+    Module[{NewSystem, InitRules, System, Ncpc, costpluscurrents,
+         us, js, jts, time, ineqsByTransition,
+         ineqsWithoutTransition = {}},
         ClearSolveCache[];
-        exactModeQ = TrueQ[Lookup[Eqs, "ExactMode", False]];
         us = Lookup[Eqs, "us", $Failed];
         js = Lookup[Eqs, "js", $Failed];
         jts = Lookup[Eqs, "jts", $Failed];
@@ -1102,69 +1101,22 @@ MFGSystemSolver[Eqs_][approxJs_] :=
                 Return[<|"Solution" -> Null, "UnresolvedConstraints" -> None|>, Module]
             ,
             System =!= True,
-                MFGPrint["MFGSS: (Possibly) Multiple solutions:\n", System
+                MFGPrint["MFGSS: Multiple solutions; returning symbolic region"];
+                InitRules = Expand /@
+                    FixedPoint[
+                        Function[r, ReplaceAll[r] /@ r],
+                        InitRules,
+                        10
                     ];
-                (* Exact mode: skip FindInstance and return the determined rules
-                   alongside the unresolved constraint region. *)
-                If[exactModeQ,
-                    InitRules = Expand /@ FixedPoint[Function[r, ReplaceAll[r] /@ r], InitRules, 10];
-                    InitRules = Join[KeyTake[InitRules, us], KeyTake[InitRules, js], KeyTake[InitRules, jts]];
-                    Return[<|
-                        "Solution" -> InitRules,
-                        "SymbolicRegion" -> System,
-                        "UnresolvedConstraints" -> System
-                    |>, Module]
+                InitRules = Join[
+                    KeyTake[InitRules, us],
+                    KeyTake[InitRules, js],
+                    KeyTake[InitRules, jts]
                 ];
-                (* Extract all unsolved variables from System *)
-                vars = Select[Variables[System], MatchQ[#, j[_, _, _]
-                     | j[_, _] | u[_, _] | u[_, _, _]]&];
-                vars = Complement[vars, Keys[InitRules]];
-                jjtsR = Select[vars, MatchQ[#, j[_, _, _] | j[_, _]]&
-                    ];
-
-(* Pick one solution so that all the currents have numerical values
-    *)
-                If[Length[vars] > 0,
-                    (* Attempt to find a solution *)
-                    pickOne = FindInstance[System && And @@ ((# > 0)&
-                         /@ jjtsR), vars, Reals];
-                    If[pickOne === {},
-                        pickOne = FindInstance[System && And @@ ((# >=
-                             0)& /@ jjtsR), vars, Reals]
-                    ];
-                    If[pickOne =!= {},
-                        pickOne = Association @ First @ pickOne;
-                        MFGPrint["MFGSS: Picked one solution: ", pickOne
-                            ];
-                        InitRules = Expand /@ Join[InitRules /. pickOne,
-                             pickOne]
-                        ,
-                        (* Both full-variable attempts failed. Try flows-only: WL existentially
-                           quantifies over u vars, finding j values for which some u satisfies System. *)
-                        pickOneFlowOnly = If[jjtsR =!= {},
-                            FindInstance[System && And @@ ((# >= 0)& /@ jjtsR), jjtsR, Reals],
-                            {}
-                        ];
-                        If[pickOneFlowOnly =!= {},
-                            pickOneFlowOnly = Association @ First @ pickOneFlowOnly;
-                            MFGPrint["MFGSS: Flow-only solution found (u underdetermined): ", pickOneFlowOnly];
-                            InitRules = Expand /@ Join[InitRules /. pickOneFlowOnly, pickOneFlowOnly];
-                            uResidual = Simplify[System /. pickOneFlowOnly];
-                            (* Resolve transitive chains early so the result is usable downstream *)
-                            InitRules = Expand /@ FixedPoint[Function[r, ReplaceAll[r] /@ r], InitRules, 10];
-                            InitRules = Join[KeyTake[InitRules, us], KeyTake[InitRules, js], KeyTake[InitRules, jts]];
-                            Return[<|"Solution" -> InitRules, "UnresolvedConstraints" -> uResidual|>, Module]
-                            ,
-                            MFGPrint["MFGSS: No feasible solution found"];
-                            Return[<|"Solution" -> Null, "UnresolvedConstraints" -> None|>, Module]
-                        ]
-                    ]
-                    ,
-(* All variables already solved — nothing to pick 
-    *)
-                    MFGPrint["MFGSS: All variables already determined in InitRules"
-                        ]
-                ]
+                Return[<|
+                    "Solution" -> InitRules,
+                    "UnresolvedConstraints" -> System
+                |>, Module]
             ,
             True,
                 MFGPrint["MFGSS: System is ", System]
