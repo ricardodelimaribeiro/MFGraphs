@@ -1,215 +1,264 @@
 # MFGraphs
 
-A Wolfram Language package for solving **Mean Field Games on networks** with congestion and switching costs.
+**MFGraphs** is a Wolfram Language package for studying **Mean Field Games on networks** with congestion and switching costs. The package uses an undirected core graph representation with directed-flow variables, converts network data into a standardized symbolic system, solves the active runtime problem class, and provides plotting helpers for inspecting the resulting flows.
 
-MFGraphs converts network topology (vertices, edges, entry/exit flows, switching costs) into systems of equations, then solves for equilibrium flow distributions and value functions using symbolic and numerical methods.
+At the **`v0.4.0-critical-only`** milestone, the repository is intentionally narrowed to the **critical-congestion solver surface**. The active package path now focuses on the critical specialization with edgewise `alpha = 1`, while legacy non-critical solver families are preserved only as archive tags for historical retrieval.
 
-The model keeps its Hamiltonian structure. The active runtime solver surface in this repository targets the critical specialization with edgewise \(\alpha=1\).
+## Quick navigation
 
-## Quick Navigation
-
+- [Repository layout](#repository-layout)
 - [Installation](#installation)
+- [Status at `v0.4.0-critical-only`](#status-at-v040-critical-only)
 - [Quick start](#quick-start)
 - [Defining a network](#defining-a-network)
-- [Solvers](#solvers)
-- [Switching costs](#switching-costs)
+- [Solvers and result objects](#solvers-and-result-objects)
+- [Plotting](#plotting)
+- [Scenario API](#scenario-api)
 - [Built-in examples](#built-in-examples)
-- [Configuration](#configuration)
-- [Package structure](#package-structure)
 - [Running tests](#running-tests)
-- [Plotting results](#plotting)
+- [Package structure](#package-structure)
+- [Archive tags for legacy solvers](#archive-tags-for-legacy-solvers)
+- [Documentation](#documentation)
+- [License](#license)
 
-For developer guidance, see [CLAUDE.md](CLAUDE.md). For troubleshooting, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+For contributor workflow notes, see [CLAUDE.md](CLAUDE.md). For troubleshooting, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
 ## Repository layout
 
+The repository is organized around a small runtime package, focused scripts, and supporting research and planning material.
+
 | Path | Purpose |
 |---|---|
-| `MFGraphs/` | Package source (`.wl` files, tests, examples) |
-| `Scripts/` | Test runner, benchmarks, documentation generator |
-| `Results/` | Benchmark and profiling outputs (mostly gitignored) |
-| `docs/` | Internal planning and validation notes |
-| `research/papers/` | Reference papers |
-| `repro/` | One-off debugging and reproduction scripts |
-| `docs/history/DNF_PERFORMANCE_HISTORY.md` | Auto-appended by `CompareDNF.wls` — do not edit manually |
-| `docs/history/PARALLEL_PERFORMANCE_HISTORY.md` | Auto-appended by `BenchmarkSuite.wls` — do not edit manually |
+| `MFGraphs/` | Package source, examples, tests, and kernel initialization |
+| `Scripts/` | Test runners, benchmarks, comparisons, and documentation utilities |
+| `Results/` | Benchmark and profiling outputs, mostly generated artifacts |
+| `docs/` | Internal planning notes, validation logs, and history files |
+| `repro/` | Targeted reproduction and verification scripts |
+| `research/` | Reference papers and related supporting material |
 
 ## Installation
 
-Clone this repository and load the package in Mathematica:
+Clone the repository and load the package from Mathematica or WolframScript.
 
 ```mathematica
-(* Option 1: If the package is on your $Path *)
+(* Option 1: if the package directory is already on $Path *)
 Needs["MFGraphs`"]
 
-(* Option 2: Direct load from a specific location *)
+(* Option 2: direct load from a checkout *)
 Get["/path/to/MFGraphs/MFGraphs/MFGraphs.wl"]
 ```
 
-Requires Mathematica 12.0 or later.
+The package is intended for Mathematica 12.0 or later.
 
-## Documentation
+## Status at `v0.4.0-critical-only`
 
-Full API documentation is available in [API_REFERENCE.md](API_REFERENCE.md). This document is automatically generated from the package's `::usage` metadata.
+This tag marks the point where the runtime package surface was deliberately simplified and synchronized around the **critical-congestion workflow**. In practical terms, `MFGraphs\`` now loads the critical solver path, the public graphics helpers, and the scenario module, while non-critical solver families are no longer part of the active package load path.
+
+| Area | Status at `v0.4.0-critical-only` |
+|---|---|
+| Solver scope | **Critical-only** active runtime surface |
+| Main solver entrypoints | `SolveMFG`, `CriticalCongestionSolver` |
+| Data compilation | `DataToEquations` |
+| Public plotting API | `NetworkGraphPlot`, `SolutionFlowPlot`, `ExitFlowPlot` |
+| Scenario support | `makeScenario`, `validateScenario`, `completeScenario`, `scenarioQ`, `ScenarioData` |
+| Legacy non-critical solvers | Removed from active runtime path and preserved through archive tags |
 
 ## Quick start
 
+The simplest workflow is to load example data, compile it with `DataToEquations`, and solve it with the critical solver.
+
 ```mathematica
-(* Load the package *)
 << MFGraphs`
 
-(* Pick a built-in test case: a 4-vertex "attraction" network *)
 Data = GetExampleData[12] /. {I1 -> 100, U1 -> 0};
-
-(* Convert network data to equations *)
 d2e = DataToEquations[Data];
-
-(* Solve the critical congestion case (all flows start at zero) *)
 result = CriticalCongestionSolver[d2e];
 
-(* The solution is stored under "AssoCritical" *)
-result["AssoCritical"]
+result["Feasibility"]
+result["Solution"]
 ```
 
-Stationary solver results are standardized. Each solver returns an association
-with keys such as `"Solver"`, `"ResultKind"`, `"Feasibility"`, `"Message"`,
-`"Solution"`, `"ComparableFlowVector"`, and `"KirchhoffResidual"`.
+If you want a single entrypoint, `SolveMFG` accepts either raw model data or a compiled `DataToEquations` association.
+
+```mathematica
+result1 = SolveMFG[Data];
+result2 = SolveMFG[d2e];
+```
+
+Solver outputs are standardized associations. In typical use, the most important keys are the feasibility classification, a message, and the recovered solution data.
+
+| Common key | Meaning |
+|---|---|
+| `"Solver"` | Solver/backend name used for the run |
+| `"ResultKind"` | High-level result classification |
+| `"Feasibility"` | Feasibility verdict such as `"Feasible"` or `"Infeasible"` |
+| `"Message"` | Short diagnostic summary |
+| `"Solution"` | Primary solution association |
+| `"ComparableFlowVector"` | Numeric flow representation for comparisons |
+| `"KirchhoffResidual"` | Residual measure for flow conservation checks |
 
 ## Defining a network
 
-A network is an `Association` with five required keys:
+Raw MFGraphs model data is represented as an `Association`. The package expects a network topology, entry flows, exit costs, and switching-cost data.
 
 ```mathematica
 Data = <|
-  "Vertices List"                  -> {1, 2, 3, 4},
-  "Adjacency Matrix"               -> {{0,1,0,0}, {0,0,1,0}, {0,0,0,1}, {0,0,0,0}},
-  "Entrance Vertices and Flows"    -> {{1, 200}},
+  "Vertices List" -> {1, 2, 3, 4},
+  "Adjacency Matrix" -> {
+    {0, 1, 0, 0},
+    {0, 0, 1, 0},
+    {0, 0, 0, 1},
+    {0, 0, 0, 0}
+  },
+  "Entrance Vertices and Flows" -> {{1, 200}},
   "Exit Vertices and Terminal Costs" -> {{4, 0}},
-  "Switching Costs"                -> {{1,2,3, 5}, {3,2,1, 5}}
+  "Switching Costs" -> {{1, 2, 3, 5}, {3, 2, 1, 5}}
 |>;
 ```
 
 | Key | Description |
 |---|---|
-| `"Vertices List"` | List of vertex labels |
-| `"Adjacency Matrix"` | Square matrix; entry `(i,j) = 1` means an edge from vertex `i` to vertex `j` |
-| `"Entrance Vertices and Flows"` | `{{vertex, flow}, ...}` — where agents enter and how many |
-| `"Exit Vertices and Terminal Costs"` | `{{vertex, cost}, ...}` — where agents exit and the terminal cost |
-| `"Switching Costs"` | `{{from, at, to, cost}, ...}` — cost of switching from one edge to another at a vertex. Use `{}` for no switching costs |
+| `"Vertices List"` | Vertex labels used throughout the model |
+| `"Adjacency Matrix"` | Square 0-1 matrix encoding the directed edges |
+| `"Entrance Vertices and Flows"` | `{{vertex, flow}, ...}` pairs for inflow conditions |
+| `"Exit Vertices and Terminal Costs"` | `{{vertex, cost}, ...}` pairs for terminal conditions |
+| `"Switching Costs"` | `{{from, at, to, cost}, ...}` edge-switch penalties; use `{}` when absent |
 
-Symbolic values (e.g., `I1`, `U1`, `S1`) can be used and substituted later with `/.` rules.
+Symbolic parameters such as `I1`, `U1`, or `S1` may be left symbolic and substituted later with replacement rules.
 
-## Solvers
+## Solvers and result objects
 
-### Critical congestion solver
-
-Solves the critical congestion specialization of the Hamiltonian model ($\alpha=1$ on every edge). This solver uses a combination of symbolic DNF reduction and numeric iterative backends (Fictitious Play) to find global equilibria.
+At this tag, the active solver story is intentionally narrow. The package is designed around the **critical-congestion** case, and the exported solver entrypoints are documented with that scope in mind.
 
 ```mathematica
 Data = GetExampleData[7] /. {I1 -> 50, U1 -> 0, U2 -> 0};
 d2e = DataToEquations[Data];
 result = CriticalCongestionSolver[d2e];
+
+IsFeasible[result]
 result["AssoCritical"]
 ```
 
+`CriticalCongestionSolver` operates on the standardized `DataToEquations` output. `SolveMFG` provides a convenience wrapper that routes through the same critical-only runtime surface. Utility routines such as `MFGPreprocessing`, `MFGSystemSolver`, `IsCriticalSolution`, and flow-feasibility helpers remain available for lower-level analysis and debugging.
+
+## Plotting
+
+The first wave of the public graphics API is extracted into `MFGraphs/Graphics.wl`. These helpers are intended to cover the common tasks of visualizing the network topology, solved edge flows, and exit-flow totals.
+
+```mathematica
+result = CriticalCongestionSolver[d2e];
+
+NetworkGraphPlot[d2e]
+SolutionFlowPlot[d2e, result["Solution"]]
+```
+
+| Function | Purpose |
+|---|---|
+| `NetworkGraphPlot[d2e]` | Draws the network structure from the compiled model |
+| `SolutionFlowPlot[d2e, solution]` | Draws the network with edge styling and labels derived from solved net flows |
+| `ExitFlowPlot[exitFlows]` | Produces a bar chart for total flow exiting at each exit vertex |
+
+Additional workbook-oriented graphics helpers, such as density and value-function plots, are still candidates for later extraction.
+
+## Scenario API
+
+The package now also includes a lightweight typed scenario layer. This is useful when you want to package a raw model, parameter substitutions, metadata, and validation state into a single structured object.
+
+```mathematica
+sc = makeScenario[<|
+  "Identity" -> <|"name" -> "demo"|>,
+  "Model" -> Data,
+  "Data" -> {I1 -> 100, U1 -> 0}
+|>];
+
+scenarioQ[sc]
+ScenarioData[sc, "Identity"]
+```
+
+| Function | Purpose |
+|---|---|
+| `makeScenario[assoc]` | Validates, completes, and wraps raw scenario data |
+| `validateScenario[scenario]` | Checks required top-level and model-level structure |
+| `completeScenario[scenario]` | Fills derived metadata such as content hash and benchmark defaults |
+| `scenarioQ[x]` | Predicate for typed scenario objects |
+| `ScenarioData[scenario, key]` | Accessor for scenario contents |
+
+## Built-in examples
+
+Use `GetExampleData[key]` to retrieve predefined benchmark and teaching examples. These are stored in `MFGraphs/Examples/ExamplesData.wl` and remain the quickest way to exercise the package.
+
+| Key | Network |
+|---|---|
+| `7`, `8` | Y-network with one entrance and two exits, without or with switching |
+| `11`, `12` | Attraction problem, without or with switching |
+| `"Braess congest"` | Braess-paradox congestion example |
+| `"Jamaratv9"` | Jamarat pilgrimage network |
+| `"Paper example"` | Four-vertex example with two entrances, two exits, and switching |
+
 ## Running tests
 
-Use the suite runner for the common regression sets:
+For routine regression checks, use the centralized test runner.
 
 ```bash
 wolframscript -file Scripts/RunTests.wls fast
 wolframscript -file Scripts/RunTests.wls slow
 ```
 
-## Plotting
-
-Visualize the network and the resulting flows:
-
-```mathematica
-result = CriticalCongestionSolver[d2e];
-
-(* Plot net flows on the network graph *)
-SolutionFlowPlot[d2e, result["Solution"]]
-
-(* Plot exit flow distribution *)
-ExitFlowPlot[result["ExitFlows"]]
-```
-
-## Switching costs
-
-Switching costs model the price agents pay when transitioning between edges at a vertex. Each entry `{from, at, to, cost}` means: an agent on edge `(from, at)` switching to edge `(at, to)` pays `cost`.
-
-```mathematica
-(* Y-network with switching costs *)
-Data = GetExampleData[8] /. {I1 -> 100, U1 -> 0, U2 -> 0,
-                     S1 -> 2, S2 -> 3, S3 -> 2, S4 -> 1, S5 -> 3, S6 -> 1};
-d2e = DataToEquations[Data];
-
-(* Verify switching costs satisfy triangle inequality *)
-IsSwitchingCostConsistent[Normal @ d2e["SwitchingCosts"]]
-(* True *)
-```
-
-## Built-in examples
-
-Use `GetExampleData[key]` to load predefined test cases (34 available). Common keys include:
-
-| Key | Network |
-|---|---|
-| `7`, `8` | Y-network, 1 entrance, 2 exits (without/with switching) |
-| `11`, `12` | Attraction problem (with/without switching) |
-| `"Braess congest"` | Braess paradox — congestion variant |
-| `"Jamaratv9"` | Jamarat pilgrimage network (9 vertices) |
-| `"Paper example"` | 4-vertex network with 2 entrances, 2 exits, and switching |
-
-## Configuration
-
-### Verbose output
-
-Progress and timing messages are printed by default. Suppress them with:
-
-```mathematica
-$MFGraphsVerbose = False;
-```
+The current test surface includes package-loading checks, graphics API regression coverage, and critical-only solver regression cases, including the inconsistent-switching critical recovery behavior added during the `v0.4.0-critical-only` cleanup.
 
 ## Package structure
 
-```
+The runtime package is now relatively compact. The loader pulls in examples, symbolic reduction, data compilation, the critical solver path, plotting helpers, and the scenario module.
+
+```text
 MFGraphs/
-  MFGraphs.wl             Package loader, SolveMFG unified entrypoint
-  DNFReduce.wl            Boolean algebra (disjunctive normal form reduction)
-  DataToEquations.wl      Network topology → equation converter
+  MFGraphs.wl             Main package loader and exported public API
+  DNFReduce.wl            DNF reduction and symbolic logical simplification
+  DataToEquations.wl      Raw network data -> standardized equation association
   Solvers.wl              Critical-congestion solver suite
-  Graphics.wl             Public visualization helpers (NetworkGraphPlot, SolutionFlowPlot, ExitFlowPlot)
+  Graphics.wl             Public plotting API
+  Scenario.wl             Typed scenario kernel
   Examples/
-    ExamplesData.wl        Built-in test cases via GetExampleData[key]
+    ExamplesData.wl       Built-in network examples
   Tests/
-    *.mt                   MUnit test files
+    *.mt                  MUnit regression tests
   Kernel/
-    init.m                 Paclet initialization
+    init.m                Paclet initialization
 Scripts/
-  RunTests.wls             Test suite runner
-  BenchmarkSuite.wls       Performance benchmarking tool
-  CompareDNF.wls           DNF solver before/after comparison
-  GenerateDocs.wls         Automated API documentation generator
+  RunTests.wls            Test-suite runner
+  BenchmarkSuite.wls      Benchmark driver
+  CompareDNF.wls          DNF comparison utility
+  GenerateDocs.wls        API documentation generator
 ```
 
-## Archived non-critical solvers
+## Archive tags for legacy solvers
 
-Non-critical solver families are archived from active runtime paths, but recoverable from tags:
+Legacy non-critical solver files are **not** part of the active runtime path at `v0.4.0-critical-only`, but they remain recoverable through archive tags in the Git history.
 
-- `archive/non-critical-solvers`
-- `archive/non-critical-solvers-full`
+| Ref | Purpose |
+|---|---|
+| `v0.4.0-critical-only` | Current milestone tag for the critical-only package surface |
+| `archive/non-critical-solvers` | Archived non-critical solver state |
+| `archive/non-critical-solvers-full` | Fuller archived non-critical solver state |
+| `archive/nonlinear-residual-bug` | Historical diagnostic tag related to nonlinear residual behavior |
 
-Useful retrieval commands:
+Useful retrieval commands are shown below.
 
 ```bash
+# Check out the critical-only milestone
+git checkout v0.4.0-critical-only
+
+# Inspect or recover archived legacy files
 git show archive/non-critical-solvers:MFGraphs/NonLinearSolver.wl
 git checkout archive/non-critical-solvers -- MFGraphs/NonLinearSolver.wl
 git show archive/non-critical-solvers-full:MFGraphs/Monotone.wl
 git checkout archive/non-critical-solvers-full -- MFGraphs/Monotone.wl
 ```
 
+## Documentation
+
+The generated API reference is available in [API_REFERENCE.md](API_REFERENCE.md). That document is derived from the package `::usage` strings and is the best reference for the currently exported public symbols.
+
 ## License
 
-This project is part of ongoing research. Please contact the authors before using in publications.
+This project is part of ongoing research. Please contact the authors before using it in publications.

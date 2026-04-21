@@ -4,12 +4,9 @@
 (* Test: Key public symbols exist in MFGraphs` context *)
 Test[
     NameQ["MFGraphs`DataToEquations"] && NameQ["MFGraphs`CriticalCongestionSolver"] &&
-    NameQ["MFGraphs`NonLinearSolver"] && NameQ["MFGraphs`MonotoneSolverFromData"] &&
     NameQ["MFGraphs`SolveMFG"] &&
     NameQ["MFGraphs`GetExampleData"] && NameQ["MFGraphs`DNFReduce"] &&
-    NameQ["MFGraphs`GetKirchhoffLinearSystem"] && NameQ["MFGraphs`V"] &&
-    NameQ["MFGraphs`alpha"] && NameQ["MFGraphs`g"] &&
-    NameQ["MFGraphs`WithHamiltonianFunctions"] &&
+    NameQ["MFGraphs`GetKirchhoffLinearSystem"] &&
     NameQ["MFGraphs`makeScenario"] && NameQ["MFGraphs`scenarioQ"]
     ,
     True
@@ -20,8 +17,7 @@ Test[
 (* Test: Private symbols are NOT in MFGraphs` context *)
 Test[
     !NameQ["MFGraphs`$SolveCache"] && !NameQ["MFGraphs`$ReduceCache"] &&
-    !NameQ["MFGraphs`sortByComplexity"] && !NameQ["MFGraphs`TransitionsAt"] &&
-    !NameQ["MFGraphs`BuildMonotoneField"] && !NameQ["MFGraphs`MakeSolverResult"]
+    !NameQ["MFGraphs`sortByComplexity"] && !NameQ["MFGraphs`TransitionsAt"]
     ,
     True
     ,
@@ -30,7 +26,7 @@ Test[
 
 (* Test: Backward compatibility aliases resolve correctly *)
 Test[
-    DataG === GetExampleData && Data2Equations === DataToEquations && FinalStep === DNFSolveStep &&
+    DataG === GetExampleData && FinalStep === DNFSolveStep &&
     RemoveDuplicates === DeduplicateByComplexity && ReplaceSolution === SubstituteSolution
     ,
     True
@@ -38,32 +34,36 @@ Test[
     TestID -> "Package loading: backward compatibility aliases"
 ]
 
+(* Test: Deprecated Data2Equations remains behavior-compatible with DataToEquations *)
 Test[
-    {
-        V[0, UndirectedEdge[1, 2]],
-        alpha[UndirectedEdge[1, 2]],
-        g[2, UndirectedEdge[1, 2]]
-    } ===
-    {0, 1, -1/4}
+    Module[{data, d2e1, d2e2},
+        data = GetExampleData[3] /. {I1 -> 2, U1 -> 0};
+        d2e1 = DataToEquations[data];
+        d2e2 = Quiet[Data2Equations[data], Data2Equations::deprecated];
+        AssociationQ[d2e1] && d2e1 === d2e2
+    ]
     ,
     True
     ,
-    TestID -> "Package loading: default Hamiltonian hooks"
+    TestID -> "Package loading: Data2Equations deprecated wrapper is behavior-compatible"
 ]
 
+(* Test: Data2Equations emits deprecation message *)
 Test[
-    WithHamiltonianFunctions[
-        Function[{x, edge}, x + 3],
-        Function[edge, 2],
-        Function[{m, edge}, -3 m],
-        {
-            V[2, UndirectedEdge[1, 2]],
-            alpha[UndirectedEdge[1, 2]],
-            g[2, UndirectedEdge[1, 2]]
-        }
-    ] === {5, 2, -6}
+    Module[{data},
+        data = GetExampleData[3] /. {I1 -> 2, U1 -> 0};
+        Quiet[
+            Check[
+                Data2Equations[data];
+                False,
+                True,
+                Data2Equations::deprecated
+            ],
+            Data2Equations::deprecated
+        ]
+    ]
     ,
     True
     ,
-    TestID -> "Package loading: temporary Hamiltonian overrides"
+    TestID -> "Package loading: Data2Equations emits deprecation warning"
 ]

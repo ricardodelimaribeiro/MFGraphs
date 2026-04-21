@@ -103,13 +103,14 @@ Cost[m, edge] is the congestion cost function.
 ## CriticalCongestionSolver
 
 CriticalCongestionSolver[Eqs] returns Eqs with an association "AssoCritical" with rules to
-the solution to the critical congestion case. It returns a standardized association
+the solution to the critical congestion case. For underdetermined systems, it returns the unresolved 
+symbolic constraints in the "UnresolvedEquations" field. It returns a standardized association
 containing solver metadata, feasibility, comparison fields, and the solver-specific
-payload key "AssoCritical". Options: "ValidateSolution" (default True), "ValidationTolerance" (default $CriticalSolverTolerance), and "ValidationVerbose" (default False).
+payload key "AssoCritical". Options: "ValidateSolution" (default True), "ValidationTolerance" (default $CriticalSolverTolerance), "ValidationVerbose" (default False), "SymbolicTimeLimit" (default 120., time budget in seconds for the symbolic pipeline), and "ExactMode" (default False; when True, skips numeric/direct/oracle paths).
 
 ## Data2Equations
 
-DataToEquations[Data] returns the equations, inequalities, and alternatives associated to the Data. 
+Data2Equations[Data] is a deprecated compatibility wrapper for DataToEquations[Data]. It will be removed in the next release.
 
 ## DataG
 

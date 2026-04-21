@@ -10,6 +10,8 @@ $MFGraphsVerbose = False;
 $TestsDir = FileNameJoin[{Directory[], "MFGraphs", "Tests"}];
 
 $TestSuites = <|
+    (* `fast` is the critical-only public gate.
+       Keep archive files and unsupported legacy surfaces out of this list. *)
     "fast" -> {
         "package-loading.mt",
         "graphics-public-api.mt",
@@ -19,19 +21,18 @@ $TestSuites = <|
         "critical-numeric-backend.mt",
         "exit-pass-through.mt",
         "exit-pass-through-nonzero.mt",
+        "exact-mode.mt",
         "infeasible-status.mt",
         "monotone-monotonicity.mt",
         "monotone-solver.mt",
         "numeric-state.mt",
         "scenario-kernel.mt",
         "solve-mfg.mt",
-        "solver-contracts.mt",
-        "time-dependent-data.mt"
+        "solver-contracts.mt"
     },
     "slow" -> {
         "J9F-critical_congestion.mt",
-        "Jm9-critical_congestion.mt",
-        "time-dependent-solver.mt"
+        "Jm9-critical_congestion.mt"
     }
 |>;
 $TestSuites["all"] = Join[$TestSuites["fast"], $TestSuites["slow"]];

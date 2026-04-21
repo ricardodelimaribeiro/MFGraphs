@@ -59,11 +59,12 @@ TripleStep::usage = "TripleStep[{{EE,NN,OR},Rules}] returns {{NewEE, NewNN, NewO
 
 TripleClean::usage = "TripleClean[{{EE,NN,OR},Rules}] composes TripleStep until it reaches a fixed point, that is, {{True,NewNN,NewOR},NewRules} such that replacement of NewRules in NewNN and NewOR do not produce equalities."
 
-Data2Equations::usage = "Data2Equations is a backward-compatibility alias for DataToEquations.";
+Data2Equations::usage = "Data2Equations[Data] is a deprecated compatibility wrapper for DataToEquations[Data]. It will be removed in the next release.";
 
 FinalStep::usage = "FinalStep is a backward-compatibility alias for DNFSolveStep.";
 
 DataToEquations::switchingcosts = "Switching costs are inconsistent.";
+Data2Equations::deprecated = "Data2Equations is deprecated. Please use DataToEquations instead. It will be removed in the next release.";
 
 MFGSystemSolver::nosolution = "There is no feasible symbolic solution for the current system.";
 
@@ -998,8 +999,8 @@ BuildOraclePrunedSystem[system_, flowAssoc_Association, oracleState_Association,
 (* --- MFGSystemSolver --- *)
 
 MFGSystemSolver[Eqs_][approxJs_] :=
-    Module[{NewSystem, InitRules, pickOne, pickOneFlowOnly, vars, System, Ncpc, costpluscurrents,
-         us, js, jts, jjtsR, time, ineqsByTransition, uResidual,
+    Module[{NewSystem, InitRules, System, Ncpc, costpluscurrents,
+         us, js, jts, time, ineqsByTransition,
          ineqsWithoutTransition = {}},
         ClearSolveCache[];
         us = Lookup[Eqs, "us", $Failed];
@@ -1008,8 +1009,12 @@ MFGSystemSolver[Eqs_][approxJs_] :=
         InitRules = Lookup[Eqs, "InitRules", $Failed];
         NewSystem = Lookup[Eqs, "NewSystem", $Failed];
         costpluscurrents = Lookup[Eqs, "costpluscurrents", $Failed];
-        {time, Ncpc} = AbsoluteTiming[RoundValues @ (Expand /@ (costpluscurrents
-             /. approxJs))];
+        {time, Ncpc} = AbsoluteTiming[
+            If[exactModeQ,
+                Expand /@ (costpluscurrents /. approxJs),
+                RoundValues @ (Expand /@ (costpluscurrents /. approxJs))
+            ]
+        ];
         MFGPrint["MFGSS: Calculated the cost plus currents for the flow in ",
              time, " seconds."];
         InitRules = Expand /@ (InitRules /. Ncpc);
@@ -1096,58 +1101,22 @@ MFGSystemSolver[Eqs_][approxJs_] :=
                 Return[<|"Solution" -> Null, "UnresolvedConstraints" -> None|>, Module]
             ,
             System =!= True,
-                MFGPrint["MFGSS: (Possibly) Multiple solutions:\n", System
+                MFGPrint["MFGSS: Multiple solutions; returning symbolic region"];
+                InitRules = Expand /@
+                    FixedPoint[
+                        Function[r, ReplaceAll[r] /@ r],
+                        InitRules,
+                        10
                     ];
-                (* Extract all unsolved variables from System *)
-                vars = Select[Variables[System], MatchQ[#, j[_, _, _]
-                     | j[_, _] | u[_, _] | u[_, _, _]]&];
-                vars = Complement[vars, Keys[InitRules]];
-                jjtsR = Select[vars, MatchQ[#, j[_, _, _] | j[_, _]]&
-                    ];
-
-(* Pick one solution so that all the currents have numerical values 
-    *)
-                If[Length[vars] > 0,
-                    (* Attempt to find a solution *)
-                    pickOne = FindInstance[System && And @@ ((# > 0)&
-                         /@ jjtsR), vars, Reals];
-                    If[pickOne === {},
-                        pickOne = FindInstance[System && And @@ ((# >=
-                             0)& /@ jjtsR), vars, Reals]
-                    ];
-                    If[pickOne =!= {},
-                        pickOne = Association @ First @ pickOne;
-                        MFGPrint["MFGSS: Picked one solution: ", pickOne
-                            ];
-                        InitRules = Expand /@ Join[InitRules /. pickOne,
-                             pickOne]
-                        ,
-                        (* Both full-variable attempts failed. Try flows-only: WL existentially
-                           quantifies over u vars, finding j values for which some u satisfies System. *)
-                        pickOneFlowOnly = If[jjtsR =!= {},
-                            FindInstance[System && And @@ ((# >= 0)& /@ jjtsR), jjtsR, Reals],
-                            {}
-                        ];
-                        If[pickOneFlowOnly =!= {},
-                            pickOneFlowOnly = Association @ First @ pickOneFlowOnly;
-                            MFGPrint["MFGSS: Flow-only solution found (u underdetermined): ", pickOneFlowOnly];
-                            InitRules = Expand /@ Join[InitRules /. pickOneFlowOnly, pickOneFlowOnly];
-                            uResidual = Simplify[System /. pickOneFlowOnly];
-                            (* Resolve transitive chains early so the result is usable downstream *)
-                            InitRules = Expand /@ FixedPoint[Function[r, ReplaceAll[r] /@ r], InitRules, 10];
-                            InitRules = Join[KeyTake[InitRules, us], KeyTake[InitRules, js], KeyTake[InitRules, jts]];
-                            Return[<|"Solution" -> InitRules, "UnresolvedConstraints" -> uResidual|>, Module]
-                            ,
-                            MFGPrint["MFGSS: No feasible solution found"];
-                            Return[<|"Solution" -> Null, "UnresolvedConstraints" -> None|>, Module]
-                        ]
-                    ]
-                    ,
-(* All variables already solved — nothing to pick 
-    *)
-                    MFGPrint["MFGSS: All variables already determined in InitRules"
-                        ]
-                ]
+                InitRules = Join[
+                    KeyTake[InitRules, us],
+                    KeyTake[InitRules, js],
+                    KeyTake[InitRules, jts]
+                ];
+                Return[<|
+                    "Solution" -> InitRules,
+                    "UnresolvedConstraints" -> System
+                |>, Module]
             ,
             True,
                 MFGPrint["MFGSS: System is ", System]
@@ -1211,7 +1180,6 @@ DNFSolveStep[{{EE_, NN_, OO_}, rules_}] :=
             ,
             " seconds."
         ];
-        NewSystem = BooleanConvert @ NewSystem;
         NewSystem = SystemToTriple[NewSystem];
         {NewSystem, newrules} = TripleClean[{NewSystem, newrules}];
         MFGPrint["Now: ", TimeObject[Now], " The new rules are: ", newrules,
@@ -1295,7 +1263,11 @@ TripleClean[{{EE_, NN_, OR_}, rules_}] :=
 
 (* --- Backward compatibility aliases --- *)
 
-Data2Equations = DataToEquations;
+Data2Equations[args___] :=
+    (
+        Message[Data2Equations::deprecated];
+        DataToEquations[args]
+    );
 
 FinalStep = DNFSolveStep;
 

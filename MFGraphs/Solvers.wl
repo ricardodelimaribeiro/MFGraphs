@@ -13,10 +13,13 @@
 
 (* --- Public API declarations --- *)
 CriticalCongestionSolver::usage = "CriticalCongestionSolver[Eqs] returns Eqs with an association \"AssoCritical\" with rules to
-the solution to the critical congestion case. It returns a standardized association
+the solution to the critical congestion case. For underdetermined systems, it returns the unresolved 
+symbolic constraints in the \"UnresolvedEquations\" field. It returns a standardized association
 containing solver metadata, feasibility, comparison fields, and the solver-specific
 payload key \"AssoCritical\". Options: \"ValidateSolution\" (default True), \
-\"ValidationTolerance\" (default $CriticalSolverTolerance), and \"ValidationVerbose\" (default False).";
+\"ValidationTolerance\" (default $CriticalSolverTolerance), \"ValidationVerbose\" (default False), \
+\"SymbolicTimeLimit\" (default 120., time budget in seconds for the symbolic pipeline), and \
+\"ExactMode\" (default False; when True, skips numeric/direct/oracle paths).";
 
 IsCriticalSolution::usage =
 "IsCriticalSolution[Eqs] validates whether the critical-congestion solution stored \
@@ -1012,7 +1015,8 @@ Options[CriticalCongestionSolver] = {
     "ValidateSolution" -> True,
     "ValidationTolerance" -> $CriticalSolverTolerance,
     "ValidationVerbose" -> False,
-    "SymbolicTimeLimit" -> 120.
+    "SymbolicTimeLimit" -> 120.,
+    "ExactMode" -> False
 };
 
 CriticalCongestionSolver::noassoc = "Expected an Association for Eqs, but received `1`. Ensure input is pre-processed via DataToEquations.";
@@ -1031,9 +1035,10 @@ CriticalCongestionSolver[Eqs_Association, OptionsPattern[]] :=
          numericBackendUsedQ, numericBackendFallbackReason, numericBackendSolveTime,
          numericBackendStrategy, jFirstBackendUsedQ, jFirstBackendFallbackReason,
          numericCandidate, numericOutcome, forcedRejectQ, numericBackendTimeLimit,
-         symbolicTimeLimit,
+         symbolicTimeLimit, exactModeQ,
          telemetry},
         ClearSolveCache[];
+        exactModeQ = TrueQ[OptionValue["ExactMode"]];
         validateQ = TrueQ[OptionValue["ValidateSolution"]];
         validationTolerance = OptionValue["ValidationTolerance"];
         validationVerboseQ = TrueQ[OptionValue["ValidationVerbose"]];
@@ -1043,8 +1048,8 @@ CriticalCongestionSolver[Eqs_Association, OptionsPattern[]] :=
         numericBackendStrategy = "Symbolic";
         jFirstBackendUsedQ = False;
         jFirstBackendFallbackReason = None;
-        numericBackendRequestedQ = CriticalNumericBackendRequestedQ[Eqs];
-        numericBackendEligibleQ = CriticalNumericBackendEligibleQ[Eqs];
+        numericBackendRequestedQ = !exactModeQ && CriticalNumericBackendRequestedQ[Eqs];
+        numericBackendEligibleQ = !exactModeQ && CriticalNumericBackendEligibleQ[Eqs];
         numericBackendFallbackReason = Which[
             !numericBackendRequestedQ, "DisabledByGuard",
             !numericBackendEligibleQ, "IneligibleInput",
@@ -1165,7 +1170,8 @@ CriticalCongestionSolver[Eqs_Association, OptionsPattern[]] :=
         ];
 
         (* Try direct solver for zero-switching-cost, fully numeric networks *)
-        If[AllTrue[Values[Lookup[Eqs, "SwitchingCosts", <|_ -> 1|>]], # === 0 &] &&
+        If[!exactModeQ &&
+            AllTrue[Values[Lookup[Eqs, "SwitchingCosts", <|_ -> 1|>]], # === 0 &] &&
             Lookup[Eqs, "auxiliaryGraph", None] =!= None &&
             AllTrue[Flatten[Lookup[Eqs, "Entrance Vertices and Flows", {}]], NumericQ] &&
             AllTrue[Flatten[Lookup[Eqs, "Exit Vertices and Terminal Costs", {}]], NumericQ] &&
@@ -1210,7 +1216,8 @@ CriticalCongestionSolver[Eqs_Association, OptionsPattern[]] :=
         PreEqs = EnsurePreprocessed[If[AssociationQ[PreEqs], PreEqs, Eqs]];
         (* Oracle Bridge: if the numeric backend produced a candidate that failed validation,
            use it to prune the symbolic Or-branches before the full symbolic solve. *)
-        If[AssociationQ[numericCandidate] &&
+        If[!exactModeQ &&
+            AssociationQ[numericCandidate] &&
             ListQ[Lookup[PreEqs, "NewSystem", $Failed]] &&
             Length[Lookup[PreEqs, "NewSystem", {}]] === 3,
             Module[{prunedSystem, originalBranchCount, prunedBranchCount},
@@ -1231,10 +1238,12 @@ CriticalCongestionSolver[Eqs_Association, OptionsPattern[]] :=
         Module[{symbolicResult},
             symbolicResult = TimeConstrained[
                 Module[{localAssoCritical, localStatus, localValidationFailedQ = False,
-                        localResultKind, localMessage, mfgssResult, unresolvedUConstraints, valReport},
+                        localResultKind, localMessage, mfgssResult, unresolvedUConstraints, valReport,
+                        symbolicTelemetry},
                     mfgssResult = MFGSystemSolver[PreEqs][AssociationThread[js, ConstantArray[0, Length[js]]]];
                     localAssoCritical = mfgssResult["Solution"];
                     unresolvedUConstraints = mfgssResult["UnresolvedConstraints"];
+                    symbolicTelemetry = Append[telemetry, "SymbolicRegion" -> unresolvedUConstraints];
                     localStatus = CheckFlowFeasibility[localAssoCritical];
                     If[validateQ && AssociationQ[localAssoCritical] && localStatus === "Feasible",
                         valReport = IsCriticalSolution[
@@ -1246,7 +1255,7 @@ CriticalCongestionSolver[Eqs_Association, OptionsPattern[]] :=
                         Which[
                             valReport["Reason"] === "IndeterminateConstraints",
                                 Return[BuildCriticalResult[PreEqs, "Success", localStatus, None,
-                                    localAssoCritical, telemetry,
+                                    localAssoCritical, symbolicTelemetry,
                                     If[unresolvedUConstraints =!= None,
                                         Join[Lookup[valReport, "IndeterminateResiduals", <||>],
                                              <|"FlowSolveResidual" -> unresolvedUConstraints|>],
@@ -1264,7 +1273,7 @@ CriticalCongestionSolver[Eqs_Association, OptionsPattern[]] :=
                     localResultKind = If[localAssoCritical === Null, "Failure", "Success"];
                     localMessage = If[localAssoCritical === Null,
                         If[localValidationFailedQ, "InvalidCriticalSolution", "NoSolution"], None];
-                    BuildCriticalResult[PreEqs, localResultKind, localStatus, localMessage, localAssoCritical, telemetry]
+                    BuildCriticalResult[PreEqs, localResultKind, localStatus, localMessage, localAssoCritical, symbolicTelemetry]
                 ],
                 symbolicTimeLimit,
                 $TimedOut

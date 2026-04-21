@@ -257,19 +257,5 @@ ProfiledCriticalCongestion[d2e_] :=
     result
   ];
 
-ProfiledNonLinearSolver[eqs_] :=
-  Module[{result},
-    Block[{V = Function[{x, edge}, 0]},
-      result = NonLinearSolver[eqs]
-    ];
-    result
-  ];
-
-ProfiledMonotone[d2e_] :=
-  Module[{result},
-    result = MonotoneSolver[d2e];
-    result
-  ];
-
 Print["ProfileInstrument.wls loaded successfully."];
 Print["Usage: InitProfile[]; InstallProfileWrappers[]; <run solver>; ProfileReport[]"];

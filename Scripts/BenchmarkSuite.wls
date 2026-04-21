@@ -1,7 +1,7 @@
 #!/usr/bin/env wolframscript
 (* Usage: wolframscript -file Scripts/BenchmarkSuite.wls [tier] [case=key] [timeout=seconds] [isolation=mode] [solver=name] [tag=label] [rationale=...] [changes=...] [interpretation=...] *)
 (* tier: "small", "core", "stress", "paper", "inconsistent-switching", "large", "vlarge", legacy "medium", or "all" (default: "all") *)
-(* solver: "critical" (default), "nonlinear", "monotone", "all" *)
+(* solver: "critical" (default) *)
 
 (* :!CodeAnalysis::Disable::SuspiciousSessionSymbol::Print *)
 
@@ -136,9 +136,7 @@ If[$SelectedProfile =!= None,
       $SolversToRun = Lookup[profileData, "Solvers", {"critical"}];
       $SolversToRun = Switch[#,
         "critical" | "criticalcongestion", "CriticalCongestion",
-        "nonlinear" | "nl",               "NonLinearSolver",
-        "monotone" | "mono",              "Monotone",
-        "all",                            {"CriticalCongestion", "NonLinearSolver", "Monotone"},
+        "all",                            "CriticalCongestion",
         s_String, s,
         l_List, l,
         _, "CriticalCongestion"
@@ -158,12 +156,10 @@ If[$SelectedProfile =!= None,
   (* Resolve solver selection *)
   $SolversToRun = Switch[$SelectedSolverArg,
     "critical" | "criticalcongestion", {"CriticalCongestion"},
-    "nonlinear" | "nl",               {"CriticalCongestion", "NonLinearSolver"},
-    "monotone" | "mono",              {"CriticalCongestion", "Monotone"},
-    "all",                            {"CriticalCongestion", "NonLinearSolver", "Monotone"},
+    "all",                            {"CriticalCongestion"},
     _,
       Print["Unknown solver argument: ", $SelectedSolverArg,
-            ". Valid values: critical, nonlinear, monotone, all."];
+            ". Valid values: critical, all."];
       Exit[2]
   ];
 
@@ -180,7 +176,7 @@ If[$SelectedProfile =!= None,
   ];
 ];
 
-(* When only CriticalCongestion is requested, suppress the seed-only runs *)
+(* Critical-only benchmark suite *)
 $CriticalOnlyMode = $SolversToRun === {"CriticalCongestion"};
 
 Print["Selected profile: ", If[$SelectedProfile === None, "None", $SelectedProfile]];
@@ -222,31 +218,18 @@ BenchmarkOneSolver[key_, tier_String, solverName_String, d2e_Association, timeou
       solveMemory = Missing["N/A"], executionMode = Missing["N/A"],
       rawResult = Missing["NotAvailable"], resultKind = Missing["NotAvailable"],
       feasibility = Missing["NotAvailable"], solverMessage = Missing["NotAvailable"],
-      runContext, returnExecution, solverInput,
-      criticalSeedUsed = False, criticalSolveTime = Missing["N/A"],
-      estimatedStandaloneSolveTime = Missing["N/A"], verification = "N/A",
+      runContext, returnExecution, solverInput, verification = "N/A",
       row},
     runContext = OptionValue["RunContext"];
     returnExecution = TrueQ[OptionValue["ReturnExecution"]];
     meta = GraphMetadata[d2e];
     solverInput = d2e;
 
-    If[MemberQ[{"NonLinearSolver", "Monotone"}, solverName],
-      criticalSeedUsed = TrueQ[Lookup[runContext, "UsedCriticalSeed", False]];
-      criticalSolveTime = Lookup[runContext, "CriticalSolveTime", Missing["N/A"]];
-    ];
-
-    Print["  Solver: ", solverName,
-          If[criticalSeedUsed, " (seeded from critical)", ""],
-          " (timeout: ", timeout, "s)"];
+    Print["  Solver: ", solverName, " (timeout: ", timeout, "s)"];
 
     result = Switch[solverName,
       "CriticalCongestion",
         SafeExecute[CriticalCongestionSolver[solverInput], timeout],
-      "NonLinearSolver",
-        SafeExecute[NonLinearSolver[solverInput], timeout],
-      "Monotone",
-        SafeExecute[MonotoneSolver[solverInput], timeout],
       _,
         <|"Time" -> 0, "Memory" -> 0, "Status" -> "SKIPPED", "Result" -> "Unknown solver"|>
     ];
@@ -281,8 +264,6 @@ BenchmarkOneSolver[key_, tier_String, solverName_String, d2e_Association, timeou
       ];
       equationResidual = Switch[solverName,
         "CriticalCongestion", ComputeResidual[Join[d2e, rawResult], "AssoCritical"],
-        "NonLinearSolver", ComputeResidual[Join[d2e, rawResult], "AssoNonCritical"],
-        "Monotone", ComputeResidual[Join[d2e, rawResult], "AssoMonotone"],
         _, Missing["N/A"]
       ]
     ];
@@ -293,21 +274,9 @@ BenchmarkOneSolver[key_, tier_String, solverName_String, d2e_Association, timeou
         Lookup[rawResult, "AssoCritical", Null]];
     ];
 
-    If[MemberQ[{"NonLinearSolver", "Monotone"}, solverName],
-      estimatedStandaloneSolveTime =
-        If[criticalSeedUsed && NumericQ[criticalSolveTime] && NumericQ[result["Time"]],
-          criticalSolveTime + result["Time"],
-          result["Time"]
-        ]
-    ];
-
     Print["    Status: ", result["Status"],
           " | Time: ", FormatTime[solveTime], "s",
           " | Memory: ", FormatMemoryMB[solveMemory], " MB",
-          If[MemberQ[{"NonLinearSolver", "Monotone"}, solverName] && NumericQ[estimatedStandaloneSolveTime],
-            " | Standalone est.: " <> FormatTime[estimatedStandaloneSolveTime] <> "s",
-            ""
-          ],
           If[verification =!= "N/A", " | Ref: " <> verification, ""]];
 
     row = <|
@@ -332,13 +301,10 @@ BenchmarkOneSolver[key_, tier_String, solverName_String, d2e_Association, timeou
       "Message" -> solverMessage,
       "Residual" -> residual,
       "EquationResidual" -> equationResidual,
-      "UsedCriticalSeed" -> If[MemberQ[{"NonLinearSolver", "Monotone"}, solverName], criticalSeedUsed, Missing["N/A"]],
       "NumericBackendUsed" -> If[solverName === "CriticalCongestion",
         TrueQ[Lookup[rawResult, "NumericBackendUsed", False]],
         Missing["N/A"]
       ],
-      "IncrementalSolveTime" -> If[MemberQ[{"NonLinearSolver", "Monotone"}, solverName], result["Time"], Missing["N/A"]],
-      "EstimatedStandaloneSolveTime" -> If[MemberQ[{"NonLinearSolver", "Monotone"}, solverName], estimatedStandaloneSolveTime, Missing["N/A"]],
       "StopReason" -> stopReason,
       "ConvergenceResidual" -> convergenceResidual,
       "Iterations" -> iterations,
@@ -367,8 +333,7 @@ CaseStatusSummary[caseRows_List] :=
 
 BenchmarkCase[key_] :=
   Module[{tier, timeout, data, d2eResult, d2e, results = {}, params, d2eTime, caseIsolationMode,
-      criticalRun, criticalExec, criticalSolveTime, nonlinearInput,
-      monotoneInput, criticalSeedAvailable},
+      criticalRun},
     tier = GetTier[key];
     timeout = If[NumericQ[$TimeoutOverride], $TimeoutOverride, Lookup[$TierTimeouts, tier, 300]];
     params = GetParams[key];
@@ -420,35 +385,6 @@ BenchmarkCase[key_] :=
       "ReturnExecution" -> True
     ];
     AppendTo[results, criticalRun["Row"]];
-    criticalExec = Lookup[criticalRun, "Execution", <||>];
-    criticalSeedAvailable =
-      Lookup[criticalExec, "Status", "FAILED"] === "OK" &&
-      AssociationQ[Lookup[criticalExec, "Result", Missing["NotAvailable"]]];
-    nonlinearInput = If[criticalSeedAvailable, criticalExec["Result"], d2e];
-    monotoneInput = If[criticalSeedAvailable, criticalExec["Result"], d2e];
-    criticalSolveTime = Lookup[criticalExec, "Time", Missing["N/A"]];
-
-    If[MemberQ[$SolversToRun, "NonLinearSolver"],
-      AppendTo[results,
-        BenchmarkOneSolver[
-          key, tier, "NonLinearSolver", nonlinearInput, timeout,
-          "RunContext" -> <|
-            "UsedCriticalSeed" -> criticalSeedAvailable,
-            "CriticalSolveTime" -> criticalSolveTime
-          |>
-        ]]
-    ];
-
-    If[MemberQ[$SolversToRun, "Monotone"],
-      AppendTo[results,
-        BenchmarkOneSolver[
-          key, tier, "Monotone", monotoneInput, timeout,
-          "RunContext" -> <|
-            "UsedCriticalSeed" -> criticalSeedAvailable,
-            "CriticalSolveTime" -> criticalSolveTime
-          |>
-        ]]
-    ];
 
     (* Store D2E time in all results *)
     results = Map[Append[#, "D2ETime" -> d2eTime] &, results];
@@ -510,38 +446,28 @@ If[$HistoryTag =!= None,
       tierRows2 = Select[$AllResults, #["Tier"] === tierName &];
       If[Length[tierRows2] === 0, Return[""]];
       caseKeys = DeleteDuplicates[#["Key"] & /@ tierRows2];
-      Module[{hCrit, hNL, hMono},
+      Module[{hCrit},
         hCrit = DisplaySolverName[<|"Solver" -> "CriticalCongestion", "NumericBackendUsed" -> True|>]; (* Generic numeric as placeholder header *)
-        hNL = DisplaySolverName[<|"Solver" -> "NonLinearSolver", "UsedCriticalSeed" -> True|>];
-        hMono = DisplaySolverName[<|"Solver" -> "Monotone", "UsedCriticalSeed" -> True|>];
         tableLines = {"#### Tier: " <> tierName, "",
-          "| Case | D2E (s) | " <> hCrit <> " (s) | " <> hNL <> " inc (s) | NL standalone est (s) | " <> hMono <> " inc (s) | Mono standalone est (s) | Total (s) | Case Status |",
-          "|------|---------|---------------|------------------|----------------------------|------------------|-----------------------------|-----------|-------------|"}
+          "| Case | D2E (s) | " <> hCrit <> " (s) | Total (s) | Case Status |",
+          "|------|---------|---------------|-----------|-------------|"}
       ];
       Do[
-        Module[{caseRows, d2eT, critT, nlT, monoT, totalT, caseStatus, nlEstST, monoEstST},
+        Module[{caseRows, d2eT, critT, totalT, caseStatus},
           caseRows = Select[tierRows2, #["Key"] === k &];
           d2eT = SelectFirst[caseRows, True&, <||>]["D2ETime"];
           critT = SelectFirst[Select[caseRows, #["Solver"] === "CriticalCongestion"&], True&, <||>];
-          nlT  = SelectFirst[Select[caseRows, #["Solver"] === "NonLinearSolver"&], True&, <||>];
-          monoT = SelectFirst[Select[caseRows, #["Solver"] === "Monotone"&], True&, <||>];
           fmtT[t_] := If[NumericQ[t], ToString[CForm[N[t]]], "—"];
           d2eT   = fmtT[d2eT];
           critST = fmtT[If[KeyExistsQ[critT, "SolveTime"], critT["SolveTime"], Missing[]]];
-          nlST   = fmtT[If[KeyExistsQ[nlT, "SolveTime"], nlT["SolveTime"], Missing[]]];
-          nlEstST = fmtT[If[KeyExistsQ[nlT, "EstimatedStandaloneSolveTime"], nlT["EstimatedStandaloneSolveTime"], Missing[]]];
-          monoST = fmtT[If[KeyExistsQ[monoT, "SolveTime"], monoT["SolveTime"], Missing[]]];
-          monoEstST = fmtT[If[KeyExistsQ[monoT, "EstimatedStandaloneSolveTime"], monoT["EstimatedStandaloneSolveTime"], Missing[]]];
           totalN = Plus @@ Select[{
-            If[KeyExistsQ[critT, "SolveTime"] && NumericQ[critT["SolveTime"]], critT["SolveTime"], 0],
-            If[KeyExistsQ[nlT, "SolveTime"] && NumericQ[nlT["SolveTime"]], nlT["SolveTime"], 0],
-            If[KeyExistsQ[monoT, "SolveTime"] && NumericQ[monoT["SolveTime"]], monoT["SolveTime"], 0]
+            If[KeyExistsQ[critT, "SolveTime"] && NumericQ[critT["SolveTime"]], critT["SolveTime"], 0]
           }, NumericQ];
           totalT = If[totalN > 0, fmtT[totalN], "—"];
           caseStatus = CaseStatusSummary[caseRows];
           AppendTo[tableLines,
             "| " <> k <> " | " <> d2eT <> " | " <> critST <> " | " <>
-            nlST <> " | " <> nlEstST <> " | " <> monoST <> " | " <> monoEstST <> " | " <> totalT <> " | " <> caseStatus <> " |"]
+            totalT <> " | " <> caseStatus <> " |"]
         ],
         {k, caseKeys}
       ];
