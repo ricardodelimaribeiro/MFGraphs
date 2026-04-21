@@ -1593,30 +1593,23 @@ SolveMFGRunStage[
 
 SolveMFGAutomaticDispatch[input_Association, opts_List] :=
     Module[{d2e, result = Missing["NotAvailable"], decision, trace = {}, methodUsed = "Automatic",
-            attempts},
+            attempt = "CriticalCongestion"},
         d2e = If[SolveMFGCompiledInputQ[input], input, Quiet @ SolveMFGCompileInput[input, opts]];
         If[!AssociationQ[d2e],
             Return[SolveMFGAbortResult["DataToEquationsFailed", methodUsed, trace], Module]
         ];
-        attempts = {"CriticalCongestion"};
-        Do[
-            result = SolveMFGRunStage[attempt, d2e, opts, "Automatic"];
-            decision = SolveMFGClassifyOutcome[result];
-            methodUsed = attempt;
-            trace = Append[trace, SolveMFGBuildTraceEntry[methodUsed, result, decision]];
-            Switch[decision,
-                "Done",
-                    Return[SolveMFGFinalizeWithTrace[result, methodUsed, trace], Module],
-                "Fallback",
-                    Null,
-                _,
-                    Return[SolveMFGAbortResult["InvalidSolverReturnShape", methodUsed, trace], Module]
-            ],
-            {attempt, attempts}
-        ];
-        If[AssociationQ[result],
-            SolveMFGFinalizeWithTrace[result, methodUsed, trace],
-            SolveMFGAbortResult["InvalidSolverReturnShape", methodUsed, trace]
+        result = SolveMFGRunStage[attempt, d2e, opts, "Automatic"];
+        decision = SolveMFGClassifyOutcome[result];
+        methodUsed = attempt;
+        trace = Append[trace, SolveMFGBuildTraceEntry[methodUsed, result, decision]];
+        Switch[decision,
+            "Done" | "Fallback",
+                If[AssociationQ[result],
+                    SolveMFGFinalizeWithTrace[result, methodUsed, trace],
+                    SolveMFGAbortResult["InvalidSolverReturnShape", methodUsed, trace]
+                ],
+            _,
+                SolveMFGAbortResult["InvalidSolverReturnShape", methodUsed, trace]
         ]
     ];
 

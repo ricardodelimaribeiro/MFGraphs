@@ -220,9 +220,9 @@ SafeExecute[expr_, timeout_:300] :=
 
 ComputeResidual::usage =
 "ComputeResidual[eqs, solKey] computes the infinity-norm residual from the solver output.
-solKey should be \"AssoCritical\", \"AssoNonCritical\", or \"AssoMonotone\".";
+solKey defaults to \"AssoCritical\".";
 
-ComputeResidual[eqs_Association, solKey_String:"AssoNonCritical"] :=
+ComputeResidual[eqs_Association, solKey_String:"AssoCritical"] :=
   Module[{sol, nlhs, nrhs, diff},
     sol = Lookup[eqs, solKey, <||>];
     nlhs = Lookup[eqs, "Nlhs", {}];
@@ -473,13 +473,13 @@ $BenchmarkProfiles = <|
     "Tiers" -> {"small", "core"},
     "Solvers" -> {"critical"}
   |>,
-  "nonlinear-kkt" -> <|
+  "kkt-stress" -> <|
     "Tiers" -> {"core", "stress", "paper"},
-    "Solvers" -> {"nonlinear"}
+    "Solvers" -> {"critical"}
   |>,
   "dnf-paper" -> <|
     "Tiers" -> {"paper", "inconsistent-switching"},
-    "Solvers" -> {"all"}
+    "Solvers" -> {"critical"}
   |>
 |>;
 
@@ -489,8 +489,6 @@ DisplaySolverName[r_Association] :=
   Module[{base, details = {}},
     base = Switch[r["Solver"],
       "CriticalCongestion", "Critical",
-      "NonLinearSolver", "NonLinear",
-      "Monotone", "Monotone",
       "ALL", "Combined",
       "DataToEquations", "Preprocessing",
       _, r["Solver"]

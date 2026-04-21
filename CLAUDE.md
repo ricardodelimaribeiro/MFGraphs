@@ -210,7 +210,7 @@ wolframscript -file Scripts/BenchmarkSuite.wls --tag "description of change" --r
 
 The package follows a linear pipeline: **network data → equations → solver**.
 
-**Unified entrypoint** — `SolveMFG[data, Method -> m, opts]` accepts raw data or compiled equations and dispatches to the appropriate solver. With `Method -> "Automatic"`, it cascades: CriticalCongestion → Monotone → NonLinear, falling back on infeasibility or failure. When `"CongestionExponentFunction"` specifies alpha != 1 (scalar, Association, or Function), CriticalCongestion is skipped since it only handles alpha=1. Hamiltonian options (`"PotentialFunction"`, `"CongestionExponentFunction"`, `"InteractionFunction"`) and all downstream solver options are declared in `Options[SolveMFG]` and forwarded via `FilterRules`. `"CongestionExponentFunction"` accepts a scalar, `Function[edge, ...]`, or an `Association` mapping edges to exponents (unlisted edges default to 1); all forms are normalized by `NormalizeEdgeFunction`. Returns a standardized result envelope plus `"MethodUsed"` and `"MethodTrace"` keys.
+**Unified entrypoint** — `SolveMFG[data, Method -> m, opts]` accepts raw data or compiled equations. `Method -> "Automatic"` and `Method -> "CriticalCongestion"` both route to the critical solver path and return the standardized result envelope. Unknown methods return a failure envelope with `"Message" -> "UnknownMethod"`.
 
 **Individual solvers** can also be called directly:
 
@@ -222,13 +222,9 @@ DataToEquations[data]                    (DataToEquations.wl)
 CriticalCongestionSolver[d2e]           (Solvers.wl, uses DNFReduce.wl)
   ├─ DirectCriticalSolver[d2e]           (fast path for zero-switching-cost networks)
   └─ MFGSystemSolver + DNFSolveStep      (general case with switching costs)
-  ↓
-NonLinearSolver[criticalResult]  or  MonotoneSolverFromData[data]
 ```
 
 **Solver selection**: `CriticalCongestionSolver` automatically dispatches to `DirectCriticalSolver` for networks with no switching costs (much faster); otherwise uses the full symbolic pipeline.
-
-**MonotoneSolver vs MonotoneSolverFromData**: `MonotoneSolverFromData[data]` accepts raw data and calls `DataToEquations` internally. `MonotoneSolver[d2e]` accepts pre-compiled equations. `SolveMFG` uses `MonotoneSolver` when given compiled input, `MonotoneSolverFromData` otherwise.
 
 ### Module load order
 
@@ -238,10 +234,8 @@ Defined in `MFGraphs.wl`:
 3. `DNFReduce.wl` — Boolean algebra solver (disjunctive normal form reduction with Solve/Reduce memoization, branch pruning, and post-reduction via `ReduceDisjuncts`/`SubsumptionPrune`)
 4. `DataToEquations.wl` — Core converter: network topology → equations; implements `DataToEquations`, `MFGSystemSolver`, `MFGPreprocessing`, `TripleClean`
 5. `Solvers.wl` — Critical-congestion solver suite extracted from `DataToEquations.wl` (Phase 3 refactor); implements `CriticalCongestionSolver`, `DirectCriticalSolver`, `IsCriticalSolution`
-6. `NonLinearSolver.wl` — Iterative fixed-point solver (`NonLinearSolver`) using Hamiltonian framework (up to 15 iterations)
-7. `Monotone.wl` — ODE-based gradient flow solver on Kirchhoff matrix using `NDSolve`
-8. `TimeDependentSolver.wl` — Time-dependent MFG solver using backward-forward sweep on discretized time grid
-9. `Graphics.wl` — Public visualization helpers: `NetworkGraphPlot`, `SolutionFlowPlot`, `ExitFlowPlot`
+6. `TimeDependentSolver.wl` — Time-dependent MFG solver using backward-forward sweep on discretized time grid
+7. `Graphics.wl` — Public visualization helpers: `NetworkGraphPlot`, `SolutionFlowPlot`, `ExitFlowPlot`
 
 After submodule loading, `MFGraphs.wl` defines `SolveMFG` — the unified entrypoint (see Pipeline overview).
 
@@ -275,41 +269,34 @@ System decomposition (triple `{EE, NN, OR}`):
 
 ### Solver chain & return formats
 
-`NonLinearSolver` expects the output of `CriticalCongestionSolver` (reads `"AssoCritical"` key). Benchmark suite follows: `DataToEquations → CriticalCongestionSolver → NonLinearSolver`.
-
-All stationary solvers now return a **standardized result envelope** by default:
+Critical solver outputs return a **standardized result envelope**:
 
 ```mathematica
-<| "Solver" -> "NonLinearSolver",
+<| "Solver" -> "CriticalCongestion",
    "ResultKind" -> "Success"|"Failure"|"Degenerate"|"NonConverged",
    "Feasibility" -> "Feasible"|"Infeasible",
    "Message" -> "...",
    "Solution" -> {...},
    "ComparableFlowVector" -> {...},
    "KirchhoffResidual" -> ...,
-   "AssoNonCritical" -> {...}  (* solver-specific payload key *)
+   "AssoCritical" -> {...}
 |>
 ```
-
-Solver-specific payload keys: `"AssoCritical"`, `"AssoNonCritical"`, `"AssoMonotone"`.
 
 `SolveMFG` results additionally include `"MethodUsed"` and `"MethodTrace"`.
 
 **Checking solutions**:
 - `IsFeasible[result]` — accepts both legacy `"Status"` and standard `"Feasibility"`
-- `IsNonLinearSolution[result]` — validates solution structure
 - When `"Status"` is `"Infeasible"`, flow variables (`j[...]`) contain negative values (indicates no feasible solution)
 
 ### Choosing the right solver
 
 | Solver | Best For | Speed | Notes |
 |--------|----------|-------|-------|
-| **CriticalCongestionSolver** | Symbolic, congestion exponent α=1, understanding structure | Seconds–minutes | Always try this first; serves as initial guess for other solvers. Fast path for zero-switching-cost networks. |
-| **NonLinearSolver** | General non-linear (α≠1), fixed-point iteration | Minutes–hours | Requires potential function `V` defined. Starts from critical congestion seed. Up to 15 iterations. |
-| **MonotoneSolver** | Gradient flow, ODE-based alternative | Minutes–hours | Uses Kirchhoff matrix. Good for comparison/validation. Slower but sometimes finds solutions NonLinear misses. |
-| **SolveMFG with Method→"Automatic"** | Auto-routing, fallback cascades | Varies | Cascades: CriticalCongestion → Monotone → NonLinear. Adds `"MethodUsed"` and `"MethodTrace"` to results. |
+| **CriticalCongestionSolver** | Symbolic critical-congestion solves and structure analysis | Seconds–minutes | Fast path for zero-switching-cost networks. |
+| **SolveMFG with Method→"Automatic"** | Standardized public entrypoint | Varies | Routes to critical solver and adds `"MethodUsed"`/`"MethodTrace"`. |
 
-**When you'll use Phase 5/6 (Fictitious Play backend):** If you add support for non-linear congestion exponents (α ≠ 1) to `CriticalCongestionSolver`, the symbolic `DNFReduce` pipeline may timeout or fail, triggering the numeric backend as fallback. Phase 5/6 prepares this handoff (currently internal-only pending issue resolution).
+**When you'll use Phase 5/6 (Fictitious Play backend):** for internal numeric experiments and support discovery when symbolic critical workflows struggle on hard instances.
 
 ### Phase 5 & 6: Fictitious Play Backend (Internal v1)
 
@@ -320,7 +307,7 @@ Solver-specific payload keys: `"AssoCritical"`, `"AssoNonCritical"`, `"AssoMonot
 - Pure functional state machine with immutable compound state Association
 - Returns standardized backend result envelope with History, IterationLog, and full state snapshots
 - Options: `MaxIterations` (20), `Temperature` (0.1), `Damping` (0.5), plus all Phase 4 thresholds
-- **Use case**: Future support discovery for non-linear cases (α ≠ 1) when exact symbolic path fails
+- **Use case**: Future support discovery and internal numeric experimentation when exact symbolic paths fail
 
 **Phase 6: `BuildOraclePrunedSystem`** (`DataToEquations.wl` line ~1922)
 - Two-step Oracle pruning bridge translating `OracleState` from Phase 4 into a partially pruned `{EE, NN, OR}` triple
@@ -499,7 +486,7 @@ $MFGraphsParallelReady = True;
 
 (* Run solver and check parallel execution *)
 $MFGraphsVerbose = True;
-result = NonLinearSolver[d2e];
+result = CriticalCongestionSolver[d2e];
 ```
 
 If parallel dispatch doesn't trigger, check:

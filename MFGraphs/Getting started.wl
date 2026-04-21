@@ -53,8 +53,6 @@ ClearMFGraphsNotebookShadows[] :=
             "GetExampleData",
             "DataToEquations",
             "CriticalCongestionSolver",
-            "NonLinearSolver",
-            "MonotoneSolverFromData",
             "IsSwitchingCostConsistent",
             "PlotMassDensity",
             "PlotValueFunction",
@@ -228,28 +226,6 @@ DensityNetworkGraphic[d2e_Association, solution_Association, title_: Automatic, 
         ]
     ];
 
-MassDensityCurve[result_Association, pair_List] :=
-    Show[
-        MFGraphs`Private`PlotMassDensity[result, "AssoNonCritical", pair],
-        PlotLabel -> Style[
-            Row[{"Mass density along edge ", pair}],
-            14,
-            Bold
-        ],
-        AxesLabel -> {"Position on edge", "Density"}
-    ];
-
-ValueFunctionCurve[result_Association, pair_List] :=
-    Show[
-        MFGraphs`Private`PlotValueFunction[result, "AssoNonCritical", pair],
-        PlotLabel -> Style[
-            Row[{"Value function along edge ", pair}],
-            14,
-            Bold
-        ],
-        AxesLabel -> {"Position on edge", "Value"}
-    ];
-
 (* ExitFlowPlot now lives in Graphics.wl. *)
 
 (* Jamarat helper: solve one release/cost scenario and summarize exit usage. *)
@@ -388,141 +364,7 @@ DescribeOutput[
 ]
 
 
-(* --- 5. Non-linear congestion solver and plots --- *)
-
-Module[{potentialFunction, congestionExponentFunction, interactionFunction},
-    potentialFunction = Function[{x, edge},
-        Which[
-            edge === UndirectedEdge[1, 2], 0.25 x,
-            edge === UndirectedEdge[2, 4], 0.5,
-            True, 0
-        ]
-    ];
-    congestionExponentFunction = Function[edge,
-        If[edge === UndirectedEdge[2, 4], 1.3, 1.0]
-    ];
-    interactionFunction = Function[{m, edge},
-        -If[edge === UndirectedEdge[2, 4], 1.5, 1.0] / m^2
-    ];
-    nonlinearData = GetExampleData[12] /. {
-        I1 -> 2,
-        U1 -> 0
-    };
-    nonlinearD2E = DataToEquations[nonlinearData];
-    nonlinearResult = NonLinearSolver[
-        nonlinearD2E,
-        "MaxIterations" -> 5,
-        "Tolerance" -> 10^-8,
-        "PotentialFunction" -> potentialFunction,
-        "CongestionExponentFunction" -> congestionExponentFunction,
-        "InteractionFunction" -> interactionFunction
-    ];
-    Column[{
-        DescribeOutput[
-            "Non-linear solver solution",
-            "This fixed-point solve includes the edge Hamiltonian and congestion interaction, so densities and values respond to the chosen V, alpha, and g.",
-            nonlinearResult["Solution"]
-        ],
-        DescribeOutput[
-            "Non-linear equilibrium net flows",
-            "Thickness and labels summarize the net current on each edge after the non-linear congestion update converges.",
-            SolutionFlowPlot[
-                nonlinearD2E,
-                nonlinearResult["Solution"],
-                "Non-linear equilibrium net flows"
-            ]
-        ],
-        DescribeOutput[
-            "Non-linear edge densities",
-            "Warm colors mark locally denser parts of the network. The legend is pointwise density, not total edge flow.",
-            WithHamiltonianFunctions[
-                potentialFunction,
-                congestionExponentFunction,
-                interactionFunction,
-                DensityNetworkGraphic[
-                    nonlinearD2E,
-                    nonlinearResult["Solution"],
-                    "Non-linear density map"
-                ]
-            ]
-        ],
-        DescribeOutput[
-            "Mass density on edge {1, 2}",
-            "This one-dimensional slice shows how density changes with normalized position along a selected edge.",
-            WithHamiltonianFunctions[
-                potentialFunction,
-                congestionExponentFunction,
-                interactionFunction,
-                MassDensityCurve[nonlinearResult, {1, 2}]
-            ]
-        ],
-        DescribeOutput[
-            "Value function on edge {1, 2}",
-            "This plot shows the value perceived by agents as they move along the same edge under the non-linear equilibrium.",
-            WithHamiltonianFunctions[
-                potentialFunction,
-                congestionExponentFunction,
-                interactionFunction,
-                ValueFunctionCurve[nonlinearResult, {1, 2}]
-            ]
-        ]
-    }]
-]
-
-
-(* --- 6. Monotone solver --- *)
-
-Module[{potentialFunction, congestionExponentFunction, interactionFunction},
-    potentialFunction = Function[{x, edge}, 0];
-    congestionExponentFunction = Function[edge, 1];
-    interactionFunction = Function[{m, edge}, -1 / m^2];
-    monotoneData = GetExampleData[3] /. {
-        I1 -> 80,
-        U1 -> 0
-    };
-    monotoneResult = MonotoneSolverFromData[
-        monotoneData,
-        "ResidualTolerance" -> 10^-6,
-        "MaxTime" -> 10,
-        "MaxSteps" -> 2000,
-        "PotentialFunction" -> potentialFunction,
-        "CongestionExponentFunction" -> congestionExponentFunction,
-        "InteractionFunction" -> interactionFunction
-    ];
-    Column[{
-        DescribeOutput[
-            "Monotone solver solution",
-            "The Hessian-Riemannian flow evolves the Kirchhoff variables until it reaches a monotone equilibrium.",
-            monotoneResult["Solution"]
-        ],
-        DescribeOutput[
-            "Monotone solver net flows",
-            "This graph shows the final net currents produced by the monotone solver on the simple path example.",
-            SolutionFlowPlot[
-                DataToEquations[monotoneData],
-                monotoneResult["Solution"],
-                "Monotone solver net flows"
-            ]
-        ],
-        DescribeOutput[
-            "Monotone edge densities",
-            "With the same baseline Hamiltonian, the edge color gradient shows how density varies along the path under the monotone solution.",
-            WithHamiltonianFunctions[
-                potentialFunction,
-                congestionExponentFunction,
-                interactionFunction,
-                DensityNetworkGraphic[
-                    DataToEquations[monotoneData],
-                    monotoneResult["Solution"],
-                    "Monotone density map"
-                ]
-            ]
-        ]
-    }]
-]
-
-
-(* --- 7. Jamarat / pilgrimage crowd routing --- *)
+(* --- 5. Jamarat / pilgrimage crowd routing --- *)
 
 (* The built-in Jamarat network has two entrances and three exits. *)
 jamaratTemplate = GetExampleData["Jamaratv9"];
@@ -629,7 +471,6 @@ Column[{
    ];
 
    Once you have calibrated edge classes for wide corridors, ramps, and merges,
-   reuse the same pattern from the non-linear section above on the Jamarat graph.
+   reuse the same visualization and comparison pattern on the Jamarat graph.
    In practice, start with the critical-congestion symbolic solve to screen release
-   plans and destination costs, then move to NonLinearSolver only after the graph
-   geometry and demand windows are calibrated. *)
+   plans and destination costs, then iterate on graph geometry and demand windows. *)
