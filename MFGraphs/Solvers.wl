@@ -274,8 +274,8 @@ BuildUEquivalenceReduction[Eqs_Association] :=
                         ]],
                         (* Both directions of switching must be zero *)
                         With[{p1 = List @@ #[[1]], p2 = List @@ #[[2]]},
-                            Lookup[switchingCosts, Key[{p1[[1]], v, p2[[1]]}], Infinity] === 0 &&
-                            Lookup[switchingCosts, Key[{p2[[1]], v, p1[[1]]}], Infinity] === 0
+                            Lookup[switchingCosts, {p1[[1]], v, p2[[1]]}, Infinity] === 0 &&
+                            Lookup[switchingCosts, {p2[[1]], v, p1[[1]]}, Infinity] === 0
                         ] &
                     ]
                 ]
@@ -350,13 +350,13 @@ CriticalNumericBackendEligibleQ[Eqs_Association] :=
     Module[{numericState, switchingVals, entryVals, exitVals, km, b, vars},
         numericState = Lookup[Eqs, "NumericState", Missing["NotAvailable"]];
         switchingVals = Values[Lookup[Eqs, "SwitchingCosts", <||>]];
-        entryVals = Flatten[Lookup[Eqs, "Entrance Vertices and Flows", {}]];
-        exitVals = Flatten[Lookup[Eqs, "Exit Vertices and Terminal Costs", {}]];
+        entryVals = Last /@ Lookup[Eqs, "Entrance Vertices and Flows", {}];
+        exitVals = Last /@ Lookup[Eqs, "Exit Vertices and Terminal Costs", {}];
         km = Lookup[numericState, "KirchhoffKM", Missing["NotAvailable"]];
         b = Lookup[numericState, "KirchhoffB", Missing["NotAvailable"]];
         vars = Lookup[numericState, "KirchhoffVariables", {}];
         AssociationQ[numericState] &&
-        AllTrue[switchingVals, # === 0 &] &&
+        AllTrue[switchingVals, NumericQ[#] && PossibleZeroQ[#] &] &&
         Lookup[Eqs, "auxiliaryGraph", None] =!= None &&
         AllTrue[entryVals, NumericQ] &&
         AllTrue[exitVals, NumericQ] &&
@@ -1171,10 +1171,13 @@ CriticalCongestionSolver[Eqs_Association, OptionsPattern[]] :=
 
         (* Try direct solver for zero-switching-cost, fully numeric networks *)
         If[!exactModeQ &&
-            AllTrue[Values[Lookup[Eqs, "SwitchingCosts", <|_ -> 1|>]], # === 0 &] &&
+            AllTrue[
+                Values[Lookup[Eqs, "SwitchingCosts", <|_ -> 1|>]],
+                NumericQ[#] && PossibleZeroQ[#] &
+            ] &&
             Lookup[Eqs, "auxiliaryGraph", None] =!= None &&
-            AllTrue[Flatten[Lookup[Eqs, "Entrance Vertices and Flows", {}]], NumericQ] &&
-            AllTrue[Flatten[Lookup[Eqs, "Exit Vertices and Terminal Costs", {}]], NumericQ] &&
+            AllTrue[Last /@ Lookup[Eqs, "Entrance Vertices and Flows", {}], NumericQ] &&
+            AllTrue[Last /@ Lookup[Eqs, "Exit Vertices and Terminal Costs", {}], NumericQ] &&
             GraphDistanceHeuristicSafeQ[Eqs],
             MFGPrint["Attempting direct critical solver (zero switching costs)..."];
             {time, AssoCritical} = AbsoluteTiming[DirectCriticalSolver[Eqs]];
