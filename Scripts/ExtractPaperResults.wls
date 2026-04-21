@@ -39,7 +39,7 @@ Do[
         ];
         Print[""]
     ],
-    {solver, {"CriticalCongestion", "NonLinearSolver", "Monotone"}}
+    {solver, {"CriticalCongestion"}}
 ]
 
 (* Validate critical solver produced feasible solution *)

@@ -2,7 +2,8 @@
 
 ## Overview
 
-This document describes the benchmarking and profiling infrastructure for the MFGraphs package, along with the algorithmic optimizations implemented to address identified bottlenecks.
+This document describes the active benchmarking flow for the MFGraphs package.
+The benchmark suite now targets the critical solver path only.
 
 ## Running benchmarks
 
@@ -29,20 +30,13 @@ wolframscript -file Scripts/BenchmarkSuite.wls large
 wolframscript -file Scripts/BenchmarkSuite.wls vlarge
 ```
 
-**Backward compatibility:** `medium` is kept as an alias for `core` but `core` is preferred in new scripts.
-
 Run a specific case with a custom timeout:
 
 ```bash
 wolframscript -file Scripts/BenchmarkSuite.wls core case=7 timeout=3600
-wolframscript -file Scripts/BenchmarkSuite.wls core case=8 timeout=3600
 ```
 
-Results are exported to `Results/benchmark_latest.csv` and `Results/benchmark_latest.json`, plus timestamped copies. Timestamped benchmark filenames now include seconds, and the suite rewrites the current run's exports after each completed case so partial progress is preserved if a later case is interrupted.
-
-`NonLinearSolver` and `MonotoneSolver` are benchmarked with a critical seed from the same case when available (to reduce wall-clock benchmark time and isolate incremental post-critical cost). The exported rows include:
-- `IncrementalSolveTime`: measured runtime of the seeded post-critical solver (NonLinear or Monotone)
-- `EstimatedStandaloneSolveTime`: `CriticalCongestion SolveTime + IncrementalSolveTime` (estimate of standalone timing for that solver)
+Results are exported to `Results/benchmark_latest.csv` and `Results/benchmark_latest.json`, plus timestamped copies.
 
 ### Bottleneck profiling
 
@@ -64,15 +58,9 @@ This generates `Results/bottleneck_report.md` with detailed call counts and timi
 | large | 13, 19-23, Braess variants, Jamaratv9, Grid0303 | 900s | Multi-entrance/exit, larger graphs |
 | vlarge | Grid1020 | 1800s | 200-vertex grid; stress test designed to hit RecursionLimit |
 
-**Note on vlarge tier:** `Grid1020` is a deliberate stress test with 200 vertices and 220 edges. Symbolic solvers may not terminate or may exceed `RecursionLimit` by design. Run this tier to validate solver behavior under resource constraints, not for performance measurement.
-
-## Solvers benchmarked
+## Solver benchmarked
 
 1. **CriticalCongestionSolver** -- Symbolic solver for the zero-flow case. Uses `Solve`, `Reduce`, `DNFReduce` (disjunctive normal form), and `TripleClean` (fixed-point simplification).
-
-2. **NonLinearSolver** -- Iterative fixed-point solver for general congestion. Calls `MFGSystemSolver` up to 15 times per solve, with `FindRoot`/`NIntegrate` for Hamiltonian cost evaluation.
-
-3. **MonotoneSolver** -- Reduced-coordinate Hessian Riemannian Flow using `NDSolveValue`, explicit convergence metadata, and a cached projected linear solve.
 
 ## Identified bottlenecks
 
@@ -80,25 +68,9 @@ This generates `Results/bottleneck_report.md` with detailed call counts and timi
 
 `DNFReduce` in `DNFReduce.wl` recursively converts boolean expressions to disjunctive normal form. For `Or` expressions with N branches, this creates up to 2^N recursive paths. Each path calls `Solve` (via `ReDNFReduce`) and `Reduce`, with no caching of results across branches.
 
-**Impact**: Dominates CriticalCongestionSolver runtime for cases with switching costs (keys 8, 10, 11, 14, Braess variants).
-
 ### 2. TripleClean fixed-point iteration
 
 `TripleClean` in `DataToEquations.wl` repeatedly calls `TripleStep` until convergence. Each step calls `Solve` on the equality subsystem. Called multiple times per solver invocation (once in `MFGPreprocessing`, again in `MFGSystemSolver`).
-
-**Impact**: 5-10 iterations typical; each iteration involves symbolic solve of increasing complexity.
-
-### 3. Projected linear solve in MonotoneSolver
-
-`GradientProjection` in `Monotone.wl` builds the Hessian projection operator at every ODE evaluation step. Even with caching, this remains one of the dominant Monotone costs on larger graphs because the projected linear system must be refactorized whenever the state changes materially.
-
-**Impact**: Still dominates MonotoneSolver runtime for larger graphs (Grid0303+), even after switching the implementation away from unconditional `PseudoInverse`.
-
-### 4. Per-point FindRoot/NIntegrate
-
-`M[j, x, edge]` in `NonLinearSolver.wl` calls `FindRoot` for every (j, x) evaluation point. `IntegratedMass` wraps this in `NIntegrate`, which samples M at many points. Called per-edge, per-iteration of `NonLinearSolver`.
-
-**Impact**: Significant for problems with many edges and many `NonLinearSolver` iterations.
 
 ## Optimizations implemented
 
@@ -106,79 +78,28 @@ This generates `Results/bottleneck_report.md` with detailed call counts and timi
 
 **File**: `MFGraphs/DNFReduce.wl`
 
-Added a hash-based cache (`$SolveCache`) for `Solve` results within `ReDNFReduce`. The same equality often appears across multiple branches of an `Or` expression; memoization avoids redundant symbolic solves.
-
-- `CachedSolve[eq]` -- hash-based lookup/store wrapper around `Solve`
-- `ClearSolveCache[]` -- called at solver entry points to prevent stale results
-
-**Expected impact**: 30-70% fewer `Solve` calls on cases with switching costs.
+Added a hash-based cache (`$SolveCache`) for `Solve` results within `ReDNFReduce`.
 
 ### Optimization 2: DNFReduce branch pruning
 
 **File**: `MFGraphs/DNFReduce.wl`
 
-Added early-exit checks:
-- `DNFReduce[xp, And[fst, rst]]` returns `False` immediately when `xp === False`
-- `DNFReduce[xp, Or[fst, scd]]` skips `False` branches in the result instead of creating trivial Or expressions
+Added early-exit checks and reduced branching work for trivial false branches.
 
-**Expected impact**: Avoids exponential blowup on inconsistent branches.
-
-### Optimization 3: Projection-solve caching in MonotoneSolver
-
-**File**: `MFGraphs/Monotone.wl`
-
-Added `CachedGradientProjection` that caches the projected linear solve data and reuses it when the flow vector `x` hasn't changed beyond a tolerance threshold (default 10^-6).
-
-- Controlled by `"UseCachedProjection" -> True` option (default)
-- Set `"UseCachedProjection" -> False` to force a fresh projection solve each time
-
-**Expected impact**: Significant speedup for larger graphs where the projection build dominates.
-
-### Optimization 4: M interpolation for NonLinearSolver
-
-**File**: `MFGraphs/NonLinearSolver.wl`
-
-Added `PrecomputeM[jMin, jMax, edge, nPoints]` that builds an `InterpolatingFunction` from a grid of `FindRoot` evaluations. `FastIntegratedMass` and `FastIntegratedMass` use this interpolation instead of per-point `FindRoot` calls.
-
-- `nPoints` controls grid resolution (default 50)
-- Users can switch between exact (`Cost`/`IntegratedMass`) and fast (`FastIntegratedMass`/`FastIntegratedMass`) versions
-
-**Expected impact**: Large speedup for NIntegrate-heavy iterations; slight numerical approximation controlled by grid resolution.
-
-### Optimization 5: DNFReduce sequential And-Or with early exit
-
-**File**: `MFGraphs/DNFReduce.wl`
-
-The And-Or distribution case (`DNFReduce[xp_, And[fst_Or, rst_]]`) previously evaluated all disjuncts of `fst` unconditionally using `Map`. Replaced with a sequential `Do` loop and `Catch/Throw` that exits as soon as any branch returns `r === xp` — the same short-circuit condition used in the existing 2-arg Or case. When a branch leaves `xp` unchanged, it means the Or constraint is already satisfied, so remaining branches cannot contribute new information.
-
-**Expected impact**: Fewer branch evaluations for And-Or patterns in well-constrained systems; symmetric to the existing Or short-circuit which showed dramatic speedup on cases 11 and 12.
-
-### Optimization 6: TripleStep Solve memoization
+### Optimization 3: TripleStep Solve memoization
 
 **File**: `MFGraphs/DataToEquations.wl`
 
-Both overloads of `TripleStep` called `Solve` directly. Replaced with `CachedSolve` (already defined in `DNFReduce.wl`) so that identical equality systems encountered within a single `MFGSystemSolver` invocation (between `ClearSolveCache` calls) are solved only once.
-
-**Expected impact**: Modest reduction in `Solve` calls during multi-step `TripleClean` fixed-point iteration.
-
-### Optimization 7: NonLinearSolver tolerance-based early stopping
-
-**File**: `MFGraphs/NonLinearSolver.wl`
-
-Added `"Tolerance" -> 0` option to `NonLinearSolver`. When `Tolerance > 0`, iteration switches from `FixedPointList` (exact equality on Associations, rarely fires for floating-point results) to `NestWhileList` with a norm-based stopping condition: stops when the infinity-norm change in flow variables between consecutive iterations is below the tolerance.
-
-**Usage**: `NonLinearSolver[d2e, "Tolerance" -> 10^-6]`
-
-**Expected impact**: Significant savings when problems converge in fewer than `MaxIterations` steps; previously all 15 iterations ran regardless of numerical convergence.
+`TripleStep` now uses cached solve results for repeated equality systems.
 
 ## Profiling scripts
 
 | Script | Purpose |
 |--------|---------|
-| `Scripts/BenchmarkSuite.wls` | Full benchmark across all tiers and solvers |
+| `Scripts/BenchmarkSuite.wls` | Full benchmark across all tiers for `CriticalCongestion` |
 | `Scripts/BenchmarkHelpers.wls` | Helper functions (SafeExecute, GraphMetadata, parameter tables) |
 | `Scripts/ProfileInstrument.wls` | Non-invasive DownValues-based profiling wrappers |
-| `Scripts/BottleneckReport.wls` | Runs profiled solvers on representative cases |
+| `Scripts/BottleneckReport.wls` | Runs profiled solver on representative cases |
 
 ## Results format
 
@@ -188,21 +109,20 @@ Benchmark results are exported as CSV and JSON with these fields:
 |-------|-------------|
 | Key | Test case identifier |
 | Tier | small/core/stress/large/vlarge |
-| Solver | CriticalCongestion/NonLinearSolver/Monotone |
+| Solver | CriticalCongestion |
 | NumVertices | Graph vertex count |
 | NumEdges | Graph edge count |
 | D2ETime | DataToEquations wall time (seconds) |
 | SolveTime | Solver wall time (seconds) |
 | SolveMemory | Peak memory delta (bytes) |
 | Status | OK/TIMEOUT/FAILED/SKIPPED |
-| Residual | Infinity-norm of the shared Kirchhoff residual (comparable across all stationary solvers) |
+| Residual | Infinity-norm of the shared Kirchhoff residual |
 | EquationResidual | Infinity-norm of the equation residual, computed on the public solver result |
-| StopReason | Convergence stop reason for iterative solvers (`ToleranceMet`, `MaxTimeReached`, etc.) |
-| ConvergenceResidual | Iterative solver convergence residual (separate from Kirchhoff feasibility) |
+| StopReason | Convergence stop reason when reported |
+| ConvergenceResidual | Reported convergence residual when present |
 | Iterations | Iteration or accepted-step count reported by the solver |
 
 ## Recommendations for future work
 
-1. **Parallel DNFReduce branches**: `Or` branches in `DNFReduce` are independent and could be evaluated in parallel using `ParallelMap`. Note: parallel kernels do not share `$SolveCache`/`$ReduceCache`, so cache benefits would be per-branch only.
-2. **Compiled Hamiltonian**: Use `Compile` or `FunctionCompile` for the Hamiltonian `H` and mass function `M` to reduce per-evaluation overhead (feasible for the default `alpha`, `g` but not user-overridden versions).
-3. **Sparse matrix operations**: For large graphs (Grid1020), switch from dense `PseudoInverse` to sparse `LinearSolve` with pre-factorization.
+1. **Parallel DNFReduce branches**: `Or` branches in `DNFReduce` are independent and could be evaluated in parallel.
+2. **Sparse matrix operations**: For large graphs, prioritize sparse `LinearSolve` paths when possible.

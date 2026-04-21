@@ -20,7 +20,7 @@ from typing import Dict, List, Optional
 
 
 DEFAULT_TIERS = ["small", "core", "large", "vlarge", "stress", "paper"]
-DEFAULT_SOLVERS = ["CriticalCongestion", "NonLinearSolver", "Monotone"]
+DEFAULT_SOLVERS = ["CriticalCongestion"]
 STATUS_ORDER = ["OK", "TIMEOUT", "FAILED", "SKIPPED", "UNKNOWN"]
 
 TIER_LABELS = {
@@ -35,8 +35,6 @@ TIER_LABELS = {
 
 SOLVER_LABELS = {
     "CriticalCongestion": "Critical",
-    "NonLinearSolver": "NonLinear",
-    "Monotone": "Monotone",
     "DataToEquations": "DataToEquations",
 }
 
