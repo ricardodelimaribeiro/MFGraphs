@@ -27,7 +27,8 @@ $TestSuites = <|
     },
     "slow" -> {
         "J9F-critical_congestion.mt",
-        "Jm9-critical_congestion.mt"
+        "Jm9-critical_congestion.mt",
+        "run-tests-smoke.mt"
     }
 |>;
 $TestSuites["all"] = Join[$TestSuites["fast"], $TestSuites["slow"]];

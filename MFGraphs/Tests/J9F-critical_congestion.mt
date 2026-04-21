@@ -5,7 +5,7 @@ Test[
     result = CriticalCongestionSolver[d2e, "SymbolicTimeLimit" -> 300];
     Module[{asso, flowVars},
         asso = result["AssoCritical"];
-        flowVars = Select[Normal[asso], StringMatchQ[ToString[First[#]], "j[*"] &];
+        flowVars = Select[Normal[asso], MatchQ[First[#], _j] &];
         And[
             AssociationQ[asso],                    (* Result structure is valid *)
             IsFeasible[result],                     (* Solution is feasible *)
