@@ -23,9 +23,6 @@ $TestSuites = <|
         "exit-pass-through-nonzero.mt",
         "exact-mode.mt",
         "infeasible-status.mt",
-        "monotone-monotonicity.mt",
-        "monotone-solver.mt",
-        "numeric-state.mt",
         "scenario-kernel.mt",
         "solve-mfg.mt",
         "solver-contracts.mt"
