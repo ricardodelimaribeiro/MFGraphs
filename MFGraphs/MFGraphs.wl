@@ -757,7 +757,6 @@ SolveMFGCompiledInputQ[input_Association] :=
 
 (* Load submodules in dependency order *)
 Get["MFGraphs`Examples`ExamplesData`"];
-Get["MFGraphs`Examples`TimeDependentExamples`"];
 Get["MFGraphs`DNFReduce`"];
 Get["MFGraphs`DataToEquations`"];
 Get["MFGraphs`Solvers`"];
