@@ -6,6 +6,7 @@
 
 ClearAll[
     FindMFGraphsRoot,
+    PackageUsageSymbols,
     ClearMFGraphsNotebookShadows,
     EnsureMFGraphsLoaded,
     DescribeOutput,
@@ -47,24 +48,22 @@ FindMFGraphsRoot[] :=
         ]
     ];
 
+PackageUsageSymbols[packageDir_String] :=
+    Module[{sourceFiles, usageNames},
+        sourceFiles = FileNames["*.wl", packageDir, Infinity];
+        usageNames = DeleteDuplicates @ Flatten[
+            StringCases[
+                Import[#, "Text"],
+                RegularExpression["(?m)^\\s*([A-Za-z$][A-Za-z0-9$]*)::usage\\s*="] :> "$1"
+            ] & /@ sourceFiles
+        ];
+        usageNames
+    ];
+
 ClearMFGraphsNotebookShadows[] :=
-    Module[{shadowNames, shadowed},
-        shadowNames = {
-            "GetExampleData",
-            "DataToEquations",
-            "CriticalCongestionSolver",
-            "IsSwitchingCostConsistent",
-            "PlotMassDensity",
-            "PlotValueFunction",
-            "NetworkGraphPlot",
-            "SolutionFlowPlot",
-            "ExitFlowPlot",
-            "I1", "I2", "I3",
-            "U1", "U2", "U3",
-            "S1", "S2", "S3", "S4", "S5", "S6",
-            "V", "alpha", "g"
-        };
-        shadowed = Select[shadowNames, NameQ["Global`" <> #] &];
+    Module[{packageDir = FindMFGraphsRoot[], exported, shadowed},
+        exported = If[packageDir === $Failed, {}, PackageUsageSymbols[packageDir]];
+        shadowed = Select[exported, NameQ["Global`" <> #] &];
         Scan[ToExpression["Global`" <> #, InputForm, Remove] &, shadowed];
         shadowed
     ];
@@ -123,20 +122,33 @@ FlowStyleDirective[flow_?NumericQ, maxFlow_?NumericQ] :=
 DensityNetworkGraphic[d2e_Association, solution_Association, title_: Automatic, samples_Integer: 24] :=
     Module[{visual, coords, pairs, flows, sampleXs, densitiesByPair, allDensities,
       maxDensity, colorScale, edgeSegments, edgeLabels, vertexDisks, vertexLabels,
-      plotTitle, legendRange},
+      plotTitle, legendRange, hasDensityModelQ, usesProxyDensityQ = False},
         visual = NetworkVisualData[d2e];
         coords = visual["coords"];
         pairs = List @@@ Lookup[d2e, "edgeList", {}];
         flows = NetEdgeFlows[d2e, solution, pairs];
         sampleXs = N @ Subdivide[0., 1., samples];
+        hasDensityModelQ = DownValues[MFGraphs`Private`M] =!= {};
         densitiesByPair = AssociationThread[
             pairs,
             Table[
-                Quiet @ Check[
-                    MFGraphs`Private`M[AssociationValue[flows, pair, 0.], x, UndirectedEdge @@ pair],
-                    0.
+                Module[{flow, sampled},
+                    flow = N @ AssociationValue[flows, pair, 0.];
+                    sampled = If[
+                        hasDensityModelQ,
+                        Quiet @ Check[
+                            N @ (MFGraphs`Private`M[flow, #, UndirectedEdge @@ pair] & /@ sampleXs),
+                            {}
+                        ],
+                        {}
+                    ];
+                    If[VectorQ[sampled, NumericQ],
+                        sampled,
+                        usesProxyDensityQ = True;
+                        ConstantArray[N @ Max[0., Abs[flow]], Length[sampleXs]]
+                    ]
                 ],
-                {pair, pairs}, {x, sampleXs}
+                {pair, pairs}
             ]
         ];
         allDensities = Select[Flatten[Values[densitiesByPair]], NumericQ];
@@ -203,6 +215,9 @@ DensityNetworkGraphic[d2e_Association, solution_Association, title_: Automatic, 
             VertexList[visual["graph"]]
         ];
         plotTitle = Replace[title, Automatic -> "Edge density profile"];
+        If[usesProxyDensityQ,
+            plotTitle = plotTitle <> " (flow-magnitude proxy)"
+        ];
         Legended[
             Graphics[
                 {
@@ -219,7 +234,10 @@ DensityNetworkGraphic[d2e_Association, solution_Association, title_: Automatic, 
             Placed[
                 BarLegend[
                     {ColorData["SolarColors"], legendRange},
-                    LegendLabel -> Style["Local density", 11]
+                    LegendLabel -> Style[
+                        If[usesProxyDensityQ, "Flow-magnitude proxy", "Local density"],
+                        11
+                    ]
                 ],
                 Right
             ]
@@ -308,22 +326,20 @@ criticalData = GetExampleData[7] /. {
 };
 criticalD2E = DataToEquations[criticalData];
 
-criticalLegacy = CriticalCongestionSolver[criticalD2E];
-criticalLegacy["AssoCritical"];
-
-criticalStandard = CriticalCongestionSolver[criticalD2E];
+criticalResult = CriticalCongestionSolver[criticalD2E];
+criticalResult["AssoCritical"];
 Column[{
     DescribeOutput[
         "Critical solver solution",
         "This association stores the equilibrium directional currents, switching currents, and edge values for the critical-congestion model.",
-        criticalStandard["Solution"]
+        criticalResult["Solution"]
     ],
     DescribeOutput[
         "Net edge flows",
         "Edge thickness and labels show the signed net flow on each interior edge. Positive values follow the stored edge orientation.",
         SolutionFlowPlot[
             criticalD2E,
-            criticalStandard["Solution"],
+            criticalResult["Solution"],
             "Critical-congestion net flows"
         ]
     ],
@@ -336,7 +352,7 @@ Column[{
             Function[{m, edge}, -1 / m^2],
             DensityNetworkGraphic[
                 criticalD2E,
-                criticalStandard["Solution"],
+                criticalResult["Solution"],
                 "Critical-congestion edge densities"
             ]
         ]
@@ -344,7 +360,7 @@ Column[{
     DescribeOutput[
         "Net edge flow values",
         "This association is often the easiest summary to inspect numerically when checking route splits.",
-        NetEdgeFlows[criticalD2E, criticalStandard["Solution"]]
+        NetEdgeFlows[criticalD2E, criticalResult["Solution"]]
     ]
 }]
 
