@@ -14,7 +14,10 @@ DataG::usage = "DataG is a backward-compatibility alias for GetExampleData.";
 GetExampleData::badfields =
 "Unexpected number of fields (`1`) for test case `2`.";
 
-(* Declare symbolic parameters in the MFGraphs` context so that user-level
+(* TODO: stop using these parameters. we should, maybe update the examples to only specify the entry and exit vertices and let makeScenario take the corresponding values directly.*)
+
+
+(*Declare symbolic parameters in the MFGraphs` context so that user-level
    substitution rules like {I1 -> 100, U1 -> 0} match the symbols returned
    by GetExampleData. Without these declarations the symbols end up in
    MFGraphs`Private` and substitution silently fails. *)

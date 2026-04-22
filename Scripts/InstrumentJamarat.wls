@@ -15,8 +15,10 @@
     - Results/jamaratv9_pruning_stats.json: machine-readable statistics
 *)
 
-Get["MFGraphs/MFGraphs.wl"];
-Get["Scripts/BenchmarkHelpers.wls"];
+$RepoRoot = "/Users/ribeirrd/Documents/GitHub/MFGraphs";
+PrependTo[$Path, $RepoRoot];
+Get[FileNameJoin[{$RepoRoot, "MFGraphs", "MFGraphs.wl"}]];
+Get[FileNameJoin[{$RepoRoot, "Scripts", "BenchmarkHelpers.wls"}]];
 
 (* ========== Global Statistics Accumulator ========== *)
 
@@ -178,9 +180,9 @@ If[IsFeasible[result],
 Print[];
 
 (* Export results *)
-exportPath = FileNameJoin[{Directory[], "Results", "jamaratv9_pruning_stats.json"}];
-If[!DirectoryQ[FileNameJoin[{Directory[], "Results"}]],
-  CreateDirectory[FileNameJoin[{Directory[], "Results"}]]
+exportPath = FileNameJoin[{$RepoRoot, "Results", "jamaratv9_pruning_stats.json"}];
+If[!DirectoryQ[FileNameJoin[{$RepoRoot, "Results"}]],
+  CreateDirectory[FileNameJoin[{$RepoRoot, "Results"}]]
 ];
 Export[exportPath, prunStats, "JSON"];
 Print["Results exported to: ", exportPath];

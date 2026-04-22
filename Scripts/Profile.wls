@@ -7,13 +7,14 @@ Print["Date: ", DateString[]];
 Print[];
 
 (* --- Setup package path --- *)
-PrependTo[$Path, Directory[]];
+$RepoRoot = "/Users/ribeirrd/Documents/GitHub/MFGraphs";
+PrependTo[$Path, $RepoRoot];
 Needs["MFGraphs`"];
 $MFGraphsVerbose = False;
 
 (* --- Load helpers and profiler --- *)
-Get[FileNameJoin[{Directory[], "Scripts", "BenchmarkHelpers.wls"}]];
-Get[FileNameJoin[{Directory[], "Scripts", "ProfileInstrument.wls"}]];
+Get[FileNameJoin[{$RepoRoot, "Scripts", "BenchmarkHelpers.wls"}]];
+Get[FileNameJoin[{$RepoRoot, "Scripts", "ProfileInstrument.wls"}]];
 
 (* --- Configuration --- *)
 $CaseToProfile = 7;

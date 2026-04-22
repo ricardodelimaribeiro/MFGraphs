@@ -9,12 +9,13 @@ Print["Mathematica: ", $Version];
 Print[];
 
 (* --- Setup --- *)
-PrependTo[$Path, Directory[]];
+$RepoRoot = "/Users/ribeirrd/Documents/GitHub/MFGraphs";
+PrependTo[$Path, $RepoRoot];
 Needs["MFGraphs`"];
 $MFGraphsVerbose = False;
 
-Get[FileNameJoin[{Directory[], "Scripts", "BenchmarkHelpers.wls"}]];
-Get[FileNameJoin[{Directory[], "Scripts", "ProfileInstrument.wls"}]];
+Get[FileNameJoin[{$RepoRoot, "Scripts", "BenchmarkHelpers.wls"}]];
+Get[FileNameJoin[{$RepoRoot, "Scripts", "ProfileInstrument.wls"}]];
 
 (* --- Select representative cases for profiling --- *)
 (* One from each complexity class *)
@@ -163,7 +164,7 @@ AppendTo[$ReportLines, "3. **PseudoInverse Caching**: Cache the PseudoInverse re
 AppendTo[$ReportLines, "4. **M Interpolation**: Pre-compute `M[j, x, edge]` on a grid and interpolate instead of calling `FindRoot` per point."];
 
 (* --- Export report --- *)
-$ResultsDir = FileNameJoin[{Directory[], "Results"}];
+$ResultsDir = FileNameJoin[{$RepoRoot, "Results"}];
 If[!DirectoryQ[$ResultsDir], CreateDirectory[$ResultsDir]];
 
 $ReportPath = FileNameJoin[{$ResultsDir, "bottleneck_report.md"}];

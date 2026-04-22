@@ -287,7 +287,33 @@ examplePreview = <|
 examplePreview["Jamarat"]
 
 
-(* --- 2. Define your own network --- *)
+(* --- 2. Typed Scenarios and Unknowns --- *)
+
+(* Scenarios provide a typed wrapper for model data and parameters. *)
+typedScenario = makeScenario[<|
+    "Identity" -> <|"Name" -> "Y-junction benchmark"|>,
+    "Model" -> GetExampleData[7],
+    "Data" -> {I1 -> 100, U1 -> 0, U2 -> 0}
+|>];
+
+(* makeUnknowns derives the symbolic variables (js, jts, us) from the scenario. *)
+unknowns = makeUnknowns[typedScenario];
+
+Column[{
+    DescribeOutput[
+        "Typed scenario identity",
+        "The contentHash is automatically derived from the Model topology.",
+        ScenarioData[typedScenario, "Identity"]
+    ],
+    DescribeOutput[
+        "Symbolic unknowns",
+        "js are edge flows, jts are transition flows at junctions, and us are value-function variables.",
+        unknowns
+    ]
+}]
+
+
+(* --- 3. Define your own network --- *)
 
 customData = <|
     "Vertices List" -> {1, 2, 3, 4},
@@ -317,7 +343,7 @@ Column[{
 }]
 
 
-(* --- 3. Critical congestion solver --- *)
+(* --- 4. Critical congestion solver --- *)
 
 criticalData = GetExampleData[7] /. {
     I1 -> 100,
@@ -365,7 +391,7 @@ Column[{
 }]
 
 
-(* --- 4. Switching-cost validation --- *)
+(* --- 5. Switching-cost validation --- *)
 
 switchingData = GetExampleData[8] /. {
     I1 -> 100, U1 -> 0, U2 -> 0,
@@ -380,7 +406,7 @@ DescribeOutput[
 ]
 
 
-(* --- 5. Jamarat / pilgrimage crowd routing --- *)
+(* --- 6. Jamarat / pilgrimage crowd routing --- *)
 
 (* The built-in Jamarat network has two entrances and three exits. *)
 jamaratTemplate = GetExampleData["Jamaratv9"];

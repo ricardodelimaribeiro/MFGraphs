@@ -4,7 +4,8 @@
 (* :!CodeAnalysis::BeginBlock:: *)
 (* :!CodeAnalysis::Disable::SuspiciousSessionSymbol:: *)
 
-PrependTo[$Path, Directory[]];
+$RepoRoot = "/Users/ribeirrd/Documents/GitHub/MFGraphs";
+PrependTo[$Path, $RepoRoot];
 Needs["MFGraphs`"];
 
 Print["Generating API Reference..."];
@@ -31,7 +32,7 @@ Do[
   {s, publicSymbols}
 ];
 
-exportPath = FileNameJoin[{Directory[], "API_REFERENCE.md"}];
+exportPath = FileNameJoin[{$RepoRoot, "API_REFERENCE.md"}];
 Export[exportPath, StringRiffle[mdContent, "\n"], "Text"];
 
 Print["Documentation exported to: ", exportPath];
