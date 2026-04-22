@@ -178,6 +178,7 @@ Get["MFGraphs`Examples`ExamplesData`"];
 Get["MFGraphs`DNFReduce`"];
 Get["MFGraphs`Scenario`"];
 Get["MFGraphs`Unknowns`"];
+Get["MFGraphs`System`"];
 Get["MFGraphs`DataToEquations`"];
 Get["MFGraphs`Solvers`"];
 Get["MFGraphs`Graphics`"];
@@ -765,7 +766,6 @@ Scan[
         "MFGraphs`DataToEquations`",
         "MFGraphs`Solvers`",
         "MFGraphs`Graphics`",
-        "MFGraphs`Scenario`",
         "MFGraphs`FictitiousPlayBackend`",
         "MFGraphs`SolveMFGDispatch`"
     }

@@ -675,7 +675,15 @@ ScenarioByKey[key_, input_Association] :=
             missing, badEntryVertices, badExitVertices, badEntryValues, badExitValues,
             entryRules, exitRules, switchingValidated, model, requiredKeys},
         base = GetExampleDataRaw[key];
-        If[base === $Failed, Return[$Failed, Module]];
+        If[base === $Failed,
+            Return[
+                Failure["ScenarioByKey", <|
+                    "Message" -> "Unknown example key: " <> ToString[key, InputForm],
+                    "Key" -> key
+                |>],
+                Module
+            ]
+        ];
 
         requiredKeys = {"Entry flows", "Exit costs"};
         missing = Select[requiredKeys, !KeyExistsQ[input, #] &];

@@ -1,4 +1,5 @@
 #!/usr/bin/env wolframscript
+(* LEGACY_GETEXAMPLEDATA: This script still depends on GetExampleData and is excluded from the active scenario-first workflow. *)
 (* Profile.wls -- Run a single benchmark case with profiling enabled *)
 
 Print["MFGraphs Profiler"];

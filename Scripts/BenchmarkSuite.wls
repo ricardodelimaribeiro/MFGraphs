@@ -1,4 +1,5 @@
 #!/usr/bin/env wolframscript
+(* LEGACY_GETEXAMPLEDATA: This script still depends on GetExampleData and is excluded from the active scenario-first workflow. *)
 (* Usage: wolframscript -file Scripts/BenchmarkSuite.wls [tier] [case=key] [timeout=seconds] [isolation=mode] [solver=name] [tag=label] [rationale=...] [changes=...] [interpretation=...] *)
 (* tier: "small", "core", "stress", "paper", "inconsistent-switching", "large", "vlarge", legacy "medium", or "all" (default: "all") *)
 (* solver: "critical" (default) *)

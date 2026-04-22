@@ -13,28 +13,6 @@
 
 (* --- Public API declarations --- *)
 
-ConsistentSwitchingCosts::usage = "ConsistentSwitchingCosts[switchingcosts][{a,b,c}->S]
-returns True if S, the cost of switching from the edge ab to cb, is smaller than any other combination,
-such as, ab to bd and then from db to bc.
-Returns the condition for this switching cost to satisfy the triangle inequality when S, and the other
-switching costs too, does not have a numerical value.";
-
-IsSwitchingCostConsistent::usage = "IsSwitchingCostConsistent[List of switching costs] is True if all switching costs satisfy the triangle inequality. If some switching costs are symbolic, then it returns the consistency conditions."
-
-AltFlowOp::usage = "AltFlowOp[j][list] returns the alternative: j@@list ==0 || j@@Reverse@list ==0.";
-
-FlowSplitting::usage = "FlowSplitting[AT][UndirectedEdge[a, b]] returns the splitting that start with {a,b}.";
-
-FlowGathering::usage = "FlowGathering[auxTriples_List][x_] returns the triples that end with x.";
-
-IneqSwitch::usage = "IneqSwitch[u, switchingCosts][v, e1, e2] returns the optimality condition at the vertex v related to switching from e1 to e2. Namely,
-u[v, e1] <= u[v, e2] + switchingCosts[{v, e1, e2}]"
-
-AltSwitch::usage = "AltSwitch[j, u, switchingCosts][v, e1, e2] returns the complementarity condition:
-(j[v, e1, e2] == 0) || (u[v, e1] == u[e2, e1] + switchingCosts[{v, e1, e2}])"
-
-GetKirchhoffMatrix::usage = "GetKirchhoffMatrix[d2e] returns the entry current vector, Kirchhoff matrix, (critical congestion) cost function placeholder, and the variables in the order corresponding to the Kirchhoff matrix. The third slot is retained for backward compatibility and should not be used by new code."
-
 GetKirchhoffLinearSystem::usage = "GetKirchhoffLinearSystem[d2e] returns the entry current vector, Kirchhoff matrix, and the variables in the order corresponding to the Kirchhoff matrix.";
 
 DNFSolveStep::usage = "DNFSolveStep[{EE,NN,OR}, rules] takes a grouped system and some Association of rules (a partial solution). It returns the result of applying DNFReduce.";
@@ -56,47 +34,6 @@ Data2Equations::deprecated = "Data2Equations is deprecated. Please use DataToEqu
 MFGSystemSolver::nosolution = "There is no feasible symbolic solution for the current system.";
 
 Begin["`Private`"];
-
-
-(* --- Switching cost consistency --- *)
-
-ConsistentSwitchingCosts[sc_][{a_, b_, c_} -> S_] :=
-    Module[{origin, bounds},
-        origin = Cases[sc, HoldPattern[{a, b, _} -> _]];
-        origin = DeleteCases[origin, {a, b, c} -> S];
-        If[origin =!= {},
-            bounds = ((S <= Last[#] + Association[sc][{Part[First[#],
-                 3], b, c}])& /@ origin);
-            And @@ bounds
-            ,
-            True
-        ]
-    ];
-
-IsSwitchingCostConsistent[switchingCosts_] :=
-    And @@ Simplify[ConsistentSwitchingCosts[switchingCosts] /@ switchingCosts
-        ]
-
-
-(* --- Graph helper functions --- *)
-
-TransitionsAt[G_, k_] :=
-    Insert[k, 2] /@ Permutations[AdjacencyList[G, k], {2}]
-
-AltFlowOp[j_][list_] :=
-    j @@ list == 0 || j @@ Reverse @ list == 0;
-
-FlowSplitting[auxTriples_List][x_] :=
-    Select[auxTriples, MatchQ[#, {Sequence @@ x, __}]&];
-
-FlowGathering[auxTriples_List][x_] :=
-    Select[auxTriples, MatchQ[#, {__, Sequence @@ x}]&]
-
-IneqSwitch[u_, Switching_Association][r_, i_, w_] :=
-    u[r, i] <= u[w, i] + Switching[{r, i, w}];
-
-AltSwitch[j_, u_, Switching_][r_, i_, w_] :=
-    (j[r, i, w] == 0) || (u[r, i] == u[w, i] + Switching[{r, i, w}]);
 
 
 (* --- Numeric state compiler and adapters (internal) --- *)
@@ -400,19 +337,7 @@ ComputeKirchhoffResidualFast[numericState_Association, flowVec_] :=
 (* --- DataToEquations: main converter --- *)
 
 DataToEquations[Data_Association] :=
-    Module[{verticesList, adjacencyMatrix, entryVerticesFlows, exitVerticesCosts,
-         switchingCosts, graph, entryVertices, auxEntryVertices, exitVertices,
-         auxExitVertices, entryEdges, exitEdges, auxiliaryGraph, auxEdgeList,
-         edgeList, auxVerticesList, auxPairs, auxTriples, unknownBundle, EntryDataAssociation,
-         ExitCosts, js, us, jts, SignedFlows, SwitchingCosts, IneqJs, IneqJts,
-         AltFlows, AltTransitionFlows, splittingPairs, EqBalanceSplittingFlows,
-         BalanceSplittingFlows, NoDeadStarts, RuleBalanceGatheringFlows, BalanceGatheringFlows,
-         EqBalanceGatheringFlows, EqEntryIn, RuleEntryValues, RuleEntryOut, RuleExitFlowsIn,
-         RuleExitValues, EqValueAuxiliaryEdges, IneqSwitchingByVertex, AltOptCond,
-         blockedIncomingPairs, activeAuxTriples,
-         Nlhs, ModuleVars, ModuleVarsNames, Nrhs, costpluscurrents, EqGeneral,
-         inAuxEntryPairs, outAuxEntryPairs, inAuxExitPairs, outAuxExitPairs, 
-        pairs, halfPairs, consistentCosts, scenarioObj, topology},
+    Module[{scenarioObj, systemObj, d2eAssoc},
         
         (* Use makeScenario to get completed and validated data *)
         scenarioObj = makeScenario[<|"Model" -> Data|>];
@@ -420,193 +345,17 @@ DataToEquations[Data_Association] :=
             Return[scenarioObj, Module]
         ];
         
-        verticesList = ScenarioData[scenarioObj, "Model"]["Vertices List"];
-        adjacencyMatrix = ScenarioData[scenarioObj, "Model"]["Adjacency Matrix"];
-        entryVerticesFlows = ScenarioData[scenarioObj, "Model"]["Entrance Vertices and Flows"];
-        exitVerticesCosts = ScenarioData[scenarioObj, "Model"]["Exit Vertices and Terminal Costs"];
-        SwitchingCosts = ScenarioData[scenarioObj, "Model"]["Switching Costs"];
-
-        (* Use shared topology logic from Scenario.wl - preferably from cache *)
-        topology = ScenarioData[scenarioObj, "Topology"];
-        If[!AssociationQ[topology],
-            topology = BuildAuxiliaryTopology[ScenarioData[scenarioObj, "Model"]]
+        (* Use the new system kernel to build structural equations *)
+        systemObj = makeSystem[scenarioObj];
+        If[FailureQ[systemObj],
+            Return[systemObj, Module]
         ];
         
-        If[topology === $Failed, 
-            Return[Failure["DataToEquations", <|"Message" -> "Topology construction failed"|>], Module]
-        ];
-
-        graph = topology["Graph"];
-        auxiliaryGraph = topology["AuxiliaryGraph"];
-        auxEntryVertices = topology["AuxEntryVertices"];
-        auxExitVertices = topology["AuxExitVertices"];
-        entryEdges = topology["AuxEntryEdges"];
-        exitEdges = topology["AuxExitEdges"];
-            
-        auxEdgeList = EdgeList[auxiliaryGraph];
-        edgeList = EdgeList[graph];
-        auxVerticesList = VertexList[auxiliaryGraph];
-
-        halfPairs = List @@@ edgeList;
-        inAuxEntryPairs = List @@@ entryEdges;
-        outAuxExitPairs = List @@@ exitEdges;
-        inAuxExitPairs = Reverse /@ outAuxExitPairs;
-        outAuxEntryPairs = Reverse /@ inAuxEntryPairs;
-        pairs = Join[halfPairs, Reverse /@ halfPairs];
-
-        (* Prepare boundary data *)
-        EntryDataAssociation = RoundValues @ AssociationThread[inAuxEntryPairs,
-             Last /@ entryVerticesFlows];
-        ExitCosts = AssociationThread[auxExitVertices, Last /@ exitVerticesCosts];
-
-        (* Variables *)
-        unknownBundle = makeUnknowns[scenarioObj];
-        js = UnknownsData[unknownBundle, "js"] /. Missing[_, _] -> {};
-        jts = UnknownsData[unknownBundle, "jts"] /. Missing[_, _] -> {};
-        us = UnknownsData[unknownBundle, "us"] /. Missing[_, _] -> {};
-        auxPairs = UnknownsData[unknownBundle, "auxPairs"] /. Missing[_, _] -> {};
-        auxTriples = UnknownsData[unknownBundle, "auxTriples"] /. Missing[_, _] -> {};
-
-        (* Signed flows *)
-        SignedFlows = AssociationMap[j @@ # - j @@ Reverse @ #&, Join[
-            inAuxEntryPairs, outAuxExitPairs, halfPairs]];
-
-        consistentCosts = IsSwitchingCostConsistent[Normal @ SwitchingCosts];
-        Which[
-            consistentCosts === False,
-                Message[DataToEquations::switchingcosts]
-            ,
-            consistentCosts =!= True,
-                MFGPrint["Switching costs conditions are ", consistentCosts]
-        ];
-        IneqJs = And @@ (# >= 0& /@ js);
-        IneqJts = And @@ (# >= 0& /@ jts);
-        (* Use only one representative per symmetric pair/triple to avoid
-           generating duplicate conditions: AltFlowOp[j][{a,b}] and
-           AltFlowOp[j][{b,a}] produce identical Or-conditions. *)
-        AltFlows = And @@ (AltFlowOp[j] /@ Join[
-            inAuxEntryPairs, outAuxExitPairs, halfPairs]);
-        (* Transition flow constraints: for each vertex pair {a,b}, at least one
-           transition through {a,b} must have zero flow (complementarity).
-
-           When switching costs are CONSISTENT (satisfy triangle inequality):
-           Use original method: AltFlowOp on ordered vertex pairs only.
-
-           When switching costs are INCONSISTENT (violate triangle inequality):
-           Use disjunctive constraint strategy: For each target vertex v, for each
-           pair of incoming transitions (t1, t2), require j(t1)==0 OR j(t2)==0.
-           Groups auxTriples by intermediate vertex (midpoint), then for each target,
-           constructs disjunctions among all paths reaching that target.
-           This weaker constraint allows solver to find solutions when triangle
-           inequality fails, while still enforcing some complementarity. *)
-        AltTransitionFlows =
-            If[consistentCosts === False,
-                And @@ DeleteDuplicates[
-                    Sort /@ Flatten @ KeyValueMap[
-                        Function[{k, trips},
-                            Module[{bySource, byTarget},
-                                bySource = GroupBy[trips, First];
-                                byTarget = GroupBy[trips, Last];
-                                KeyValueMap[
-                                    Function[{v, t1s},
-                                        Table[
-                                            j @@ t1 == 0 || j @@ t2 == 0,
-                                            {t1, t1s},
-                                            {t2, Lookup[bySource, v, {}]}
-                                        ]
-                                    ],
-                                    byTarget
-                                ]
-                            ]
-                        ],
-                        GroupBy[auxTriples, #[[2]] &]
-                    ]
-                ],
-                And @@ (AltFlowOp[j] /@
-                    Select[auxTriples, OrderedQ[{First[#], Last[#]}]&])
-            ];
-        splittingPairs = Join[inAuxEntryPairs, inAuxExitPairs, pairs]
-            ;
-        BalanceSplittingFlows = (j @@ # - Total[j @@@ FlowSplitting[auxTriples
-            ][#]])& /@ splittingPairs;
-        EqBalanceSplittingFlows = Simplify /@ (And @@ ((# == 0)& /@ BalanceSplittingFlows
-            ));
-        NoDeadStarts = Join[outAuxEntryPairs, outAuxExitPairs, pairs]
-            ;
-        RuleBalanceGatheringFlows = Association[(j @@ # -> Total[j @@@
-             FlowGathering[auxTriples][#]])& /@ NoDeadStarts];
-        (* Equations for the exit currents at the entry vertices *)
-        BalanceGatheringFlows = ((-j @@ # + Total[j @@@ FlowGathering[
-            auxTriples][#]])& /@ NoDeadStarts);
-        EqBalanceGatheringFlows = Simplify /@ (And @@ (# == 0& /@ BalanceGatheringFlows
-            ));
-        (* Incoming currents *)
-        EqEntryIn = (j @@ # == EntryDataAssociation[#])& /@ inAuxEntryPairs
-            ;
-(* Outgoing flows at entrances and incoming flows at exits are zero 
-    *)
-        RuleEntryOut = Association[(j @@ # -> 0)& /@ outAuxEntryPairs
-            ];
-        RuleExitFlowsIn = Association[(j @@ # -> 0)& /@ inAuxExitPairs
-            ];
-        blockedIncomingPairs = DeleteDuplicates @ Join[outAuxEntryPairs, inAuxExitPairs];
-        activeAuxTriples = Select[
-            auxTriples,
-            !MemberQ[blockedIncomingPairs, #[[{1, 2}]]] &
-        ];
-        (* Exit values at exit vertices *)
-        RuleExitValues = AssociationThread[u @@@ (Reverse /@ outAuxExitPairs
-            ), Last /@ exitVerticesCosts];
-        RuleExitValues = Join[RuleExitValues, AssociationThread[u @@@
-             outAuxExitPairs, Last /@ exitVerticesCosts]];
-        RuleEntryValues = AssociationThread[u @@@ outAuxEntryPairs, u
-             @@@ inAuxEntryPairs];
-        EqValueAuxiliaryEdges = And @@ ((u @@ # == u @@ Reverse[#])& 
-            /@ Join[inAuxEntryPairs, outAuxExitPairs]);
-        IneqSwitchingByVertex =
-            IneqSwitch[u, SwitchingCosts] @@@
-                Select[
-                    TransitionsAt[auxiliaryGraph, #],
-                    !MemberQ[blockedIncomingPairs, #[[{1, 2}]]] &
-                ] & /@ verticesList;
-        IneqSwitchingByVertex = And @@@ IneqSwitchingByVertex;
-        AltOptCond = And @@ AltSwitch[j, u, SwitchingCosts] @@@ activeAuxTriples
-            ;
-        Nlhs = Flatten[u @@ # - u @@ Reverse @ # + SignedFlows[#]& /@
-             halfPairs];
-        Nrhs = Flatten[SignedFlows[#] - Sign[SignedFlows[#]] Cost[SignedFlows[
-            #], #]& /@ halfPairs];
-        (* Cost-plus-currents for the general (non-critical) case *)
-        costpluscurrents = Table[Symbol["cpc" <> ToString[k]], {k, 1,
-             Length @ edgeList}];
-        EqGeneral = And @@ (MapThread[Equal, {Nlhs, costpluscurrents}
-            ]);
-        costpluscurrents = AssociationThread[costpluscurrents, Nrhs];
-            
-        (* Build output association *)
-        ModuleVars = {graph, pairs, entryVertices, auxEntryVertices, 
-            exitVertices, auxExitVertices, entryEdges, exitEdges, auxiliaryGraph,
-             auxEdgeList, edgeList, auxVerticesList, auxTriples, EntryDataAssociation,
-             ExitCosts, js, us, jts, SignedFlows, SwitchingCosts, IneqJs, IneqJts,
-             AltFlows, AltTransitionFlows, splittingPairs, EqBalanceSplittingFlows,
-             BalanceSplittingFlows, NoDeadStarts, RuleBalanceGatheringFlows, BalanceGatheringFlows,
-             EqBalanceGatheringFlows, EqEntryIn, RuleEntryOut, RuleEntryValues, RuleExitFlowsIn,
-             RuleExitValues, EqValueAuxiliaryEdges, IneqSwitchingByVertex, AltOptCond,
-             Nlhs, Nrhs, costpluscurrents, EqGeneral};
-        ModuleVarsNames = {"graph", "pairs", "entryVertices", "auxEntryVertices",
-             "exitVertices", "auxExitVertices", "entryEdges", "exitEdges", "auxiliaryGraph",
-             "auxEdgeList", "edgeList", "auxVerticesList", "auxTriples", "EntryDataAssociation",
-             "ExitCosts", "js", "us", "jts", "SignedFlows", "SwitchingCosts", "IneqJs",
-             "IneqJts", "AltFlows", "AltTransitionFlows", "splittingPairs", "EqBalanceSplittingFlows",
-             "BalanceSplittingFlows", "NoDeadStarts", "RuleBalanceGatheringFlows",
-             "BalanceGatheringFlows", "EqBalanceGatheringFlows", "EqEntryIn", "RuleEntryOut",
-             "RuleEntryValues", "RuleExitFlowsIn", "RuleExitValues", "EqValueAuxiliaryEdges",
-             "IneqSwitchingByVertex", "AltOptCond", "Nlhs", "Nrhs", "costpluscurrents",
-             "EqGeneral"};
-        Module[{baseAssoc},
-            baseAssoc = Join[Data, AssociationThread[ModuleVarsNames, ModuleVars]];
-            Join[baseAssoc, <|"NumericState" -> BuildNumericState[baseAssoc]|>]
-        ]
+        (* Extract flat association for backward compatibility with existing solvers *)
+        d2eAssoc = SystemData[systemObj];
+        
+        (* Append the numeric state required by Phase 4/5 solvers *)
+        Join[d2eAssoc, <|"NumericState" -> BuildNumericState[d2eAssoc]|>]
     ];
 
 (* --- Utility --- *)

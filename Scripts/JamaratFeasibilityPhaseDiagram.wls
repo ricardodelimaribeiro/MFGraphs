@@ -1,4 +1,5 @@
 #!/usr/bin/env wolframscript
+(* LEGACY_GETEXAMPLEDATA: This script still depends on GetExampleData and is excluded from the active scenario-first workflow. *)
 (* JamaratFeasibilityPhaseDiagram.wls
    Export feasibility phase-diagram data for the Jamaratv9 case.
 

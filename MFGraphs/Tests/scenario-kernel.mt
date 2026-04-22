@@ -344,3 +344,19 @@ Test[
     ,
     TestID -> "ScenarioByKey: missing required input keys yields Failure"
 ]
+
+(* Test: ScenarioByKey reports unknown key as structured Failure *)
+Test[
+    Module[{result},
+        result = ScenarioByKey["does-not-exist", <|
+            "Entry flows" -> <|1 -> 1|>,
+            "Exit costs" -> <|1 -> 0|>,
+            "Switching Costs" -> <||>
+        |>];
+        FailureQ[result] && result["Tag"] === "ScenarioByKey"
+    ]
+    ,
+    True
+    ,
+    TestID -> "ScenarioByKey: unknown key yields structured Failure"
+]

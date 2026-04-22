@@ -1,4 +1,5 @@
 #!/usr/bin/env wolframscript
+(* LEGACY_GETEXAMPLEDATA: This script still depends on GetExampleData and is excluded from the active scenario-first workflow. *)
 (* CompareDNF.wls -- Compare BooleanConvert["DNF"] vs DNFReduce *)
 (*
    Usage:

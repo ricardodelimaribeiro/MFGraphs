@@ -1,4 +1,5 @@
 #!/usr/bin/env wolframscript
+(* LEGACY_GETEXAMPLEDATA: This script still depends on GetExampleData and is excluded from the active scenario-first workflow. *)
 (* ProfileEquivCheck.wls -- Profile equivalence check time for a single case *)
 (* Usage: wolframscript -file Scripts/ProfileEquivCheck.wls <case_key> [timeout_seconds] *)
 (* Keys: Attraction_noswitch, Attraction_switch, Braess *)
