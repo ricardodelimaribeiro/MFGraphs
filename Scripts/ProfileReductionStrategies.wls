@@ -1,4 +1,5 @@
 #!/usr/bin/env wolframscript
+(* LEGACY_GETEXAMPLEDATA: This script still depends on GetExampleData and is excluded from the active scenario-first workflow. *)
 (* ProfileReductionStrategies.wls -- Compare disjunct reduction strategies *)
 (* Usage: wolframscript -file Scripts/ProfileReductionStrategies.wls <case_key> *)
 (* Keys: Attraction_noswitch, Attraction_switch, Braess, Multi_20 *)

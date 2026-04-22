@@ -1,4 +1,5 @@
 #!/usr/bin/env wolframscript
+(* LEGACY_GETEXAMPLEDATA: This script still depends on GetExampleData and is excluded from the active scenario-first workflow. *)
 (* GenerateReferenceHashes.wls — Produce MFGraphs/Tests/reference_solutions.json
 
    For each benchmark case, solve CriticalCongestionSolver and hash the solution

@@ -1,4 +1,5 @@
 #!/usr/bin/env wolframscript
+(* LEGACY_GETEXAMPLEDATA: This script still depends on GetExampleData and is excluded from the active scenario-first workflow. *)
 (*
   InstrumentJamarat.wls -- Instrumentation wrapper for Jamaratv9 solver run
 

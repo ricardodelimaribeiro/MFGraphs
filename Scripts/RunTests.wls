@@ -12,29 +12,35 @@ $MFGraphsVerbose = False;
 $TestsDir = FileNameJoin[{$RepoRoot, "MFGraphs", "Tests"}];
 
 $TestSuites = <|
-    (* `fast` is the critical-only public gate.
-       Keep archive files and unsupported legacy surfaces out of this list. *)
+    (* Active scenario-first gates: avoid tests still tied to GetExampleData. *)
     "fast" -> {
-        "package-loading.mt",
         "graphics-public-api.mt",
-        "critical-basic-cases.mt",
-        "critical-numeric-backend.mt",
         "exit-pass-through.mt",
         "exit-pass-through-nonzero.mt",
+        "make-unknowns.mt"
+    },
+    "slow" -> {
+        "run-tests-smoke.mt"
+    },
+    (* Legacy suites kept for manual migration tracking only. *)
+    "legacy-fast" -> {
+        "package-loading.mt",
+        "critical-basic-cases.mt",
+        "critical-numeric-backend.mt",
         "exact-mode.mt",
         "infeasible-status.mt",
-        "make-unknowns.mt",
         "scenario-kernel.mt",
         "solve-mfg.mt",
         "solver-contracts.mt"
     },
-    "slow" -> {
+    "legacy-slow" -> {
         "J9F-critical_congestion.mt",
-        "Jm9-critical_congestion.mt",
-        "run-tests-smoke.mt"
+        "Jm9-critical_congestion.mt"
     }
 |>;
 $TestSuites["all"] = Join[$TestSuites["fast"], $TestSuites["slow"]];
+$TestSuites["legacy"] = Join[$TestSuites["legacy-fast"], $TestSuites["legacy-slow"]];
+$TestSuites["full"] = Join[$TestSuites["all"], $TestSuites["legacy"]];
 
 args = Select[
     Rest[$ScriptCommandLine],

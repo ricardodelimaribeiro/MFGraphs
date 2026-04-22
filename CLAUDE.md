@@ -94,11 +94,11 @@ Common operations at a glance:
 
 | Task | Command |
 |------|---------|
-| Run fast tests (9 files, ~27 min) | `wolframscript -file Scripts/RunTests.wls fast` |
-| Run all tests (19 files, slower) | `wolframscript -file Scripts/RunTests.wls all` |
-| Run specific test file | `wolframscript -file MFGraphs/Tests/solver-contracts.mt` |
-| Benchmark single case (critical only) | `wolframscript -file Scripts/BenchmarkSuite.wls core case=12 timeout=300` |
-| Benchmark single case (all solvers) | `wolframscript -file Scripts/BenchmarkSuite.wls core case=12 solver=all` |
+| Run fast active tests (scenario-first gate) | `wolframscript -file Scripts/RunTests.wls fast` |
+| Run all active tests | `wolframscript -file Scripts/RunTests.wls all` |
+| Run specific active test file | `wolframscript -file MFGraphs/Tests/make-unknowns.mt` |
+| Run legacy tests explicitly | `wolframscript -file Scripts/RunTests.wls legacy` |
+| Run full active+legacy suites | `wolframscript -file Scripts/RunTests.wls full` |
 | Regenerate API docs | `wolframscript -file Scripts/GenerateDocs.wls` |
 | Clear solver cache | `ClearSolveCache[]` (in Mathematica) |
 | Enable verbose output | `$MFGraphsVerbose = True` (in Mathematica) |
@@ -106,20 +106,24 @@ Common operations at a glance:
 ### Run tests and benchmarks
 
 All scripts use `wolframscript` and must be run from the repository root.
+Scripts that still depend on `GetExampleData` are treated as legacy and tracked in `Scripts/LEGACY_GETEXAMPLEDATA.md`.
 
 #### Unit tests (correctness validation)
 
 Fast regression suite for verifying package correctness:
 
 ```bash
-# Fast suite (9 files, ~27 minutes)
+# Fast active suite (scenario-first gate)
 wolframscript -file Scripts/RunTests.wls fast
 
-# All tests (slower, more comprehensive)
+# Slow active suite
 wolframscript -file Scripts/RunTests.wls slow
 
-# All test suites at once
+# All active suites
 wolframscript -file Scripts/RunTests.wls all
+
+# Legacy-only suites (manual migration tracking)
+wolframscript -file Scripts/RunTests.wls legacy
 ```
 
 **Test execution expectations** (Mac with 8 cores, as of April 2026):
@@ -149,7 +153,8 @@ Some test cases validate **failure modes** by design — these are not bugs:
 
 #### Performance benchmarks (tier-based)
 
-Full benchmark suite across performance tiers:
+`BenchmarkSuite.wls` currently depends on `GetExampleData` and is part of the legacy workflow (see `Scripts/LEGACY_GETEXAMPLEDATA.md`).
+Run benchmark commands below only for manual legacy checks during migration:
 
 ```bash
 # Full benchmark suite (all tiers)
@@ -424,7 +429,7 @@ Produces `Results/bottleneck_report.md` with call counts and timing for each pro
 
 **`BenchmarkHelpers.wls`** — Loaded by `BenchmarkSuite.wls`; defines tier configurations, default parameters, and helper functions. Contains `$DefaultParams` substitutions and tier definitions.
 
-**`RunBenchmarkCI.wls`** — Runs `small` and `core` tiers in CI mode (in-process isolation), writes results to `Results/benchmark_latest.json`. Use this for quick automated validation across the stable case set.
+**`RunBenchmarkCI.wls`** — Legacy helper that runs `BenchmarkSuite.wls` (`small` and `core` tiers) in CI mode and writes `Results/benchmark_latest.json`. Not part of the active scenario-first workflow until benchmark migration is complete.
 
 **`GenerateDocs.wls`** — Regenerate auto-generated documentation (e.g., `API_REFERENCE.md` from `::usage` declarations).
 

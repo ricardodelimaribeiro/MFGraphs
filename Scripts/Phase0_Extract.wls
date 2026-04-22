@@ -1,4 +1,5 @@
 #!/usr/bin/env wolframscript
+(* LEGACY_GETEXAMPLEDATA: This script still depends on GetExampleData and is excluded from the active scenario-first workflow. *)
 (* Phase 0: Extract Jamaratv9 basic data for verification *)
 
 $RepoRoot = "/Users/ribeirrd/Documents/GitHub/MFGraphs";
