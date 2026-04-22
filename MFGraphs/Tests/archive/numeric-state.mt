@@ -47,7 +47,7 @@ Test[
         ns = d2e["NumericState"];
         critical = Quiet[CriticalCongestionSolver[d2e]];
         assoc = critical["AssoCritical"];
-        vec = MFGraphs`Private`EncodeFlowAssociation[ns, assoc];
+        vec = Private`EncodeFlowAssociation[ns, assoc];
         Developer`PackedArrayQ[vec] &&
         VectorQ[vec, NumericQ] &&
         Length[vec] === Length[Lookup[ns, "FlowVariables", {}]]
@@ -65,8 +65,8 @@ Test[
         ns = d2e["NumericState"];
         critical = Quiet[CriticalCongestionSolver[d2e]];
         assoc = critical["AssoCritical"];
-        vec = MFGraphs`Private`EncodeFlowAssociation[ns, assoc];
-        decoded = MFGraphs`Private`DecodeFlowVector[ns, vec];
+        vec = Private`EncodeFlowAssociation[ns, assoc];
+        decoded = Private`DecodeFlowVector[ns, vec];
         vars = Lookup[ns, "FlowVariables", {}];
         maxDiff =
             Quiet @ Check[
@@ -91,10 +91,10 @@ Test[
         ns = d2e["NumericState"];
         critical = Quiet[CriticalCongestionSolver[d2e]];
         assoc = critical["AssoCritical"];
-        vec = MFGraphs`Private`EncodeFlowAssociation[ns, assoc];
-        signedFast = MFGraphs`Private`ComputeSignedEdgeFlowsFast[ns, vec];
-        residualFast = MFGraphs`Private`ComputeKirchhoffResidualFast[ns, vec];
-        comp = MFGraphs`Private`BuildSolverComparisonData[d2e, assoc];
+        vec = Private`EncodeFlowAssociation[ns, assoc];
+        signedFast = Private`ComputeSignedEdgeFlowsFast[ns, vec];
+        residualFast = Private`ComputeKirchhoffResidualFast[ns, vec];
+        comp = Private`BuildSolverComparisonData[d2e, assoc];
         diffSigned =
             Quiet @ Check[
                 Norm[N[signedFast - Lookup[comp, "ComparableFlowVector", {}]], Infinity],
@@ -102,8 +102,8 @@ Test[
             ];
         entryPairs = List @@@ Lookup[d2e, "entryEdges", {}];
         exitPairs = List @@@ Lookup[d2e, "exitEdges", {}];
-        boundaryInExpected = N @ Total[Lookup[assoc, MFGraphs`Private`j @@@ entryPairs, 0]];
-        boundaryOutExpected = N @ Total[Lookup[assoc, MFGraphs`Private`j @@@ exitPairs, 0]];
+        boundaryInExpected = N @ Total[Lookup[assoc, Private`j @@@ entryPairs, 0]];
+        boundaryOutExpected = N @ Total[Lookup[assoc, Private`j @@@ exitPairs, 0]];
         VectorQ[signedFast, NumericQ] &&
         NumericQ[residualFast] &&
         NumericQ[Lookup[comp, "KirchhoffResidual", Missing["NotAvailable"]]] &&
@@ -122,7 +122,7 @@ Test[
 
 Test[
     Module[{decoded},
-        decoded = MFGraphs`Private`DecodeFlowVector[
+        decoded = Private`DecodeFlowVector[
             <|"FlowVariables" -> {j[1, 2], j[2, 3]}|>,
             {1.0}
         ];
@@ -244,7 +244,7 @@ Test[
             "Eqs" -> d2e,
             "StaticData" -> KeyTake[ns, {"FlowVariables", "JVars", "JTVars"}]
         |>;
-        seed = MFGraphs`Private`BuildFeasibleFlowSeed[backendState];
+        seed = Private`BuildFeasibleFlowSeed[backendState];
         flowVars = Lookup[ns, "FlowVariables", {}];
         edgeCount = Length[Lookup[d2e, "edgeList", {}]];
         AssociationQ[seed] &&
@@ -274,7 +274,7 @@ Test[
             "Eqs" -> KeyDrop[d2e, {"NumericState", "CriticalDecoupling"}],
             "StaticData" -> KeyTake[ns, {"FlowVariables", "JVars", "JTVars"}]
         |>;
-        seed = MFGraphs`Private`BuildFeasibleFlowSeed[backendState];
+        seed = Private`BuildFeasibleFlowSeed[backendState];
         MatchQ[
             seed,
             Failure["FictitiousPlaySeed", assoc_ /; Lookup[assoc, "Reason", None] === "MissingDecouplingData"]
@@ -299,7 +299,7 @@ Test[
                 "JTVars" -> Lookup[ns, "JTVars", {}]
             |>
         |>;
-        seed = MFGraphs`Private`BuildFeasibleFlowSeed[backendState];
+        seed = Private`BuildFeasibleFlowSeed[backendState];
         MatchQ[
             seed,
             Failure["FictitiousPlaySeed", assoc_ /;
@@ -322,8 +322,8 @@ Test[
             "Eqs" -> d2e,
             "StaticData" -> KeyTake[ns, {"FlowVariables", "JVars", "JTVars"}]
         |>;
-        seed = MFGraphs`Private`BuildFeasibleFlowSeed[backendState];
-        potentials = MFGraphs`Private`ExtractBellmanPotentials[backendState, seed];
+        seed = Private`BuildFeasibleFlowSeed[backendState];
+        potentials = Private`ExtractBellmanPotentials[backendState, seed];
         flowVars = Lookup[ns, "FlowVariables", {}];
         utilityVars = Lookup[d2e, "us", {}];
         AssociationQ[potentials] &&
@@ -350,9 +350,9 @@ Test[
             "Eqs" -> d2e,
             "StaticData" -> KeyTake[ns, {"FlowVariables", "JVars", "JTVars"}]
         |>;
-        seed = MFGraphs`Private`BuildFeasibleFlowSeed[backendState];
+        seed = Private`BuildFeasibleFlowSeed[backendState];
         potentials =
-            MFGraphs`Private`ExtractBellmanPotentials[
+            Private`ExtractBellmanPotentials[
                 backendState,
                 <|"FlowAssociation" -> KeyDrop[Lookup[seed, "FlowAssociation", <||>], First[Lookup[ns, "FlowVariables", {}]]]|>
             ];
@@ -379,9 +379,9 @@ Test[
                 <|"TopologicalData" -> Lookup[dec, "TopologicalOrder", <||>]|>
             ]
         |>;
-        seed = MFGraphs`Private`BuildFeasibleFlowSeed[backendState];
-        potentials = MFGraphs`Private`ExtractBellmanPotentials[backendState, seed];
-        propagated = MFGraphs`Private`BuildSoftPolicyAndPropagate[
+        seed = Private`BuildFeasibleFlowSeed[backendState];
+        potentials = Private`ExtractBellmanPotentials[backendState, seed];
+        propagated = Private`BuildSoftPolicyAndPropagate[
             backendState,
             seed,
             potentials,
@@ -418,9 +418,9 @@ Test[
                 <|"TopologicalData" -> <|"IsDAG" -> False|>|>
             ]
         |>;
-        seed = MFGraphs`Private`BuildFeasibleFlowSeed[backendState];
-        potentials = MFGraphs`Private`ExtractBellmanPotentials[backendState, seed];
-        propagated = MFGraphs`Private`BuildSoftPolicyAndPropagate[backendState, seed, potentials];
+        seed = Private`BuildFeasibleFlowSeed[backendState];
+        potentials = Private`ExtractBellmanPotentials[backendState, seed];
+        propagated = Private`BuildSoftPolicyAndPropagate[backendState, seed, potentials];
         FailureQ[propagated] &&
         Lookup[propagated[[2]], "Reason", None] === "NonDAGSupport"
     ]
@@ -444,16 +444,16 @@ Test[
                 <|"TopologicalData" -> Lookup[dec, "TopologicalOrder", <||>]|>
             ]
         |>;
-        seed = MFGraphs`Private`BuildFeasibleFlowSeed[backendState];
-        potentials = MFGraphs`Private`ExtractBellmanPotentials[backendState, seed];
-        propagated = MFGraphs`Private`BuildSoftPolicyAndPropagate[
+        seed = Private`BuildFeasibleFlowSeed[backendState];
+        potentials = Private`ExtractBellmanPotentials[backendState, seed];
+        propagated = Private`BuildSoftPolicyAndPropagate[
             backendState,
             seed,
             potentials,
             "Temperature" -> 0.2,
             "Damping" -> 0.5
         ];
-        classified = MFGraphs`Private`ClassifyAndCheckStability[
+        classified = Private`ClassifyAndCheckStability[
             backendState,
             Lookup[propagated, "FlowState", <||>],
             potentials,
@@ -493,16 +493,16 @@ Test[
                 <|"TopologicalData" -> Lookup[dec, "TopologicalOrder", <||>]|>
             ]
         |>;
-        seed = MFGraphs`Private`BuildFeasibleFlowSeed[backendState];
-        potentials = MFGraphs`Private`ExtractBellmanPotentials[backendState, seed];
-        propagated = MFGraphs`Private`BuildSoftPolicyAndPropagate[
+        seed = Private`BuildFeasibleFlowSeed[backendState];
+        potentials = Private`ExtractBellmanPotentials[backendState, seed];
+        propagated = Private`BuildSoftPolicyAndPropagate[
             backendState,
             seed,
             potentials,
             "Temperature" -> 0.2,
             "Damping" -> 0.5
         ];
-        firstPass = MFGraphs`Private`ClassifyAndCheckStability[
+        firstPass = Private`ClassifyAndCheckStability[
             backendState,
             Lookup[propagated, "FlowState", <||>],
             potentials,
@@ -513,7 +513,7 @@ Test[
             "LastSupportSignature" -> Lookup[Lookup[firstPass, "ClassificationState", <||>], "SupportSignature", None],
             "StableIterations" -> Lookup[Lookup[firstPass, "ClassificationState", <||>], "StableIterations", 0]
         |>;
-        secondPass = MFGraphs`Private`ClassifyAndCheckStability[
+        secondPass = Private`ClassifyAndCheckStability[
             backendState,
             Lookup[propagated, "FlowState", <||>],
             potentials,
@@ -551,7 +551,7 @@ Test[
                 "TopologicalData" -> Lookup[d2e, "NumericState", <||>]["TopologicalData"]
             |>
         |>;
-        result = MFGraphs`Private`SolveCriticalFictitiousPlayBackend[
+        result = Private`SolveCriticalFictitiousPlayBackend[
             backendState,
             "MaxIterations" -> 30,
             "StableIterationsLimit" -> 3
@@ -580,7 +580,7 @@ Test[
                 "TopologicalData" -> Lookup[d2e, "NumericState", <||>]["TopologicalData"]
             |>
         |>;
-        result = MFGraphs`Private`SolveCriticalFictitiousPlayBackend[
+        result = Private`SolveCriticalFictitiousPlayBackend[
             backendState,
             "MaxIterations" -> 1,
             "StableIterationsLimit" -> 10
@@ -607,7 +607,7 @@ Test[
                 "TopologicalData" -> Lookup[d2e, "NumericState", <||>]["TopologicalData"]
             |>
         |>;
-        result = MFGraphs`Private`SolveCriticalFictitiousPlayBackend[
+        result = Private`SolveCriticalFictitiousPlayBackend[
             backendState,
             "MaxIterations" -> 10
         ];
@@ -640,7 +640,7 @@ Test[
                 "TopologicalData" -> Lookup[d2e, "NumericState", <||>]["TopologicalData"]
             |>
         |>;
-        result = MFGraphs`Private`SolveCriticalFictitiousPlayBackend[
+        result = Private`SolveCriticalFictitiousPlayBackend[
             backendState,
             "MaxIterations" -> 30
         ];
@@ -684,7 +684,7 @@ Test[
 
         If[Length[system] === 3 && system[[3]] =!= True,
             originalOrLength = If[Head[system[[3]]] === And, Length[system[[3]]], 1];
-            prunedSystem = MFGraphs`DataToEquations`Private`BuildOraclePrunedSystem[
+            prunedSystem = DataToEquations`Private`BuildOraclePrunedSystem[
                 system,
                 flowAssoc,
                 oracleState
@@ -715,7 +715,7 @@ Test[
         |>;
 
         If[Length[system] === 3,
-            prunedSystem = MFGraphs`DataToEquations`Private`BuildOraclePrunedSystem[
+            prunedSystem = DataToEquations`Private`BuildOraclePrunedSystem[
                 system,
                 flowAssoc,
                 oracleState
@@ -749,7 +749,7 @@ Test[
         |>;
 
         If[Length[system] === 3 && system[[3]] =!= True,
-            prunedSystem = MFGraphs`DataToEquations`Private`BuildOraclePrunedSystem[
+            prunedSystem = DataToEquations`Private`BuildOraclePrunedSystem[
                 system,
                 flowAssoc,
                 oracleState
@@ -785,12 +785,12 @@ Test[
         |>;
 
         If[Length[system] === 3,
-            prunedSystem = MFGraphs`DataToEquations`Private`BuildOraclePrunedSystem[
+            prunedSystem = DataToEquations`Private`BuildOraclePrunedSystem[
                 system,
                 flowAssoc,
                 oracleState
             ];
-            prunedTriple = MFGraphs`DataToEquations`Private`TripleClean[{prunedSystem, <||>}];
+            prunedTriple = DataToEquations`Private`TripleClean[{prunedSystem, <||>}];
             (* Check that TripleClean completed without error *)
             ListQ[prunedTriple] && Length[prunedTriple] === 2,
             True
@@ -819,7 +819,7 @@ Test[
         |>;
 
         (* Run wrapper *)
-        result = MFGraphs`Private`SolveCriticalFictitiousPlayBackend[
+        result = Private`SolveCriticalFictitiousPlayBackend[
             backendState,
             "MaxIterations" -> 30
         ];
@@ -827,13 +827,13 @@ Test[
         If[Lookup[result, "ResultKind", Missing["NotAvailable"]] === "Success" &&
            Length[origSystem] === 3,
             (* Build pruned system *)
-            prunedSystem = MFGraphs`DataToEquations`Private`BuildOraclePrunedSystem[
+            prunedSystem = DataToEquations`Private`BuildOraclePrunedSystem[
                 origSystem,
                 result["FlowState"]["FlowAssociation"],
                 result["OracleState"]
             ];
             (* Pass through TripleClean *)
-            tripleCleanResult = MFGraphs`DataToEquations`Private`TripleClean[{prunedSystem, <||>}];
+            tripleCleanResult = DataToEquations`Private`TripleClean[{prunedSystem, <||>}];
             (* Verify non-empty final state *)
             ListQ[tripleCleanResult] && Length[tripleCleanResult] === 2,
             True

@@ -12,11 +12,12 @@ Print["Timeout: ", $equivTimeout, "s"];
 Print["Date: ", DateString[]];
 Print[];
 
-PrependTo[$Path, Directory[]];
+$RepoRoot = "/Users/ribeirrd/Documents/GitHub/MFGraphs";
+PrependTo[$Path, $RepoRoot];
 Needs["MFGraphs`"];
 $MFGraphsVerbose = False;
 
-Get[FileNameJoin[{Directory[], "Scripts", "BenchmarkHelpers.wls"}]];
+Get[FileNameJoin[{$RepoRoot, "Scripts", "BenchmarkHelpers.wls"}]];
 
 (* --- Main --- *)
 $caseSpec = Lookup[$NamedBenchmarkCases, $caseKey, $Failed];

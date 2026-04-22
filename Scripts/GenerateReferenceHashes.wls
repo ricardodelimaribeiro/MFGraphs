@@ -13,10 +13,11 @@
 (* :!CodeAnalysis::BeginBlock:: *)
 (* :!CodeAnalysis::Disable::SuspiciousSessionSymbol:: *)
 
-SetDirectory[DirectoryName[$InputFileName] // ParentDirectory];
+$RepoRoot = "/Users/ribeirrd/Documents/GitHub/MFGraphs";
+SetDirectory[$RepoRoot];
 
 Needs["MFGraphs`"];
-Get[FileNameJoin[{Directory[], "Scripts", "BenchmarkHelpers.wls"}]];
+Get[FileNameJoin[{$RepoRoot, "Scripts", "BenchmarkHelpers.wls"}]];
 $MFGraphsVerbose = False;
 
 (* --- Deterministic solution hashing --- *)

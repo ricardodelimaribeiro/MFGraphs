@@ -33,22 +33,9 @@ u[v, e1] <= u[v, e2] + switchingCosts[{v, e1, e2}]"
 AltSwitch::usage = "AltSwitch[j, u, switchingCosts][v, e1, e2] returns the complementarity condition:
 (j[v, e1, e2] == 0) || (u[v, e1] == u[e2, e1] + switchingCosts[{v, e1, e2}])"
 
-DataToEquations::usage = "DataToEquations[Data] returns the equations, inequalities, and alternatives associated to the Data. "
-
-NumberVectorQ::usage = "NumberVectorQ[j] returns True if the vector j is numeric."
-
 GetKirchhoffMatrix::usage = "GetKirchhoffMatrix[d2e] returns the entry current vector, Kirchhoff matrix, (critical congestion) cost function placeholder, and the variables in the order corresponding to the Kirchhoff matrix. The third slot is retained for backward compatibility and should not be used by new code."
 
 GetKirchhoffLinearSystem::usage = "GetKirchhoffLinearSystem[d2e] returns the entry current vector, Kirchhoff matrix, and the variables in the order corresponding to the Kirchhoff matrix.";
-
-MFGPreprocessing::usage = "MFGPreprocessing[Eqs] returns the association Eqs with the preliminary solution \"InitRules\" and corresponding 'reduced' \"NewSystem\"."
-
-
-
-MFGSystemSolver::usage = "MFGSystemSolver[Eqs][edgeEquations] returns an Association \
-<|\"Solution\" -> assoc_or_Null, \"UnresolvedConstraints\" -> expr_or_None|>. \
-\"Solution\" is Null on failure; \"UnresolvedConstraints\" is non-None when flows were determined \
-but u-variables remain symbolically underdetermined.";
 
 DNFSolveStep::usage = "DNFSolveStep[{EE,NN,OR}, rules] takes a grouped system and some Association of rules (a partial solution). It returns the result of applying DNFReduce.";
 
@@ -416,7 +403,7 @@ DataToEquations[Data_Association] :=
     Module[{verticesList, adjacencyMatrix, entryVerticesFlows, exitVerticesCosts,
          switchingCosts, graph, entryVertices, auxEntryVertices, exitVertices,
          auxExitVertices, entryEdges, exitEdges, auxiliaryGraph, auxEdgeList,
-         edgeList, auxVerticesList, auxPairs, auxTriples, EntryDataAssociation,
+         edgeList, auxVerticesList, auxPairs, auxTriples, unknownBundle, EntryDataAssociation,
          ExitCosts, js, us, jts, SignedFlows, SwitchingCosts, IneqJs, IneqJts,
          AltFlows, AltTransitionFlows, splittingPairs, EqBalanceSplittingFlows,
          BalanceSplittingFlows, NoDeadStarts, RuleBalanceGatheringFlows, BalanceGatheringFlows,
@@ -425,39 +412,36 @@ DataToEquations[Data_Association] :=
          blockedIncomingPairs, activeAuxTriples,
          Nlhs, ModuleVars, ModuleVarsNames, Nrhs, costpluscurrents, EqGeneral,
          inAuxEntryPairs, outAuxEntryPairs, inAuxExitPairs, outAuxExitPairs, 
-        pairs, halfPairs, consistentCosts},
-        verticesList = Lookup[Data, "Vertices List", {}];
-        adjacencyMatrix = Lookup[Data, "Adjacency Matrix", {}];
-        entryVerticesFlows = Lookup[Data, "Entrance Vertices and Flows",
-             {}];
-        exitVerticesCosts = Lookup[Data, "Exit Vertices and Terminal Costs",
-             {}];
-        switchingCosts = Lookup[Data, "Switching Costs", {}];
+        pairs, halfPairs, consistentCosts, scenarioObj},
+        
+        (* Use makeScenario to get completed and validated data *)
+        scenarioObj = makeScenario[<|"Model" -> Data|>];
+        If[FailureQ[scenarioObj], 
+            Return[scenarioObj, Module]
+        ];
+        
+        verticesList = ScenarioData[scenarioObj, "Model"]["Vertices List"];
+        adjacencyMatrix = ScenarioData[scenarioObj, "Model"]["Adjacency Matrix"];
+        entryVerticesFlows = ScenarioData[scenarioObj, "Model"]["Entrance Vertices and Flows"];
+        exitVerticesCosts = ScenarioData[scenarioObj, "Model"]["Exit Vertices and Terminal Costs"];
+        SwitchingCosts = ScenarioData[scenarioObj, "Model"]["Switching Costs"];
+
         (* Graph construction *)
         graph = AdjacencyGraph[verticesList, adjacencyMatrix, VertexLabels
              -> "Name", DirectedEdges -> False];
         entryVertices = First /@ entryVerticesFlows;
         exitVertices = First /@ exitVerticesCosts;
-(* Define auxiliary vertices for the entry and exit vertices 
-    *)
-        auxEntryVertices = Symbol["en" <> ToString[#]]& /@ entryVertices
-            ;
-        auxExitVertices = Symbol["ex" <> ToString[#]]& /@ exitVertices
-            ;
-        entryEdges = MapThread[UndirectedEdge, {auxEntryVertices, entryVertices
-            }];
-        exitEdges = MapThread[UndirectedEdge, {exitVertices, auxExitVertices
-            }];
+
+        auxEntryVertices = Symbol["en" <> ToString[#]]& /@ entryVertices;
+        auxExitVertices = Symbol["ex" <> ToString[#]]& /@ exitVertices;
+        entryEdges = MapThread[UndirectedEdge, {auxEntryVertices, entryVertices}];
+        exitEdges = MapThread[UndirectedEdge, {exitVertices, auxExitVertices}];
         auxiliaryGraph = EdgeAdd[graph, Join[entryEdges, exitEdges]];
             
         auxEdgeList = EdgeList[auxiliaryGraph];
         edgeList = EdgeList[graph];
         auxVerticesList = VertexList[auxiliaryGraph];
-(* Arguments for the relevant functions: flows, values, and transition flows 
-    
-    
-    
-    *)
+
         halfPairs = List @@@ edgeList;
         inAuxEntryPairs = List @@@ entryEdges;
         outAuxExitPairs = List @@@ exitEdges;
@@ -469,32 +453,29 @@ DataToEquations[Data_Association] :=
         (* Insert the vertex in pairs of adjacent vertices *)
         auxTriples = Flatten[Insert[#, 2] /@ Permutations[AdjacencyList[
             auxiliaryGraph, #], {2}]& /@ auxVerticesList, 1];
+
         (* Prepare boundary data *)
         EntryDataAssociation = RoundValues @ AssociationThread[inAuxEntryPairs,
              Last /@ entryVerticesFlows];
-        ExitCosts = AssociationThread[auxExitVertices, Last /@ exitVerticesCosts
-            ];
+        ExitCosts = AssociationThread[auxExitVertices, Last /@ exitVerticesCosts];
+
         (* Variables *)
-        js = j[Sequence @@ #]& /@ auxPairs;
-        jts = j[Sequence @@ #]& /@ auxTriples;
-        us = u[Sequence @@ #]& /@ auxPairs;
-        (* Signed flows for "half" of the variables *)
+        unknownBundle = makeUnknowns[scenarioObj];
+        js = UnknownsData[unknownBundle, "js"] /. Missing[_, _] -> {};
+        jts = UnknownsData[unknownBundle, "jts"] /. Missing[_, _] -> {};
+        us = UnknownsData[unknownBundle, "us"] /. Missing[_, _] -> {};
+
+        (* Signed flows *)
         SignedFlows = AssociationMap[j @@ # - j @@ Reverse @ #&, Join[
             inAuxEntryPairs, outAuxExitPairs, halfPairs]];
-        SwitchingCosts = AssociationMap[0&, auxTriples];
-        If[switchingCosts =!= {},
-            AssociateTo[SwitchingCosts, AssociationThread[Most /@ switchingCosts,
-                 Last /@ switchingCosts]]
-        ];
-        consistentCosts = IsSwitchingCostConsistent[Normal @ SwitchingCosts
-            ];
+
+        consistentCosts = IsSwitchingCostConsistent[Normal @ SwitchingCosts];
         Which[
             consistentCosts === False,
                 Message[DataToEquations::switchingcosts]
             ,
             consistentCosts =!= True,
-                MFGPrint["Switching costs conditions are ", consistentCosts
-                    ]
+                MFGPrint["Switching costs conditions are ", consistentCosts]
         ];
         IneqJs = And @@ (# >= 0& /@ js);
         IneqJts = And @@ (# >= 0& /@ jts);

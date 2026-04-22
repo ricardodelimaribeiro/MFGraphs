@@ -35,7 +35,9 @@ makeScenario::usage =
 must contain a \"Model\" key whose value is a network topology association accepted by \
 DataToEquations (required keys: \"Vertices List\", \"Adjacency Matrix\", \
 \"Entrance Vertices and Flows\", \"Exit Vertices and Terminal Costs\", \
-\"Switching Costs\"). Optional keys: \"Data\" (parameter substitution rules), \
+\"Switching Costs\"). If \"Model\" contains a Wolfram Graph under key \"Graph\", \
+missing \"Vertices List\" and/or \"Adjacency Matrix\" are derived automatically. \
+Optional keys: \"Data\" (parameter substitution rules), \
 \"Identity\" (name, version), \"Benchmark\" (tier, timeout), \"Visualization\", \
 \"Inheritance\". Returns a scenario[...] object on success or Failure[...] on error.";
 
@@ -55,6 +57,12 @@ ScenarioData::usage =
 Missing[\"KeyAbsent\", key] if absent. ScenarioData[s] returns the underlying \
 Association.";
 
+(* Shared Topology Logic *)
+
+BuildAuxiliaryTopology::usage =
+"BuildAuxiliaryTopology[model] returns an association with the auxiliary graph, \
+triples, pairs, and auxiliary vertex lists derived from the raw model.";
+
 Begin["`Private`"];
 
 (* Required keys that must appear inside the "Model" block. *)
@@ -69,6 +77,92 @@ $RequiredModelKeys = {
 (* Default benchmark settings applied by completeScenario. *)
 $DefaultBenchmarkTier    = "core";
 $DefaultBenchmarkTimeout = 300;
+
+NormalizeScenarioModel[model_Association] :=
+    Module[{graph, vertices, adjacency, normalized = model},
+        graph = Lookup[model, "Graph", Missing["KeyAbsent", "Graph"]];
+        If[!MatchQ[graph, _Graph], Return[model, Module]];
+
+        vertices = Lookup[model, "Vertices List", Missing["KeyAbsent", "Vertices List"]];
+        If[!ListQ[vertices],
+            vertices = VertexList[graph]
+        ];
+
+        adjacency = Lookup[model, "Adjacency Matrix", Missing["KeyAbsent", "Adjacency Matrix"]];
+        If[!ListQ[adjacency],
+            adjacency = Normal @ AdjacencyMatrix[graph, vertices]
+        ];
+
+        If[!KeyExistsQ[normalized, "Vertices List"],
+            normalized = Join[normalized, <|"Vertices List" -> vertices|>]
+        ];
+        If[!KeyExistsQ[normalized, "Adjacency Matrix"],
+            normalized = Join[normalized, <|"Adjacency Matrix" -> adjacency|>]
+        ];
+        normalized
+    ];
+
+NormalizeScenarioModel[other_] := other;
+
+(* --- Topology Helpers --- *)
+
+BuildAuxiliaryTopology[model_Association] :=
+    Module[{vertices, adjacency, entryFlows, exitCosts, graph, 
+            entryVertices, exitVertices, auxEntryVertices, auxExitVertices,
+            entryEdges, exitEdges, auxiliaryGraph, auxVerticesList, 
+            auxTriples, edgeList, halfPairs, inAuxEntryPairs, 
+            outAuxEntryPairs, inAuxExitPairs, outAuxExitPairs, pairs, auxPairs},
+        
+        vertices = Lookup[model, "Vertices List"];
+        adjacency = Lookup[model, "Adjacency Matrix"];
+        entryFlows = Lookup[model, "Entrance Vertices and Flows"];
+        exitCosts = Lookup[model, "Exit Vertices and Terminal Costs"];
+        
+        If[!ListQ[vertices] || !ListQ[adjacency] || !ListQ[entryFlows] || !ListQ[exitCosts],
+            Return[$Failed, Module]
+        ];
+        
+        graph = Quiet @ Check[
+            AdjacencyGraph[vertices, adjacency, DirectedEdges -> False],
+            $Failed
+        ];
+        If[!MatchQ[graph, _Graph], Return[$Failed, Module]];
+
+        entryVertices = First /@ entryFlows;
+        exitVertices = First /@ exitCosts;
+        
+        auxEntryVertices = Symbol["en" <> ToString[#]] & /@ entryVertices;
+        auxExitVertices = Symbol["ex" <> ToString[#]] & /@ exitVertices;
+        
+        entryEdges = MapThread[UndirectedEdge, {auxEntryVertices, entryVertices}];
+        exitEdges = MapThread[UndirectedEdge, {exitVertices, auxExitVertices}];
+        auxiliaryGraph = EdgeAdd[graph, Join[entryEdges, exitEdges]];
+        
+        auxVerticesList = VertexList[auxiliaryGraph];
+        auxTriples = Flatten[
+            Insert[#, 2] /@ Permutations[AdjacencyList[auxiliaryGraph, #], {2}] & /@ auxVerticesList,
+            1
+        ];
+
+        edgeList = EdgeList[graph];
+        halfPairs = List @@@ edgeList;
+        inAuxEntryPairs = List @@@ entryEdges;
+        outAuxExitPairs = List @@@ exitEdges;
+        inAuxExitPairs = Reverse /@ outAuxExitPairs;
+        outAuxEntryPairs = Reverse /@ inAuxEntryPairs;
+        pairs = Join[halfPairs, Reverse /@ halfPairs];
+        auxPairs = Join[inAuxEntryPairs, outAuxEntryPairs, inAuxExitPairs, outAuxExitPairs, pairs];
+
+        <|
+            "AuxiliaryGraph" -> auxiliaryGraph,
+            "AuxTriples" -> auxTriples,
+            "AuxPairs" -> auxPairs,
+            "AuxEntryVertices" -> auxEntryVertices,
+            "AuxExitVertices" -> auxExitVertices,
+            "AuxEntryEdges" -> entryEdges,
+            "AuxExitEdges" -> exitEdges
+        |>
+    ];
 
 (* --- Type predicate --- *)
 
@@ -115,14 +209,33 @@ validateScenario[x_] :=
 
 (* --- Complete --- *)
 
+CompleteSwitchingCosts[model_Association] :=
+    Module[{topology, inputSC, scAssoc},
+        topology = BuildAuxiliaryTopology[model];
+        If[topology === $Failed, Return[model, Module]];
+        
+        inputSC = Lookup[model, "Switching Costs", {}];
+        scAssoc = If[AssociationQ[inputSC],
+            inputSC,
+            AssociationThread[Most /@ inputSC, Last /@ inputSC]
+        ];
+        
+        (* Explicitly complement with 0 for all possible transitions in the auxiliary graph *)
+        Join[AssociationMap[0&, topology["AuxTriples"]], scAssoc]
+    ];
+
 completeScenario[s_scenario] :=
-    Module[{assoc, identity, benchmark, model, hash, newAssoc},
+    Module[{assoc, identity, benchmark, model, hash, newAssoc, completedSC},
         assoc     = ScenarioData[s];
         model     = Lookup[assoc, "Model", <||>];
         identity  = Lookup[assoc, "Identity", <||>];
         benchmark = Lookup[assoc, "Benchmark", <||>];
 
-        (* Compute content hash from the canonical string of the Model. *)
+        (* Ensure "Switching Costs" is explicitly completed before hashing. *)
+        completedSC = CompleteSwitchingCosts[model];
+        model = Join[model, <|"Switching Costs" -> completedSC|>];
+
+        (* Compute content hash from the canonical string of the completed Model. *)
         hash = Hash[ToString[model, InputForm], "SHA256", "HexString"];
 
         (* Computed hash always wins: placed on the right so it overrides any user-supplied value. *)
@@ -132,7 +245,11 @@ completeScenario[s_scenario] :=
             benchmark
         ];
 
-        newAssoc = Join[assoc, <|"Identity" -> identity, "Benchmark" -> benchmark|>];
+        newAssoc = Join[assoc, <|
+            "Model" -> model,
+            "Identity" -> identity, 
+            "Benchmark" -> benchmark
+        |>];
         scenario[newAssoc]
     ];
 
@@ -141,8 +258,15 @@ completeScenario[x_] := x;   (* pass-through for non-scenario values *)
 (* --- Constructor --- *)
 
 makeScenario[rawAssoc_Association] :=
-    Module[{wrapped, validated, completed},
-        wrapped   = scenario[rawAssoc];
+    Module[{normalizedAssoc, wrapped, validated, completed},
+        normalizedAssoc = rawAssoc;
+        If[AssociationQ[Lookup[rawAssoc, "Model", Missing["KeyAbsent", "Model"]]],
+            normalizedAssoc = Join[
+                rawAssoc,
+                <|"Model" -> NormalizeScenarioModel[rawAssoc["Model"]]|>
+            ]
+        ];
+        wrapped   = scenario[normalizedAssoc];
         validated = validateScenario[wrapped];
         If[FailureQ[validated],
             validated,

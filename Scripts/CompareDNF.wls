@@ -21,11 +21,12 @@ Print["Mathematica: ", $Version];
 Print[];
 
 (* --- Setup --- *)
-PrependTo[$Path, Directory[]];
+$RepoRoot = "/Users/ribeirrd/Documents/GitHub/MFGraphs";
+PrependTo[$Path, $RepoRoot];
 Needs["MFGraphs`"];
 $MFGraphsVerbose = False;
 
-Get[FileNameJoin[{Directory[], "Scripts", "BenchmarkHelpers.wls"}]];
+Get[FileNameJoin[{$RepoRoot, "Scripts", "BenchmarkHelpers.wls"}]];
 
 (* --- Comparison runner --- *)
 
@@ -341,7 +342,7 @@ AppendTo[$lines, ""];
 AppendTo[$lines, "BooleanConvert treats the entire expression as a boolean formula and does not perform algebraic simplification. Method 3 (Pipe) adds that simplification as a post-processing step."];
 
 (* --- Export --- *)
-$ResultsDir = FileNameJoin[{Directory[], "Results"}];
+$ResultsDir = FileNameJoin[{$RepoRoot, "Results"}];
 If[!DirectoryQ[$ResultsDir], CreateDirectory[$ResultsDir]];
 
 $reportPath = FileNameJoin[{$ResultsDir, "compare_dnf.md"}];
@@ -365,10 +366,10 @@ If[$historyTag =!= None,
       "unknown"
     ];
 
-    historyPath = FileNameJoin[{Directory[], "docs", "history", "DNF_PERFORMANCE_HISTORY.md"}];
+    historyPath = FileNameJoin[{$RepoRoot, "docs", "history", "DNF_PERFORMANCE_HISTORY.md"}];
     (* Fallback to root if not found in docs/history *)
-    If[!FileExistsQ[historyPath] && FileExistsQ[FileNameJoin[{Directory[], "DNF_PERFORMANCE_HISTORY.md"}]],
-      historyPath = FileNameJoin[{Directory[], "DNF_PERFORMANCE_HISTORY.md"}]
+    If[!FileExistsQ[historyPath] && FileExistsQ[FileNameJoin[{$RepoRoot, "DNF_PERFORMANCE_HISTORY.md"}]],
+      historyPath = FileNameJoin[{$RepoRoot, "DNF_PERFORMANCE_HISTORY.md"}]
     ];
 
     (* Build the table rows *)

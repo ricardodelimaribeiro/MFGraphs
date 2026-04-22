@@ -40,9 +40,10 @@ Print["Date: ", DateString[]];
 Print["Mathematica: ", $Version];
 Print[];
 
-PrependTo[$Path, Directory[]];
+$RepoRoot = "/Users/ribeirrd/Documents/GitHub/MFGraphs";
+PrependTo[$Path, $RepoRoot];
 Needs["MFGraphs`"];
-Get[FileNameJoin[{Directory[], "Scripts", "BenchmarkHelpers.wls"}]];
+Get[FileNameJoin[{$RepoRoot, "Scripts", "BenchmarkHelpers.wls"}]];
 MFGraphs`$MFGraphsVerbose = False;
 
 ParseNumber[value_String] :=
@@ -539,7 +540,7 @@ boundaryRows = Join[
 
 costMatrix = BuildCostMatrix[costRows];
 
-resultsDir = FileNameJoin[{Directory[], "Results"}];
+resultsDir = FileNameJoin[{$RepoRoot, "Results"}];
 If[!DirectoryQ[resultsDir], CreateDirectory[resultsDir]];
 
 timestamp = DateString[{"Year", "Month", "Day", "-", "Hour", "Minute", "Second"}];

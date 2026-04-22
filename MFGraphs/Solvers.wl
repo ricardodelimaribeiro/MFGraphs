@@ -11,23 +11,6 @@
    loaded before this file (enforced by MFGraphs.wl).
 *)
 
-(* --- Public API declarations --- *)
-CriticalCongestionSolver::usage = "CriticalCongestionSolver[Eqs] returns Eqs with an association \"AssoCritical\" with rules to
-the solution to the critical congestion case. For underdetermined systems, it returns the unresolved 
-symbolic constraints in the \"UnresolvedEquations\" field. It returns a standardized association
-containing solver metadata, feasibility, comparison fields, and the solver-specific
-payload key \"AssoCritical\". Options: \"ValidateSolution\" (default True), \
-\"ValidationTolerance\" (default $CriticalSolverTolerance), \"ValidationVerbose\" (default False), \
-\"SymbolicTimeLimit\" (default 120., time budget in seconds for the symbolic pipeline), and \
-\"ExactMode\" (default False; when True, skips numeric/direct/oracle paths).";
-
-IsCriticalSolution::usage =
-"IsCriticalSolution[Eqs] validates whether the critical-congestion solution stored \
-in \"AssoCritical\" satisfies the full symbolic MFG constraint set (equalities, \
-inequalities, alternatives/complementarity) and the critical EqGeneral residual. \
-By default it returns True/False. Options: \"Tolerance\" (default $CriticalSolverTolerance), \
-\"Verbose\" (default False), and \"ReturnReport\" (default False).";
-
 Begin["`Private`"];
 
 (* --- Solver tolerance constant --- *)

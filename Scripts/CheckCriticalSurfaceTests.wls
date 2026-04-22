@@ -1,18 +1,6 @@
 #!/usr/bin/env wolframscript
 
-ResolveRepoRoot[] := Module[{fromInput},
-    fromInput = Quiet @ Check[
-        If[
-            StringQ[$InputFileName] && StringLength[StringTrim[$InputFileName]] > 0,
-            ExpandFileName @ DirectoryName @ DirectoryName[$InputFileName],
-            $Failed
-        ],
-        $Failed
-    ];
-    If[StringQ[fromInput] && DirectoryQ[fromInput], fromInput, Directory[]]
-];
-
-$RepoRoot = ResolveRepoRoot[];
+$RepoRoot = "/Users/ribeirrd/Documents/GitHub/MFGraphs";
 
 PrependTo[$Path, $RepoRoot];
 

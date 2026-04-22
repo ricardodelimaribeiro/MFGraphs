@@ -3,19 +3,7 @@
 Print["MFGraphs Test Runner"];
 Print["==================="];
 
-ResolveRepoRoot[] := Module[{fromInput},
-    fromInput = Quiet @ Check[
-        If[
-            StringQ[$InputFileName] && StringLength[StringTrim[$InputFileName]] > 0,
-            ExpandFileName @ DirectoryName @ DirectoryName[$InputFileName],
-            $Failed
-        ],
-        $Failed
-    ];
-    If[StringQ[fromInput] && DirectoryQ[fromInput], fromInput, Directory[]]
-];
-
-$RepoRoot = ResolveRepoRoot[];
+$RepoRoot = "/Users/ribeirrd/Documents/GitHub/MFGraphs";
 
 PrependTo[$Path, $RepoRoot];
 Needs["MFGraphs`"];
@@ -35,6 +23,7 @@ $TestSuites = <|
         "exit-pass-through-nonzero.mt",
         "exact-mode.mt",
         "infeasible-status.mt",
+        "make-unknowns.mt",
         "scenario-kernel.mt",
         "solve-mfg.mt",
         "solver-contracts.mt"
@@ -61,22 +50,42 @@ If[MissingQ[suiteFiles],
 ];
 
 Print["Suite: ", suiteName];
-Print["Files: ", StringRiffle[suiteFiles, ", "]];
+Print["Files: ", Length[suiteFiles]];
 Print[];
 
-report = TestReport[FileNameJoin[{$TestsDir, #}] & /@ suiteFiles];
+$totalPassed = 0;
+$totalFailed = 0;
+$allFailed = {};
 
-Print["Tests run: ", report["TestsSucceededCount"] + report["TestsFailedCount"]];
-Print["Passed: ", report["TestsSucceededCount"]];
-Print["Failed: ", report["TestsFailedCount"]];
-
-If[report["TestsFailedCount"] > 0,
-    Print["\nFailed Tests:"];
-    failed = Select[report["TestResults"], !MatchQ[#["Outcome"], "Success"] &];
-    KeyValueMap[
-        (Print["  [", #2["Outcome"], "] ", #2["TestID"]]) &,
-        failed
+Do[
+    Print["--- ", file, " ---"];
+    $t0 = AbsoluteTime[];
+    report = TestReport[FileNameJoin[{$TestsDir, file}]];
+    $elapsed = Round[AbsoluteTime[] - $t0];
+    passed = report["TestsSucceededCount"];
+    failed = report["TestsFailedCount"];
+    $totalPassed += passed;
+    $totalFailed += failed;
+    Print["  Passed: ", passed, "  Failed: ", failed, "  (", $elapsed, "s)"];
+    If[failed > 0,
+        failedHere = Select[report["TestResults"], !MatchQ[#["Outcome"], "Success"] &];
+        KeyValueMap[
+            (Print["  [FAIL] ", #2["TestID"]]; AppendTo[$allFailed, #2["TestID"]]) &,
+            failedHere
+        ]
     ];
+    Print[];
+    ,
+    {file, suiteFiles}
+];
+
+Print["==================="];
+Print["Total passed: ", $totalPassed];
+Print["Total failed: ", $totalFailed];
+
+If[$totalFailed > 0,
+    Print["\nFailed tests:"];
+    Scan[Print["  ", #] &, $allFailed];
     Exit[1]
 ,
     Exit[0]
