@@ -12,34 +12,9 @@
    their public symbols and Options[].
 *)
 
-SolveMFG::usage =
-"SolveMFG[input, Method -> m, opts] dispatches to the selected stationary solver and \
-returns its standardized result association.
-
-Supported methods:
-  \"Automatic\" — cascades CriticalCongestion -> Monotone -> NonLinear, falling back on \
-infeasibility or failure. When \"CongestionExponentFunction\" is known to be non-1 or \
-cannot be proven to be 1, CriticalCongestion is skipped (it only handles alpha=1).
-  \"CriticalCongestion\" — requires \"CongestionExponentFunction\" -> 1. Unsupported \
-exponents return an immediate standardized failure without compiling raw input.
-  \"NonLinear\"
-  \"Monotone\"
-
-Hamiltonian options (forwarded to NonLinear and Monotone solvers):
-  \"PotentialFunction\" (default Automatic)
-  \"CongestionExponentFunction\" (default Automatic, meaning alpha=1). Accepts a scalar, \
-a Function[edge, ...], or an Association mapping edges to exponents (unlisted edges \
-default to 1).
-  \"InteractionFunction\" (default Automatic)
-
-input can be either raw data (association accepted by DataToEquations) or an already \
-compiled equation association.";
-
 Options[SolveMFG] = DeleteDuplicatesBy[
     Join[
         {Method -> "Automatic"},
-        Options[NonLinearSolver],
-        Options[MonotoneSolverFromData],
         Options[CriticalCongestionSolver]
     ],
     First
@@ -129,6 +104,20 @@ SolveMFGUnsupportedCriticalAlphaResult[] :=
         "Solution" -> Missing["NotAvailable"],
         "Convergence" -> Missing["NotApplicable"]
     |>;
+
+SolveMFGMissingOptionalSolverResult[solverName_String] :=
+    <|
+        "Solver" -> solverName,
+        "ResultKind" -> "Failure",
+        "Feasibility" -> Missing["NotAvailable"],
+        "Message" -> "SolverNotAvailable",
+        "UnavailableSolver" -> solverName,
+        "Solution" -> Missing["NotAvailable"],
+        "Convergence" -> Missing["NotApplicable"]
+    |>;
+
+SolveMFGSymbolAvailableQ[sym_Symbol] :=
+    DownValues[sym] =!= {} || SubValues[sym] =!= {} || OwnValues[sym] =!= {};
 
 SolveMFGIsCriticalQ[heldOpts_HoldComplete] :=
     Module[{heldAlphaOpt, alphaOpt},
@@ -222,6 +211,9 @@ SolveMFGRunStage[
                    directly and the SolveMFGCompileInput branch is dead code. *)
                 If[
                     dispatchMode === "Automatic",
+                    If[!SolveMFGSymbolAvailableQ[MonotoneSolver],
+                        Return[SolveMFGMissingOptionalSolverResult["MonotoneSolver"], Module]
+                    ];
                     d2e = If[SolveMFGCompiledInputQ[input], input, SolveMFGCompileInput[input, opts]];
                     MonotoneSolver[
                         d2e,
@@ -229,10 +221,16 @@ SolveMFGRunStage[
                     ],
                     If[
                         SolveMFGCompiledInputQ[input],
+                        If[!SolveMFGSymbolAvailableQ[MonotoneSolver],
+                            Return[SolveMFGMissingOptionalSolverResult["MonotoneSolver"], Module]
+                        ];
                         MonotoneSolver[
                             input,
                             Sequence @@ FilterRules[opts, Options[MonotoneSolver]]
                         ],
+                        If[!SolveMFGSymbolAvailableQ[MonotoneSolverFromData],
+                            Return[SolveMFGMissingOptionalSolverResult["MonotoneSolverFromData"], Module]
+                        ];
                         MonotoneSolverFromData[
                             input,
                             Sequence @@ FilterRules[opts, Options[MonotoneSolverFromData]]
@@ -242,6 +240,9 @@ SolveMFGRunStage[
             ,
             "NonLinear",
                 (* SolveMFGCompileInput is a no-op when input is already compiled. *)
+                If[!SolveMFGSymbolAvailableQ[NonLinearSolver],
+                    Return[SolveMFGMissingOptionalSolverResult["NonLinearSolver"], Module]
+                ];
                 d2e = If[SolveMFGCompiledInputQ[input], input, SolveMFGCompileInput[input, opts]];
                 NonLinearSolver[
                     d2e,

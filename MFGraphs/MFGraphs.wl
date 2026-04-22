@@ -174,19 +174,33 @@ $MFGraphsParallelLaunchThreshold::usage =
 launching parallel subkernels. Only applies when $KernelCount === 0. Default is 50.";
 
 (* Load submodules in dependency order *)
-Get["MFGraphs`Examples`ExamplesData`"];
-Get["MFGraphs`DNFReduce`"];
-Get["MFGraphs`DataToEquations`"];
-Get["MFGraphs`Solvers`"];
-Get["MFGraphs`Graphics`"];
-Get["MFGraphs`Scenario`"];
+Scan[
+    Get,
+    {
+        "MFGraphs`Examples`ExamplesData`",
+        "MFGraphs`DNFReduce`",
+        "MFGraphs`DataToEquations`",
+        "MFGraphs`Solvers`",
+        "MFGraphs`Graphics`",
+        "MFGraphs`Scenario`",
+        "MFGraphs`FictitiousPlayBackend`",
+        "MFGraphs`SolveMFGDispatch`"
+    }
+];
 
-Options[SolveMFG] = DeleteDuplicatesBy[
-    Join[
-        {Method -> "Automatic"},
-        Options[CriticalCongestionSolver]
+(* Soft-optional legacy modules: load only when present on $Path. *)
+Scan[
+    Function[ctx,
+        If[StringQ[Quiet @ Check[FindFile[ctx], $Failed]],
+            Get[ctx]
+        ]
     ],
-    First
+    {
+        "MFGraphs`NonLinearSolver`",
+        "MFGraphs`Monotone`",
+        "MFGraphs`TimeDependentSolver`",
+        "MFGraphs`Examples`TimeDependentExamples`"
+    }
 ];
 
 (* --- Private Section --- *)
@@ -456,75 +470,6 @@ MonotoneVariableFieldValue[var_, values_Association, switching_Association] :=
     }
   ];
 
-EncodeFlowAssociation[numericState_Association, assoc_Association] :=
-    Module[{vars, vals},
-        vars = Lookup[numericState, "FlowVariables", {}];
-        If[vars === {},
-            Return[Developer`ToPackedArray[{}], Module]
-        ];
-        vals = vars /. assoc;
-        (* Replace any remaining symbolic MFG variables with 0.0 *)
-        vals = vals /. {u[___] :> 0., j[___] :> 0., z[___] :> 0.};
-        vals = Quiet @ Check[N @ vals, vals];
-        If[VectorQ[vals, NumericQ],
-            Developer`ToPackedArray @ N @ vals,
-            Missing["NotAvailable"]
-        ]
-    ];
-
-EncodeFlowAssociation[_, _] := Missing["NotAvailable"];
-
-DecodeFlowVector[numericState_Association, flowVec_] :=
-    Module[{vars, vals},
-        vars = Lookup[numericState, "FlowVariables", {}];
-        vals = Quiet @ Check[Developer`ToPackedArray @ N @ flowVec, $Failed];
-        If[vals === $Failed || !VectorQ[vals, NumericQ] || Length[vals] =!= Length[vars],
-            <||>,
-            AssociationThread[vars, vals]
-        ]
-    ];
-
-DecodeFlowVector[_, _] := <||>;
-
-ComputeSignedEdgeFlowsFast[numericState_Association, flowVec_] :=
-    Module[{indices, signedEdgeMatrix, kirchhoffVec},
-        indices = Lookup[numericState, "KirchhoffIndicesInFlowVector", {}];
-        signedEdgeMatrix = Lookup[numericState, "SignedEdgeMatrix", SparseArray[{}, {0, 0}]];
-        If[Dimensions[signedEdgeMatrix][[1]] === 0,
-            Return[Developer`ToPackedArray[{}], Module]
-        ];
-        If[indices === {} || !VectorQ[indices, IntegerQ],
-            Return[Missing["NotAvailable"], Module]
-        ];
-        If[Length[flowVec] < Max[indices],
-            Return[Missing["NotAvailable"], Module]
-        ];
-        kirchhoffVec = flowVec[[indices]];
-        If[!VectorQ[kirchhoffVec, NumericQ],
-            Return[Missing["NotAvailable"], Module]
-        ];
-        Developer`ToPackedArray @ N @ (signedEdgeMatrix . kirchhoffVec)
-    ];
-
-ComputeKirchhoffResidualFast[numericState_Association, flowVec_] :=
-    Module[{indices, KM, B, kirchhoffVec, residual},
-        indices = Lookup[numericState, "KirchhoffIndicesInFlowVector", {}];
-        KM = Lookup[numericState, "KirchhoffKM", SparseArray[{}, {0, 0}]];
-        B = Lookup[numericState, "KirchhoffB", Developer`ToPackedArray[{}]];
-        If[indices === {} || !VectorQ[indices, IntegerQ],
-            Return[Missing["NotAvailable"], Module]
-        ];
-        If[Length[flowVec] < Max[indices],
-            Return[Missing["NotAvailable"], Module]
-        ];
-        kirchhoffVec = flowVec[[indices]];
-        If[!VectorQ[kirchhoffVec, NumericQ],
-            Return[Missing["NotAvailable"], Module]
-        ];
-        residual = Quiet @ Check[N @ Norm[KM . kirchhoffVec - B, Infinity], Missing["NotAvailable"]];
-        If[NumericQ[residual], residual, Missing["NotAvailable"]]
-    ];
-
 SelectFlowAssociation[assoc_Association] :=
     Association @ KeySelect[assoc, MatchQ[#, _j] &];
 
@@ -749,24 +694,6 @@ MakeSolverResult[
         <|"Convergence" -> Missing["NotApplicable"]|>,
         extraAssoc
     ];
-
-SolveMFGCompiledInputQ[input_Association] :=
-    KeyExistsQ[input, "EqGeneral"] &&
-    KeyExistsQ[input, "js"] &&
-    KeyExistsQ[input, "jts"];
-
-(* Load submodules in dependency order *)
-Get["MFGraphs`Examples`ExamplesData`"];
-Get["MFGraphs`DNFReduce`"];
-Get["MFGraphs`DataToEquations`"];
-Get["MFGraphs`Solvers`"];
-Get["MFGraphs`NonLinearSolver`"];
-Get["MFGraphs`Monotone`"];
-Get["MFGraphs`TimeDependentSolver`"];
-Get["MFGraphs`Graphics`"];
-Get["MFGraphs`Scenario`"];
-Get["MFGraphs`FictitiousPlayBackend`"];
-Get["MFGraphs`SolveMFGDispatch`"];
 
 End[];
 
