@@ -9,10 +9,21 @@ GetExampleData::usage =
 from the test case test[n].
 Supports test cases with 5 fields (basic), 6 fields (+cost function 'a'), or 7 fields (+alpha).";
 
+ScenarioByKey::usage =
+"ScenarioByKey[key, input] builds a typed scenario[...] from a built-in topology key.
+The base topology (\"Vertices List\", \"Adjacency Matrix\", optional \"a\"/\"alpha\") is
+loaded from key, while boundary and switching data are fully supplied by input:
+<|\"Entry flows\" -> <|v -> flow, ...|>,
+  \"Exit costs\" -> <|v -> cost, ...|>,
+  \"Switching Costs\" -> <|{vIn, vMid, vOut} -> cost, ...|>|>.
+Use \"switching costs\" as a lowercase alias if needed.";
+
 DataG::usage = "DataG is a backward-compatibility alias for GetExampleData.";
 
 GetExampleData::badfields =
 "Unexpected number of fields (`1`) for test case `2`.";
+GetExampleData::deprecated =
+"GetExampleData is deprecated; use ScenarioByKey with input associations for entry, exit, and switching data.";
 
 (* TODO: stop using these parameters. we should, maybe update the examples to only specify the entry and exit vertices and let makeScenario take the corresponding values directly.*)
 
@@ -557,7 +568,7 @@ $ExampleDataFields6 = Join[$ExampleDataFields5, {"a"}];
 
 $ExampleDataFields7 = Join[$ExampleDataFields6, {"alpha"}];
 
-GetExampleData[n_] :=
+GetExampleDataRaw[n_] :=
     With[{data = test[n]},
         Switch[Length[data],
             5, AssociationThread[$ExampleDataFields5, data],
@@ -565,7 +576,195 @@ GetExampleData[n_] :=
             7, AssociationThread[$ExampleDataFields7, data],
             _, (Message[GetExampleData::badfields, Length[data], n]; $Failed)
         ]
-    ]
+    ];
+
+$GetExampleDataDeprecationEmitted = False;
+EmitGetExampleDataDeprecation[] :=
+    If[!TrueQ[$GetExampleDataDeprecationEmitted],
+        Message[GetExampleData::deprecated];
+        $GetExampleDataDeprecationEmitted = True
+    ];
+
+SwitchingInput[input_Association] :=
+    Which[
+        KeyExistsQ[input, "Switching Costs"], input["Switching Costs"],
+        KeyExistsQ[input, "switching costs"], input["switching costs"],
+        True, Missing["KeyAbsent", "Switching Costs"]
+    ];
+
+VertexRuleList[vertexOrder_List, assoc_Association] :=
+    ({#, assoc[#]} &) /@ Select[vertexOrder, KeyExistsQ[assoc, #] &];
+
+AdjacentVerticesQ[adjacency_, vertexIndex_Association, u_, v_] :=
+    Module[{iu, iv},
+        iu = Lookup[vertexIndex, u, Missing["KeyAbsent", u]];
+        iv = Lookup[vertexIndex, v, Missing["KeyAbsent", v]];
+        If[MissingQ[iu] || MissingQ[iv], Return[False, Module]];
+        Quiet @ Check[
+            TrueQ[adjacency[[iu, iv]] =!= 0] || TrueQ[adjacency[[iv, iu]] =!= 0],
+            False
+        ]
+    ];
+
+ValidateSwitchingAssociation[switching_Association, vertices_List, adjacency_] :=
+    Module[{vertexSet, vertexIndex, keys, badShape, badVertex, badAdjacency, badValue},
+        vertexSet = AssociationThread[vertices, ConstantArray[True, Length[vertices]]];
+        vertexIndex = AssociationThread[vertices, Range[Length[vertices]]];
+        keys = Keys[switching];
+
+        badShape = Select[keys, !MatchQ[#, {_, _, _}] &];
+        If[badShape =!= {},
+            Return[
+                Failure["ScenarioByKey", <|
+                    "Message" -> "Switching Costs keys must be triples {vIn, vMid, vOut}.",
+                    "InvalidKeys" -> badShape
+                |>],
+                Module
+            ]
+        ];
+
+        badVertex = Select[
+            keys,
+            With[{triple = #},
+                !AllTrue[triple, KeyExistsQ[vertexSet, #] &]
+            ] &
+        ];
+        If[badVertex =!= {},
+            Return[
+                Failure["ScenarioByKey", <|
+                    "Message" -> "Switching Costs contains vertices not present in the example topology.",
+                    "InvalidKeys" -> badVertex
+                |>],
+                Module
+            ]
+        ];
+
+        badAdjacency = Select[
+            keys,
+            With[{triple = #},
+                !AdjacentVerticesQ[adjacency, vertexIndex, triple[[1]], triple[[2]]] ||
+                !AdjacentVerticesQ[adjacency, vertexIndex, triple[[2]], triple[[3]]]
+            ] &
+        ];
+        If[badAdjacency =!= {},
+            Return[
+                Failure["ScenarioByKey", <|
+                    "Message" -> "Switching Costs keys must be adjacent triples in the example topology.",
+                    "InvalidKeys" -> badAdjacency
+                |>],
+                Module
+            ]
+        ];
+
+        badValue = Select[Normal[switching], !NumericQ[Last[#]] &];
+        If[badValue =!= {},
+            Return[
+                Failure["ScenarioByKey", <|
+                    "Message" -> "Switching Costs values must be numeric.",
+                    "InvalidRules" -> badValue
+                |>],
+                Module
+            ]
+        ];
+
+        switching
+    ];
+
+ScenarioByKey[key_, input_Association] :=
+    Module[{base, vertices, adjacency, entryFlows, exitCosts, switchingCosts,
+            missing, badEntryVertices, badExitVertices, badEntryValues, badExitValues,
+            entryRules, exitRules, switchingValidated, model, requiredKeys},
+        base = GetExampleDataRaw[key];
+        If[base === $Failed, Return[$Failed, Module]];
+
+        requiredKeys = {"Entry flows", "Exit costs"};
+        missing = Select[requiredKeys, !KeyExistsQ[input, #] &];
+        If[!KeyExistsQ[input, "Switching Costs"] && !KeyExistsQ[input, "switching costs"],
+            missing = Append[missing, "Switching Costs"]
+        ];
+        If[missing =!= {},
+            Return[
+                Failure["ScenarioByKey", <|
+                    "Message" -> "Missing required input keys: " <> StringRiffle[missing, ", "],
+                    "MissingKeys" -> missing
+                |>],
+                Module
+            ]
+        ];
+
+        entryFlows = input["Entry flows"];
+        exitCosts = input["Exit costs"];
+        switchingCosts = SwitchingInput[input];
+        If[!AssociationQ[entryFlows] || !AssociationQ[exitCosts] || !AssociationQ[switchingCosts],
+            Return[
+                Failure["ScenarioByKey", <|
+                    "Message" -> "Entry flows, Exit costs, and Switching Costs must be Associations."
+                |>],
+                Module
+            ]
+        ];
+
+        vertices = Lookup[base, "Vertices List", {}];
+        adjacency = Normal @ Lookup[base, "Adjacency Matrix", {}];
+
+        badEntryVertices = Select[Keys[entryFlows], !MemberQ[vertices, #] &];
+        badExitVertices = Select[Keys[exitCosts], !MemberQ[vertices, #] &];
+        If[badEntryVertices =!= {} || badExitVertices =!= {},
+            Return[
+                Failure["ScenarioByKey", <|
+                    "Message" -> "Entry/Exit vertices must belong to the example topology vertices list.",
+                    "InvalidEntryVertices" -> badEntryVertices,
+                    "InvalidExitVertices" -> badExitVertices
+                |>],
+                Module
+            ]
+        ];
+
+        badEntryValues = Select[Normal[entryFlows], !NumericQ[Last[#]] &];
+        badExitValues = Select[Normal[exitCosts], !NumericQ[Last[#]] &];
+        If[badEntryValues =!= {} || badExitValues =!= {},
+            Return[
+                Failure["ScenarioByKey", <|
+                    "Message" -> "Entry flow and Exit cost values must be numeric.",
+                    "InvalidEntryRules" -> badEntryValues,
+                    "InvalidExitRules" -> badExitValues
+                |>],
+                Module
+            ]
+        ];
+
+        switchingValidated = ValidateSwitchingAssociation[switchingCosts, vertices, adjacency];
+        If[FailureQ[switchingValidated], Return[switchingValidated, Module]];
+
+        entryRules = VertexRuleList[vertices, entryFlows];
+        exitRules = VertexRuleList[vertices, exitCosts];
+
+        model = <|
+            "Vertices List" -> vertices,
+            "Adjacency Matrix" -> adjacency,
+            "Entrance Vertices and Flows" -> entryRules,
+            "Exit Vertices and Terminal Costs" -> exitRules,
+            "Switching Costs" -> switchingValidated
+        |>;
+        If[KeyExistsQ[base, "a"], model = Join[model, <|"a" -> base["a"]|>]];
+        If[KeyExistsQ[base, "alpha"], model = Join[model, <|"alpha" -> base["alpha"]|>]];
+
+        makeScenario[<|"Model" -> model|>]
+    ];
+
+ScenarioByKey[key_] := ScenarioByKey[key, <||>];
+
+ScenarioByKey[_, _] :=
+    Failure["ScenarioByKey", <|
+        "Message" -> "ScenarioByKey requires an Association input."
+    |>];
+
+GetExampleData[n_] :=
+    Module[{data},
+        EmitGetExampleDataDeprecation[];
+        data = GetExampleDataRaw[n];
+        data
+    ];
 
 (* --- Backward compatibility alias --- *)
 DataG = GetExampleData;

@@ -60,8 +60,12 @@ Association.";
 (* Shared Topology Logic *)
 
 BuildAuxiliaryTopology::usage =
-"BuildAuxiliaryTopology[model] returns an association with the auxiliary graph, \
-triples, pairs, and auxiliary vertex lists derived from the raw model.";
+"BuildAuxiliaryTopology[model] returns an association with the auxiliary graph and \
+metadata derived from the raw model.";
+
+BuildAuxTriples::usage =
+"BuildAuxTriples[auxGraph] returns the list of all possible {v_in, v_mid, v_out} \
+transitions (triples) in the graph.";
 
 Begin["`Private`"];
 
@@ -106,12 +110,18 @@ NormalizeScenarioModel[other_] := other;
 
 (* --- Topology Helpers --- *)
 
-BuildAuxiliaryTopology[model_Association] :=
+MFGraphs`BuildAuxTriples[auxGraph_Graph] :=
+    Module[{vertices = VertexList[auxGraph]},
+        Flatten[
+            Insert[#, 2] /@ Permutations[AdjacencyList[auxGraph, #], {2}] & /@ vertices,
+            1
+        ]
+    ];
+
+MFGraphs`BuildAuxiliaryTopology[model_Association] :=
     Module[{vertices, adjacency, entryFlows, exitCosts, graph, 
             entryVertices, exitVertices, auxEntryVertices, auxExitVertices,
-            entryEdges, exitEdges, auxiliaryGraph, auxVerticesList, 
-            auxTriples, edgeList, halfPairs, inAuxEntryPairs, 
-            outAuxEntryPairs, inAuxExitPairs, outAuxExitPairs, pairs, auxPairs},
+            entryEdges, exitEdges, auxiliaryGraph},
         
         vertices = Lookup[model, "Vertices List"];
         adjacency = Lookup[model, "Adjacency Matrix"];
@@ -137,26 +147,10 @@ BuildAuxiliaryTopology[model_Association] :=
         entryEdges = MapThread[UndirectedEdge, {auxEntryVertices, entryVertices}];
         exitEdges = MapThread[UndirectedEdge, {exitVertices, auxExitVertices}];
         auxiliaryGraph = EdgeAdd[graph, Join[entryEdges, exitEdges]];
-        
-        auxVerticesList = VertexList[auxiliaryGraph];
-        auxTriples = Flatten[
-            Insert[#, 2] /@ Permutations[AdjacencyList[auxiliaryGraph, #], {2}] & /@ auxVerticesList,
-            1
-        ];
-
-        edgeList = EdgeList[graph];
-        halfPairs = List @@@ edgeList;
-        inAuxEntryPairs = List @@@ entryEdges;
-        outAuxExitPairs = List @@@ exitEdges;
-        inAuxExitPairs = Reverse /@ outAuxExitPairs;
-        outAuxEntryPairs = Reverse /@ inAuxEntryPairs;
-        pairs = Join[halfPairs, Reverse /@ halfPairs];
-        auxPairs = Join[inAuxEntryPairs, outAuxEntryPairs, inAuxExitPairs, outAuxExitPairs, pairs];
 
         <|
+            "Graph" -> graph,
             "AuxiliaryGraph" -> auxiliaryGraph,
-            "AuxTriples" -> auxTriples,
-            "AuxPairs" -> auxPairs,
             "AuxEntryVertices" -> auxEntryVertices,
             "AuxExitVertices" -> auxExitVertices,
             "AuxEntryEdges" -> entryEdges,
@@ -209,31 +203,34 @@ validateScenario[x_] :=
 
 (* --- Complete --- *)
 
-CompleteSwitchingCosts[model_Association] :=
-    Module[{topology, inputSC, scAssoc},
-        topology = BuildAuxiliaryTopology[model];
-        If[topology === $Failed, Return[model, Module]];
-        
+CompleteSwitchingCosts[model_Association, topology_Association] :=
+    Module[{inputSC, scAssoc, triples},
         inputSC = Lookup[model, "Switching Costs", {}];
         scAssoc = If[AssociationQ[inputSC],
             inputSC,
             AssociationThread[Most /@ inputSC, Last /@ inputSC]
         ];
         
+        (* Derive triples for completion *)
+        triples = MFGraphs`BuildAuxTriples[topology["AuxiliaryGraph"]];
+        
         (* Explicitly complement with 0 for all possible transitions in the auxiliary graph *)
-        Join[AssociationMap[0&, topology["AuxTriples"]], scAssoc]
+        Join[AssociationMap[0&, triples], scAssoc]
     ];
 
 completeScenario[s_scenario] :=
-    Module[{assoc, identity, benchmark, model, hash, newAssoc, completedSC},
+    Module[{assoc, identity, benchmark, model, hash, newAssoc, completedSC, topology},
         assoc     = ScenarioData[s];
         model     = Lookup[assoc, "Model", <||>];
         identity  = Lookup[assoc, "Identity", <||>];
         benchmark = Lookup[assoc, "Benchmark", <||>];
+        topology  = Lookup[assoc, "Topology", Missing["KeyAbsent", "Topology"]];
 
         (* Ensure "Switching Costs" is explicitly completed before hashing. *)
-        completedSC = CompleteSwitchingCosts[model];
-        model = Join[model, <|"Switching Costs" -> completedSC|>];
+        If[!MissingQ[topology],
+            completedSC = CompleteSwitchingCosts[model, topology];
+            model = Join[model, <|"Switching Costs" -> completedSC|>]
+        ];
 
         (* Compute content hash from the canonical string of the completed Model. *)
         hash = Hash[ToString[model, InputForm], "SHA256", "HexString"];
@@ -258,14 +255,23 @@ completeScenario[x_] := x;   (* pass-through for non-scenario values *)
 (* --- Constructor --- *)
 
 makeScenario[rawAssoc_Association] :=
-    Module[{normalizedAssoc, wrapped, validated, completed},
+    Module[{normalizedAssoc, wrapped, validated, completed, model, topology},
         normalizedAssoc = rawAssoc;
-        If[AssociationQ[Lookup[rawAssoc, "Model", Missing["KeyAbsent", "Model"]]],
+        model = Lookup[rawAssoc, "Model", Missing["KeyAbsent", "Model"]];
+        
+        If[AssociationQ[model],
             normalizedAssoc = Join[
                 rawAssoc,
-                <|"Model" -> NormalizeScenarioModel[rawAssoc["Model"]]|>
+                <|"Model" -> NormalizeScenarioModel[model]|>
+            ];
+            
+            (* Build topology during construction if model is valid enough *)
+            topology = MFGraphs`BuildAuxiliaryTopology[normalizedAssoc["Model"]];
+            If[AssociationQ[topology],
+                normalizedAssoc = Join[normalizedAssoc, <|"Topology" -> topology|>]
             ]
         ];
+        
         wrapped   = scenario[normalizedAssoc];
         validated = validateScenario[wrapped];
         If[FailureQ[validated],

@@ -412,7 +412,7 @@ DataToEquations[Data_Association] :=
          blockedIncomingPairs, activeAuxTriples,
          Nlhs, ModuleVars, ModuleVarsNames, Nrhs, costpluscurrents, EqGeneral,
          inAuxEntryPairs, outAuxEntryPairs, inAuxExitPairs, outAuxExitPairs, 
-        pairs, halfPairs, consistentCosts, scenarioObj},
+        pairs, halfPairs, consistentCosts, scenarioObj, topology},
         
         (* Use makeScenario to get completed and validated data *)
         scenarioObj = makeScenario[<|"Model" -> Data|>];
@@ -426,17 +426,22 @@ DataToEquations[Data_Association] :=
         exitVerticesCosts = ScenarioData[scenarioObj, "Model"]["Exit Vertices and Terminal Costs"];
         SwitchingCosts = ScenarioData[scenarioObj, "Model"]["Switching Costs"];
 
-        (* Graph construction *)
-        graph = AdjacencyGraph[verticesList, adjacencyMatrix, VertexLabels
-             -> "Name", DirectedEdges -> False];
-        entryVertices = First /@ entryVerticesFlows;
-        exitVertices = First /@ exitVerticesCosts;
+        (* Use shared topology logic from Scenario.wl - preferably from cache *)
+        topology = ScenarioData[scenarioObj, "Topology"];
+        If[!AssociationQ[topology],
+            topology = BuildAuxiliaryTopology[ScenarioData[scenarioObj, "Model"]]
+        ];
+        
+        If[topology === $Failed, 
+            Return[Failure["DataToEquations", <|"Message" -> "Topology construction failed"|>], Module]
+        ];
 
-        auxEntryVertices = Symbol["en" <> ToString[#]]& /@ entryVertices;
-        auxExitVertices = Symbol["ex" <> ToString[#]]& /@ exitVertices;
-        entryEdges = MapThread[UndirectedEdge, {auxEntryVertices, entryVertices}];
-        exitEdges = MapThread[UndirectedEdge, {exitVertices, auxExitVertices}];
-        auxiliaryGraph = EdgeAdd[graph, Join[entryEdges, exitEdges]];
+        graph = topology["Graph"];
+        auxiliaryGraph = topology["AuxiliaryGraph"];
+        auxEntryVertices = topology["AuxEntryVertices"];
+        auxExitVertices = topology["AuxExitVertices"];
+        entryEdges = topology["AuxEntryEdges"];
+        exitEdges = topology["AuxExitEdges"];
             
         auxEdgeList = EdgeList[auxiliaryGraph];
         edgeList = EdgeList[graph];
@@ -448,11 +453,6 @@ DataToEquations[Data_Association] :=
         inAuxExitPairs = Reverse /@ outAuxExitPairs;
         outAuxEntryPairs = Reverse /@ inAuxEntryPairs;
         pairs = Join[halfPairs, Reverse /@ halfPairs];
-        auxPairs = Join[inAuxEntryPairs, outAuxEntryPairs, inAuxExitPairs,
-             outAuxExitPairs, pairs];
-        (* Insert the vertex in pairs of adjacent vertices *)
-        auxTriples = Flatten[Insert[#, 2] /@ Permutations[AdjacencyList[
-            auxiliaryGraph, #], {2}]& /@ auxVerticesList, 1];
 
         (* Prepare boundary data *)
         EntryDataAssociation = RoundValues @ AssociationThread[inAuxEntryPairs,
@@ -464,6 +464,8 @@ DataToEquations[Data_Association] :=
         js = UnknownsData[unknownBundle, "js"] /. Missing[_, _] -> {};
         jts = UnknownsData[unknownBundle, "jts"] /. Missing[_, _] -> {};
         us = UnknownsData[unknownBundle, "us"] /. Missing[_, _] -> {};
+        auxPairs = UnknownsData[unknownBundle, "auxPairs"] /. Missing[_, _] -> {};
+        auxTriples = UnknownsData[unknownBundle, "auxTriples"] /. Missing[_, _] -> {};
 
         (* Signed flows *)
         SignedFlows = AssociationMap[j @@ # - j @@ Reverse @ #&, Join[

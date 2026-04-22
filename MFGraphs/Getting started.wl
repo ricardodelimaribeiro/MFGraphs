@@ -1,5 +1,17 @@
 (* ::Package:: *)
 
+Quit[]
+
+
+$Path
+
+
+ Directory[]
+
+
+AppendTo[$Path, FileNameJoin[Directory[],"/"]]
+
+
 (* Notebook-friendly MFGraphs workbook.
    This file is meant to be evaluated section-by-section inside a notebook.
    It does not assume that the notebook directory is already on $Path. *)
@@ -287,6 +299,287 @@ examplePreview = <|
 examplePreview["Jamarat"]
 
 
+ Remove["Global`makeUnknowns", "Global`scenario", "Global`unknowns", "Global`UnknownsData"];
+  Needs["MFGraphs`"];
+
+
+
+Quit[]
+
+
+(* Notebook-friendly MFGraphs workbook.
+   This file is meant to be evaluated section-by-section inside a notebook.
+   It does not assume that the notebook directory is already on $Path. *)
+
+ClearAll[
+    FindMFGraphsRoot,
+    PackageUsageSymbols,
+    ClearMFGraphsNotebookShadows,
+    EnsureMFGraphsLoaded,
+    DescribeOutput,
+    AssociationValue,
+    NetEdgeFlows,
+    NetworkVisualData,
+    FlowStyleDirective,
+    NetworkGraphPlot,
+    SolutionFlowPlot,
+    DensityNetworkGraphic,
+    MassDensityCurve,
+    ValueFunctionCurve,
+    ExitFlowPlot,
+    JamaratScenario
+];
+
+FindMFGraphsRoot[] :=
+    Module[{origins, candidates},
+        origins = DeleteDuplicates @ Select[
+            {
+                Quiet @ Check[NotebookDirectory[], Nothing],
+                If[StringQ[$InputFileName] && $InputFileName =!= "",
+                    DirectoryName[$InputFileName],
+                    Nothing
+                ],
+                Directory[]
+            },
+            StringQ
+        ];
+        candidates = DeleteDuplicates @ Flatten[{
+            origins,
+            FileNameJoin[{#, "MFGraphs"}] & /@ origins,
+            FileNameJoin[{#, "..", "MFGraphs"}] & /@ origins
+        }];
+        SelectFirst[
+            candidates,
+            FileExistsQ[FileNameJoin[{#, "MFGraphs.wl"}]] &,
+            $Failed
+        ]
+    ];
+
+PackageUsageSymbols[packageDir_String] :=
+    Module[{sourceFiles, usageNames},
+        sourceFiles = FileNames["*.wl", packageDir, Infinity];
+        usageNames = DeleteDuplicates @ Flatten[
+            StringCases[
+                Import[#, "Text"],
+                RegularExpression["(?m)^\\s*([A-Za-z$][A-Za-z0-9$]*)::usage\\s*="] :> "$1"
+            ] & /@ sourceFiles
+        ];
+        usageNames
+    ];
+
+ClearMFGraphsNotebookShadows[] :=
+    Module[{packageDir = FindMFGraphsRoot[], exported, shadowed},
+        exported = If[packageDir === $Failed, {}, PackageUsageSymbols[packageDir]];
+        shadowed = Select[exported, NameQ["Global`" <> #] &];
+        Scan[ToExpression["Global`" <> #, InputForm, Remove] &, shadowed];
+        shadowed
+    ];
+
+EnsureMFGraphsLoaded[] :=
+    Module[{packageDir = FindMFGraphsRoot[], searchRoot, cleared},
+        If[packageDir === $Failed,
+            Print["Could not locate MFGraphs.wl relative to the notebook or current directory."];
+            Abort[]
+        ];
+        searchRoot = DirectoryName[packageDir];
+        cleared = ClearMFGraphsNotebookShadows[];
+        If[FreeQ[$Path, searchRoot], PrependTo[$Path, searchRoot]];
+        Get[FileNameJoin[{packageDir, "MFGraphs.wl"}]];
+        If[cleared =!= {},
+            Print["Removed shadowing Global` symbols before loading MFGraphs: ", cleared];
+        ];
+        packageDir
+    ];
+
+mfGraphsRoot = EnsureMFGraphsLoaded[];
+MFGraphs`$MFGraphsVerbose = False;
+
+(* Public MFGraphs symbols are now on $ContextPath, so the examples below can
+   use GetExampleData, DataToEquations, I1, U1, ... without a context prefix.
+   V, alpha, and g are now public MFGraphs symbols as well, so you can
+   override them directly with Block[...] or with WithHamiltonianFunctions[...]. *)
+
+DescribeOutput[title_String, description_String, expr_] :=
+    Column[
+        {
+            Style[title, 15, Bold, RGBColor[0.15, 0.26, 0.45]],
+            Style[description, 11, GrayLevel[0.35]],
+            expr
+        },
+        Alignment -> Left,
+        Spacings -> {0.2, 0.7}
+    ];
+
+(* Reuse canonical visualization helpers from Graphics.wl to avoid workbook drift. *)
+AssociationValue[assoc_Association, key_, default_: Missing["NotAvailable"]] :=
+    MFGraphs`AssociationValue[assoc, key, default];
+
+(* Net flow on each displayed edge, after eliminating dependent current variables. *)
+NetEdgeFlows[d2e_Association, solution_Association, pairs_: Automatic] :=
+    MFGraphs`NetEdgeFlows[d2e, solution, pairs];
+
+NetworkVisualData[d2e_Association] :=
+    MFGraphs`NetworkVisualData[d2e];
+
+FlowStyleDirective[flow_?NumericQ, maxFlow_?NumericQ] :=
+    MFGraphs`FlowStyleDirective[flow, maxFlow];
+
+(* NetworkGraphPlot and SolutionFlowPlot now live in Graphics.wl. *)
+
+DensityNetworkGraphic[d2e_Association, solution_Association, title_: Automatic, samples_Integer: 24] :=
+    Module[{visual, coords, pairs, flows, sampleXs, densitiesByPair, allDensities,
+      maxDensity, colorScale, edgeSegments, edgeLabels, vertexDisks, vertexLabels,
+      plotTitle, legendRange, hasDensityModelQ, usesProxyDensityQ = False},
+        visual = NetworkVisualData[d2e];
+        coords = visual["coords"];
+        pairs = List @@@ Lookup[d2e, "edgeList", {}];
+        flows = NetEdgeFlows[d2e, solution, pairs];
+        sampleXs = N @ Subdivide[0., 1., samples];
+        hasDensityModelQ = DownValues[MFGraphs`Private`M] =!= {};
+        densitiesByPair = AssociationThread[
+            pairs,
+            Table[
+                Module[{flow, sampled},
+                    flow = N @ AssociationValue[flows, pair, 0.];
+                    sampled = If[
+                        hasDensityModelQ,
+                        Quiet @ Check[
+                            N @ (MFGraphs`Private`M[flow, #, UndirectedEdge @@ pair] & /@ sampleXs),
+                            {}
+                        ],
+                        {}
+                    ];
+                    If[VectorQ[sampled, NumericQ],
+                        sampled,
+                        usesProxyDensityQ = True;
+                        ConstantArray[N @ Max[0., Abs[flow]], Length[sampleXs]]
+                    ]
+                ],
+                {pair, pairs}
+            ]
+        ];
+        allDensities = Select[Flatten[Values[densitiesByPair]], NumericQ];
+        maxDensity = Max[Append[allDensities, 0.]];
+        legendRange = {0., Max[maxDensity, 1.]};
+        colorScale[value_] :=
+            ColorData["SolarColors"][Rescale[value, legendRange]];
+        edgeSegments = Flatten @ Map[
+            Function[pair,
+                Module[{edgePoints, densities},
+                    edgePoints = ((1 - #) coords[pair[[1]]] + # coords[pair[[2]]]) & /@ sampleXs;
+                    densities = AssociationValue[densitiesByPair, pair, ConstantArray[0., Length[sampleXs]]];
+                    Table[
+                        {
+                            colorScale[Mean[densities[[k ;; k + 1]]]],
+                            AbsoluteThickness[8],
+                            Line[edgePoints[[k ;; k + 1]]]
+                        },
+                        {k, 1, Length[edgePoints] - 1}
+                    ]
+                ]
+            ],
+            pairs
+        ];
+        edgeLabels = Map[
+            Function[pair,
+                Inset[
+                    Framed[
+                        Style[
+                            Row[{"flow = ", NumberForm[AssociationValue[flows, pair, 0.], {Infinity, 1}]}],
+                            11,
+                            Black
+                        ],
+                        Background -> White,
+                        FrameStyle -> GrayLevel[0.8],
+                        RoundingRadius -> 3,
+                        FrameMargins -> Tiny
+                    ],
+                    Mean[{coords[pair[[1]]], coords[pair[[2]]]}]
+                ]
+            ],
+            pairs
+        ];
+        vertexDisks = Map[
+            Function[vertex,
+                {
+                    Lookup[visual["vertexColors"], vertex, GrayLevel[0.75]],
+                    EdgeForm[Directive[White, AbsoluteThickness[1.5]]],
+                    Disk[
+                        coords[vertex],
+                        Lookup[visual["vertexRadii"], vertex, 0.04]
+                    ]
+                }
+            ],
+            VertexList[visual["graph"]]
+        ];
+        vertexLabels = Map[
+            Function[vertex,
+                Inset[
+                    Style[vertex, 11, Bold, Black],
+                    coords[vertex]
+                ]
+            ],
+            VertexList[visual["graph"]]
+        ];
+        plotTitle = Replace[title, Automatic -> "Edge density profile"];
+        If[usesProxyDensityQ,
+            plotTitle = plotTitle <> " (flow-magnitude proxy)"
+        ];
+        Legended[
+            Graphics[
+                {
+                    edgeSegments,
+                    edgeLabels,
+                    vertexDisks,
+                    vertexLabels
+                },
+                PlotRange -> All,
+                PlotRangePadding -> Scaled[0.15],
+                ImageSize -> Large,
+                PlotLabel -> Style[plotTitle, 14, Bold]
+            ],
+            Placed[
+                BarLegend[
+                    {ColorData["SolarColors"], legendRange},
+                    LegendLabel -> Style[
+                        If[usesProxyDensityQ, "Flow-magnitude proxy", "Local density"],
+                        11
+                    ]
+                ],
+                Right
+            ]
+        ]
+    ];
+
+(* ExitFlowPlot now lives in Graphics.wl. *)
+
+(* Jamarat helper: solve one release/cost scenario and summarize exit usage. *)
+JamaratScenario[params_List] :=
+    Module[{data, d2e, result, exitPairs, exitFlows},
+        data = GetExampleData["Jamaratv9"] /. params;
+        d2e = DataToEquations[data];
+        result = Quiet @ CriticalCongestionSolver[d2e];
+        exitPairs = List @@@ Lookup[d2e, "exitEdges", {}];
+        exitFlows = If[AssociationQ[result["Solution"]],
+            AssociationThread[
+                Lookup[d2e, "exitVertices", {}],
+                N[((Lookup[d2e, "SignedFlows", <||>] /@ exitPairs) /. result["Solution"])]
+            ],
+            Missing["NotAvailable"]
+        ];
+        <|
+            "Parameters" -> params,
+            "Model" -> d2e,
+            "Solution" -> result["Solution"],
+            "Feasibility" -> result["Feasibility"],
+            "ExitFlows" -> exitFlows,
+            "InteriorFlows" ->
+                If[AssociationQ[result["Solution"]],
+                    NetEdgeFlows[d2e, result["Solution"]],
+                    Missing["NotAvailable"]
+                ]
+        |>
+    ];
 (* --- 2. Typed Scenarios and Unknowns --- *)
 
 (* Scenarios provide a typed wrapper for model data and parameters. *)
@@ -294,10 +587,13 @@ typedScenario = makeScenario[<|
     "Identity" -> <|"Name" -> "Y-junction benchmark"|>,
     "Model" -> GetExampleData[7],
     "Data" -> {I1 -> 100, U1 -> 0, U2 -> 0}
-|>];
+|>]
+Head@%
+
 
 (* makeUnknowns derives the symbolic variables (js, jts, us) from the scenario. *)
-unknowns = makeUnknowns[typedScenario];
+unknowns = makeUnknowns[typedScenario]
+
 
 Column[{
     DescribeOutput[

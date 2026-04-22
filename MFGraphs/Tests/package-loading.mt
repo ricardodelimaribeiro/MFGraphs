@@ -7,7 +7,8 @@ Test[
     NameQ["MFGraphs`SolveMFG"] &&
     NameQ["MFGraphs`GetExampleData"] && NameQ["MFGraphs`DNFReduce"] &&
     NameQ["MFGraphs`GetKirchhoffLinearSystem"] &&
-    NameQ["MFGraphs`makeScenario"] && NameQ["MFGraphs`scenarioQ"]
+    NameQ["MFGraphs`makeScenario"] && NameQ["MFGraphs`scenarioQ"] &&
+    NameQ["MFGraphs`ScenarioByKey"]
     ,
     True
     ,
