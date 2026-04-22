@@ -230,12 +230,11 @@ CriticalCongestionSolver[d2e]           (Solvers.wl, uses DNFReduce.wl)
 
 Defined in `MFGraphs.wl`:
 1. `Examples/ExamplesData.wl` — 34 built-in test cases via `GetExampleData[key]`
-2. `Examples/TimeDependentExamples.wl` — Time-dependent example data
-3. `DNFReduce.wl` — Boolean algebra solver (disjunctive normal form reduction with Solve/Reduce memoization, branch pruning, and post-reduction via `ReduceDisjuncts`/`SubsumptionPrune`)
-4. `DataToEquations.wl` — Core converter: network topology → equations; implements `DataToEquations`, `MFGSystemSolver`, `MFGPreprocessing`, `TripleClean`
-5. `Solvers.wl` — Critical-congestion solver suite extracted from `DataToEquations.wl` (Phase 3 refactor); implements `CriticalCongestionSolver`, `DirectCriticalSolver`, `IsCriticalSolution`
-6. `TimeDependentSolver.wl` — Time-dependent MFG solver using backward-forward sweep on discretized time grid
-7. `Graphics.wl` — Public visualization helpers: `NetworkGraphPlot`, `SolutionFlowPlot`, `ExitFlowPlot`
+2. `DNFReduce.wl` — Boolean algebra solver (disjunctive normal form reduction with Solve/Reduce memoization, branch pruning, and post-reduction via `ReduceDisjuncts`/`SubsumptionPrune`)
+3. `DataToEquations.wl` — Core converter: network topology → equations; implements `DataToEquations`, `MFGSystemSolver`, `MFGPreprocessing`, `TripleClean`
+4. `Solvers.wl` — Critical-congestion solver suite extracted from `DataToEquations.wl` (Phase 3 refactor); implements `CriticalCongestionSolver`, `DirectCriticalSolver`, `IsCriticalSolution`
+5. `TimeDependentSolver.wl` — Time-dependent MFG solver using backward-forward sweep on discretized time grid
+6. `Graphics.wl` — Public visualization helpers: `NetworkGraphPlot`, `SolutionFlowPlot`, `ExitFlowPlot`
 
 After submodule loading, `MFGraphs.wl` defines `SolveMFG` — the unified entrypoint (see Pipeline overview).
 

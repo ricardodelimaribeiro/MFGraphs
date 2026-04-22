@@ -6,7 +6,6 @@ checks = <|
     "HasSolveMFG" -> NameQ["MFGraphs`SolveMFG"],
     "HasNonLinearSolver" -> NameQ["MFGraphs`NonLinearSolver"],
     "HasMonotoneSolverFromData" -> NameQ["MFGraphs`MonotoneSolverFromData"],
-    "HasTimeDependentExampleContext" -> MemberQ[$Packages, "MFGraphs`Examples`TimeDependentExamples`"],
     "HasTimeDependentSolverContext" -> MemberQ[$Packages, "MFGraphs`TimeDependentSolver`"]
 |>;
 failed = Length[report["FailureResults"]] + Length[report["TestsFailedWrongResultsKeys"]] + Length[report["TestsFailedWithMessagesKeys"]] + Count[
@@ -15,7 +14,6 @@ failed = Length[report["FailureResults"]] + Length[report["TestsFailedWrongResul
         checks["HasSolveMFG"],
         !checks["HasNonLinearSolver"],
         !checks["HasMonotoneSolverFromData"],
-        !checks["HasTimeDependentExampleContext"],
         !checks["HasTimeDependentSolverContext"]
     },
     False

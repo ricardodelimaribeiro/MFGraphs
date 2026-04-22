@@ -176,7 +176,7 @@ Begin["`Private`"];
         (*AM=*){{0, 1, 1, 0}, {0, 0, 0, 1}, {0, 0, 0, 1}, {0, 0, 0, 0}},
         (*DataIn=*){{1, I1}},
         (*FinalCosts=*){{4, U1}},
-        (*SwitchingCostsData=*){{1,2,4,S1},{1,3,4,S2},{4,2,1,S3},{4,3,1,S4}}}/. {I1 -> 1, U1 -> 0, S1 -> 0, S2 -> 0, S3 -> 0, S4 -> 0},
+        (*SwitchingCostsData=*){{1,2,4,S1},{1,3,4,S2},{4,2,1,S3},{4,3,1,S4}}},
 
    (* Triangle *)
     14 -> {
@@ -234,7 +234,7 @@ Begin["`Private`"];
 
     (* Error in the switching costs *)
     16 -> {
-        (*VL*){1, 2, 3},
+        (*VL=*){1, 2, 3},
         (*AM*){{0, 1, 0}, {0, 0, 1}, {0, 0, 0}},
         (*DataIn*){{1, I1}},
         (*FinalCosts*){{3, U1}},
@@ -366,9 +366,9 @@ Begin["`Private`"];
         {0,0,0,0,0,0,0,1},
         {0,0,0,0,0,0,0,1},
         {0,0,0,0,0,0,0,0}},
-        (*DataIn=*){{1, I1}/.I1->2},
-        (*FinalCosts=*){{8, U1}/.U1->0},
-        (*SwitchingCostsData=*){{1,2,4,S1},{5,7,8,S2}}/.{S1->10,S2->10}},
+        (*DataIn=*){{1, I1}},
+        (*FinalCosts=*){{8, U1}},
+        (*SwitchingCostsData=*){{1,2,4,S1},{5,7,8,S2}}},
 
     "Braess congest" -> {
         (*VL=*){1,2,3,4,5,6,7},
@@ -380,9 +380,9 @@ Begin["`Private`"];
         {0,0,0,0,0,0,1},
         {0,0,0,0,0,0,1},
         {0,0,0,0,0,0,0}},
-        (*DataIn=*){{1, I1}/.I1->2},
-        (*FinalCosts=*){{7, U1}/.U1->0},
-        (*SwitchingCostsData=*){{1,2,4,S1},{4,6,7,S2}}/.{S1->10,S2->10}},
+        (*DataIn=*){{1, I1}},
+        (*FinalCosts=*){{7, U1}},
+        (*SwitchingCostsData=*){{1,2,4,S1},{4,6,7,S2}}},
 
     "New Braess" -> {
         (*VL=*){1,2,3,4,5,6},
@@ -393,9 +393,9 @@ Begin["`Private`"];
         {0,0,0,0,1,0},
         {0,0,0,0,0,1},
         {0,0,0,0,0,0}},
-        (*DataIn=*){{1, I1}/.I1->4000},
-        (*FinalCosts=*){{6, U1}/.U1->0},
-        (*SwitchingCostsData=*){{1,2,3,S1}, {3,2,1,S1},{4,5,6,S2}, {6,5,4,S2}}/.{S1->45,S2->45},
+        (*DataIn=*){{1, I1}},
+        (*FinalCosts=*){{6, U1}},
+        (*SwitchingCostsData=*){{1,2,3,S1}, {3,2,1,S1},{4,5,6,S2}, {6,5,4,S2}},
         (*a=*)Function[{j,edge},
         		Which[
         			edge === DirectedEdge[3,6] || edge === DirectedEdge[1,4],
@@ -418,9 +418,9 @@ Begin["`Private`"];
         {0,0,0,0,0,0,0,0,1,0},
         {0,0,0,0,0,0,0,0,0,1},
         {0,0,0,0,0,0,0,0,0,0}},
-        (*DataIn=*){{1, I1}/.I1->2},
-        (*FinalCosts=*){{10, U1}/.U1->0},
-        (*SwitchingCostsData=*){{1,3,6,S1},{5,7,10,S2}}/.{S1->10,S2->10}},
+        (*DataIn=*){{1, I1}},
+        (*FinalCosts=*){{10, U1}},
+        (*SwitchingCostsData=*){{1,3,6,S1},{5,7,10,S2}}},
 
     "Big Braess congest" -> {
         (*VL=*){1,2,3,4,5,6,7,8,9},
@@ -434,9 +434,9 @@ Begin["`Private`"];
         {0,0,0,0,0,0,0,0,1},
         {0,0,0,0,0,0,0,0,1},
         {0,0,0,0,0,0,0,0,0}},
-        (*DataIn=*){{1, I1}/.I1->2},
-        (*FinalCosts=*){{9, U1}/.U1->0},
-        (*SwitchingCostsData=*){{1,3,5,S1},{5,7,9,S2}}/.{S1->10,S2->10}},
+        (*DataIn=*){{1, I1}},
+        (*FinalCosts=*){{9, U1}},
+        (*SwitchingCostsData=*){{1,3,5,S1},{5,7,9,S2}}},
 
     "HRF Scenario 1" -> {
         (*VL=*){1,2,3,4,5,6,7,8,9,10},
@@ -486,56 +486,56 @@ Begin["`Private`"];
     "Grid1020" -> {
     	(*VL=*)VertexList[GridGraph[{10,20}]],
         (*AM=*)AdjacencyMatrix[GridGraph[{10,20}, DirectedEdges->True]],
-        (*DataIn=*){{1, I1}/.I1->400},
-        (*FinalCosts=*){{200, U1}/.U1->0},
+        (*DataIn=*){{1, I1}},
+        (*FinalCosts=*){{200, U1}},
         (*SwitchingCostsData=*){}
         },
 
     "Grid0303" -> {
     	(*VL=*)VertexList[GridGraph[{3,3}]],
         (*AM=*)AdjacencyMatrix[GridGraph[{3,3},DirectedEdges->True]],
-        (*DataIn=*){{1, I1}/.I1->400},
-        (*FinalCosts=*){{3*3, U1}/.U1->0},
+        (*DataIn=*){{1, I1}},
+        (*FinalCosts=*){{3*3, U1}},
         (*SwitchingCostsData=*){}
         },
 
     "Grid0404" -> {
         (*VL=*)VertexList[GridGraph[{4,4}]],
         (*AM=*)AdjacencyMatrix[GridGraph[{4,4},DirectedEdges->True]],
-        (*DataIn=*){{1, I1}/.I1->400},
-        (*FinalCosts=*){{4*4, U1}/.U1->0},
+        (*DataIn=*){{1, I1}},
+        (*FinalCosts=*){{4*4, U1}},
         (*SwitchingCostsData=*){}
         },
 
     "Grid0505" -> {
         (*VL=*)VertexList[GridGraph[{5,5}]],
         (*AM=*)AdjacencyMatrix[GridGraph[{5,5},DirectedEdges->True]],
-        (*DataIn=*){{1, I1}/.I1->400},
-        (*FinalCosts=*){{5*5, U1}/.U1->0},
+        (*DataIn=*){{1, I1}},
+        (*FinalCosts=*){{5*5, U1}},
         (*SwitchingCostsData=*){}
         },
 
     "Grid0707" -> {
         (*VL=*)VertexList[GridGraph[{7,7}]],
         (*AM=*)AdjacencyMatrix[GridGraph[{7,7},DirectedEdges->True]],
-        (*DataIn=*){{1, I1}/.I1->400},
-        (*FinalCosts=*){{7*7, U1}/.U1->0},
+        (*DataIn=*){{1, I1}},
+        (*FinalCosts=*){{7*7, U1}},
         (*SwitchingCostsData=*){}
         },
 
     "Grid0710" -> {
         (*VL=*)VertexList[GridGraph[{7,10}]],
         (*AM=*)AdjacencyMatrix[GridGraph[{7,10},DirectedEdges->True]],
-        (*DataIn=*){{1, I1}/.I1->400},
-        (*FinalCosts=*){{7*10, U1}/.U1->0},
+        (*DataIn=*){{1, I1}},
+        (*FinalCosts=*){{7*10, U1}},
         (*SwitchingCostsData=*){}
         },
 
     "Grid1010" -> {
         (*VL=*)VertexList[GridGraph[{10,10}]],
         (*AM=*)AdjacencyMatrix[GridGraph[{10,10},DirectedEdges->True]],
-        (*DataIn=*){{1, I1}/.I1->400},
-        (*FinalCosts=*){{10*10, U1}/.U1->0},
+        (*DataIn=*){{1, I1}},
+        (*FinalCosts=*){{10*10, U1}},
         (*SwitchingCostsData=*){}
         }
 ];
