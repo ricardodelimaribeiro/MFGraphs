@@ -2,7 +2,8 @@
 (* Extract and validate paper tier benchmark results *)
 
 (* Load latest benchmark CSV *)
-csvFile = "Results/benchmark_latest.csv";
+$RepoRoot = "/Users/ribeirrd/Documents/GitHub/MFGraphs";
+csvFile = FileNameJoin[{$RepoRoot, "Results", "benchmark_latest.csv"}];
 If[!FileExistsQ[csvFile],
     Print["ERROR: ", csvFile, " not found"];
     Exit[1]

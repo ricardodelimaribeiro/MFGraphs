@@ -401,7 +401,7 @@ BenchmarkCase[key_] :=
 Print["Running benchmarks for ", Length[$CasesToRun], " cases...\n"];
 
 (* --- Export results --- *)
-$ResultsDir = FileNameJoin[{Directory[], "Results"}];
+$ResultsDir = FileNameJoin[{$RepoRoot, "Results"}];
 If[!DirectoryQ[$ResultsDir], CreateDirectory[$ResultsDir]];
 
 $Timestamp = DateString[{"Year", "Month", "Day", "-", "Hour", "Minute", "Second"}];
@@ -434,7 +434,7 @@ If[$HistoryTag =!= None,
   Module[{histPath, commitResult, commitHash, date, tier, rows, tierRows,
           entry, lines, existingContent, insertPos},
 
-    histPath = FileNameJoin[{Directory[], "docs", "history", "PARALLEL_PERFORMANCE_HISTORY.md"}];
+    histPath = FileNameJoin[{$RepoRoot, "docs", "history", "PARALLEL_PERFORMANCE_HISTORY.md"}];
     commitResult = RunProcess[{"git", "rev-parse", "--short", "HEAD"}];
     commitHash = StringTrim[commitResult["StandardOutput"]];
     date = DateString[{"Year", "-", "Month", "-", "Day"}];

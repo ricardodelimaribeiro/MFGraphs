@@ -1,8 +1,10 @@
 #!/usr/bin/env wolframscript
 (* Phase 0: Extract Jamaratv9 basic data for verification *)
 
-Get["MFGraphs/MFGraphs.wl"];
-Get["Scripts/BenchmarkHelpers.wls"];
+$RepoRoot = "/Users/ribeirrd/Documents/GitHub/MFGraphs";
+PrependTo[$Path, $RepoRoot];
+Get[FileNameJoin[{$RepoRoot, "MFGraphs", "MFGraphs.wl"}]];
+Get[FileNameJoin[{$RepoRoot, "Scripts", "BenchmarkHelpers.wls"}]];
 
 (* Load Jamaratv9 data *)
 data = GetExampleData["Jamaratv9"];

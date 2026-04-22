@@ -1,15 +1,7 @@
 (* Wolfram Language Test file *)
 
 If[!MemberQ[$Packages, "MFGraphs`"],
-    Get[
-        FileNameJoin[
-            {
-                DirectoryName[$InputFileName],
-                "..",
-                "MFGraphs.wl"
-            }
-        ]
-    ]
+    Get["/Users/ribeirrd/Documents/GitHub/MFGraphs/MFGraphs/MFGraphs.wl"]
 ];
 
 Test[

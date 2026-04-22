@@ -106,7 +106,7 @@ Do[
 
 (* --- Merge with existing entries and write JSON --- *)
 
-outPath = FileNameJoin[{Directory[], "MFGraphs", "Tests", "reference_solutions.json"}];
+outPath = FileNameJoin[{$RepoRoot, "MFGraphs", "Tests", "reference_solutions.json"}];
 
 (* Load existing entries and merge: keep entries for cases not in this run *)
 existingEntries = If[FileExistsQ[outPath],
