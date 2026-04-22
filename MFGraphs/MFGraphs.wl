@@ -177,6 +177,7 @@ launching parallel subkernels. Only applies when $KernelCount === 0. Default is 
 Get["MFGraphs`Examples`ExamplesData`"];
 Get["MFGraphs`DNFReduce`"];
 Get["MFGraphs`Scenario`"];
+Get["MFGraphs`Unknowns`"];
 Get["MFGraphs`DataToEquations`"];
 Get["MFGraphs`Solvers`"];
 Get["MFGraphs`Graphics`"];
@@ -761,7 +762,6 @@ Scan[
     {
         "MFGraphs`Examples`ExamplesData`",
         "MFGraphs`DNFReduce`",
-        "MFGraphs`Unknowns`",
         "MFGraphs`DataToEquations`",
         "MFGraphs`Solvers`",
         "MFGraphs`Graphics`",

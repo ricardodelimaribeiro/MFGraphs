@@ -7,7 +7,8 @@ Test[
     NameQ["MFGraphs`makeScenario"] &&
     NameQ["MFGraphs`validateScenario"] &&
     NameQ["MFGraphs`completeScenario"] &&
-    NameQ["MFGraphs`ScenarioData"]
+    NameQ["MFGraphs`ScenarioData"] &&
+    NameQ["MFGraphs`ScenarioByKey"]
     ,
     True
     ,
@@ -255,4 +256,91 @@ Test[
     True
     ,
     TestID -> "Scenario kernel: graph normalization preserves explicit vertices order"
+]
+
+(* Test: ScenarioByKey constructs a typed scenario from input-defined boundaries *)
+Test[
+    Module[{s, model},
+        s = ScenarioByKey[12, <|
+            "Entry flows" -> <|1 -> 100|>,
+            "Exit costs" -> <|4 -> 0|>,
+            "Switching Costs" -> <||>
+        |>];
+        model = ScenarioData[s, "Model"];
+        scenarioQ[s] &&
+        model["Entrance Vertices and Flows"] === {{1, 100}} &&
+        model["Exit Vertices and Terminal Costs"] === {{4, 0}}
+    ]
+    ,
+    True
+    ,
+    TestID -> "ScenarioByKey: builds typed scenario with input-defined boundaries"
+]
+
+(* Test: ScenarioByKey ignores base example entry/exit sets *)
+Test[
+    Module[{s, model},
+        s = ScenarioByKey[7, <|
+            "Entry flows" -> <|2 -> 11|>,
+            "Exit costs" -> <|4 -> 9|>,
+            "Switching Costs" -> <||>
+        |>];
+        model = ScenarioData[s, "Model"];
+        model["Entrance Vertices and Flows"] === {{2, 11}} &&
+        model["Exit Vertices and Terminal Costs"] === {{4, 9}}
+    ]
+    ,
+    True
+    ,
+    TestID -> "ScenarioByKey: input boundaries override base example boundaries"
+]
+
+(* Test: ScenarioByKey completes unspecified switching triples with zero *)
+Test[
+    Module[{s, sc},
+        s = ScenarioByKey[14, <|
+            "Entry flows" -> <|1 -> 10|>,
+            "Exit costs" -> <|3 -> 0|>,
+            "Switching Costs" -> <|{1, 2, 3} -> 5|>
+        |>];
+        sc = ScenarioData[s, "Model"]["Switching Costs"];
+        AssociationQ[sc] &&
+        KeyExistsQ[sc, {1, 2, 3}] && sc[{1, 2, 3}] == 5 &&
+        KeyExistsQ[sc, {3, 2, 1}] && sc[{3, 2, 1}] == 0
+    ]
+    ,
+    True
+    ,
+    TestID -> "ScenarioByKey: missing switching triples default to zero"
+]
+
+(* Test: ScenarioByKey rejects non-adjacent switching triples *)
+Test[
+    Module[{result},
+        result = ScenarioByKey[3, <|
+            "Entry flows" -> <|1 -> 1|>,
+            "Exit costs" -> <|3 -> 0|>,
+            "Switching Costs" -> <|{1, 3, 2} -> 7|>
+        |>];
+        FailureQ[result] && result["Tag"] === "ScenarioByKey"
+    ]
+    ,
+    True
+    ,
+    TestID -> "ScenarioByKey: rejects non-adjacent switching triples"
+]
+
+(* Test: ScenarioByKey validates required keys *)
+Test[
+    Module[{result},
+        result = ScenarioByKey[12, <|
+            "Entry flows" -> <|1 -> 1|>,
+            "Exit costs" -> <|4 -> 0|>
+        |>];
+        FailureQ[result] && result["Tag"] === "ScenarioByKey"
+    ]
+    ,
+    True
+    ,
+    TestID -> "ScenarioByKey: missing required input keys yields Failure"
 ]
