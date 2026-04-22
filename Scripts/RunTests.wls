@@ -15,9 +15,7 @@ $TestSuites = <|
     "fast" -> {
         "package-loading.mt",
         "graphics-public-api.mt",
-        "007-critical_congestion.mt",
-        "007-critical_congestion_ok.mt",
-        "012-critical_congestion.mt",
+        "critical-basic-cases.mt",
         "critical-numeric-backend.mt",
         "exit-pass-through.mt",
         "exit-pass-through-nonzero.mt",
@@ -29,7 +27,8 @@ $TestSuites = <|
     },
     "slow" -> {
         "J9F-critical_congestion.mt",
-        "Jm9-critical_congestion.mt"
+        "Jm9-critical_congestion.mt",
+        "run-tests-smoke.mt"
     }
 |>;
 $TestSuites["all"] = Join[$TestSuites["fast"], $TestSuites["slow"]];
