@@ -165,3 +165,94 @@ Test[
     ,
     TestID -> "Scenario kernel: completeScenario callable directly on validated scenario"
 ]
+
+(* Test: makeScenario applies Data substitutions to boundary values and materializes numerics *)
+Test[
+    Module[{raw, s, model, entryVals, exitVals},
+        raw = <|
+            "Model" -> <|
+                "Vertices List" -> {1, 2},
+                "Adjacency Matrix" -> {{0, 1}, {0, 0}},
+                "Entrance Vertices and Flows" -> {{1, inflowParam}},
+                "Exit Vertices and Terminal Costs" -> {{2, exitCostParam}},
+                "Switching Costs" -> {}
+            |>,
+            "Data" -> {inflowParam -> 100, exitCostParam -> 0}
+        |>;
+        s = MFGraphs`makeScenario[raw];
+        model = MFGraphs`ScenarioData[s, "Model"];
+        entryVals = Last /@ model["Entrance Vertices and Flows"];
+        exitVals = Last /@ model["Exit Vertices and Terminal Costs"];
+        MFGraphs`scenarioQ[s] && AllTrue[entryVals, NumericQ] && AllTrue[exitVals, NumericQ]
+    ]
+    ,
+    True
+    ,
+    TestID -> "Scenario kernel: boundary values are numeric after makeScenario"
+]
+
+(* Test: makeScenario fails when boundary values remain symbolic after Data substitution *)
+Test[
+    Module[{raw, result},
+        raw = <|
+            "Model" -> <|
+                "Vertices List" -> {1, 2},
+                "Adjacency Matrix" -> {{0, 1}, {0, 0}},
+                "Entrance Vertices and Flows" -> {{1, inflowParam}},
+                "Exit Vertices and Terminal Costs" -> {{2, exitCostParam}},
+                "Switching Costs" -> {}
+            |>,
+            "Data" -> {inflowParam -> 100}
+        |>;
+        result = MFGraphs`makeScenario[raw];
+        FailureQ[result] && result["Tag"] === "ScenarioValidation"
+    ]
+    ,
+    True
+    ,
+    TestID -> "Scenario kernel: non-numeric boundary values are rejected"
+]
+
+(* Test: Graph-only model derives Vertices List and Adjacency Matrix *)
+Test[
+    Module[{model, s, normalized},
+        model = <|
+            "Graph" -> Graph[{UndirectedEdge[1, 2], UndirectedEdge[2, 3]}],
+            "Entrance Vertices and Flows" -> {{1, 10}},
+            "Exit Vertices and Terminal Costs" -> {{3, 0}},
+            "Switching Costs" -> {}
+        |>;
+        s = makeScenario[<|"Model" -> model|>];
+        normalized = ScenarioData[s, "Model"];
+        scenarioQ[s] &&
+        ListQ[normalized["Vertices List"]] &&
+        MatrixQ[normalized["Adjacency Matrix"]] &&
+        Length[normalized["Vertices List"]] == Length[normalized["Adjacency Matrix"]]
+    ]
+    ,
+    True
+    ,
+    TestID -> "Scenario kernel: graph-only model derives topology fields"
+]
+
+(* Test: explicit Vertices List is preserved when Graph is present *)
+Test[
+    Module[{model, s, normalized},
+        model = <|
+            "Graph" -> Graph[{UndirectedEdge[1, 2], UndirectedEdge[2, 3]}],
+            "Vertices List" -> {3, 2, 1},
+            "Entrance Vertices and Flows" -> {{1, 10}},
+            "Exit Vertices and Terminal Costs" -> {{3, 0}},
+            "Switching Costs" -> {}
+        |>;
+        s = makeScenario[<|"Model" -> model|>];
+        normalized = ScenarioData[s, "Model"];
+        scenarioQ[s] &&
+        normalized["Vertices List"] === {3, 2, 1} &&
+        MatrixQ[normalized["Adjacency Matrix"]]
+    ]
+    ,
+    True
+    ,
+    TestID -> "Scenario kernel: graph normalization preserves explicit vertices order"
+]
