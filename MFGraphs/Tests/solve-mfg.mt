@@ -2,15 +2,7 @@
 (* Critical-only routing tests for SolveMFG. *)
 
 If[!MemberQ[$Packages, "MFGraphs`"],
-    Get[
-        FileNameJoin[
-            {
-                DirectoryName[$InputFileName],
-                "..",
-                "MFGraphs.wl"
-            }
-        ]
-    ]
+    Get["/Users/ribeirrd/Documents/GitHub/MFGraphs/MFGraphs/MFGraphs.wl"]
 ];
 
 Test[

@@ -2,15 +2,7 @@
 (* Contract tests for the standardized critical-solver return shape. *)
 
 If[!MemberQ[$Packages, "MFGraphs`"],
-    Get[
-        FileNameJoin[
-            {
-                DirectoryName[$InputFileName],
-                "..",
-                "MFGraphs.wl"
-            }
-        ]
-    ]
+    Get["/Users/ribeirrd/Documents/GitHub/MFGraphs/MFGraphs/MFGraphs.wl"]
 ];
 
 Test[

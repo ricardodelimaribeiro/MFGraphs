@@ -102,8 +102,8 @@ SafeExecuteIsolated[expr_, timeout_:300, opts:OptionsPattern[]] :=
     ];
 
     scriptLines = {
-      "SetDirectory[" <> ToString[InputForm[Directory[]]] <> "];",
-      "PrependTo[$Path, Directory[]];",
+      "SetDirectory[\"/Users/ribeirrd/Documents/GitHub/MFGraphs\"];",
+      "PrependTo[$Path, \"/Users/ribeirrd/Documents/GitHub/MFGraphs\"];",
       "Needs[\"MFGraphs`\"];",
       "Quiet[Check[ResetMaxMemoryUsed[], Null]];",
       "{innerTime, rawRes} = AbsoluteTiming[",
@@ -246,7 +246,7 @@ ComputeResidual[eqs_Association, solKey_String:"AssoCritical"] :=
 
 (* --- Solution hashing and verification --- *)
 
-$ReferenceHashesPath = FileNameJoin[{Directory[], "MFGraphs", "Tests", "reference_solutions.json"}];
+$ReferenceHashesPath = FileNameJoin[{"/Users/ribeirrd/Documents/GitHub/MFGraphs", "MFGraphs", "Tests", "reference_solutions.json"}];
 
 $ReferenceHashes = If[FileExistsQ[$ReferenceHashesPath],
   Quiet @ Check[
