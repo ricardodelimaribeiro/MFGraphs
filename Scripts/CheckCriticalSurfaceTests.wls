@@ -1,9 +1,23 @@
 #!/usr/bin/env wolframscript
 
-PrependTo[$Path, Directory[]];
+ResolveRepoRoot[] := Module[{fromInput},
+    fromInput = Quiet @ Check[
+        If[
+            StringQ[$InputFileName] && StringLength[StringTrim[$InputFileName]] > 0,
+            ExpandFileName @ DirectoryName @ DirectoryName[$InputFileName],
+            $Failed
+        ],
+        $Failed
+    ];
+    If[StringQ[fromInput] && DirectoryQ[fromInput], fromInput, Directory[]]
+];
 
-testsRoot = FileNameJoin[{Directory[], "MFGraphs", "Tests"}];
-runTestsPath = FileNameJoin[{Directory[], "Scripts", "RunTests.wls"}];
+$RepoRoot = ResolveRepoRoot[];
+
+PrependTo[$Path, $RepoRoot];
+
+testsRoot = FileNameJoin[{$RepoRoot, "MFGraphs", "Tests"}];
+runTestsPath = FileNameJoin[{$RepoRoot, "Scripts", "RunTests.wls"}];
 runTestsContent = Import[runTestsPath, "Text"];
 
 forbidden = {
@@ -14,11 +28,26 @@ forbidden = {
     "NormalizeEdgeFunction"
 };
 
-fastMatches = StringCases[
-    runTestsContent,
-    RegularExpression["\"([^\"]+\\.mt)\""] :> "$1"
+ExtractSuiteFiles[content_String, suiteName_String] := Module[
+    {suiteBlock, matches},
+    suiteBlock = FirstCase[
+        StringCases[
+            content,
+            RegularExpression["(?s)\"" <> suiteName <> "\"\\s*->\\s*\\{(.*?)\\}"] :> "$1"
+        ],
+        _String,
+        Missing["SuiteNotFound", suiteName]
+    ];
+    If[MatchQ[suiteBlock, _Missing], Return[suiteBlock]];
+    matches = StringCases[suiteBlock, RegularExpression["\"([^\"]+\\.mt)\""] :> "$1"];
+    DeleteDuplicates @ Select[matches, StringEndsQ[#, ".mt"] &]
 ];
-fastFiles = DeleteDuplicates @ Select[fastMatches, StringEndsQ[#, ".mt"] &];
+
+fastFiles = ExtractSuiteFiles[runTestsContent, "fast"];
+If[MatchQ[fastFiles, _Missing],
+    Print["Critical-surface test guard: could not locate fast suite declaration in Scripts/RunTests.wls"];
+    Exit[1];
+];
 
 archiveLeak = Select[fastFiles, StringStartsQ[#, "archive/"] || StringContainsQ[#, "/archive/"] &];
 

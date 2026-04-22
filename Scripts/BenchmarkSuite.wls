@@ -15,13 +15,27 @@ Print["OS: ", $SystemID];
 Print[];
 
 (* --- Setup package path --- *)
-PrependTo[$Path, Directory[]];
+ResolveRepoRoot[] := Module[{fromInput},
+  fromInput = Quiet @ Check[
+    If[
+      StringQ[$InputFileName] && StringLength[StringTrim[$InputFileName]] > 0,
+      ExpandFileName @ DirectoryName @ DirectoryName[$InputFileName],
+      $Failed
+    ],
+    $Failed
+  ];
+  If[StringQ[fromInput] && DirectoryQ[fromInput], fromInput, Directory[]]
+];
+
+$RepoRoot = ResolveRepoRoot[];
+
+PrependTo[$Path, $RepoRoot];
 Needs["MFGraphs`"];
 $MFGraphsVerbose = False;
 $HistoryLength = 0;
 
 (* --- Load helpers --- *)
-Get[FileNameJoin[{Directory[], "Scripts", "BenchmarkHelpers.wls"}]];
+Get[FileNameJoin[{$RepoRoot, "Scripts", "BenchmarkHelpers.wls"}]];
 
 (* --- Parse command-line arguments --- *)
 (* Support: wolframscript -file Scripts/BenchmarkSuite.wls [tier] [case=key] [timeout=seconds] [isolation=process|inprocess|auto] [kernelpath=path] [tag=description] *)

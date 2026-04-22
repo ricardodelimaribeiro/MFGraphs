@@ -8,9 +8,9 @@ Selected tier: paper
 Timeout override: 1800s
 Isolation mode: Auto (tier-routed)
 Subkernels:    0 (of 16 processors)
+Scope: Critical-only validation snapshot
 
 Running benchmarks for 1 cases...
-
 
 --- Case: HRF Scenario 1 (tier: paper) ---
   Isolation: InProcess
@@ -18,6 +18,15 @@ Running benchmarks for 1 cases...
     D2E Status: OK | Time: 0.068005s
   Solver: CriticalCongestion (timeout: 1800s)
     Status: OK | Time: 121.910471s | Memory: 328.5520706176758 MB | Ref: NO_REF
-  Solver: NonLinearSolver (seeded from critical) (timeout: 1800s)
-    Status: OK | Time: 0.000183s | Memory: 284.9985122680664 MB | Standalone est.: 121.91065400000001s
-  Solver: Monotone (seeded from critical) (timeout: 1800s)
+
+=== Benchmark Results Summary ===
+Total cases run: 1
+  OK:      1
+  FAILED:  0
+  TIMEOUT: 0
+  SKIPPED: 0
+
+--- Tier: paper ---
+  HRF Scenario 1 | CriticalCongestion | 121.910471s | 328.5520706176758 MB | OK
+
+Benchmark suite completed at Tue 14 Apr 2026 10:34:11

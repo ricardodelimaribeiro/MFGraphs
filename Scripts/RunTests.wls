@@ -3,11 +3,25 @@
 Print["MFGraphs Test Runner"];
 Print["==================="];
 
-PrependTo[$Path, Directory[]];
+ResolveRepoRoot[] := Module[{fromInput},
+    fromInput = Quiet @ Check[
+        If[
+            StringQ[$InputFileName] && StringLength[StringTrim[$InputFileName]] > 0,
+            ExpandFileName @ DirectoryName @ DirectoryName[$InputFileName],
+            $Failed
+        ],
+        $Failed
+    ];
+    If[StringQ[fromInput] && DirectoryQ[fromInput], fromInput, Directory[]]
+];
+
+$RepoRoot = ResolveRepoRoot[];
+
+PrependTo[$Path, $RepoRoot];
 Needs["MFGraphs`"];
 $MFGraphsVerbose = False;
 
-$TestsDir = FileNameJoin[{Directory[], "MFGraphs", "Tests"}];
+$TestsDir = FileNameJoin[{$RepoRoot, "MFGraphs", "Tests"}];
 
 $TestSuites = <|
     (* `fast` is the critical-only public gate.
