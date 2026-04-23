@@ -16,6 +16,12 @@ Print[];
 $RepoRoot = "/Users/ribeirrd/Documents/GitHub/MFGraphs";
 PrependTo[$Path, $RepoRoot];
 Needs["MFGraphs`"];
+If[!NameQ["MFGraphs`DataToEquations"],
+  Print["This is a legacy solver-era script and requires DataToEquations."];
+  Print["Current package mode is core-only (Scenario/ExampleScenarios/Unknowns/System)."];
+  Print["See Scripts/LEGACY_SOLVER_SCRIPTS.md for details."];
+  Exit[2];
+];
 $MFGraphsVerbose = False;
 
 Get[FileNameJoin[{$RepoRoot, "Scripts", "BenchmarkHelpers.wls"}]];

@@ -18,8 +18,9 @@ Loaded by `Needs["MFGraphs`"]`:
 - `MFGraphs/Unknowns.wl`
 - `MFGraphs/System.wl`
 
-Archived/inactive example-data module:
+Archived/inactive modules:
 - `MFGraphs/Examples/archive/ExamplesData.wl`
+- `MFGraphs/archive/DataToEquations.wl`
 
 ## Installation
 
@@ -112,6 +113,8 @@ MFGraphs/
     ExampleScenarios.wl
     archive/
       ExamplesData.wl
+  archive/
+    DataToEquations.wl
   Tests/
     scenario-kernel.mt
     make-unknowns.mt

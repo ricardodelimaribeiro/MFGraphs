@@ -12,12 +12,14 @@
 
    Canonical top-level blocks inside scenario[<|...|>]:
      "Identity"    — name, version
-     "Model"       — raw network topology accepted by DataToEquations
-     "Validation"  — consistency check results (populated after solving)
+     "Model"       — raw network topology accepted by the core scenario/system kernels
+     "Validation"  — consistency check results
      "Benchmark"   — tier, timeout
      "Visualization" — optional plotting hints
      "Inheritance" — optional lineage/parent reference
 *)
+
+BeginPackage["MFGraphs`"];
 
 (* --- Public API declarations --- *)
 
@@ -32,7 +34,7 @@ False otherwise.";
 makeScenario::usage =
 "makeScenario[assoc] constructs a typed scenario from a raw association. The input \
 must contain a \"Model\" key whose value is a network topology association accepted by \
-DataToEquations (required keys: \"Vertices List\", \"Adjacency Matrix\", \
+the core scenario/system kernels (required keys: \"Vertices List\", \"Adjacency Matrix\", \
 \"Entrance Vertices and Flows\", \"Exit Vertices and Terminal Costs\", \
 \"Switching Costs\"). If \"Model\" contains a Wolfram Graph under key \"Graph\", \
 missing \"Vertices List\" and/or \"Adjacency Matrix\" are derived automatically. \
@@ -590,3 +592,5 @@ makeScenario[_] :=
           "MissingKeys" -> {}|>];
 
 End[];
+
+EndPackage[];

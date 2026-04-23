@@ -11,6 +11,8 @@
    on directed/undirected networks with congestion.
 *)
 
+BeginPackage["MFGraphs`"];
+
 (* --- Public API declarations --- *)
 
 GetKirchhoffLinearSystem::usage = "GetKirchhoffLinearSystem[d2e] returns the entry current vector, Kirchhoff matrix, and the variables in the order corresponding to the Kirchhoff matrix.";
@@ -975,3 +977,5 @@ Data2Equations[args___] :=
 FinalStep = DNFSolveStep;
 
 End[];
+
+EndPackage[];

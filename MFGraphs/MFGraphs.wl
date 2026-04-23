@@ -2,24 +2,18 @@
 (*
    MFGraphs: A Wolfram Language package for Mean Field Games on Networks.
 
-   This top-level file is a thin bootstrap.  It owns the BeginPackage/
-   EndPackage block, the verbosity/parallel flags, a handful of shared
-   public helpers (MFGPrint, MFGParallelMap, ...), and a small private
-   library of result-envelope builders used by every solver.  All solver
-   logic lives in the submodules loaded at the bottom of this file.
+   Current phase: core scenario kernels.
+
+   This top-level file is a thin bootstrap. It owns the BeginPackage/
+   EndPackage block, shared verbosity/parallel helpers, and loads the
+   active typed-kernel submodules listed below.
 
    Main Components:
-   - Examples/*            - built-in test cases.
-   - DNFReduce             - symbolic logical reduction engine.
-   - DataToEquations       - symbolic graph-to-equation converter.
-   - Solvers               - critical-congestion solver suite.
-   - NonLinearSolver       - iterative solver for general congestion.
-   - Monotone              - Hessian Riemannian Flow numerical solver.
-   - TimeDependentSolver   - backward-forward sweep solver.
-   - Graphics              - public visualization helpers.
    - Scenario              - typed scenario kernel.
-   - FictitiousPlayBackend - Phase 5 numeric backend (internal).
-   - SolveMFGDispatch      - unified SolveMFG entrypoint and cascade.
+   - Examples/ExampleScenarios
+                           - named scenario constructors/factories.
+   - Unknowns              - symbolic unknown-family construction.
+   - System                - structural equation-system kernel.
 *)
 
 (* Created by the Wolfram Workbench May 5, 2020 *)
@@ -149,6 +143,18 @@ LookupAssociationValue[assoc_Association, key_, default_:0.] :=
 
 BuildMonotoneStateData[d2e_Association] :=
   Module[{B, KM, jj, halfPairs, signedFlows, rules, substituted, S},
+    If[!NameQ["MFGraphs`GetKirchhoffLinearSystem"],
+      Return[
+        <|
+          "B" -> Missing["NotAvailable"],
+          "KM" -> Missing["NotAvailable"],
+          "FullVariables" -> {},
+          "HalfPairs" -> List @@@ Lookup[d2e, "edgeList", {}],
+          "SignedEdgeMatrix" -> Missing["NotAvailable"]
+        |>,
+        Module
+      ]
+    ];
     {B, KM, jj} = GetKirchhoffLinearSystem[d2e];
     halfPairs = List @@@ Lookup[d2e, "edgeList", {}];
     If[Length[jj] === 0 || Length[halfPairs] === 0,
@@ -622,7 +628,7 @@ BuildSolverComparisonData[Eqs_Association, solution_] :=
             ]
         ];
 
-        If[!usedFastResidualQ,
+        If[!usedFastResidualQ && NameQ["MFGraphs`GetKirchhoffLinearSystem"],
             {B, KM, jj} = GetKirchhoffLinearSystem[Eqs];
             jjVals = Lookup[flowAssoc, jj, missing];
             residual =

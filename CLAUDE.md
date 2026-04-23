@@ -33,7 +33,9 @@ wolframscript -version
 - Preloaded: `MFGraphs/Scenario.wl`, `MFGraphs/Examples/ExampleScenarios.wl`
 - Submodules: `MFGraphs/Unknowns.wl`, `MFGraphs/System.wl`
 
-`MFGraphs/Examples/archive/ExamplesData.wl` is archived and not part of the active load path.
+Archived/inactive modules include:
+- `MFGraphs/Examples/archive/ExamplesData.wl`
+- `MFGraphs/archive/DataToEquations.wl`
 
 ## Active public API (current phase)
 
