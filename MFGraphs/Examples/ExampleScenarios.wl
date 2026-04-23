@@ -1,29 +1,30 @@
 (* Wolfram Language package *)
-(* Scenario factories and direct constructors for all built-in MFGraphs examples.
+(* Scenario constructors and named-example registry for MFGraphs.
 
-   Direct constructors (preferred for custom scenarios):
-     GridScenario[{n}, entries, exits]          chain of n vertices (1..n)
-     GridScenario[{r,c}, entries, exits]        r x c grid (vertices 1..r*c, row-major)
+   Direct constructors — topology clear from arguments:
+     GridScenario[{n}, entries, exits]          chain, vertices 1..n
+     GridScenario[{r,c}, entries, exits]        grid, vertices 1..r*c row-major
+     CycleScenario[n, entries, exits]           directed n-cycle 1->2->...->n->1
+     GraphScenario[graph, entries, exits]       any WL directed Graph object
+     AMScenario[vl, am, entries, exits]         explicit vertices list + adjacency matrix
 
-   Named example registry (benchmark cases):
-     GetExampleScenario[7, {{1,80}}, {{3,0},{4,10}}]   uses canonical SC for case 7
-     GetExampleScenario[8, {{1,80}}, {{3,0},{4,10}}]   uses canonical SC for case 8
+   Named examples (benchmark registry):
+     GetExampleScenario[7, {{1,80}}, {{3,0},{4,10}}]      canonical SC for case 7
      GetExampleScenario[8, {{1,80}}, {{3,0},{4,10}}, {}]  override: no SC
 
-   All constructors accept optional: sc, alpha, V, g (Hamiltonian).
-   Defaults: sc={} (or canonical per case), alpha=1, V=0, g=Function[z,-1/z].
-   Numeric benchmark defaults are in Scripts/BenchmarkHelpers.wls ($DefaultParams/$CaseParams). *)
+   All constructors accept optional trailing args: sc, alpha, V, g.
+   Defaults: sc={}, alpha=1, V=0, g=Function[z,-1/z] (from $DefaultHamiltonian).
+   Numeric benchmark defaults are in Scripts/BenchmarkHelpers.wls. *)
 
 Begin["`Private`"];
 
-(* --- Shared adjacency-matrix constants for custom topologies --- *)
+(* --- Shared topology constants --- *)
 
 $Y1In2OutAM    = {{0,1,0,0},{0,0,1,1},{0,0,0,0},{0,0,0,0}};
 $Y2In1OutAM    = {{0,1,0,0},{0,0,0,1},{0,1,0,0},{0,0,0,0}};
 $Attraction4AM = {{0,1,1,0},{0,0,1,1},{0,0,0,1},{0,0,0,0}};
 
-(* Canonical switching costs for cases that have a well-defined default SC.
-   Looked up by GetExampleScenario when sc argument is Automatic. *)
+(* Canonical switching costs looked up by GetExampleScenario when sc=Automatic. *)
 $CaseDefaultSC = <|
     8  -> {{1,2,3,2},{1,2,4,3},{3,2,1,2},{3,2,4,1},{4,2,1,3},{4,2,3,1}},
     10 -> {{1,2,4,2},{1,2,3,3},{3,2,1,2},{3,2,4,1},{4,2,1,3},{4,2,3,1}},
@@ -37,12 +38,12 @@ $CaseDefaultSC = <|
     17 -> {{1,2,3,2},{3,2,1,1}},
     18 -> {{1,2,3,2},{3,2,1,1}},
     19 -> {{1,2,3,1},{1,2,4,1},{3,2,1,1},{3,2,4,1},{4,2,1,1},{4,2,3,1}},
-    "Braess split"     -> {{1,2,4,1},{5,7,8,1}},
-    "Braess congest"   -> {{1,2,4,1},{4,6,7,1}},
-    "Big Braess split" -> {{1,3,6,1},{5,7,10,1}},
+    "Braess split"       -> {{1,2,4,1},{5,7,8,1}},
+    "Braess congest"     -> {{1,2,4,1},{4,6,7,1}},
+    "Big Braess split"   -> {{1,3,6,1},{5,7,10,1}},
     "Big Braess congest" -> {{1,3,5,1},{5,7,9,1}},
-    "Paper example"    -> {{1,2,3,2},{3,2,1,1},{2,3,4,3},{4,3,2,1}},
-    (* SC that violates the triangle inequality — infeasible by design *)
+    "Paper example"      -> {{1,2,3,2},{3,2,1,1},{2,3,4,3},{4,3,2,1}},
+    (* SC violates triangle inequality — infeasible by design *)
     "Inconsistent Y shortcut" ->
         {{1,2,3,5},{1,2,4,1},{3,2,1,1},{3,2,4,1},{4,2,1,1},{4,2,3,1}},
     "Inconsistent attraction shortcut" ->
@@ -50,6 +51,8 @@ $CaseDefaultSC = <|
          {1,3,4,1},{4,3,1,1},{1,3,2,1},{2,3,1,1},{3,4,2,1},{2,4,3,1},
          {2,3,4,1},{4,3,2,1},{3,1,2,1},{2,1,3,1}}
 |>;
+
+(* --- Direct constructors — each calls makeScenario once, no intermediate helpers --- *)
 
 GridScenario[dims_List, entries_, exits_,
         sc_    : {},
@@ -66,39 +69,69 @@ GridScenario[dims_List, entries_, exits_,
         "Hamiltonian" -> <|"Alpha" -> alpha, "V" -> V, "G" -> g|>
     |>];
 
+CycleScenario[n_Integer, entries_, exits_,
+        sc_    : {},
+        alpha_ : $DefaultHamiltonian["Alpha"],
+        V_     : $DefaultHamiltonian["V"],
+        g_     : $DefaultHamiltonian["G"]] :=
+    makeScenario[<|
+        "Model" -> <|
+            "Graph"                           -> CycleGraph[n, DirectedEdges -> True],
+            "Entrance Vertices and Flows"     -> entries,
+            "Exit Vertices and Terminal Costs" -> exits,
+            "Switching Costs"                 -> sc
+        |>,
+        "Hamiltonian" -> <|"Alpha" -> alpha, "V" -> V, "G" -> g|>
+    |>];
+
+GraphScenario[graph_, entries_, exits_,
+        sc_    : {},
+        alpha_ : $DefaultHamiltonian["Alpha"],
+        V_     : $DefaultHamiltonian["V"],
+        g_     : $DefaultHamiltonian["G"]] :=
+    makeScenario[<|
+        "Model" -> <|
+            "Graph"                           -> graph,
+            "Entrance Vertices and Flows"     -> entries,
+            "Exit Vertices and Terminal Costs" -> exits,
+            "Switching Costs"                 -> sc
+        |>,
+        "Hamiltonian" -> <|"Alpha" -> alpha, "V" -> V, "G" -> g|>
+    |>];
+
+AMScenario[vl_, am_, entries_, exits_,
+        sc_    : {},
+        alpha_ : $DefaultHamiltonian["Alpha"],
+        V_     : $DefaultHamiltonian["V"],
+        g_     : $DefaultHamiltonian["G"]] :=
+    makeScenario[<|
+        "Model" -> <|
+            "Vertices List"                   -> vl,
+            "Adjacency Matrix"                -> am,
+            "Entrance Vertices and Flows"     -> entries,
+            "Exit Vertices and Terminal Costs" -> exits,
+            "Switching Costs"                 -> sc
+        |>,
+        "Hamiltonian" -> <|"Alpha" -> alpha, "V" -> V, "G" -> g|>
+    |>];
+
+(* --- Private factory helpers — thin wrappers used by $ExampleScenarios --- *)
+
 $MakeGridFactory[dims_List] :=
     With[{d = dims},
-        Function[{entries, exits, sc, alpha, V, g},
-            GridScenario[d, entries, exits, sc, alpha, V, g]]];
+        Function[{entries, exits, sc, alpha, V, g}, GridScenario[d,  entries, exits, sc, alpha, V, g]]];
 
-$MakeCycleFactory[n_Integer] := $MakeGraphFactory[CycleGraph[n, DirectedEdges -> True]];
+$MakeCycleFactory[n_Integer] :=
+    With[{k = n},
+        Function[{entries, exits, sc, alpha, V, g}, CycleScenario[k, entries, exits, sc, alpha, V, g]]];
 
 $MakeGraphFactory[graph_] :=
-    With[{g = graph},
-        Function[{entries, exits, sc, alpha, V, gFunc},
-            makeScenario[<|
-                "Model" -> <|
-                    "Graph"                           -> g,
-                    "Entrance Vertices and Flows"     -> entries,
-                    "Exit Vertices and Terminal Costs" -> exits,
-                    "Switching Costs"                 -> sc
-                |>,
-                "Hamiltonian" -> <|"Alpha" -> alpha, "V" -> V, "G" -> gFunc|>
-            |>]]];
+    With[{gr = graph},
+        Function[{entries, exits, sc, alpha, V, g}, GraphScenario[gr, entries, exits, sc, alpha, V, g]]];
 
 $MakeAMFactory[vl_, am_] :=
     With[{vertices = vl, matrix = am},
-        Function[{entries, exits, sc, alpha, V, gFunc},
-            makeScenario[<|
-                "Model" -> <|
-                    "Vertices List"                   -> vertices,
-                    "Adjacency Matrix"                -> matrix,
-                    "Entrance Vertices and Flows"     -> entries,
-                    "Exit Vertices and Terminal Costs" -> exits,
-                    "Switching Costs"                 -> sc
-                |>,
-                "Hamiltonian" -> <|"Alpha" -> alpha, "V" -> V, "G" -> gFunc|>
-            |>]]];
+        Function[{entries, exits, sc, alpha, V, g}, AMScenario[vertices, matrix, entries, exits, sc, alpha, V, g]]];
 
 (* --- Scenario registry --- *)
 
@@ -140,7 +173,6 @@ $ExampleScenarios = Association[
 
     (* ------------------------------------------------------------------ *)
     (* Triangle 3-vertex directed cycle: 1->2->3->1                       *)
-    (* CycleGraph[3, DirectedEdges->True]                                  *)
     (* ------------------------------------------------------------------ *)
 
     14                        -> $MakeCycleFactory[3],
@@ -212,10 +244,12 @@ $ExampleScenarios = Association[
             {0,1,1,0,0,0,0},{0,0,0,1,0,0,0},{0,0,0,1,0,0,0},
             {0,0,0,0,1,1,0},{0,0,0,0,0,0,1},{0,0,0,0,0,0,1},{0,0,0,0,0,0,0}}],
 
+    (* "New Braess" carries an extra "a" congestion field — not expressible
+       via the standard constructors, so defined inline. *)
     "New Braess" -> With[{newBraessAM = {
                 {0,1,0,1,0,0},{0,0,1,0,0,0},{0,0,0,0,0,1},
                 {0,0,0,0,1,0},{0,0,0,0,0,1},{0,0,0,0,0,0}}},
-        Function[{entries, exits, sc, alpha, V, gFunc},
+        Function[{entries, exits, sc, alpha, V, g},
             makeScenario[<|
                 "Model" -> <|
                     "Vertices List"                   -> Range[6],
@@ -228,7 +262,7 @@ $ExampleScenarios = Association[
                                 edge === DirectedEdge[3,6] || edge === DirectedEdge[1,4], j/100,
                                 True, 0]]
                 |>,
-                "Hamiltonian" -> <|"Alpha" -> alpha, "V" -> V, "G" -> gFunc|>
+                "Hamiltonian" -> <|"Alpha" -> alpha, "V" -> V, "G" -> g|>
             |>]]],
 
     "Big Braess split" -> $MakeAMFactory[Range[10], {
@@ -258,11 +292,8 @@ $ExampleScenarios = Association[
     (* Inconsistent switching (feature validation — infeasible by design)  *)
     (* ------------------------------------------------------------------ *)
 
-    "Inconsistent Y shortcut" ->
-        $MakeAMFactory[{1,2,3,4}, $Y1In2OutAM],
-
-    "Inconsistent attraction shortcut" ->
-        $MakeAMFactory[{1,2,3,4}, $Attraction4AM],
+    "Inconsistent Y shortcut"          -> $MakeAMFactory[{1,2,3,4}, $Y1In2OutAM],
+    "Inconsistent attraction shortcut" -> $MakeAMFactory[{1,2,3,4}, $Attraction4AM],
 
     (* ------------------------------------------------------------------ *)
     (* Grid cases: directed GridGraph[{r,c}]                              *)
@@ -281,8 +312,7 @@ $ExampleScenarios = Association[
 
 GetExampleScenario[n_] := Lookup[$ExampleScenarios, n, $Failed];
 
-(* sc=Automatic resolves to the canonical SC for the case (from $CaseDefaultSC),
-   or {} if the case has no canonical SC. Hamiltonian defaults from $DefaultHamiltonian. *)
+(* sc=Automatic resolves to the canonical SC via $CaseDefaultSC, or {} if undefined. *)
 GetExampleScenario[n_, entries_, exits_,
         sc_    : Automatic,
         alpha_ : $DefaultHamiltonian["Alpha"],
