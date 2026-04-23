@@ -175,10 +175,20 @@ launching parallel subkernels. Only applies when $KernelCount === 0. Default is 
 
 GridScenario::usage =
 "GridScenario[dims, entries, exits] creates a scenario on a directed GridGraph[dims]. \
-dims is a list of dimensions: {n} for a chain of n vertices (1..n), {r,c} for an r\[Times]c grid \
-(vertices 1..r*c, row-major). Optional arguments: sc (switching costs, default {}), \
-alpha, V, g (Hamiltonian parameters, defaults from $DefaultHamiltonian). \
-Example: GridScenario[{3,3}, {{1,100}}, {{9,0}}] — entry at vertex 1, exit at vertex 9.";
+{n} gives a chain with vertices 1..n; {r,c} gives an r\[Times]c grid with vertices 1..r*c (row-major). \
+Optional: sc (switching costs, default {}), alpha, V, g (Hamiltonian defaults from $DefaultHamiltonian).";
+
+CycleScenario::usage =
+"CycleScenario[n, entries, exits] creates a scenario on a directed n-cycle (1->2->...->n->1), \
+vertices 1..n. Optional: sc, alpha, V, g.";
+
+GraphScenario::usage =
+"GraphScenario[graph, entries, exits] creates a scenario from any WL directed Graph object. \
+Optional: sc, alpha, V, g.";
+
+AMScenario::usage =
+"AMScenario[vl, am, entries, exits] creates a scenario from an explicit vertices list vl \
+and adjacency matrix am. Optional: sc, alpha, V, g.";
 
 GetExampleScenario::usage =
 "GetExampleScenario[n] returns a 6-arg factory Function[{entries,exits,sc,alpha,V,g}, scenario[...]] \
