@@ -58,8 +58,8 @@ makeUnknowns[s_] :=
             Return[Failure["makeUnknowns", <|"Message" -> "Could not build auxiliary topology."|>], Module]
         ];
 
-        (* Combinatorial creation of pairs and triples moved here *)
-        auxPairs = DeriveAuxPairs[topology];
+        (* Extract pairs and triples from pre-calculated topology *)
+        auxPairs = Lookup[topology, "AuxPairs", MFGraphs`DeriveAuxPairs[topology]];
         auxTriples = Lookup[topology, "AuxTriples", MFGraphs`BuildAuxTriples[topology["AuxiliaryGraph"]]];
         
         MakeUnknownsFromPairsTriples[auxPairs, auxTriples]

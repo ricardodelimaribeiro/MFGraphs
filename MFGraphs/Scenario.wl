@@ -7,11 +7,11 @@
    Lifecycle:
      makeScenario[rawAssoc]  →  validates + completes + wraps in scenario[...] head
      validateScenario[s]     →  checks required keys; returns s or Failure[...]
-     completeScenario[s]     →  fills Identity (hash), Benchmark defaults; returns s
+     completeScenario[s]     →  fills defaults and returns s
      scenarioQ[x]            →  True iff x is a well-formed typed scenario
 
    Canonical top-level blocks inside scenario[<|...|>]:
-     "Identity"    — name, version, contentHash
+     "Identity"    — name, version
      "Model"       — raw network topology accepted by DataToEquations
      "Data"        — parameter substitution rules (e.g. {I1 -> 100, U1 -> 0})
      "Validation"  — consistency check results (populated after solving)
@@ -53,8 +53,7 @@ Failure[\"ScenarioValidation\", <|\"Message\" -> msg, \"MissingKeys\" -> {...}|>
 on failure.";
 
 completeScenario::usage =
-"completeScenario[s] fills in derived fields: sets \"contentHash\" in the Identity \
-block (SHA256 of the canonical Model+Hamiltonian string), and supplies default Benchmark values \
+"completeScenario[s] fills in derived fields and supplies default Benchmark values \
 (\"Tier\" -> \"core\", \"Timeout\" -> 300) when missing. Returns a new scenario object.";
 
 ScenarioData::usage =
@@ -67,6 +66,10 @@ Association.";
 BuildAuxiliaryTopology::usage =
 "BuildAuxiliaryTopology[model] returns an association with the auxiliary graph and \
 metadata derived from the raw model.";
+
+DeriveAuxPairs::usage =
+"DeriveAuxPairs[topology] returns the list of all directed edge pairs {u, v} in the \
+auxiliary graph (including entry/exit and reversed graph edges).";
 
 BuildAuxTriples::usage =
 "BuildAuxTriples[auxGraph] returns the list of all possible {v_in, v_mid, v_out} \
@@ -99,36 +102,6 @@ $DefaultHamiltonian = <|
 
 HamiltonianGTermQ[value_] :=
     NumericQ[value] || MatchQ[value, _Function];
-
-CanonicalizeForHash[value_Association] :=
-    Module[{pairs},
-        pairs = KeyValueMap[
-            {CanonicalizeForHash[#1], CanonicalizeForHash[#2]} &,
-            value
-        ];
-        pairs = SortBy[pairs, ToString[First[#], InputForm] &];
-        Association[Rule @@@ pairs]
-    ];
-
-CanonicalizeForHash[value_List] :=
-    CanonicalizeForHash /@ value;
-
-CanonicalizeForHash[value_SparseArray] :=
-    Module[{rules},
-        rules = CanonicalizeForHash /@ ArrayRules[value];
-        rules = SortBy[rules, ToString[First[#], InputForm] &];
-        <|
-            "SparseArray" -> <|
-                "Dimensions" -> Dimensions[value],
-                "Rules" -> rules
-            |>
-        |>
-    ];
-
-CanonicalizeForHash[value_Rule] :=
-    CanonicalizeForHash[First[value]] -> CanonicalizeForHash[Last[value]];
-
-CanonicalizeForHash[value_] := value;
 
 BuildAdjacencyFromGraph[graph_Graph, vertices_List] :=
     Module[{baseVertices, baseAdjacency, baseIndex, order},
@@ -223,31 +196,12 @@ IntegerVertexLabelsQ[model_Association] :=
     ];
 
 ModelDirectedEdgePairs[model_Association] :=
-    Module[{vertices, adjacency, n, collected},
+    Module[{vertices, adjacency},
         vertices = Lookup[model, "Vertices List", {}];
         adjacency = Lookup[model, "Adjacency Matrix", {}];
-        n = Length[vertices];
-        Which[
-            Head[adjacency] === SparseArray,
-                Cases[
-                    Most[ArrayRules[adjacency]],
-                    ({i_Integer, j_Integer} -> val_) /;
-                        1 <= i <= n && 1 <= j <= n && !PossibleZeroQ[val] :>
-                        {vertices[[i]], vertices[[j]]}
-                ],
-            MatrixQ[adjacency],
-                collected = Reap[
-                    Do[
-                        If[!PossibleZeroQ[adjacency[[i, j]]],
-                            Sow[{vertices[[i]], vertices[[j]]}]
-                        ],
-                        {i, 1, Min[n, Length[adjacency]]},
-                        {j, 1, Min[n, Length[adjacency[[i]]]]}
-                    ]
-                ][[2]];
-                If[collected === {}, {}, First[collected]],
-            True,
-                {}
+        If[vertices === {} || adjacency === {},
+            {},
+            List @@@ EdgeList[AdjacencyGraph[vertices, adjacency, DirectedEdges -> True]]
         ]
     ];
 
@@ -338,7 +292,7 @@ NormalizeHamiltonianSpec[spec_, model_Association] :=
             Join[Normal[edgeAlpha], Normal[edgeV], Normal[edgeG]],
             !(
                 NumericQ[Last[#]] ||
-                (First[#] =!= {} && MemberQ[Keys[edgeG], First[#]] && HamiltonianGTermQ[Last[#]])
+                (First[#] =!= {} && KeyExistsQ[edgeG, First[#]] && HamiltonianGTermQ[Last[#]])
             ) &
         ];
         If[badValues =!= {},
@@ -376,18 +330,8 @@ BuildAuxTriples[auxGraph_Graph] :=
              preferable. You should filter 'vIn != vOut' before triple allocation 
              to avoid transient memory overhead.
         *)
-        edges = EdgeList[auxGraph];
-        directedEdges = Flatten[
-            Replace[
-                edges,
-                {
-                    DirectedEdge[a_, b_] :> {{a, b}},
-                    UndirectedEdge[a_, b_] :> {{a, b}, {b, a}}
-                },
-                {1}
-            ],
-            1
-        ];
+        edges = List @@@ EdgeList[auxGraph];
+        directedEdges = Join[edges, Reverse[edges, {2}]];
         incomingByVertex = GroupBy[directedEdges, Last -> First];
         outgoingByVertex = GroupBy[directedEdges, First -> Last];
         middleVertices = Intersection[Keys[incomingByVertex], Keys[outgoingByVertex]];
@@ -452,6 +396,14 @@ BuildAuxiliaryTopology[model_Association] :=
         auxiliaryGraph = EdgeAdd[graph, Join[entryEdges, exitEdges]];
         auxTriples = BuildAuxTriples[auxiliaryGraph];
 
+        halfPairs = List @@@ EdgeList[graph];
+        pairs = Join[halfPairs, Reverse[halfPairs, {2}]];
+        
+        inAuxEntryPairs = List @@@ entryEdges;
+        outAuxExitPairs = List @@@ exitEdges;
+        inAuxExitPairs = Reverse /@ outAuxExitPairs;
+        outAuxEntryPairs = Reverse /@ inAuxEntryPairs;
+
         <|
             "Graph" -> graph,
             "AuxiliaryGraph" -> auxiliaryGraph,
@@ -459,7 +411,14 @@ BuildAuxiliaryTopology[model_Association] :=
             "AuxExitVertices" -> auxExitVertices,
             "AuxEntryEdges" -> entryEdges,
             "AuxExitEdges" -> exitEdges,
-            "AuxTriples" -> auxTriples
+            "AuxTriples" -> auxTriples,
+            "HalfPairs" -> halfPairs,
+            "InAuxEntryPairs" -> inAuxEntryPairs,
+            "OutAuxExitPairs" -> outAuxExitPairs,
+            "InAuxExitPairs" -> inAuxExitPairs,
+            "OutAuxEntryPairs" -> outAuxEntryPairs,
+            "Pairs" -> pairs,
+            "AuxPairs" -> Join[inAuxEntryPairs, outAuxEntryPairs, inAuxExitPairs, outAuxExitPairs, pairs]
         |>
     ];
 
@@ -524,7 +483,7 @@ CompleteSwitchingCosts[model_Association, topology_Association] :=
     ];
 
 completeScenario[s_scenario] :=
-    Module[{assoc, identity, benchmark, model, hamiltonian, hashPayload, hash, newAssoc, completedSC, topology},
+    Module[{assoc, identity, benchmark, model, hamiltonian, newAssoc, completedSC, topology},
         assoc     = ScenarioData[s];
         model     = Lookup[assoc, "Model", <||>];
         hamiltonian = Lookup[assoc, "Hamiltonian", $DefaultHamiltonian];
@@ -538,15 +497,6 @@ completeScenario[s_scenario] :=
             model = Join[model, <|"Switching Costs" -> completedSC|>]
         ];
 
-        hashPayload = <|
-            "Model" -> model,
-            "Hamiltonian" -> KeyTake[hamiltonian, {"Alpha", "V", "G", "EdgeAlpha", "EdgeV", "EdgeG"}]
-        |>;
-        (* Compute content hash from the canonical string of completed model + Hamiltonian parameters. *)
-        hash = Hash[ToString[CanonicalizeForHash[hashPayload], InputForm], "SHA256", "HexString"];
-
-        (* Computed hash always wins: placed on the right so it overrides any user-supplied value. *)
-        identity  = Join[identity, <|"contentHash" -> hash|>];
         benchmark = Join[
             <|"Tier" -> $DefaultBenchmarkTier, "Timeout" -> $DefaultBenchmarkTimeout|>,
             benchmark

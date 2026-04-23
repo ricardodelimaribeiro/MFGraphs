@@ -28,20 +28,6 @@ Test[
     TestID -> "Scenario kernel: makeScenario returns typed scenario"
 ]
 
-(* Test: completed scenario carries a non-empty content hash *)
-Test[
-    Module[{data, s, hash},
-        data = GetExampleData[12] /. {I1 -> 100, U1 -> 0};
-        s = makeScenario[<|"Model" -> data|>];
-        hash = ScenarioData[s, "Identity"]["contentHash"];
-        StringQ[hash] && StringLength[hash] > 0
-    ]
-    ,
-    True
-    ,
-    TestID -> "Scenario kernel: completed scenario has contentHash"
-]
-
 (* Test: Benchmark block defaults are filled *)
 Test[
     Module[{data, s, bench},
@@ -138,90 +124,6 @@ Test[
     TestID -> "Scenario kernel: function-valued EdgeG is accepted"
 ]
 
-(* Test: contentHash includes Hamiltonian alpha settings *)
-Test[
-    Module[{model, s1, s2, h1, h2},
-        model = <|
-            "Vertices List" -> {1, 2, 3},
-            "Adjacency Matrix" -> {{0, 1, 0}, {1, 0, 1}, {0, 1, 0}},
-            "Entrance Vertices and Flows" -> {{1, 10}},
-            "Exit Vertices and Terminal Costs" -> {{3, 0}},
-            "Switching Costs" -> <||>
-        |>;
-        s1 = makeScenario[<|
-            "Model" -> model,
-            "Hamiltonian" -> <|"Alpha" -> 1, "EdgeAlpha" -> <|{1, 2} -> 1|>|>
-        |>];
-        s2 = makeScenario[<|
-            "Model" -> model,
-            "Hamiltonian" -> <|"Alpha" -> 1, "EdgeAlpha" -> <|{1, 2} -> 2|>|>
-        |>];
-        h1 = ScenarioData[s1, "Identity"]["contentHash"];
-        h2 = ScenarioData[s2, "Identity"]["contentHash"];
-        StringQ[h1] && StringQ[h2] && h1 =!= h2
-    ]
-    ,
-    True
-    ,
-    TestID -> "Scenario kernel: contentHash changes when Hamiltonian edge alpha changes"
-]
-
-(* Test: contentHash includes Hamiltonian V settings *)
-Test[
-    Module[{model, s1, s2, h1, h2},
-        model = <|
-            "Vertices List" -> {1, 2, 3},
-            "Adjacency Matrix" -> {{0, 1, 0}, {1, 0, 1}, {0, 1, 0}},
-            "Entrance Vertices and Flows" -> {{1, 10}},
-            "Exit Vertices and Terminal Costs" -> {{3, 0}},
-            "Switching Costs" -> <||>
-        |>;
-        s1 = makeScenario[<|
-            "Model" -> model,
-            "Hamiltonian" -> <|"Alpha" -> 1, "V" -> 0, "G" -> 0|>
-        |>];
-        s2 = makeScenario[<|
-            "Model" -> model,
-            "Hamiltonian" -> <|"Alpha" -> 1, "V" -> 1, "G" -> 0|>
-        |>];
-        h1 = ScenarioData[s1, "Identity"]["contentHash"];
-        h2 = ScenarioData[s2, "Identity"]["contentHash"];
-        StringQ[h1] && StringQ[h2] && h1 =!= h2
-    ]
-    ,
-    True
-    ,
-    TestID -> "Scenario kernel: contentHash changes when Hamiltonian V changes"
-]
-
-(* Test: contentHash includes Hamiltonian G settings *)
-Test[
-    Module[{model, s1, s2, h1, h2},
-        model = <|
-            "Vertices List" -> {1, 2, 3},
-            "Adjacency Matrix" -> {{0, 1, 0}, {1, 0, 1}, {0, 1, 0}},
-            "Entrance Vertices and Flows" -> {{1, 10}},
-            "Exit Vertices and Terminal Costs" -> {{3, 0}},
-            "Switching Costs" -> <||>
-        |>;
-        s1 = makeScenario[<|
-            "Model" -> model,
-            "Hamiltonian" -> <|"Alpha" -> 1, "V" -> 0, "G" -> 0|>
-        |>];
-        s2 = makeScenario[<|
-            "Model" -> model,
-            "Hamiltonian" -> <|"Alpha" -> 1, "V" -> 0, "G" -> 2|>
-        |>];
-        h1 = ScenarioData[s1, "Identity"]["contentHash"];
-        h2 = ScenarioData[s2, "Identity"]["contentHash"];
-        StringQ[h1] && StringQ[h2] && h1 =!= h2
-    ]
-    ,
-    True
-    ,
-    TestID -> "Scenario kernel: contentHash changes when Hamiltonian G changes"
-]
-
 (* Test: user-supplied Benchmark values override defaults *)
 Test[
     Module[{data, s, bench},
@@ -290,61 +192,18 @@ Test[
     TestID -> "Scenario kernel: ScenarioData returns association"
 ]
 
-(* Test: partial Identity override — user name is preserved and contentHash is always computed *)
+(* Test: partial Identity override — user name is preserved *)
 Test[
     Module[{data, s, identity},
         data = GetExampleData[12] /. {I1 -> 100, U1 -> 0};
         s = makeScenario[<|"Model" -> data, "Identity" -> <|"name" -> "my-scenario"|>|>];
         identity = ScenarioData[s, "Identity"];
-        StringQ[identity["contentHash"]] && identity["name"] === "my-scenario"
+        identity["name"] === "my-scenario"
     ]
     ,
     True
     ,
-    TestID -> "Scenario kernel: partial Identity override preserves name and computes hash"
-]
-
-(* Test: contentHash is stable — same input produces the same hash *)
-Test[
-    Module[{data, s1, s2},
-        data = GetExampleData[12] /. {I1 -> 100, U1 -> 0};
-        s1 = makeScenario[<|"Model" -> data|>];
-        s2 = makeScenario[<|"Model" -> data|>];
-        ScenarioData[s1, "Identity"]["contentHash"] === ScenarioData[s2, "Identity"]["contentHash"]
-    ]
-    ,
-    True
-    ,
-    TestID -> "Scenario kernel: contentHash is stable for identical input"
-]
-
-(* Test: contentHash is canonical across model key insertion order *)
-Test[
-    Module[{modelA, modelB, s1, s2},
-        modelA = <|
-            "Vertices List" -> {1, 2},
-            "Adjacency Matrix" -> {{0, 1}, {1, 0}},
-            "Entrance Vertices and Flows" -> {{1, 10}},
-            "Exit Vertices and Terminal Costs" -> {{2, 0}},
-            "Switching Costs" -> <|{1, 2, 1} -> 3, {2, 1, 2} -> 4|>
-        |>;
-        modelB = <|
-            "Switching Costs" -> <|{2, 1, 2} -> 4, {1, 2, 1} -> 3|>,
-            "Exit Vertices and Terminal Costs" -> {{2, 0}},
-            "Entrance Vertices and Flows" -> {{1, 10}},
-            "Adjacency Matrix" -> {{0, 1}, {1, 0}},
-            "Vertices List" -> {1, 2}
-        |>;
-        s1 = makeScenario[<|"Model" -> modelA|>];
-        s2 = makeScenario[<|"Model" -> modelB|>];
-        scenarioQ[s1] &&
-        scenarioQ[s2] &&
-        ScenarioData[s1, "Identity"]["contentHash"] === ScenarioData[s2, "Identity"]["contentHash"]
-    ]
-    ,
-    True
-    ,
-    TestID -> "Scenario kernel: contentHash is invariant to model key insertion order"
+    TestID -> "Scenario kernel: partial Identity override preserves name"
 ]
 
 (* Test: sparse adjacency matrix is accepted and topology is materialized *)
@@ -420,7 +279,7 @@ Test[
         raw       = scenario[<|"Model" -> data|>];
         validated = validateScenario[raw];
         completed = completeScenario[validated];
-        scenarioQ[completed] && StringQ[ScenarioData[completed, "Identity"]["contentHash"]]
+        scenarioQ[completed]
     ]
     ,
     True
