@@ -1,5 +1,14 @@
 (* Smoke tests for the scenario kernel (makeScenario, validateScenario, completeScenario, scenarioQ). *)
 
+(* Inline test fixture — case 12 (4-vertex attraction network) with concrete values. *)
+$testModel12 = <|
+    "Vertices List"                    -> {1, 2, 3, 4},
+    "Adjacency Matrix"                 -> {{0,1,1,0},{0,0,1,1},{0,0,0,1},{0,0,0,0}},
+    "Entrance Vertices and Flows"      -> {{1, 100}},
+    "Exit Vertices and Terminal Costs" -> {{4, 0}},
+    "Switching Costs"                  -> {}
+|>;
+
 (* Test: public symbols exist in MFGraphs` context *)
 Test[
     NameQ["MFGraphs`scenario"] &&
@@ -7,18 +16,43 @@ Test[
     NameQ["MFGraphs`makeScenario"] &&
     NameQ["MFGraphs`validateScenario"] &&
     NameQ["MFGraphs`completeScenario"] &&
-    NameQ["MFGraphs`ScenarioData"] &&
-    NameQ["MFGraphs`ScenarioByKey"]
+    NameQ["MFGraphs`ScenarioData"]
     ,
     True
     ,
-    TestID -> "Scenario kernel: public symbols exist"
+    TestID -> "Scenario kernel: public symbols exist in MFGraphs context"
 ]
 
+(* Test: notebook ergonomics — unqualified symbols resolve after Needs *)
+Test[
+    Module[{names, globalNames},
+        names = {
+            "scenario",
+            "scenarioQ",
+            "makeScenario",
+            "validateScenario",
+            "completeScenario",
+            "ScenarioData"
+        };
+        globalNames = ("Global`" <> #) & /@ names;
+        Scan[
+            Function[s,
+                If[NameQ[s], Remove[s]]
+            ],
+            globalNames
+        ];
+        Needs["MFGraphs`"];
+        And @@ (NameQ /@ names)
+    ]
+    ,
+    True
+    ,
+    TestID -> "Scenario kernel: unqualified symbols are available after Needs"
+]
 (* Test: makeScenario returns a typed scenario for valid input *)
 Test[
     Module[{data, s},
-        data = GetExampleDataRaw[12] /. {I1 -> 100, U1 -> 0};
+        data = $testModel12;
         s = makeScenario[<|"Model" -> data|>];
         scenarioQ[s]
     ]
@@ -31,7 +65,7 @@ Test[
 (* Test: Benchmark block defaults are filled *)
 Test[
     Module[{data, s, bench},
-        data = GetExampleData[12] /. {I1 -> 100, U1 -> 0};
+        data = $testModel12;
         s = makeScenario[<|"Model" -> data|>];
         bench = ScenarioData[s, "Benchmark"];
         bench["Tier"] === "core" && bench["Timeout"] === 300
@@ -45,7 +79,7 @@ Test[
 (* Test: Hamiltonian block defaults are filled *)
 Test[
     Module[{data, s, h},
-        data = GetExampleDataRaw[12] /. {I1 -> 100, U1 -> 0};
+        data = $testModel12;
         s = makeScenario[<|"Model" -> data|>];
         h = ScenarioData[s, "Hamiltonian"];
         AssociationQ[h] &&
@@ -127,7 +161,7 @@ Test[
 (* Test: user-supplied Benchmark values override defaults *)
 Test[
     Module[{data, s, bench},
-        data = GetExampleData[12] /. {I1 -> 100, U1 -> 0};
+        data = $testModel12;
         s = makeScenario[<|"Model" -> data, "Benchmark" -> <|"Tier" -> "stress", "Timeout" -> 900|>|>];
         bench = ScenarioData[s, "Benchmark"];
         bench["Tier"] === "stress" && bench["Timeout"] === 900
@@ -181,7 +215,7 @@ Test[
 (* Test: ScenarioData accessor returns underlying association *)
 Test[
     Module[{data, s, underlying},
-        data = GetExampleData[12] /. {I1 -> 100, U1 -> 0};
+        data = $testModel12;
         s = makeScenario[<|"Model" -> data|>];
         underlying = ScenarioData[s];
         AssociationQ[underlying] && KeyExistsQ[underlying, "Model"]
@@ -195,7 +229,7 @@ Test[
 (* Test: partial Identity override — user name is preserved *)
 Test[
     Module[{data, s, identity},
-        data = GetExampleData[12] /. {I1 -> 100, U1 -> 0};
+        data = $testModel12;
         s = makeScenario[<|"Model" -> data, "Identity" -> <|"name" -> "my-scenario"|>|>];
         identity = ScenarioData[s, "Identity"];
         identity["name"] === "my-scenario"
@@ -269,13 +303,15 @@ Test[
     ,
     True
     ,
+    {AdjacencyGraph::matsq, EdgeList::graph, EdgeList::graph}
+    ,
     TestID -> "Scenario kernel: invalid topology shape is rejected during construction"
 ]
 
 (* Test: completeScenario can be called directly on a validated scenario *)
 Test[
     Module[{data, raw, validated, completed},
-        data      = GetExampleData[12] /. {I1 -> 100, U1 -> 0};
+        data      = $testModel12;
         raw       = scenario[<|"Model" -> data|>];
         validated = validateScenario[raw];
         completed = completeScenario[validated];
@@ -300,7 +336,7 @@ Test[
             |>,
             "Data" -> {inflowParam -> 100, exitCostParam -> 0}
         |>;
-        result = MFGraphs`makeScenario[raw];
+        result = makeScenario[raw];
         FailureQ[result] && result["Tag"] === "ScenarioValidation"
     ]
     ,
@@ -321,7 +357,7 @@ Test[
                 "Switching Costs" -> {}
             |>
         |>;
-        result = MFGraphs`makeScenario[raw];
+        result = makeScenario[raw];
         FailureQ[result] && result["Tag"] === "ScenarioValidation"
     ]
     ,
@@ -342,7 +378,7 @@ Test[
                 "Switching Costs" -> {{1, 1, 2, c12}}
             |>
         |>;
-        result = MFGraphs`makeScenario[raw];
+        result = makeScenario[raw];
         FailureQ[result] && result["Tag"] === "ScenarioValidation"
     ]
     ,
@@ -412,107 +448,4 @@ Test[
     True
     ,
     TestID -> "Scenario kernel: non-integer vertices are rejected"
-]
-
-(* Test: ScenarioByKey constructs a typed scenario from input-defined boundaries *)
-Test[
-    Module[{s, model},
-        s = ScenarioByKey[12, <|
-            "Entry flows" -> <|1 -> 100|>,
-            "Exit costs" -> <|4 -> 0|>,
-            "Switching Costs" -> <||>
-        |>];
-        model = ScenarioData[s, "Model"];
-        scenarioQ[s] &&
-        model["Entrance Vertices and Flows"] === {{1, 100}} &&
-        model["Exit Vertices and Terminal Costs"] === {{4, 0}}
-    ]
-    ,
-    True
-    ,
-    TestID -> "ScenarioByKey: builds typed scenario with input-defined boundaries"
-]
-
-(* Test: ScenarioByKey ignores base example entry/exit sets *)
-Test[
-    Module[{s, model},
-        s = ScenarioByKey[7, <|
-            "Entry flows" -> <|2 -> 11|>,
-            "Exit costs" -> <|4 -> 9|>,
-            "Switching Costs" -> <||>
-        |>];
-        model = ScenarioData[s, "Model"];
-        model["Entrance Vertices and Flows"] === {{2, 11}} &&
-        model["Exit Vertices and Terminal Costs"] === {{4, 9}}
-    ]
-    ,
-    True
-    ,
-    TestID -> "ScenarioByKey: input boundaries override base example boundaries"
-]
-
-(* Test: ScenarioByKey completes unspecified switching triples with zero *)
-Test[
-    Module[{s, sc},
-        s = ScenarioByKey[14, <|
-            "Entry flows" -> <|1 -> 10|>,
-            "Exit costs" -> <|3 -> 0|>,
-            "Switching Costs" -> <|{1, 2, 3} -> 5|>
-        |>];
-        sc = ScenarioData[s, "Model"]["Switching Costs"];
-        AssociationQ[sc] &&
-        KeyExistsQ[sc, {1, 2, 3}] && sc[{1, 2, 3}] == 5 &&
-        KeyExistsQ[sc, {3, 2, 1}] && sc[{3, 2, 1}] == 0
-    ]
-    ,
-    True
-    ,
-    TestID -> "ScenarioByKey: missing switching triples default to zero"
-]
-
-(* Test: ScenarioByKey rejects non-adjacent switching triples *)
-Test[
-    Module[{result},
-        result = ScenarioByKey[3, <|
-            "Entry flows" -> <|1 -> 1|>,
-            "Exit costs" -> <|3 -> 0|>,
-            "Switching Costs" -> <|{1, 3, 2} -> 7|>
-        |>];
-        FailureQ[result] && result["Tag"] === "ScenarioByKey"
-    ]
-    ,
-    True
-    ,
-    TestID -> "ScenarioByKey: rejects non-adjacent switching triples"
-]
-
-(* Test: ScenarioByKey validates required keys *)
-Test[
-    Module[{result},
-        result = ScenarioByKey[12, <|
-            "Entry flows" -> <|1 -> 1|>,
-            "Exit costs" -> <|4 -> 0|>
-        |>];
-        FailureQ[result] && result["Tag"] === "ScenarioByKey"
-    ]
-    ,
-    True
-    ,
-    TestID -> "ScenarioByKey: missing required input keys yields Failure"
-]
-
-(* Test: ScenarioByKey reports unknown key as structured Failure *)
-Test[
-    Module[{result},
-        result = ScenarioByKey["does-not-exist", <|
-            "Entry flows" -> <|1 -> 1|>,
-            "Exit costs" -> <|1 -> 0|>,
-            "Switching Costs" -> <||>
-        |>];
-        FailureQ[result] && result["Tag"] === "ScenarioByKey"
-    ]
-    ,
-    True
-    ,
-    TestID -> "ScenarioByKey: unknown key yields structured Failure"
 ]

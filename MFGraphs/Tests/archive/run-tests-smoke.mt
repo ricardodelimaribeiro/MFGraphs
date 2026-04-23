@@ -3,7 +3,7 @@
 
 Test[
     Module[{proc, script},
-        script = "/Users/ribeirrd/Documents/GitHub/MFGraphs/Scripts/RunTests.wls";
+        script = FileNameJoin[{DirectoryName[$InputFileName], "..", "..", "Scripts", "RunTests.wls"}];
         proc = RunProcess[{"wolframscript", "-file", script, "fast"}];
         proc["ExitCode"] === 0 && StringContainsQ[proc["StandardOutput"], "Suite: fast"]
     ]

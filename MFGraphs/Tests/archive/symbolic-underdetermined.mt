@@ -1,8 +1,6 @@
 (* Wolfram Language Test file *)
 
-If[!MemberQ[$Packages, "MFGraphs`"],
-    Get["/Users/ribeirrd/Documents/GitHub/MFGraphs/MFGraphs/MFGraphs.wl"]
-];
+Get[FileNameJoin[{DirectoryName[$InputFileName], "..", "MFGraphs.wl"}]];
 
 Test[
     Module[{data, d2e, result, unresolved},

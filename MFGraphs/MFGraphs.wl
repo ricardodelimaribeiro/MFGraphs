@@ -25,113 +25,16 @@
 (* Created by the Wolfram Workbench May 5, 2020 *)
 (* To distribute, use ideas from https://community.wolfram.com/groups/-/m/t/214901 *)
 
+(* Load subpackages before BeginPackage so each one establishes MFGraphs` independently. *)
+With[{$mfgDir = DirectoryName[$InputFileName]},
+    Get[FileNameJoin[{$mfgDir, "Scenario.wl"}]];
+    Get[FileNameJoin[{$mfgDir, "Examples", "ExampleScenarios.wl"}]];
+    Null
+];
+
 BeginPackage["MFGraphs`"];
 
 (* --- Public API declarations (Usage strings) --- *)
-
-SolveMFG::usage =
-"SolveMFG[input, opts] solves the critical congestion MFG and returns its \
-standardized result association.
-
-input can be either raw data (association accepted by DataToEquations) or an already \
-compiled equation association.";
-
-DataToEquations::usage =
-"DataToEquations[input] converts raw network data into a compiled equation association.";
-
-CriticalCongestionSolver::usage =
-"CriticalCongestionSolver[d2e, opts] solves the critical congestion MFG system.";
-
-MFGPreprocessing::usage =
-"MFGPreprocessing[eqs] performs symbolic preprocessing and utility reduction on the MFG system.";
-
-MFGSystemSolver::usage =
-"MFGSystemSolver[eqs][approx] returns a symbolic solution for the MFG system given flow approximations.";
-
-IsCriticalSolution::usage =
-"IsCriticalSolution[eqs] validates whether a solution satisfies the critical congestion MFG equations.";
-
-IsFeasible::usage =
-"IsFeasible[result] returns True if the solver result indicates a feasible solution \
-(all flows non-negative and constraints satisfied within tolerance).";
-
-CheckFlowFeasibility::usage =
-"CheckFlowFeasibility[assoc] returns \"Feasible\" if all flow variables in assoc \
-are non-negative, and \"Infeasible\" otherwise.";
-
-NumberVectorQ::usage =
-"NumberVectorQ[j] returns True if the vector j is numeric.";
-
-BuildSolverComparisonData::usage =
-"BuildSolverComparisonData[Eqs, solution] returns an association with comparison \
-metrics like Kirchhoff residual and boundary mass balance.";
-
-BuildMonotoneStateData::usage =
-"BuildMonotoneStateData[d2e] returns shared linear state for monotone-like solvers.";
-
-BuildMonotoneValueSystem::usage =
-"BuildMonotoneValueSystem[d2e] returns a function to solve for node potentials.";
-
-BuildReducedKirchhoffCoordinates::usage =
-"BuildReducedKirchhoffCoordinates[d2e, basePoint] returns reduced affine coordinates \
-on the Kirchhoff manifold.";
-
-BuildMonotonePairCostAssociation::usage =
-"BuildMonotonePairCostAssociation[halfPairs, edgeList, q] returns signed edge costs.";
-
-EncodeFlowAssociation::usage =
-"EncodeFlowAssociation[ns, assoc] returns a packed numeric vector from a flow association.";
-
-DecodeFlowVector::usage =
-"DecodeFlowVector[ns, vec] returns a flow association from a packed numeric vector.";
-
-ComputeSignedEdgeFlowsFast::usage =
-"ComputeSignedEdgeFlowsFast[ns, vec] returns a vector of signed edge flows.";
-
-ComputeKirchhoffResidualFast::usage =
-"ComputeKirchhoffResidualFast[ns, vec] returns the maximum Kirchhoff residual.";
-
-BuildFeasibleFlowSeed::usage =
-"BuildFeasibleFlowSeed[backendState] returns an initial feasible flow for FP.";
-
-ExtractBellmanPotentials::usage =
-"ExtractBellmanPotentials[backendState, flowState] extracts node potentials.";
-
-BuildSoftPolicyAndPropagate::usage =
-"BuildSoftPolicyAndPropagate[backendState, flowState, potentialState] propagates policy.";
-
-ClassifyAndCheckStability::usage =
-"ClassifyAndCheckStability[backendState, flowState, potentialState, history] checks stability.";
-
-SolveCriticalFictitiousPlayBackend::usage =
-"SolveCriticalFictitiousPlayBackend[backendState] runs the FP iterative solver.";
-
-SolveCriticalJFirstBackend::usage =
-"SolveCriticalJFirstBackend[Eqs, opts] runs the j-first numeric strategy.";
-
-SolveCriticalJFirstUtilities::usage =
-"SolveCriticalJFirstUtilities[eqs, flowAssoc, uVars, tol] recovers node potentials from flows.";
-
-BuildCriticalQuadraticObjective::usage =
-"BuildCriticalQuadraticObjective[d2e] returns a quadratic approximation of the MFG objective.";
-
-UseQuadraticCriticalBackendQ::usage =
-"UseQuadraticCriticalBackendQ[d2e] returns True if the case is eligible for a quadratic shortcut.";
-
-MonotoneVariableFieldValue::usage =
-"MonotoneVariableFieldValue[var, values, switching] returns the field value for a variable.";
-
-LookupAssociationValue::usage =
-"LookupAssociationValue[assoc, key, default] is a robust Lookup helper.";
-
-SelectFlowAssociation::usage =
-"SelectFlowAssociation[assoc] returns a sub-association with only flow (j) keys.";
-
-BuildBoundaryMassData::usage =
-"BuildBoundaryMassData[Eqs, flowAssoc] returns mass balance metrics.";
-
-BuildUtilityReductionResidualData::usage =
-"BuildUtilityReductionResidualData[Eqs, solution] returns utility reduction metrics.";
 
 alpha::usage = "alpha[edge] is the congestion exponent for an edge. Default is 1.";
 Cost::usage = "Cost[m, edge] is the congestion cost function.";
@@ -200,25 +103,6 @@ Additional optional arguments override each default in order: sc, alpha, V, g. \
 Pass sc={} explicitly to force no switching costs. \
 entries={{vertex,flow},...}, exits={{vertex,cost},...}, sc={{i,k,j,cost},...}. \
 Returns $Failed for unknown keys.";
-
-(* Load submodules in dependency order *)
-Get["MFGraphs`DNFReduce`"];
-Get["MFGraphs`Scenario`"];
-Get["MFGraphs`Examples`ExampleScenarios`"];
-Get["MFGraphs`Examples`ExamplesData`"];
-Get["MFGraphs`Unknowns`"];
-Get["MFGraphs`System`"];
-Get["MFGraphs`DataToEquations`"];
-Get["MFGraphs`Solvers`"];
-Get["MFGraphs`Graphics`"];
-
-Options[SolveMFG] = DeleteDuplicatesBy[
-    Join[
-        {Method -> "Automatic"},
-        Options[CriticalCongestionSolver]
-    ],
-    First
-];
 
 (* --- Private Section --- *)
 Begin["`Private`"];
@@ -790,28 +674,8 @@ SolveMFGCompiledInputQ[input_Association] :=
 Scan[
     Get,
     {
-        "MFGraphs`Examples`ExamplesData`",
-        "MFGraphs`DNFReduce`",
-        "MFGraphs`DataToEquations`",
-        "MFGraphs`Solvers`",
-        "MFGraphs`Graphics`",
-        "MFGraphs`FictitiousPlayBackend`",
-        "MFGraphs`SolveMFGDispatch`"
-    }
-];
-
-(* Soft-optional legacy modules: load only when present on $Path. *)
-Scan[
-    Function[ctx,
-        If[StringQ[Quiet @ Check[FindFile[ctx], $Failed]],
-            Get[ctx]
-        ]
-    ],
-    {
-        "MFGraphs`NonLinearSolver`",
-        "MFGraphs`Monotone`",
-        "MFGraphs`TimeDependentSolver`",
-        "MFGraphs`Examples`TimeDependentExamples`"
+        "MFGraphs`Unknowns`",
+        "MFGraphs`System`"
     }
 ];
 

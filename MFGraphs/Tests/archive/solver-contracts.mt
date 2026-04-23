@@ -1,9 +1,7 @@
 (* Wolfram Language Test file *)
 (* Contract tests for the standardized critical-solver return shape. *)
 
-If[!MemberQ[$Packages, "MFGraphs`"],
-    Get["/Users/ribeirrd/Documents/GitHub/MFGraphs/MFGraphs/MFGraphs.wl"]
-];
+Get[FileNameJoin[{DirectoryName[$InputFileName], "..", "MFGraphs.wl"}]];
 
 Test[
     Module[{data, d2e, result},

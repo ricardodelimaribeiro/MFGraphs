@@ -3,6 +3,8 @@
 (* Wolfram Language package *)
 (* Built-in test cases for MFGraphs *)
 
+BeginPackage["MFGraphs`"];
+
 GetExampleData::usage =
 "GetExampleData[n] returns an Association with keys \"Vertices List\", \"Adjacency Matrix\",
 \"Entrance Vertices and Flows\", \"Exit Vertices and Terminal Costs\", and \"Switching Costs\"
@@ -782,3 +784,5 @@ GetExampleData[n_] :=
 DataG = GetExampleData;
 
 End[];
+
+EndPackage[];
