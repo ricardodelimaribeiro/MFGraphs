@@ -52,8 +52,6 @@ $CaseDefaultSC = <|
          {2,3,4,1},{4,3,2,1},{3,1,2,1},{2,1,3,1}}
 |>;
 
-(* --- Direct constructors — each calls makeScenario once, no intermediate helpers --- *)
-
 GridScenario[dims_List, entries_, exits_,
         sc_    : {},
         alpha_ : $DefaultHamiltonian["Alpha"],
@@ -124,10 +122,6 @@ $MakeGridFactory[dims_List] :=
 $MakeCycleFactory[n_Integer] :=
     With[{k = n},
         Function[{entries, exits, sc, alpha, V, g}, CycleScenario[k, entries, exits, sc, alpha, V, g]]];
-
-$MakeGraphFactory[graph_] :=
-    With[{gr = graph},
-        Function[{entries, exits, sc, alpha, V, g}, GraphScenario[gr, entries, exits, sc, alpha, V, g]]];
 
 $MakeAMFactory[vl_, am_] :=
     With[{vertices = vl, matrix = am},
