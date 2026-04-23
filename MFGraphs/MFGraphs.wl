@@ -25,6 +25,13 @@
 (* Created by the Wolfram Workbench May 5, 2020 *)
 (* To distribute, use ideas from https://community.wolfram.com/groups/-/m/t/214901 *)
 
+(* Load subpackages before BeginPackage so each one establishes MFGraphs` independently. *)
+With[{$mfgDir = DirectoryName[$InputFileName]},
+    Get[FileNameJoin[{$mfgDir, "Scenario.wl"}]];
+    Get[FileNameJoin[{$mfgDir, "Examples", "ExampleScenarios.wl"}]];
+    Null
+];
+
 BeginPackage["MFGraphs`"];
 
 (* --- Public API declarations (Usage strings) --- *)
@@ -200,17 +207,6 @@ Additional optional arguments override each default in order: sc, alpha, V, g. \
 Pass sc={} explicitly to force no switching costs. \
 entries={{vertex,flow},...}, exits={{vertex,cost},...}, sc={{i,k,j,cost},...}. \
 Returns $Failed for unknown keys.";
-
-(* Load submodules in dependency order *)
-Get["MFGraphs`DNFReduce`"];
-Get["MFGraphs`Scenario`"];
-Get["MFGraphs`Examples`ExampleScenarios`"];
-Get["MFGraphs`Examples`ExamplesData`"];
-Get["MFGraphs`Unknowns`"];
-Get["MFGraphs`System`"];
-Get["MFGraphs`DataToEquations`"];
-Get["MFGraphs`Solvers`"];
-Get["MFGraphs`Graphics`"];
 
 Options[SolveMFG] = DeleteDuplicatesBy[
     Join[
