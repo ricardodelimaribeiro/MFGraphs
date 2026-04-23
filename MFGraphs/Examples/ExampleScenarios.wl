@@ -9,11 +9,13 @@
      f = GetExampleScenario[7]
      f[{{1,80}}, {{3,0},{4,10}}, {}, 1, 0, Function[z,-1/z]]
 
-     GetExampleScenario[7, {{1,80}}, {{3,0},{4,10}}]   (* uses defaults *)
-     GetExampleScenario[7, {{1,80}}, {{3,0},{4,10}}, {{1,2,3,2},...}]  (* custom SC *)
+     GetExampleScenario[7, {{1,80}}, {{3,0},{4,10}}]            (* uses defaults *)
+     GetExampleScenario[8, {{1,80}}, {{3,0},{4,10}}]            (* uses canonical SC for case 8 *)
+     GetExampleScenario[8, {{1,80}}, {{3,0},{4,10}}, {}]        (* override: no SC *)
 
    Numeric benchmark defaults are in Scripts/BenchmarkHelpers.wls ($DefaultParams/$CaseParams).
-   NormalizeScenarioModel derives "Vertices List" + "Adjacency Matrix" from "Graph" key. *)
+   NormalizeScenarioModel derives "Vertices List" + "Adjacency Matrix" from "Graph" key.
+   Default Hamiltonian parameters are taken from $DefaultHamiltonian in Scenario.wl. *)
 
 Begin["`Private`"];
 
@@ -23,16 +25,34 @@ $Y1In2OutAM    = {{0,1,0,0},{0,0,1,1},{0,0,0,0},{0,0,0,0}};
 $Y2In1OutAM    = {{0,1,0,0},{0,0,0,1},{0,1,0,0},{0,0,0,0}};
 $Attraction4AM = {{0,1,1,0},{0,0,1,1},{0,0,0,1},{0,0,0,0}};
 
-(* --- Default Hamiltonian parameter values --- *)
-
-$ScenarioDefaultSC    = {};
-$ScenarioDefaultAlpha = 1;
-$ScenarioDefaultV     = 0;
-$ScenarioDefaultG     = Function[z, -1/z];
-
-(* --- Factory builders ---
-   Both return Function[{entries, exits, sc, alpha, V, gFunc}, makeScenario[...]]
-   with topology baked in via With at definition time. *)
+(* Canonical switching costs for cases that have a well-defined default SC.
+   Looked up by GetExampleScenario when sc argument is Automatic. *)
+$CaseDefaultSC = <|
+    8  -> {{1,2,3,2},{1,2,4,3},{3,2,1,2},{3,2,4,1},{4,2,1,3},{4,2,3,1}},
+    10 -> {{1,2,4,2},{1,2,3,3},{3,2,1,2},{3,2,4,1},{4,2,1,3},{4,2,3,1}},
+    11 -> {{1,2,4,1},{1,2,3,1},{3,2,1,1},{3,2,4,1},{4,2,1,1},{4,2,3,1},
+           {1,3,4,1},{4,3,1,1},{1,3,2,1},{2,3,1,1},{3,4,2,1},{2,4,3,1},
+           {2,3,4,1},{4,3,2,1},{3,1,2,1},{2,1,3,1}},
+    13 -> {{1,2,4,1},{1,3,4,1},{4,2,1,1},{4,3,1,1}},
+    14 -> {{1,2,3,2},{3,2,1,1}},
+    15 -> {{2,1,3,2},{3,1,2,1}},
+    16 -> {{1,3,2,1}},
+    17 -> {{1,2,3,2},{3,2,1,1}},
+    18 -> {{1,2,3,2},{3,2,1,1}},
+    19 -> {{1,2,3,1},{1,2,4,1},{3,2,1,1},{3,2,4,1},{4,2,1,1},{4,2,3,1}},
+    "Braess split"     -> {{1,2,4,1},{5,7,8,1}},
+    "Braess congest"   -> {{1,2,4,1},{4,6,7,1}},
+    "Big Braess split" -> {{1,3,6,1},{5,7,10,1}},
+    "Big Braess congest" -> {{1,3,5,1},{5,7,9,1}},
+    "Paper example"    -> {{1,2,3,2},{3,2,1,1},{2,3,4,3},{4,3,2,1}},
+    (* SC that violates the triangle inequality — infeasible by design *)
+    "Inconsistent Y shortcut" ->
+        {{1,2,3,5},{1,2,4,1},{3,2,1,1},{3,2,4,1},{4,2,1,1},{4,2,3,1}},
+    "Inconsistent attraction shortcut" ->
+        {{1,2,4,5},{1,2,3,1},{3,2,1,1},{3,2,4,1},{4,2,1,1},{4,2,3,1},
+         {1,3,4,1},{4,3,1,1},{1,3,2,1},{2,3,1,1},{3,4,2,1},{2,4,3,1},
+         {2,3,4,1},{4,3,2,1},{3,1,2,1},{2,1,3,1}}
+|>;
 
 $MakeGraphFactory[graph_] :=
     With[{g = graph},
@@ -104,8 +124,8 @@ $ExampleScenarios = Association[
     (* CycleGraph[3, DirectedEdges->True]                                  *)
     (* ------------------------------------------------------------------ *)
 
-    14                     -> $MakeGraphFactory[CycleGraph[3, DirectedEdges -> True]],
-    104                    -> $MakeGraphFactory[CycleGraph[3, DirectedEdges -> True]],
+    14                        -> $MakeGraphFactory[CycleGraph[3, DirectedEdges -> True]],
+    104                       -> $MakeGraphFactory[CycleGraph[3, DirectedEdges -> True]],
     "triangle with two exits" -> $MakeGraphFactory[CycleGraph[3, DirectedEdges -> True]],
 
     (* ------------------------------------------------------------------ *)
@@ -240,18 +260,20 @@ $ExampleScenarios = Association[
 
 (* --- Accessors --- *)
 
-(* Return the raw factory Function for a given key. *)
 GetExampleScenario[n_] := Lookup[$ExampleScenarios, n, $Failed];
 
-(* Call the factory with explicit boundary + optional Hamiltonian parameters.
-   sc defaults to {}, alpha to 1, V to 0, g to Function[z,-1/z]. *)
+(* sc=Automatic resolves to the canonical SC for the case (from $CaseDefaultSC),
+   or {} if the case has no canonical SC. Hamiltonian defaults from $DefaultHamiltonian. *)
 GetExampleScenario[n_, entries_, exits_,
-        sc_    : $ScenarioDefaultSC,
-        alpha_ : $ScenarioDefaultAlpha,
-        V_     : $ScenarioDefaultV,
-        g_     : $ScenarioDefaultG] :=
+        sc_    : Automatic,
+        alpha_ : $DefaultHamiltonian["Alpha"],
+        V_     : $DefaultHamiltonian["V"],
+        g_     : $DefaultHamiltonian["G"]] :=
     Module[{f = Lookup[$ExampleScenarios, n, $Failed]},
-        If[f === $Failed, $Failed, f[entries, exits, sc, alpha, V, g]]
+        If[f === $Failed, Return[$Failed]];
+        f[entries, exits,
+            If[sc === Automatic, Lookup[$CaseDefaultSC, n, {}], sc],
+            alpha, V, g]
     ];
 
 End[];
