@@ -137,13 +137,29 @@ makeSystem[s_?scenarioQ, unk_?unknownsQ] :=
          BalanceSplittingFlows, NoDeadStarts, RuleBalanceGatheringFlows, BalanceGatheringFlows,
          EqBalanceGatheringFlows, EqEntryIn, RuleEntryValues, RuleEntryOut, RuleExitFlowsIn,
          RuleExitValues, EqValueAuxiliaryEdges, IneqSwitchingByVertex, AltOptCond,
-         blockedIncomingPairs, activeAuxTriples,
+         blockedIncomingPairs, blockedIncomingLookup, activeAuxTriples,
          Nlhs, ModuleVars, ModuleVarsNames, Nrhs, costpluscurrents, EqGeneral,
          inAuxEntryPairs, outAuxEntryPairs, inAuxExitPairs, outAuxExitPairs, 
-        pairs, halfPairs, consistentCosts},
+        pairs, halfPairs, consistentCosts, hamiltonian, alphaDefault, edgeAlpha, alphaAtEdge, edgeCost},
         
         model = ScenarioData[s, "Model"];
         topology = ScenarioData[s, "Topology"];
+        hamiltonian = ScenarioData[s, "Hamiltonian"];
+        If[!AssociationQ[hamiltonian],
+            hamiltonian = <||>
+        ];
+        alphaDefault = Lookup[hamiltonian, "Alpha", 1];
+        edgeAlpha = Lookup[hamiltonian, "EdgeAlpha", <||>];
+        If[!AssociationQ[edgeAlpha],
+            edgeAlpha = <||>
+        ];
+        alphaAtEdge[edge_List] :=
+            Lookup[
+                edgeAlpha,
+                Key[edge],
+                Lookup[edgeAlpha, Key[Reverse[edge]], alphaDefault]
+            ];
+        edgeCost[m_, edge_List] := m^alphaAtEdge[edge];
         
         If[!AssociationQ[topology],
             topology = BuildAuxiliaryTopology[model]
@@ -260,9 +276,11 @@ makeSystem[s_?scenarioQ, unk_?unknownsQ] :=
         RuleExitFlowsIn = Association[(j @@ # -> 0)& /@ inAuxExitPairs];
         
         blockedIncomingPairs = DeleteDuplicates @ Join[outAuxEntryPairs, inAuxExitPairs];
+        blockedIncomingLookup =
+            AssociationThread[blockedIncomingPairs, ConstantArray[True, Length[blockedIncomingPairs]]];
         activeAuxTriples = Select[
             auxTriples,
-            !MemberQ[blockedIncomingPairs, #[[{1, 2}]]] &
+            !KeyExistsQ[blockedIncomingLookup, #[[{1, 2}]]] &
         ];
         
         RuleExitValues = AssociationThread[u @@@ (Reverse /@ outAuxExitPairs
@@ -279,7 +297,7 @@ makeSystem[s_?scenarioQ, unk_?unknownsQ] :=
             IneqSwitch[u, SwitchingCosts] @@@
                 Select[
                     TransitionsAt[auxiliaryGraph, #],
-                    !MemberQ[blockedIncomingPairs, #[[{1, 2}]]] &
+                    !KeyExistsQ[blockedIncomingLookup, #[[{1, 2}]]] &
                 ] & /@ verticesList;
         IneqSwitchingByVertex = And @@@ IneqSwitchingByVertex;
         
@@ -287,7 +305,7 @@ makeSystem[s_?scenarioQ, unk_?unknownsQ] :=
         
         Nlhs = Flatten[u @@ # - u @@ Reverse @ # + SignedFlows[#]& /@
              halfPairs];
-        Nrhs = Flatten[SignedFlows[#] - Sign[SignedFlows[#]] Cost[SignedFlows[
+        Nrhs = Flatten[SignedFlows[#] - Sign[SignedFlows[#]] edgeCost[SignedFlows[
             #], #]& /@ halfPairs];
             
         costpluscurrents = Table[Symbol["cpc" <> ToString[k]], {k, 1,
@@ -297,6 +315,7 @@ makeSystem[s_?scenarioQ, unk_?unknownsQ] :=
         costpluscurrents = AssociationThread[costpluscurrents, Nrhs];
             
         ModuleVars = {graph, pairs, entryVertices, auxEntryVertices, 
+            exitVertices,
             auxExitVertices, entryEdges, exitEdges, auxiliaryGraph,
              auxEdgeList, edgeList, auxVerticesList, auxTriples, EntryDataAssociation,
              ExitCosts, js, us, jts, SignedFlows, SwitchingCosts, IneqJs, IneqJts,
