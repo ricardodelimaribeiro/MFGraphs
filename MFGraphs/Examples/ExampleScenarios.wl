@@ -1,21 +1,18 @@
 (* Wolfram Language package *)
-(* Self-contained typed scenario factory library for all built-in MFGraphs examples.
-   Each entry in $ExampleScenarios is a 6-arg Function:
-     Function[{entries, exits, sc, alpha, V, gFunc}, makeScenario[...]]
-   Topology is baked in at definition time; all boundary and Hamiltonian parameters
-   are caller-supplied. Convenience accessor GetExampleScenario applies defaults.
+(* Scenario factories and direct constructors for all built-in MFGraphs examples.
 
-   Usage:
-     f = GetExampleScenario[7]
-     f[{{1,80}}, {{3,0},{4,10}}, {}, 1, 0, Function[z,-1/z]]
+   Direct constructors (preferred for custom scenarios):
+     GridScenario[{n}, entries, exits]          chain of n vertices (1..n)
+     GridScenario[{r,c}, entries, exits]        r x c grid (vertices 1..r*c, row-major)
 
-     GetExampleScenario[7, {{1,80}}, {{3,0},{4,10}}]            (* uses defaults *)
-     GetExampleScenario[8, {{1,80}}, {{3,0},{4,10}}]            (* uses canonical SC for case 8 *)
-     GetExampleScenario[8, {{1,80}}, {{3,0},{4,10}}, {}]        (* override: no SC *)
+   Named example registry (benchmark cases):
+     GetExampleScenario[7, {{1,80}}, {{3,0},{4,10}}]   uses canonical SC for case 7
+     GetExampleScenario[8, {{1,80}}, {{3,0},{4,10}}]   uses canonical SC for case 8
+     GetExampleScenario[8, {{1,80}}, {{3,0},{4,10}}, {}]  override: no SC
 
-   Numeric benchmark defaults are in Scripts/BenchmarkHelpers.wls ($DefaultParams/$CaseParams).
-   NormalizeScenarioModel derives "Vertices List" + "Adjacency Matrix" from "Graph" key.
-   Default Hamiltonian parameters are taken from $DefaultHamiltonian in Scenario.wl. *)
+   All constructors accept optional: sc, alpha, V, g (Hamiltonian).
+   Defaults: sc={} (or canonical per case), alpha=1, V=0, g=Function[z,-1/z].
+   Numeric benchmark defaults are in Scripts/BenchmarkHelpers.wls ($DefaultParams/$CaseParams). *)
 
 Begin["`Private`"];
 
@@ -54,8 +51,27 @@ $CaseDefaultSC = <|
          {2,3,4,1},{4,3,2,1},{3,1,2,1},{2,1,3,1}}
 |>;
 
-$MakeGridFactory[dims_List]  := $MakeGraphFactory[GridGraph[dims, DirectedEdges -> True]];
-$MakeCycleFactory[n_Integer] := $MakeGraphFactory[CycleGraph[n,   DirectedEdges -> True]];
+GridScenario[dims_List, entries_, exits_,
+        sc_    : {},
+        alpha_ : $DefaultHamiltonian["Alpha"],
+        V_     : $DefaultHamiltonian["V"],
+        g_     : $DefaultHamiltonian["G"]] :=
+    makeScenario[<|
+        "Model" -> <|
+            "Graph"                           -> GridGraph[dims, DirectedEdges -> True],
+            "Entrance Vertices and Flows"     -> entries,
+            "Exit Vertices and Terminal Costs" -> exits,
+            "Switching Costs"                 -> sc
+        |>,
+        "Hamiltonian" -> <|"Alpha" -> alpha, "V" -> V, "G" -> g|>
+    |>];
+
+$MakeGridFactory[dims_List] :=
+    With[{d = dims},
+        Function[{entries, exits, sc, alpha, V, g},
+            GridScenario[d, entries, exits, sc, alpha, V, g]]];
+
+$MakeCycleFactory[n_Integer] := $MakeGraphFactory[CycleGraph[n, DirectedEdges -> True]];
 
 $MakeGraphFactory[graph_] :=
     With[{g = graph},
