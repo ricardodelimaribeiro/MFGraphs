@@ -84,15 +84,14 @@ Test[
                     {1, 0, 1},
                     {0, 1, 0}
                 },
-                "Entrance Vertices and Flows" -> {{1, inflowParam}},
-                "Exit Vertices and Terminal Costs" -> {{3, exitCostParam}},
+                "Entrance Vertices and Flows" -> {{1, 10}},
+                "Exit Vertices and Terminal Costs" -> {{3, 0}},
                 "Switching Costs" -> {}
             |>;
             gscenario = Symbol["Global`scenario"];
             unk = makeUnknowns[gscenario[<|
                 "Identity" -> <|"Name" -> "shadowed scenario"|>,
-                "Model" -> data,
-                "Data" -> {inflowParam -> 10, exitCostParam -> 0}
+                "Model" -> data
             |>]];
             unknownsQ[unk] &&
             Length[UnknownsData[unk, "js"]] > 0 &&

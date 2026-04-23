@@ -13,7 +13,6 @@
    Canonical top-level blocks inside scenario[<|...|>]:
      "Identity"    — name, version
      "Model"       — raw network topology accepted by DataToEquations
-     "Data"        — parameter substitution rules (e.g. {I1 -> 100, U1 -> 0})
      "Validation"  — consistency check results (populated after solving)
      "Benchmark"   — tier, timeout
      "Visualization" — optional plotting hints
@@ -37,13 +36,13 @@ DataToEquations (required keys: \"Vertices List\", \"Adjacency Matrix\", \
 \"Entrance Vertices and Flows\", \"Exit Vertices and Terminal Costs\", \
 \"Switching Costs\"). If \"Model\" contains a Wolfram Graph under key \"Graph\", \
 missing \"Vertices List\" and/or \"Adjacency Matrix\" are derived automatically. \
-Optional keys: \"Data\" (parameter substitution rules), \
+Optional keys: \
 \"Hamiltonian\" (<|\"Alpha\" -> a, \"V\" -> v, \"G\" -> g, \
 \"EdgeAlpha\" -> <|{u,v} -> a_uv, ...|>, \"EdgeV\" -> <|{u,v} -> v_uv, ...|>, \
 \"EdgeG\" -> <|{u,v} -> g_uv, ...|>|>), \
 \"Identity\" (name, version), \"Benchmark\" (tier, timeout), \"Visualization\", \
 \"Inheritance\". Default Hamiltonian is Alpha=1 and V=0 on all edges, with \
-G[z]=-1/z (overridable globally and per edge). Boundary values must be numeric after Data substitution. \
+G[z]=-1/z (overridable globally and per edge). Boundary and switching-cost values must be numeric. \
 Returns a scenario[...] object on success or Failure[...] on error.";
 
 validateScenario::usage =
@@ -106,6 +105,9 @@ HamiltonianGTermQ[value_] :=
 BuildAdjacencyFromGraph[graph_Graph, vertices_List] :=
     Module[{baseVertices, baseAdjacency, baseIndex, order},
         baseVertices = VertexList[graph];
+        If[vertices === baseVertices,
+            Return[AdjacencyMatrix[graph], Module]
+        ];
         baseAdjacency = AdjacencyMatrix[graph];
         baseIndex = AssociationThread[baseVertices, Range[Length[baseVertices]]];
         order = Lookup[baseIndex, vertices, Missing["UnknownVertex"]];
@@ -141,39 +143,6 @@ NormalizeScenarioModel[model_Association] :=
 
 NormalizeScenarioModel[other_] := other;
 
-NormalizeScenarioDataRules[data_] :=
-    Which[
-        AssociationQ[data], Normal[data],
-        ListQ[data], data,
-        True, {}
-    ];
-
-ExpandDataRulesForModelSymbols[model_Association, rules_List] :=
-    Module[{symbolsInModel, symbolsByName, nameRules, expanded},
-        symbolsInModel = DeleteDuplicates @ Cases[model, _Symbol, Infinity];
-        symbolsByName = GroupBy[symbolsInModel, SymbolName];
-        nameRules = Association @ Cases[
-            rules,
-            HoldPattern[(lhs_Symbol -> rhs_)] :> (SymbolName[Unevaluated[lhs]] -> rhs)
-        ];
-        expanded = Flatten @ KeyValueMap[
-            Function[{name, rhs},
-                Rule[#, rhs] & /@ Lookup[symbolsByName, name, {}]
-            ],
-            nameRules
-        ];
-        DeleteDuplicatesBy[Join[rules, expanded], First]
-    ];
-
-ApplyScenarioDataToModel[model_Association, data_] :=
-    Module[{rules},
-        rules = NormalizeScenarioDataRules[data];
-        If[rules === {},
-            model,
-            model /. ExpandDataRulesForModelSymbols[model, rules]
-        ]
-    ];
-
 BoundaryValuesNumericQ[model_Association] :=
     Module[{entry, exit, entryVals, exitVals},
         entry = Lookup[model, "Entrance Vertices and Flows", Missing["KeyAbsent", "Entrance Vertices and Flows"]];
@@ -187,6 +156,19 @@ BoundaryValuesNumericQ[model_Association] :=
         entryVals = Last /@ entry;
         exitVals = Last /@ exit;
         AllTrue[Join[entryVals, exitVals], NumericQ]
+    ];
+
+SwitchingCostsNumericQ[model_Association] :=
+    Module[{switching},
+        switching = Lookup[model, "Switching Costs", Missing["KeyAbsent", "Switching Costs"]];
+        Which[
+            AssociationQ[switching],
+                AllTrue[Values[switching], NumericQ],
+            ListQ[switching],
+                AllTrue[switching, ListQ] && AllTrue[Last /@ switching, NumericQ],
+            True,
+                False
+        ]
     ];
 
 IntegerVertexLabelsQ[model_Association] :=
@@ -317,21 +299,8 @@ NormalizeHamiltonianSpec[spec_, model_Association] :=
 
 (* --- Topology Helpers --- *)
 
-BuildAuxTriples[auxGraph_Graph] :=
-    Module[{edges, directedEdges, incomingByVertex, outgoingByVertex, middleVertices},
-        (* 
-           PERFORMANCE NOTE: This implementation uses a "generate and filter" pattern 
-           with 'Nothing' and 'DeleteDuplicates'. 
-           
-           - In Wolfram Language: This is faster because 'Flatten' and 'DeleteDuplicates' 
-             are heavily optimized C-internal functions. Vectorized cleanup is cheaper 
-             than top-level conditional logic (like Select or If) inside the loops.
-           - In Compiled Languages (e.g., Rust/C++): A "zero-waste" strategy is 
-             preferable. You should filter 'vIn != vOut' before triple allocation 
-             to avoid transient memory overhead.
-        *)
-        edges = List @@@ EdgeList[auxGraph];
-        directedEdges = Join[edges, Reverse[edges, {2}]];
+iBuildAuxTriples[directedEdges_List] :=
+    Module[{incomingByVertex, outgoingByVertex, middleVertices},
         incomingByVertex = GroupBy[directedEdges, Last -> First];
         outgoingByVertex = GroupBy[directedEdges, First -> Last];
         middleVertices = Intersection[Keys[incomingByVertex], Keys[outgoingByVertex]];
@@ -346,23 +315,33 @@ BuildAuxTriples[auxGraph_Graph] :=
         ]
     ];
 
+BuildAuxTriples[auxGraph_Graph] :=
+    Module[{edges},
+        edges = List @@@ EdgeList[auxGraph];
+        iBuildAuxTriples[Join[edges, Reverse[edges, {2}]]]
+    ];
+
 DeriveAuxPairs[topology_Association] :=
-    Module[{graph, halfPairs, inAuxEntryPairs, outAuxExitPairs, inAuxExitPairs,
-            outAuxEntryPairs, pairs},
-        graph = topology["Graph"];
-        halfPairs = List @@@ EdgeList[graph];
-        inAuxEntryPairs = List @@@ topology["AuxEntryEdges"];
-        outAuxExitPairs = List @@@ topology["AuxExitEdges"];
-        inAuxExitPairs = Reverse /@ outAuxExitPairs;
-        outAuxEntryPairs = Reverse /@ inAuxEntryPairs;
-        pairs = Join[halfPairs, Reverse /@ halfPairs];
-        Join[inAuxEntryPairs, outAuxEntryPairs, inAuxExitPairs, outAuxExitPairs, pairs]
+    Lookup[topology, "AuxPairs",
+        Module[{graph, halfPairs, inAuxEntryPairs, outAuxExitPairs, inAuxExitPairs,
+                outAuxEntryPairs, pairs},
+            graph = topology["Graph"];
+            halfPairs = List @@@ EdgeList[graph];
+            inAuxEntryPairs = List @@@ topology["AuxEntryEdges"];
+            outAuxExitPairs = List @@@ topology["AuxExitEdges"];
+            inAuxExitPairs = Reverse /@ outAuxExitPairs;
+            outAuxEntryPairs = Reverse /@ inAuxEntryPairs;
+            pairs = Join[halfPairs, Reverse /@ halfPairs];
+            Join[inAuxEntryPairs, outAuxEntryPairs, inAuxExitPairs, outAuxExitPairs, pairs]
+        ]
     ];
 
 BuildAuxiliaryTopology[model_Association] :=
     Module[{vertices, adjacency, adjacencyForGraph, entryFlows, exitCosts, graph, 
             entryVertices, exitVertices, auxEntryVertices, auxExitVertices,
-            entryEdges, exitEdges, auxiliaryGraph, auxTriples},
+            entryEdges, exitEdges, auxiliaryGraph, auxTriples,
+            halfPairs, inAuxEntryPairs, outAuxExitPairs, inAuxExitPairs,
+            outAuxEntryPairs, pairs, auxPairs},
         
         vertices = Lookup[model, "Vertices List"];
         adjacency = Lookup[model, "Adjacency Matrix"];
@@ -379,7 +358,7 @@ BuildAuxiliaryTopology[model_Association] :=
 
         adjacencyForGraph = Unitize[adjacency + Transpose[adjacency]];
         
-        graph = Quiet @ Check[
+        graph = Check[
             AdjacencyGraph[vertices, adjacencyForGraph, DirectedEdges -> False],
             $Failed
         ];
@@ -393,16 +372,18 @@ BuildAuxiliaryTopology[model_Association] :=
         
         entryEdges = MapThread[DirectedEdge, {auxEntryVertices, entryVertices}];
         exitEdges = MapThread[DirectedEdge, {exitVertices, auxExitVertices}];
-        auxiliaryGraph = EdgeAdd[graph, Join[entryEdges, exitEdges]];
-        auxTriples = BuildAuxTriples[auxiliaryGraph];
-
-        halfPairs = List @@@ EdgeList[graph];
-        pairs = Join[halfPairs, Reverse[halfPairs, {2}]];
         
+        halfPairs = List @@@ EdgeList[graph];
         inAuxEntryPairs = List @@@ entryEdges;
         outAuxExitPairs = List @@@ exitEdges;
-        inAuxExitPairs = Reverse /@ outAuxExitPairs;
-        outAuxEntryPairs = Reverse /@ inAuxEntryPairs;
+        inAuxExitPairs = Reverse[outAuxExitPairs, {2}];
+        outAuxEntryPairs = Reverse[inAuxEntryPairs, {2}];
+        pairs = Join[halfPairs, Reverse[halfPairs, {2}]];
+        
+        auxPairs = Join[inAuxEntryPairs, outAuxEntryPairs, inAuxExitPairs, outAuxExitPairs, pairs];
+        
+        auxiliaryGraph = EdgeAdd[graph, Join[entryEdges, exitEdges]];
+        auxTriples = iBuildAuxTriples[auxPairs];
 
         <|
             "Graph" -> graph,
@@ -418,7 +399,7 @@ BuildAuxiliaryTopology[model_Association] :=
             "InAuxExitPairs" -> inAuxExitPairs,
             "OutAuxEntryPairs" -> outAuxEntryPairs,
             "Pairs" -> pairs,
-            "AuxPairs" -> Join[inAuxEntryPairs, outAuxEntryPairs, inAuxExitPairs, outAuxExitPairs, pairs]
+            "AuxPairs" -> auxPairs
         |>
     ];
 
@@ -532,14 +513,20 @@ makeScenario[rawAssoc_Association] :=
         If[FailureQ[validated],
             validated,
             validatedAssoc = ScenarioData[validated];
-            model = ApplyScenarioDataToModel[
-                validatedAssoc["Model"],
-                Lookup[validatedAssoc, "Data", {}]
+            If[KeyExistsQ[validatedAssoc, "Data"],
+                Return[
+                    Failure["ScenarioValidation",
+                        <|"Message" -> "\"Data\" key is no longer supported. Provide numeric values directly in \"Model\".",
+                          "MissingKeys" -> {}|>
+                    ],
+                    Module
+                ]
             ];
+            model = validatedAssoc["Model"];
             If[!AssociationQ[model],
                 Return[
                     Failure["ScenarioValidation",
-                        <|"Message" -> "Model must remain an Association after Data substitution.",
+                        <|"Message" -> "Model must remain an Association.",
                           "MissingKeys" -> {}|>
                     ],
                     Module
@@ -557,7 +544,16 @@ makeScenario[rawAssoc_Association] :=
             If[!BoundaryValuesNumericQ[model],
                 Return[
                     Failure["ScenarioValidation",
-                        <|"Message" -> "Boundary values must be numeric after Data substitution.",
+                        <|"Message" -> "Boundary values must be numeric.",
+                          "MissingKeys" -> {}|>
+                    ],
+                    Module
+                ]
+            ];
+            If[!SwitchingCostsNumericQ[model],
+                Return[
+                    Failure["ScenarioValidation",
+                        <|"Message" -> "Switching cost values must be numeric.",
                           "MissingKeys" -> {}|>
                     ],
                     Module
