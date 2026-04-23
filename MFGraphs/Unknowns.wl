@@ -42,7 +42,7 @@ UnknownsData[unknowns[assoc_Association]] := assoc;
 UnknownsData[unknowns[assoc_Association], key_] := Lookup[assoc, key, Missing["KeyAbsent", key]];
 
 makeUnknowns[s_] :=
-    Module[{model, topology, rawAssoc},
+    Module[{model, topology, rawAssoc, auxPairs, auxTriples},
         rawAssoc = Which[
             MFGraphs`scenarioQ[s], ScenarioData[s],
             MatchQ[s, _[ _Association]], First[s],
@@ -73,7 +73,11 @@ makeUnknowns[s_] :=
 
         (* Combinatorial creation of pairs and triples moved here *)
         auxPairs = DeriveAuxPairs[topology];
-        auxTriples = Lookup[topology, "AuxTriples", MFGraphs`BuildAuxTriples[topology["AuxiliaryGraph"]]];
+        auxTriples = If[
+            MFGraphs`scenarioQ[s] && AssociationQ[topology] && KeyExistsQ[topology, "AuxTriples"],
+            topology["AuxTriples"],
+            Lookup[topology, "AuxTriples", MFGraphs`BuildAuxTriples[topology["AuxiliaryGraph"]]]
+        ];
         
         MakeUnknownsFromPairsTriples[auxPairs, auxTriples]
     ];

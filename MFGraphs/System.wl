@@ -138,6 +138,7 @@ makeSystem[s_?scenarioQ, unk_?unknownsQ] :=
          EqBalanceGatheringFlows, EqEntryIn, RuleEntryValues, RuleEntryOut, RuleExitFlowsIn,
          RuleExitValues, EqValueAuxiliaryEdges, IneqSwitchingByVertex, AltOptCond,
          blockedIncomingPairs, blockedIncomingLookup, activeAuxTriples,
+         scenarioAuxTriples, unknownAuxTriples,
          Nlhs, ModuleVars, ModuleVarsNames, Nrhs, costpluscurrents, EqGeneral,
          inAuxEntryPairs, outAuxEntryPairs, inAuxExitPairs, outAuxExitPairs, 
         pairs, halfPairs, consistentCosts, hamiltonian, alphaDefault, edgeAlpha, alphaAtEdge, edgeCost},
@@ -206,7 +207,30 @@ makeSystem[s_?scenarioQ, unk_?unknownsQ] :=
         jts = UnknownsData[unk, "jts"];
         us = UnknownsData[unk, "us"];
         auxPairs = UnknownsData[unk, "auxPairs"];
-        auxTriples = UnknownsData[unk, "auxTriples"];
+        unknownAuxTriples = UnknownsData[unk, "auxTriples"];
+        scenarioAuxTriples = Lookup[topology, "AuxTriples", BuildAuxTriples[topology["AuxiliaryGraph"]]];
+        If[!ListQ[scenarioAuxTriples],
+            Return[
+                Failure["makeSystem", <|"Message" -> "Scenario topology must provide AuxTriples as a list."|>],
+                Module
+            ]
+        ];
+        (* Preserve canonical AuxTriples ordering from scenario topology:
+           downstream transformations may depend on stable order. *)
+        If[ListQ[unknownAuxTriples] && unknownAuxTriples =!= scenarioAuxTriples,
+            Return[
+                Failure[
+                    "makeSystem",
+                    <|
+                        "Message" -> "Mismatch between scenario topology AuxTriples and unknown bundle auxTriples; exact order must match.",
+                        "ScenarioAuxTriplesLength" -> Length[scenarioAuxTriples],
+                        "UnknownsAuxTriplesLength" -> Length[unknownAuxTriples]
+                    |>
+                ],
+                Module
+            ]
+        ];
+        auxTriples = scenarioAuxTriples;
 
         (* Signed flows *)
         SignedFlows = AssociationMap[j @@ # - j @@ Reverse @ #&, Join[
