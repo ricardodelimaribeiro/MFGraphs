@@ -54,6 +54,8 @@ $CaseDefaultSC = <|
          {2,3,4,1},{4,3,2,1},{3,1,2,1},{2,1,3,1}}
 |>;
 
+$MakeGridFactory[dims_List] := $MakeGraphFactory[GridGraph[dims, DirectedEdges -> True]];
+
 $MakeGraphFactory[graph_] :=
     With[{g = graph},
         Function[{entries, exits, sc, alpha, V, gFunc},
@@ -89,12 +91,12 @@ $ExampleScenarios = Association[
     (* Linear chains (cases 1–6): directed GridGraph[{n}]                 *)
     (* ------------------------------------------------------------------ *)
 
-    1 -> $MakeGraphFactory[GridGraph[{1},  DirectedEdges -> True]],
-    2 -> $MakeGraphFactory[GridGraph[{2},  DirectedEdges -> True]],
-    3 -> $MakeGraphFactory[GridGraph[{3},  DirectedEdges -> True]],
-    4 -> $MakeGraphFactory[GridGraph[{4},  DirectedEdges -> True]],
-    5 -> $MakeGraphFactory[GridGraph[{5},  DirectedEdges -> True]],
-    6 -> $MakeGraphFactory[GridGraph[{10}, DirectedEdges -> True]],
+    1 -> $MakeGridFactory[{1}],
+    2 -> $MakeGridFactory[{2}],
+    3 -> $MakeGridFactory[{3}],
+    4 -> $MakeGridFactory[{4}],
+    5 -> $MakeGridFactory[{5}],
+    6 -> $MakeGridFactory[{10}],
 
     (* ------------------------------------------------------------------ *)
     (* Y 1-in 2-out, 4 vertices (cases 7, 8, 19)                          *)
@@ -132,8 +134,8 @@ $ExampleScenarios = Association[
     (* 3-vertex directed chain with two exits (cases 105, alias)          *)
     (* ------------------------------------------------------------------ *)
 
-    "chain with two exits" -> $MakeGraphFactory[GridGraph[{3}, DirectedEdges -> True]],
-    105                    -> $MakeGraphFactory[GridGraph[{3}, DirectedEdges -> True]],
+    "chain with two exits" -> $MakeGridFactory[{3}],
+    105                    -> $MakeGridFactory[{3}],
 
     (* ------------------------------------------------------------------ *)
     (* 3-vertex misc (cases 15–18)                                        *)
@@ -233,7 +235,7 @@ $ExampleScenarios = Association[
             {0,0,0,0,0,0,0,1,0,1},{0,0,0,0,0,0,0,0,0,0},{0,0,1,0,0,0,0,0,0,0},
             {0,0,0,0,0,0,0,0,0,0}}],
 
-    "Paper example" -> $MakeGraphFactory[GridGraph[{4}, DirectedEdges -> True]],
+    "Paper example" -> $MakeGridFactory[{4}],
 
     (* ------------------------------------------------------------------ *)
     (* Inconsistent switching (feature validation — infeasible by design)  *)
@@ -249,13 +251,13 @@ $ExampleScenarios = Association[
     (* Grid cases: directed GridGraph[{r,c}]                              *)
     (* ------------------------------------------------------------------ *)
 
-    "Grid0303" -> $MakeGraphFactory[GridGraph[{3,3},   DirectedEdges -> True]],
-    "Grid0404" -> $MakeGraphFactory[GridGraph[{4,4},   DirectedEdges -> True]],
-    "Grid0505" -> $MakeGraphFactory[GridGraph[{5,5},   DirectedEdges -> True]],
-    "Grid0707" -> $MakeGraphFactory[GridGraph[{7,7},   DirectedEdges -> True]],
-    "Grid0710" -> $MakeGraphFactory[GridGraph[{7,10},  DirectedEdges -> True]],
-    "Grid1010" -> $MakeGraphFactory[GridGraph[{10,10}, DirectedEdges -> True]],
-    "Grid1020" -> $MakeGraphFactory[GridGraph[{10,20}, DirectedEdges -> True]]
+    "Grid0303" -> $MakeGridFactory[{3,3}],
+    "Grid0404" -> $MakeGridFactory[{4,4}],
+    "Grid0505" -> $MakeGridFactory[{5,5}],
+    "Grid0707" -> $MakeGridFactory[{7,7}],
+    "Grid0710" -> $MakeGridFactory[{7,10}],
+    "Grid1010" -> $MakeGridFactory[{10,10}],
+    "Grid1020" -> $MakeGridFactory[{10,20}]
 ];
 
 (* --- Accessors --- *)
