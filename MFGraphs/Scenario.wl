@@ -216,6 +216,12 @@ BoundaryValuesNumericQ[model_Association] :=
         AllTrue[Join[entryVals, exitVals], NumericQ]
     ];
 
+IntegerVertexLabelsQ[model_Association] :=
+    Module[{vertices},
+        vertices = Lookup[model, "Vertices List", Missing["KeyAbsent", "Vertices List"]];
+        ListQ[vertices] && AllTrue[vertices, IntegerQ]
+    ];
+
 ModelDirectedEdgePairs[model_Association] :=
     Module[{vertices, adjacency, n, collected},
         vertices = Lookup[model, "Vertices List", {}];
@@ -584,6 +590,15 @@ makeScenario[rawAssoc_Association] :=
                 Return[
                     Failure["ScenarioValidation",
                         <|"Message" -> "Model must remain an Association after Data substitution.",
+                          "MissingKeys" -> {}|>
+                    ],
+                    Module
+                ]
+            ];
+            If[!IntegerVertexLabelsQ[model],
+                Return[
+                    Failure["ScenarioValidation",
+                        <|"Message" -> "\"Vertices List\" must contain only integers.",
                           "MissingKeys" -> {}|>
                     ],
                     Module

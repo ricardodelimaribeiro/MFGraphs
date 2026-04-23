@@ -548,6 +548,25 @@ Test[
     TestID -> "Scenario kernel: graph normalization preserves explicit vertices order"
 ]
 
+(* Test: makeScenario rejects non-integer vertex labels *)
+Test[
+    Module[{model, result},
+        model = <|
+            "Vertices List" -> {1, "2"},
+            "Adjacency Matrix" -> {{0, 1}, {1, 0}},
+            "Entrance Vertices and Flows" -> {{1, 10}},
+            "Exit Vertices and Terminal Costs" -> {{"2", 0}},
+            "Switching Costs" -> {}
+        |>;
+        result = makeScenario[<|"Model" -> model|>];
+        FailureQ[result] && result["Tag"] === "ScenarioValidation"
+    ]
+    ,
+    True
+    ,
+    TestID -> "Scenario kernel: non-integer vertices are rejected"
+]
+
 (* Test: ScenarioByKey constructs a typed scenario from input-defined boundaries *)
 Test[
     Module[{s, model},
