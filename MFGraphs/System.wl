@@ -58,8 +58,6 @@ u[v, e1] <= u[v, e2] + switchingCosts[{v, e1, e2}]"
 AltSwitch::usage = "AltSwitch[j, u, switchingCosts][v, e1, e2] returns the complementarity condition:
 (j[v, e1, e2] == 0) || (u[v, e1] == u[e2, e1] + switchingCosts[{v, e1, e2}])"
 
-TransitionsAt::usage = "TransitionsAt[G, k] returns the list of valid transition triples through vertex k in graph G.";
-
 RoundValues::usage = "RoundValues[x] rounds numerical values in x to a standard precision (10^-10).";
 
 Begin["`Private`"];
@@ -94,9 +92,6 @@ ConsistentSwitchingCosts[sc_][{a_, b_, c_} -> S_] :=
 IsSwitchingCostConsistent[switchingCosts_] :=
     And @@ Simplify[ConsistentSwitchingCosts[switchingCosts] /@ switchingCosts
         ];
-
-TransitionsAt[G_, k_] :=
-    Insert[k, 2] /@ Permutations[AdjacencyList[G, k], {2}]
 
 AltFlowOp[j_][list_] :=
     j @@ list == 0 || j @@ Reverse @ list == 0;
@@ -137,7 +132,8 @@ makeSystem[s_?scenarioQ, unk_?unknownsQ] :=
          BalanceSplittingFlows, NoDeadStarts, RuleBalanceGatheringFlows, BalanceGatheringFlows,
          EqBalanceGatheringFlows, EqEntryIn, RuleEntryValues, RuleEntryOut, RuleExitFlowsIn,
          RuleExitValues, EqValueAuxiliaryEdges, IneqSwitchingByVertex, AltOptCond,
-         blockedIncomingPairs, blockedIncomingLookup, activeAuxTriples,
+         blockedIncomingPairs, blockedIncomingLookup, activeAuxTriples, auxTriplesByMiddle,
+         scenarioAuxTriples, unknownAuxTriples,
          Nlhs, ModuleVars, ModuleVarsNames, Nrhs, costpluscurrents, EqGeneral,
          inAuxEntryPairs, outAuxEntryPairs, inAuxExitPairs, outAuxExitPairs, 
         pairs, halfPairs, consistentCosts, hamiltonian, alphaDefault, edgeAlpha, alphaAtEdge, edgeCost},
@@ -206,7 +202,30 @@ makeSystem[s_?scenarioQ, unk_?unknownsQ] :=
         jts = UnknownsData[unk, "jts"];
         us = UnknownsData[unk, "us"];
         auxPairs = UnknownsData[unk, "auxPairs"];
-        auxTriples = UnknownsData[unk, "auxTriples"];
+        unknownAuxTriples = UnknownsData[unk, "auxTriples"];
+        scenarioAuxTriples = Lookup[topology, "AuxTriples", BuildAuxTriples[topology["AuxiliaryGraph"]]];
+        If[!ListQ[scenarioAuxTriples],
+            Return[
+                Failure["makeSystem", <|"Message" -> "Scenario topology must provide AuxTriples as a list."|>],
+                Module
+            ]
+        ];
+        (* Preserve canonical AuxTriples ordering from scenario topology:
+           downstream transformations may depend on stable order. *)
+        If[ListQ[unknownAuxTriples] && unknownAuxTriples =!= scenarioAuxTriples,
+            Return[
+                Failure[
+                    "makeSystem",
+                    <|
+                        "Message" -> "Mismatch between scenario topology AuxTriples and unknown bundle auxTriples; exact order must match.",
+                        "ScenarioAuxTriplesLength" -> Length[scenarioAuxTriples],
+                        "UnknownsAuxTriplesLength" -> Length[unknownAuxTriples]
+                    |>
+                ],
+                Module
+            ]
+        ];
+        auxTriples = scenarioAuxTriples;
 
         (* Signed flows *)
         SignedFlows = AssociationMap[j @@ # - j @@ Reverse @ #&, Join[
@@ -282,6 +301,7 @@ makeSystem[s_?scenarioQ, unk_?unknownsQ] :=
             auxTriples,
             !KeyExistsQ[blockedIncomingLookup, #[[{1, 2}]]] &
         ];
+        auxTriplesByMiddle = GroupBy[auxTriples, #[[2]] &];
         
         RuleExitValues = AssociationThread[u @@@ (Reverse /@ outAuxExitPairs
             ), Last /@ exitVerticesCosts];
@@ -296,7 +316,7 @@ makeSystem[s_?scenarioQ, unk_?unknownsQ] :=
         IneqSwitchingByVertex =
             IneqSwitch[u, SwitchingCosts] @@@
                 Select[
-                    TransitionsAt[auxiliaryGraph, #],
+                    Lookup[auxTriplesByMiddle, #, {}],
                     !KeyExistsQ[blockedIncomingLookup, #[[{1, 2}]]] &
                 ] & /@ verticesList;
         IneqSwitchingByVertex = And @@@ IneqSwitchingByVertex;

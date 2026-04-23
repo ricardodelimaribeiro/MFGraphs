@@ -16,7 +16,9 @@ Test[
         ];
         auxVertices = VertexList[auxiliaryGraph];
         auxTriples = Flatten[
-            Insert[#, 2] & /@ Permutations[AdjacencyList[auxiliaryGraph, #], {2}] & /@ auxVertices,
+            Function[v,
+                Insert[#, v, 2] & /@ Permutations[AdjacencyList[auxiliaryGraph, v], {2}]
+            ] /@ auxVertices,
             1
         ];
         (* Force the nonzero-switching preprocessing path while keeping a consistent metric. *)

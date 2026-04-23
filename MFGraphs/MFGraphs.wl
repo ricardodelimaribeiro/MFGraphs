@@ -173,10 +173,29 @@ $MFGraphsParallelLaunchThreshold::usage =
 "$MFGraphsParallelLaunchThreshold is the minimum list length required to justify
 launching parallel subkernels. Only applies when $KernelCount === 0. Default is 50.";
 
+GridScenario::usage =
+"GridScenario[dims, entries, exits] creates a scenario on a directed GridGraph[dims]. \
+dims is a list of dimensions: {n} for a chain of n vertices (1..n), {r,c} for an r\[Times]c grid \
+(vertices 1..r*c, row-major). Optional arguments: sc (switching costs, default {}), \
+alpha, V, g (Hamiltonian parameters, defaults from $DefaultHamiltonian). \
+Example: GridScenario[{3,3}, {{1,100}}, {{9,0}}] — entry at vertex 1, exit at vertex 9.";
+
+GetExampleScenario::usage =
+"GetExampleScenario[n] returns a 6-arg factory Function[{entries,exits,sc,alpha,V,g}, scenario[...]] \
+for built-in example n. Topology is baked in; all parameters are caller-supplied. \
+GetExampleScenario[n, entries, exits] calls the factory using the canonical switching costs \
+for that case (sc=Automatic resolves via $CaseDefaultSC, defaulting to {} if none defined) \
+and standard Hamiltonian defaults (alpha=1, V=0, g=Function[z,-1/z]). \
+Additional optional arguments override each default in order: sc, alpha, V, g. \
+Pass sc={} explicitly to force no switching costs. \
+entries={{vertex,flow},...}, exits={{vertex,cost},...}, sc={{i,k,j,cost},...}. \
+Returns $Failed for unknown keys.";
+
 (* Load submodules in dependency order *)
-Get["MFGraphs`Examples`ExamplesData`"];
 Get["MFGraphs`DNFReduce`"];
 Get["MFGraphs`Scenario`"];
+Get["MFGraphs`Examples`ExampleScenarios`"];
+Get["MFGraphs`Examples`ExamplesData`"];
 Get["MFGraphs`Unknowns`"];
 Get["MFGraphs`System`"];
 Get["MFGraphs`DataToEquations`"];
