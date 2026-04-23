@@ -116,12 +116,12 @@ AMScenario[vl_, am_, entries_, exits_,
 (* --- Private factory helpers — thin wrappers used by $ExampleScenarios --- *)
 
 MakeGridFactory[dims_List] :=
-    With[{d = dims},
-        Function[{entries, exits, sc, alpha, V, g}, GridScenario[d,  entries, exits, sc, alpha, V, g]]];
+    With[{dims = dims},
+        Function[{entries, exits, sc, alpha, V, g}, GridScenario[dims, entries, exits, sc, alpha, V, g]]];
 
 MakeCycleFactory[n_Integer] :=
-    With[{k = n},
-        Function[{entries, exits, sc, alpha, V, g}, CycleScenario[k, entries, exits, sc, alpha, V, g]]];
+    With[{n = n},
+        Function[{entries, exits, sc, alpha, V, g}, CycleScenario[n, entries, exits, sc, alpha, V, g]]];
 
 MakeAMFactory[vl_, am_] :=
     With[{vertices = vl, matrix = am},
