@@ -75,28 +75,31 @@ Test[
 ]
 
 Test[
-    Module[{data, gscenario, unk},
-        data = <|
-            "Vertices List" -> {1, 2, 3},
-            "Adjacency Matrix" -> {
-                {0, 1, 0},
-                {1, 0, 1},
-                {0, 1, 0}
-            },
-            "Entrance Vertices and Flows" -> {{1, inflowParam}},
-            "Exit Vertices and Terminal Costs" -> {{3, exitCostParam}},
-            "Switching Costs" -> {}
-        |>;
-        gscenario = Symbol["Global`scenario"];
-        unk = makeUnknowns[gscenario[<|
-            "Identity" -> <|"Name" -> "shadowed scenario"|>,
-            "Model" -> data,
-            "Data" -> {inflowParam -> 10, exitCostParam -> 0}
-        |>]];
-        unknownsQ[unk] &&
-        Length[UnknownsData[unk, "js"]] > 0 &&
-        Length[UnknownsData[unk, "jts"]] > 0 &&
-        Length[UnknownsData[unk, "us"]] > 0
+    Quiet[
+        Module[{data, gscenario, unk},
+            data = <|
+                "Vertices List" -> {1, 2, 3},
+                "Adjacency Matrix" -> {
+                    {0, 1, 0},
+                    {1, 0, 1},
+                    {0, 1, 0}
+                },
+                "Entrance Vertices and Flows" -> {{1, inflowParam}},
+                "Exit Vertices and Terminal Costs" -> {{3, exitCostParam}},
+                "Switching Costs" -> {}
+            |>;
+            gscenario = Symbol["Global`scenario"];
+            unk = makeUnknowns[gscenario[<|
+                "Identity" -> <|"Name" -> "shadowed scenario"|>,
+                "Model" -> data,
+                "Data" -> {inflowParam -> 10, exitCostParam -> 0}
+            |>]];
+            unknownsQ[unk] &&
+            Length[UnknownsData[unk, "js"]] > 0 &&
+            Length[UnknownsData[unk, "jts"]] > 0 &&
+            Length[UnknownsData[unk, "us"]] > 0
+        ],
+        {Global`scenario::shdw}
     ],
     True,
     TestID -> "makeUnknowns: accepts scenario head from shadowed context"
