@@ -1,14 +1,19 @@
 (* Wolfram Language package *)
 (* Self-contained typed scenario factory library for all built-in MFGraphs examples.
-   Each entry is a Function[{entries, exits}, makeScenario[...]] that binds topology
-   and switching costs but leaves boundary conditions to the caller.
-   Numeric benchmark defaults are in Scripts/BenchmarkHelpers.wls ($DefaultParams/$CaseParams).
-   Uses WL built-in graph constructors where possible; NormalizeScenarioModel
-   derives "Vertices List" and "Adjacency Matrix" from the "Graph" key.
+   Each entry in $ExampleScenarios is a 6-arg Function:
+     Function[{entries, exits, sc, alpha, V, gFunc}, makeScenario[...]]
+   Topology is baked in at definition time; all boundary and Hamiltonian parameters
+   are caller-supplied. Convenience accessor GetExampleScenario applies defaults.
 
    Usage:
-     GetExampleScenario[7]                          returns the factory Function
-     GetExampleScenario[7][{{1,80}}, {{3,0},{4,10}}] returns a scenario[...] *)
+     f = GetExampleScenario[7]
+     f[{{1,80}}, {{3,0},{4,10}}, {}, 1, 0, Function[z,-1/z]]
+
+     GetExampleScenario[7, {{1,80}}, {{3,0},{4,10}}]   (* uses defaults *)
+     GetExampleScenario[7, {{1,80}}, {{3,0},{4,10}}, {{1,2,3,2},...}]  (* custom SC *)
+
+   Numeric benchmark defaults are in Scripts/BenchmarkHelpers.wls ($DefaultParams/$CaseParams).
+   NormalizeScenarioModel derives "Vertices List" + "Adjacency Matrix" from "Graph" key. *)
 
 Begin["`Private`"];
 
@@ -18,457 +23,235 @@ $Y1In2OutAM    = {{0,1,0,0},{0,0,1,1},{0,0,0,0},{0,0,0,0}};
 $Y2In1OutAM    = {{0,1,0,0},{0,0,0,1},{0,1,0,0},{0,0,0,0}};
 $Attraction4AM = {{0,1,1,0},{0,0,1,1},{0,0,0,1},{0,0,0,0}};
 
-(* --- Scenario factories --- *)
-(* Each value is Function[{entries, exits}, makeScenario[...]] where
-   entries = {{vertex, flow}, ...} and exits = {{vertex, cost}, ...}. *)
+(* --- Default Hamiltonian parameter values --- *)
+
+$ScenarioDefaultSC    = {};
+$ScenarioDefaultAlpha = 1;
+$ScenarioDefaultV     = 0;
+$ScenarioDefaultG     = Function[z, -1/z];
+
+(* --- Factory builders ---
+   Both return Function[{entries, exits, sc, alpha, V, gFunc}, makeScenario[...]]
+   with topology baked in via With at definition time. *)
+
+$MakeGraphFactory[graph_] :=
+    With[{g = graph},
+        Function[{entries, exits, sc, alpha, V, gFunc},
+            makeScenario[<|
+                "Model" -> <|
+                    "Graph"                           -> g,
+                    "Entrance Vertices and Flows"     -> entries,
+                    "Exit Vertices and Terminal Costs" -> exits,
+                    "Switching Costs"                 -> sc
+                |>,
+                "Hamiltonian" -> <|"Alpha" -> alpha, "V" -> V, "G" -> gFunc|>
+            |>]]];
+
+$MakeAMFactory[vl_, am_] :=
+    With[{vertices = vl, matrix = am},
+        Function[{entries, exits, sc, alpha, V, gFunc},
+            makeScenario[<|
+                "Model" -> <|
+                    "Vertices List"                   -> vertices,
+                    "Adjacency Matrix"                -> matrix,
+                    "Entrance Vertices and Flows"     -> entries,
+                    "Exit Vertices and Terminal Costs" -> exits,
+                    "Switching Costs"                 -> sc
+                |>,
+                "Hamiltonian" -> <|"Alpha" -> alpha, "V" -> V, "G" -> gFunc|>
+            |>]]];
+
+(* --- Scenario registry --- *)
 
 $ExampleScenarios = Association[
 
     (* ------------------------------------------------------------------ *)
-    (* Linear chains (cases 1–6): GridGraph[{n}] directed chain            *)
+    (* Linear chains (cases 1–6): directed GridGraph[{n}]                 *)
     (* ------------------------------------------------------------------ *)
 
-    1 -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Graph"                          -> GridGraph[{1}, DirectedEdges->True],
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {}|>|>]],
-
-    2 -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Graph"                          -> GridGraph[{2}, DirectedEdges->True],
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {}|>|>]],
-
-    3 -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Graph"                          -> GridGraph[{3}, DirectedEdges->True],
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {}|>|>]],
-
-    4 -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Graph"                          -> GridGraph[{4}, DirectedEdges->True],
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {}|>|>]],
-
-    5 -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Graph"                          -> GridGraph[{5}, DirectedEdges->True],
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {}|>|>]],
-
-    6 -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Graph"                          -> GridGraph[{10}, DirectedEdges->True],
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {}|>|>]],
+    1 -> $MakeGraphFactory[GridGraph[{1},  DirectedEdges -> True]],
+    2 -> $MakeGraphFactory[GridGraph[{2},  DirectedEdges -> True]],
+    3 -> $MakeGraphFactory[GridGraph[{3},  DirectedEdges -> True]],
+    4 -> $MakeGraphFactory[GridGraph[{4},  DirectedEdges -> True]],
+    5 -> $MakeGraphFactory[GridGraph[{5},  DirectedEdges -> True]],
+    6 -> $MakeGraphFactory[GridGraph[{10}, DirectedEdges -> True]],
 
     (* ------------------------------------------------------------------ *)
     (* Y 1-in 2-out, 4 vertices (cases 7, 8, 19)                          *)
     (* ------------------------------------------------------------------ *)
 
-    7 -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Vertices List"                  -> {1, 2, 3, 4},
-                "Adjacency Matrix"               -> $Y1In2OutAM,
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {}|>|>]],
-
-    8 -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Vertices List"                  -> {1, 2, 3, 4},
-                "Adjacency Matrix"               -> $Y1In2OutAM,
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {
-                    {1,2,3,2},{1,2,4,3},{3,2,1,2},{3,2,4,1},{4,2,1,3},{4,2,3,1}}|>|>]],
-
-    19 -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Vertices List"                  -> {1, 2, 3, 4},
-                "Adjacency Matrix"               -> $Y1In2OutAM,
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {
-                    {1,2,3,1},{1,2,4,1},{3,2,1,1},{3,2,4,1},{4,2,1,1},{4,2,3,1}}|>|>]],
+    7  -> $MakeAMFactory[{1,2,3,4}, $Y1In2OutAM],
+    8  -> $MakeAMFactory[{1,2,3,4}, $Y1In2OutAM],
+    19 -> $MakeAMFactory[{1,2,3,4}, $Y1In2OutAM],
 
     (* ------------------------------------------------------------------ *)
     (* Y 2-in 1-out, 4 vertices (cases 9, 10)                             *)
     (* ------------------------------------------------------------------ *)
 
-    9 -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Vertices List"                  -> {1, 2, 3, 4},
-                "Adjacency Matrix"               -> $Y2In1OutAM,
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {}|>|>]],
-
-    10 -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Vertices List"                  -> {1, 2, 3, 4},
-                "Adjacency Matrix"               -> $Y2In1OutAM,
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {
-                    {1,2,4,2},{1,2,3,3},{3,2,1,2},{3,2,4,1},{4,2,1,3},{4,2,3,1}}|>|>]],
+    9  -> $MakeAMFactory[{1,2,3,4}, $Y2In1OutAM],
+    10 -> $MakeAMFactory[{1,2,3,4}, $Y2In1OutAM],
 
     (* ------------------------------------------------------------------ *)
     (* Attraction 4-vertex diamond (cases 11, 12, 13)                     *)
     (* ------------------------------------------------------------------ *)
 
-    11 -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Vertices List"                  -> {1, 2, 3, 4},
-                "Adjacency Matrix"               -> $Attraction4AM,
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {
-                    {1,2,4,1},{1,2,3,1},{3,2,1,1},{3,2,4,1},{4,2,1,1},{4,2,3,1},
-                    {1,3,4,1},{4,3,1,1},{1,3,2,1},{2,3,1,1},{3,4,2,1},{2,4,3,1},
-                    {2,3,4,1},{4,3,2,1},{3,1,2,1},{2,1,3,1}}|>|>]],
-
-    12 -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Vertices List"                  -> {1, 2, 3, 4},
-                "Adjacency Matrix"               -> $Attraction4AM,
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {}|>|>]],
-
-    13 -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Vertices List"                  -> {1, 2, 3, 4},
-                "Adjacency Matrix"               -> {{0,1,1,0},{0,0,0,1},{0,0,0,1},{0,0,0,0}},
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {
-                    {1,2,4,1},{1,3,4,1},{4,2,1,1},{4,3,1,1}}|>|>]],
+    11 -> $MakeAMFactory[{1,2,3,4}, $Attraction4AM],
+    12 -> $MakeAMFactory[{1,2,3,4}, $Attraction4AM],
+    13 -> $MakeAMFactory[{1,2,3,4}, {{0,1,1,0},{0,0,0,1},{0,0,0,1},{0,0,0,0}}],
 
     (* ------------------------------------------------------------------ *)
-    (* Triangle 3-vertex directed cycle (cases 14, 104, "triangle with two exits") *)
-    (* CycleGraph[3, DirectedEdges->True]: 1->2->3->1                     *)
+    (* Triangle 3-vertex directed cycle: 1->2->3->1                       *)
+    (* CycleGraph[3, DirectedEdges->True]                                  *)
     (* ------------------------------------------------------------------ *)
 
-    14 -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Graph"                          -> CycleGraph[3, DirectedEdges->True],
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {{1,2,3,2},{3,2,1,1}}|>|>]],
-
-    104 -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Graph"                          -> CycleGraph[3, DirectedEdges->True],
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {}|>|>]],
-
-    "triangle with two exits" -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Graph"                          -> CycleGraph[3, DirectedEdges->True],
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {}|>|>]],
+    14                     -> $MakeGraphFactory[CycleGraph[3, DirectedEdges -> True]],
+    104                    -> $MakeGraphFactory[CycleGraph[3, DirectedEdges -> True]],
+    "triangle with two exits" -> $MakeGraphFactory[CycleGraph[3, DirectedEdges -> True]],
 
     (* ------------------------------------------------------------------ *)
-    (* 3-vertex linear chain with two exits (cases 105, "chain with two exits") *)
+    (* 3-vertex directed chain with two exits (cases 105, alias)          *)
     (* ------------------------------------------------------------------ *)
 
-    "chain with two exits" -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Graph"                          -> GridGraph[{3}, DirectedEdges->True],
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {}|>|>]],
-
-    105 -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Graph"                          -> GridGraph[{3}, DirectedEdges->True],
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {}|>|>]],
+    "chain with two exits" -> $MakeGraphFactory[GridGraph[{3}, DirectedEdges -> True]],
+    105                    -> $MakeGraphFactory[GridGraph[{3}, DirectedEdges -> True]],
 
     (* ------------------------------------------------------------------ *)
     (* 3-vertex misc (cases 15–18)                                        *)
     (* ------------------------------------------------------------------ *)
 
-    15 -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Vertices List"                  -> {1, 2, 3},
-                "Adjacency Matrix"               -> {{0,0,0},{1,0,0},{1,0,0}},
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {{2,1,3,2},{3,1,2,1}}|>|>]],
-
-    16 -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Vertices List"                  -> {1, 2, 3},
-                "Adjacency Matrix"               -> {{0,1,0},{0,0,1},{0,0,0}},
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {{1,3,2,1}}|>|>]],
-
-    17 -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Vertices List"                  -> {1, 2, 3},
-                "Adjacency Matrix"               -> {{0,1,0},{0,0,1},{0,0,0}},
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {{1,2,3,2},{3,2,1,1}}|>|>]],
-
-    18 -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Vertices List"                  -> {1, 2, 3},
-                "Adjacency Matrix"               -> {{0,1,0},{0,0,1},{0,0,0}},
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {{1,2,3,2},{3,2,1,1}}|>|>]],
+    15 -> $MakeAMFactory[{1,2,3}, {{0,0,0},{1,0,0},{1,0,0}}],
+    16 -> $MakeAMFactory[{1,2,3}, {{0,1,0},{0,0,1},{0,0,0}}],
+    17 -> $MakeAMFactory[{1,2,3}, {{0,1,0},{0,0,1},{0,0,0}}],
+    18 -> $MakeAMFactory[{1,2,3}, {{0,1,0},{0,0,1},{0,0,0}}],
 
     (* ------------------------------------------------------------------ *)
     (* Multi-entrance/exit (cases 20–23, "Jamaratv9")                     *)
     (* ------------------------------------------------------------------ *)
 
-    20 -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Vertices List"                  -> Range[9],
-                "Adjacency Matrix"               -> {
-                    {0,0,1,0,0,0,0,0,0},{0,0,1,0,0,0,0,0,0},{0,0,0,1,0,0,0,0,0},
-                    {0,0,0,0,1,0,0,0,0},{0,0,0,0,0,1,0,0,0},{0,0,0,0,0,0,1,1,1},
-                    {0,0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0,0}},
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {}|>|>]],
+    20 -> $MakeAMFactory[Range[9], {
+            {0,0,1,0,0,0,0,0,0},{0,0,1,0,0,0,0,0,0},{0,0,0,1,0,0,0,0,0},
+            {0,0,0,0,1,0,0,0,0},{0,0,0,0,0,1,0,0,0},{0,0,0,0,0,0,1,1,1},
+            {0,0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0,0}}],
 
-    21 -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Vertices List"                  -> Range[12],
-                "Adjacency Matrix"               -> {
-                    {0,0,1,0,0,0,0,0,0,0,0,0},{0,0,0,1,0,0,0,0,0,0,0,0},
-                    {0,0,0,1,1,0,0,0,0,0,0,0},{0,0,0,0,0,1,0,0,0,0,0,0},
-                    {0,0,0,0,0,1,1,0,0,0,0,0},{0,0,0,0,0,0,0,1,0,0,0,0},
-                    {0,0,0,0,0,0,0,1,1,1,0,0},{0,0,0,0,0,0,0,0,1,0,1,0},
-                    {0,0,0,0,0,0,0,0,0,0,0,1},{0,0,0,0,0,0,0,0,0,0,0,0},
-                    {0,0,0,0,0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0,0,0,0,0}},
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {}|>|>]],
+    21 -> $MakeAMFactory[Range[12], {
+            {0,0,1,0,0,0,0,0,0,0,0,0},{0,0,0,1,0,0,0,0,0,0,0,0},
+            {0,0,0,1,1,0,0,0,0,0,0,0},{0,0,0,0,0,1,0,0,0,0,0,0},
+            {0,0,0,0,0,1,1,0,0,0,0,0},{0,0,0,0,0,0,0,1,0,0,0,0},
+            {0,0,0,0,0,0,0,1,1,1,0,0},{0,0,0,0,0,0,0,0,1,0,1,0},
+            {0,0,0,0,0,0,0,0,0,0,0,1},{0,0,0,0,0,0,0,0,0,0,0,0},
+            {0,0,0,0,0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0,0,0,0,0}}],
 
-    22 -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Vertices List"                  -> Range[7],
-                "Adjacency Matrix"               -> {
-                    {0,1,1,0,0,0,0},{0,0,0,1,0,0,0},{0,0,0,1,1,0,0},
-                    {0,0,0,0,0,1,0},{0,0,0,0,0,1,1},{0,0,0,0,0,0,1},{0,0,0,0,0,0,0}},
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {}|>|>]],
+    22 -> $MakeAMFactory[Range[7], {
+            {0,1,1,0,0,0,0},{0,0,0,1,0,0,0},{0,0,0,1,1,0,0},
+            {0,0,0,0,0,1,0},{0,0,0,0,0,1,1},{0,0,0,0,0,0,1},{0,0,0,0,0,0,0}}],
 
-    "Jamaratv9" -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Vertices List"                  -> Range[9],
-                "Adjacency Matrix"               -> {
-                    {0,1,1,0,0,0,0,0,0},{0,0,0,1,0,0,0,0,0},{0,0,0,1,1,0,0,0,0},
-                    {0,0,0,0,0,1,0,0,0},{0,0,0,0,0,1,1,0,0},{0,0,0,0,0,0,0,1,0},
-                    {0,0,0,0,0,0,0,0,1},{0,0,0,0,0,0,0,0,1},{0,0,0,0,0,0,0,0,0}},
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {}|>|>]],
+    "Jamaratv9" -> $MakeAMFactory[Range[9], {
+            {0,1,1,0,0,0,0,0,0},{0,0,0,1,0,0,0,0,0},{0,0,0,1,1,0,0,0,0},
+            {0,0,0,0,0,1,0,0,0},{0,0,0,0,0,1,1,0,0},{0,0,0,0,0,0,0,1,0},
+            {0,0,0,0,0,0,0,0,1},{0,0,0,0,0,0,0,0,1},{0,0,0,0,0,0,0,0,0}}],
 
-    23 -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Vertices List"                  -> Range[6],
-                "Adjacency Matrix"               -> {
-                    {0,1,1,0,0,0},{0,0,1,0,0,0},{0,0,0,1,1,0},
-                    {0,0,0,0,1,1},{0,0,0,0,0,1},{0,0,0,0,0,0}},
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {}|>|>]],
+    23 -> $MakeAMFactory[Range[6], {
+            {0,1,1,0,0,0},{0,0,1,0,0,0},{0,0,0,1,1,0},
+            {0,0,0,0,1,1},{0,0,0,0,0,1},{0,0,0,0,0,0}}],
 
     (* ------------------------------------------------------------------ *)
     (* 2-vertex undirected edge (case 27)                                  *)
     (* ------------------------------------------------------------------ *)
 
-    27 -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Vertices List"                  -> {1, 2},
-                "Adjacency Matrix"               -> {{0,1},{1,0}},
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {}|>|>]],
+    27 -> $MakeAMFactory[{1,2}, {{0,1},{1,0}}],
 
     (* ------------------------------------------------------------------ *)
     (* Braess variants                                                     *)
     (* ------------------------------------------------------------------ *)
 
-    "Braess split" -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Vertices List"                  -> Range[8],
-                "Adjacency Matrix"               -> {
-                    {0,1,1,0,0,0,0,0},{0,0,0,1,0,0,0,0},{0,0,0,0,1,0,0,0},
-                    {0,0,0,0,0,1,0,0},{0,0,0,0,0,0,1,0},{0,0,0,0,0,0,0,1},
-                    {0,0,0,0,0,0,0,1},{0,0,0,0,0,0,0,0}},
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {{1,2,4,1},{5,7,8,1}}|>|>]],
+    "Braess split" -> $MakeAMFactory[Range[8], {
+            {0,1,1,0,0,0,0,0},{0,0,0,1,0,0,0,0},{0,0,0,0,1,0,0,0},
+            {0,0,0,0,0,1,0,0},{0,0,0,0,0,0,1,0},{0,0,0,0,0,0,0,1},
+            {0,0,0,0,0,0,0,1},{0,0,0,0,0,0,0,0}}],
 
-    "Braess congest" -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Vertices List"                  -> Range[7],
-                "Adjacency Matrix"               -> {
-                    {0,1,1,0,0,0,0},{0,0,0,1,0,0,0},{0,0,0,1,0,0,0},
-                    {0,0,0,0,1,1,0},{0,0,0,0,0,0,1},{0,0,0,0,0,0,1},{0,0,0,0,0,0,0}},
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {{1,2,4,1},{4,6,7,1}}|>|>]],
+    "Braess congest" -> $MakeAMFactory[Range[7], {
+            {0,1,1,0,0,0,0},{0,0,0,1,0,0,0},{0,0,0,1,0,0,0},
+            {0,0,0,0,1,1,0},{0,0,0,0,0,0,1},{0,0,0,0,0,0,1},{0,0,0,0,0,0,0}}],
 
-    "New Braess" -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Vertices List"                  -> Range[6],
-                "Adjacency Matrix"               -> {
-                    {0,1,0,1,0,0},{0,0,1,0,0,0},{0,0,0,0,0,1},
-                    {0,0,0,0,1,0},{0,0,0,0,0,1},{0,0,0,0,0,0}},
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {{1,2,3,1},{3,2,1,1},{4,5,6,1},{6,5,4,1}},
-                "a" -> Function[{j, edge},
-                        Which[
-                            edge === DirectedEdge[3,6] || edge === DirectedEdge[1,4], j/100,
-                            True, 0
-                        ]]|>|>]],
+    "New Braess" -> With[{newBraessAM = {
+                {0,1,0,1,0,0},{0,0,1,0,0,0},{0,0,0,0,0,1},
+                {0,0,0,0,1,0},{0,0,0,0,0,1},{0,0,0,0,0,0}}},
+        Function[{entries, exits, sc, alpha, V, gFunc},
+            makeScenario[<|
+                "Model" -> <|
+                    "Vertices List"                   -> Range[6],
+                    "Adjacency Matrix"                -> newBraessAM,
+                    "Entrance Vertices and Flows"     -> entries,
+                    "Exit Vertices and Terminal Costs" -> exits,
+                    "Switching Costs"                 -> sc,
+                    "a" -> Function[{j, edge},
+                            Which[
+                                edge === DirectedEdge[3,6] || edge === DirectedEdge[1,4], j/100,
+                                True, 0]]
+                |>,
+                "Hamiltonian" -> <|"Alpha" -> alpha, "V" -> V, "G" -> gFunc|>
+            |>]]],
 
-    "Big Braess split" -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Vertices List"                  -> Range[10],
-                "Adjacency Matrix"               -> {
-                    {0,1,1,0,0,0,0,0,0,0},{0,0,0,1,0,0,0,0,0,0},{0,0,0,0,0,1,0,0,0,0},
-                    {0,0,0,0,1,0,0,0,0,0},{0,0,0,0,0,0,1,0,0,0},{0,0,0,0,0,0,0,1,0,0},
-                    {0,0,0,0,0,0,0,0,0,1},{0,0,0,0,0,0,0,0,1,0},{0,0,0,0,0,0,0,0,0,1},
-                    {0,0,0,0,0,0,0,0,0,0}},
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {{1,3,6,1},{5,7,10,1}}|>|>]],
+    "Big Braess split" -> $MakeAMFactory[Range[10], {
+            {0,1,1,0,0,0,0,0,0,0},{0,0,0,1,0,0,0,0,0,0},{0,0,0,0,0,1,0,0,0,0},
+            {0,0,0,0,1,0,0,0,0,0},{0,0,0,0,0,0,1,0,0,0},{0,0,0,0,0,0,0,1,0,0},
+            {0,0,0,0,0,0,0,0,0,1},{0,0,0,0,0,0,0,0,1,0},{0,0,0,0,0,0,0,0,0,1},
+            {0,0,0,0,0,0,0,0,0,0}}],
 
-    "Big Braess congest" -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Vertices List"                  -> Range[9],
-                "Adjacency Matrix"               -> {
-                    {0,1,1,0,0,0,0,0,0},{0,0,0,1,0,0,0,0,0},{0,0,0,0,1,0,0,0,0},
-                    {0,0,0,0,1,0,0,0,0},{0,0,0,0,0,1,1,0,0},{0,0,0,0,0,0,0,1,0},
-                    {0,0,0,0,0,0,0,0,1},{0,0,0,0,0,0,0,0,1},{0,0,0,0,0,0,0,0,0}},
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {{1,3,5,1},{5,7,9,1}}|>|>]],
+    "Big Braess congest" -> $MakeAMFactory[Range[9], {
+            {0,1,1,0,0,0,0,0,0},{0,0,0,1,0,0,0,0,0},{0,0,0,0,1,0,0,0,0},
+            {0,0,0,0,1,0,0,0,0},{0,0,0,0,0,1,1,0,0},{0,0,0,0,0,0,0,1,0},
+            {0,0,0,0,0,0,0,0,1},{0,0,0,0,0,0,0,0,1},{0,0,0,0,0,0,0,0,0}}],
 
     (* ------------------------------------------------------------------ *)
     (* Paper / benchmark cases                                             *)
     (* ------------------------------------------------------------------ *)
 
-    "HRF Scenario 1" -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Vertices List"                  -> Range[10],
-                "Adjacency Matrix"               -> {
-                    {0,1,0,0,0,0,0,0,0,0},{0,0,1,1,0,0,0,0,0,0},{0,0,0,1,1,0,1,0,0,0},
-                    {0,0,0,0,1,1,1,0,0,0},{0,0,0,0,0,1,1,0,0,0},{0,0,0,0,0,0,1,0,0,0},
-                    {0,0,0,0,0,0,0,1,0,1},{0,0,0,0,0,0,0,0,0,0},{0,0,1,0,0,0,0,0,0,0},
-                    {0,0,0,0,0,0,0,0,0,0}},
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {}|>|>]],
+    "HRF Scenario 1" -> $MakeAMFactory[Range[10], {
+            {0,1,0,0,0,0,0,0,0,0},{0,0,1,1,0,0,0,0,0,0},{0,0,0,1,1,0,1,0,0,0},
+            {0,0,0,0,1,1,1,0,0,0},{0,0,0,0,0,1,1,0,0,0},{0,0,0,0,0,0,1,0,0,0},
+            {0,0,0,0,0,0,0,1,0,1},{0,0,0,0,0,0,0,0,0,0},{0,0,1,0,0,0,0,0,0,0},
+            {0,0,0,0,0,0,0,0,0,0}}],
 
-    "Paper example" -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Graph"                          -> GridGraph[{4}, DirectedEdges->True],
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {{1,2,3,2},{3,2,1,1},{2,3,4,3},{4,3,2,1}}|>|>]],
+    "Paper example" -> $MakeGraphFactory[GridGraph[{4}, DirectedEdges -> True]],
 
     (* ------------------------------------------------------------------ *)
     (* Inconsistent switching (feature validation — infeasible by design)  *)
     (* ------------------------------------------------------------------ *)
 
-    "Inconsistent Y shortcut" -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Vertices List"                  -> {1, 2, 3, 4},
-                "Adjacency Matrix"               -> $Y1In2OutAM,
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {
-                    {1,2,3,5},{1,2,4,1},{3,2,1,1},{3,2,4,1},{4,2,1,1},{4,2,3,1}}|>|>]],
+    "Inconsistent Y shortcut" ->
+        $MakeAMFactory[{1,2,3,4}, $Y1In2OutAM],
 
-    "Inconsistent attraction shortcut" -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Vertices List"                  -> {1, 2, 3, 4},
-                "Adjacency Matrix"               -> $Attraction4AM,
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {
-                    {1,2,4,5},{1,2,3,1},{3,2,1,1},{3,2,4,1},{4,2,1,1},{4,2,3,1},
-                    {1,3,4,1},{4,3,1,1},{1,3,2,1},{2,3,1,1},{3,4,2,1},{2,4,3,1},
-                    {2,3,4,1},{4,3,2,1},{3,1,2,1},{2,1,3,1}}|>|>]],
+    "Inconsistent attraction shortcut" ->
+        $MakeAMFactory[{1,2,3,4}, $Attraction4AM],
 
     (* ------------------------------------------------------------------ *)
-    (* Grid cases: GridGraph[{r,c}, DirectedEdges->True]                  *)
+    (* Grid cases: directed GridGraph[{r,c}]                              *)
     (* ------------------------------------------------------------------ *)
 
-    "Grid0303" -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Graph"                          -> GridGraph[{3,3}, DirectedEdges->True],
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {}|>|>]],
-
-    "Grid0404" -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Graph"                          -> GridGraph[{4,4}, DirectedEdges->True],
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {}|>|>]],
-
-    "Grid0505" -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Graph"                          -> GridGraph[{5,5}, DirectedEdges->True],
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {}|>|>]],
-
-    "Grid0707" -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Graph"                          -> GridGraph[{7,7}, DirectedEdges->True],
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {}|>|>]],
-
-    "Grid0710" -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Graph"                          -> GridGraph[{7,10}, DirectedEdges->True],
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {}|>|>]],
-
-    "Grid1010" -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Graph"                          -> GridGraph[{10,10}, DirectedEdges->True],
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {}|>|>]],
-
-    "Grid1020" -> Function[{entries, exits},
-            makeScenario[<|"Model" -> <|
-                "Graph"                          -> GridGraph[{10,20}, DirectedEdges->True],
-                "Entrance Vertices and Flows"    -> entries,
-                "Exit Vertices and Terminal Costs" -> exits,
-                "Switching Costs"                -> {}|>|>]]
+    "Grid0303" -> $MakeGraphFactory[GridGraph[{3,3},   DirectedEdges -> True]],
+    "Grid0404" -> $MakeGraphFactory[GridGraph[{4,4},   DirectedEdges -> True]],
+    "Grid0505" -> $MakeGraphFactory[GridGraph[{5,5},   DirectedEdges -> True]],
+    "Grid0707" -> $MakeGraphFactory[GridGraph[{7,7},   DirectedEdges -> True]],
+    "Grid0710" -> $MakeGraphFactory[GridGraph[{7,10},  DirectedEdges -> True]],
+    "Grid1010" -> $MakeGraphFactory[GridGraph[{10,10}, DirectedEdges -> True]],
+    "Grid1020" -> $MakeGraphFactory[GridGraph[{10,20}, DirectedEdges -> True]]
 ];
 
+(* --- Accessors --- *)
+
+(* Return the raw factory Function for a given key. *)
 GetExampleScenario[n_] := Lookup[$ExampleScenarios, n, $Failed];
+
+(* Call the factory with explicit boundary + optional Hamiltonian parameters.
+   sc defaults to {}, alpha to 1, V to 0, g to Function[z,-1/z]. *)
+GetExampleScenario[n_, entries_, exits_,
+        sc_    : $ScenarioDefaultSC,
+        alpha_ : $ScenarioDefaultAlpha,
+        V_     : $ScenarioDefaultV,
+        g_     : $ScenarioDefaultG] :=
+    Module[{f = Lookup[$ExampleScenarios, n, $Failed]},
+        If[f === $Failed, $Failed, f[entries, exits, sc, alpha, V, g]]
+    ];
 
 End[];
