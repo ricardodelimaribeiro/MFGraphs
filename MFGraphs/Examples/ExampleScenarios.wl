@@ -52,41 +52,7 @@ $CaseDefaultSC = <|
          {2,3,4,1},{4,3,2,1},{3,1,2,1},{2,1,3,1}}
 |>;
 
-GridScenario[dims_List, entries_, exits_,
-        sc_    : {},
-        alpha_ : $DefaultHamiltonian["Alpha"],
-        V_     : $DefaultHamiltonian["V"],
-        g_     : $DefaultHamiltonian["G"]] :=
-    makeScenario[<|
-        "Model" -> <|
-            "Graph"                           -> GridGraph[dims, DirectedEdges -> True],
-            "Entrance Vertices and Flows"     -> entries,
-            "Exit Vertices and Terminal Costs" -> exits,
-            "Switching Costs"                 -> sc
-        |>,
-        "Hamiltonian" -> <|"Alpha" -> alpha, "V" -> V, "G" -> g|>
-    |>];
-
-CycleScenario[n_Integer, entries_, exits_,
-        sc_    : {},
-        alpha_ : $DefaultHamiltonian["Alpha"],
-        V_     : $DefaultHamiltonian["V"],
-        g_     : $DefaultHamiltonian["G"]] :=
-    makeScenario[<|
-        "Model" -> <|
-            "Graph"                           -> CycleGraph[n, DirectedEdges -> True],
-            "Entrance Vertices and Flows"     -> entries,
-            "Exit Vertices and Terminal Costs" -> exits,
-            "Switching Costs"                 -> sc
-        |>,
-        "Hamiltonian" -> <|"Alpha" -> alpha, "V" -> V, "G" -> g|>
-    |>];
-
-GraphScenario[graph_, entries_, exits_,
-        sc_    : {},
-        alpha_ : $DefaultHamiltonian["Alpha"],
-        V_     : $DefaultHamiltonian["V"],
-        g_     : $DefaultHamiltonian["G"]] :=
+scenarioFromGraph[graph_, entries_, exits_, sc_, alpha_, V_, g_] :=
     makeScenario[<|
         "Model" -> <|
             "Graph"                           -> graph,
@@ -96,6 +62,27 @@ GraphScenario[graph_, entries_, exits_,
         |>,
         "Hamiltonian" -> <|"Alpha" -> alpha, "V" -> V, "G" -> g|>
     |>];
+
+GridScenario[dims_List, entries_, exits_,
+        sc_    : {},
+        alpha_ : $DefaultHamiltonian["Alpha"],
+        V_     : $DefaultHamiltonian["V"],
+        g_     : $DefaultHamiltonian["G"]] :=
+    scenarioFromGraph[GridGraph[dims, DirectedEdges -> True], entries, exits, sc, alpha, V, g];
+
+CycleScenario[n_Integer, entries_, exits_,
+        sc_    : {},
+        alpha_ : $DefaultHamiltonian["Alpha"],
+        V_     : $DefaultHamiltonian["V"],
+        g_     : $DefaultHamiltonian["G"]] :=
+    scenarioFromGraph[CycleGraph[n, DirectedEdges -> True], entries, exits, sc, alpha, V, g];
+
+GraphScenario[graph_, entries_, exits_,
+        sc_    : {},
+        alpha_ : $DefaultHamiltonian["Alpha"],
+        V_     : $DefaultHamiltonian["V"],
+        g_     : $DefaultHamiltonian["G"]] :=
+    scenarioFromGraph[graph, entries, exits, sc, alpha, V, g];
 
 AMScenario[vl_, am_, entries_, exits_,
         sc_    : {},
@@ -115,9 +102,9 @@ AMScenario[vl_, am_, entries_, exits_,
 
 (* --- Private factory helpers — thin wrappers used by $ExampleScenarios --- *)
 
-MakeGridFactory[dims_List]  := Function[{entries, exits, sc, alpha, V, g}, GridScenario[dims,  entries, exits, sc, alpha, V, g]];
-MakeCycleFactory[n_Integer] := Function[{entries, exits, sc, alpha, V, g}, CycleScenario[n,    entries, exits, sc, alpha, V, g]];
-MakeAMFactory[vl_, am_]     := Function[{entries, exits, sc, alpha, V, g}, AMScenario[vl, am, entries, exits, sc, alpha, V, g]];
+MakeGridFactory[dims_List]  := GridScenario[dims, ##]&;
+MakeCycleFactory[n_Integer] := CycleScenario[n, ##]&;
+MakeAMFactory[vl_, am_]     := AMScenario[vl, am, ##]&;
 
 (* --- Scenario registry --- *)
 

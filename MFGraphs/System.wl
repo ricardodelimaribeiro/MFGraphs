@@ -177,6 +177,14 @@ makeSystem[s_?scenarioQ, unk_?unknownsQ] :=
         auxExitVertices = topology["AuxExitVertices"];
         entryEdges = topology["AuxEntryEdges"];
         exitEdges = topology["AuxExitEdges"];
+        auxTriples = topology["AuxTriples"];
+        
+        halfPairs = topology["HalfPairs"];
+        inAuxEntryPairs = topology["InAuxEntryPairs"];
+        outAuxExitPairs = topology["OutAuxExitPairs"];
+        inAuxExitPairs = topology["InAuxExitPairs"];
+        outAuxEntryPairs = topology["OutAuxEntryPairs"];
+        pairs = topology["Pairs"];
             
         auxEdgeList = EdgeList[auxiliaryGraph];
         edgeList = EdgeList[graph];
@@ -184,13 +192,6 @@ makeSystem[s_?scenarioQ, unk_?unknownsQ] :=
 
         entryVertices = First /@ entryVerticesFlows;
         exitVertices = First /@ exitVerticesCosts;
-
-        halfPairs = List @@@ edgeList;
-        inAuxEntryPairs = List @@@ entryEdges;
-        outAuxExitPairs = List @@@ exitEdges;
-        inAuxExitPairs = Reverse /@ outAuxExitPairs;
-        outAuxEntryPairs = Reverse /@ inAuxEntryPairs;
-        pairs = Join[halfPairs, Reverse /@ halfPairs];
 
         (* Prepare boundary data *)
         EntryDataAssociation = RoundValues @ AssociationThread[inAuxEntryPairs,
@@ -203,29 +204,22 @@ makeSystem[s_?scenarioQ, unk_?unknownsQ] :=
         us = UnknownsData[unk, "us"];
         auxPairs = UnknownsData[unk, "auxPairs"];
         unknownAuxTriples = UnknownsData[unk, "auxTriples"];
-        scenarioAuxTriples = Lookup[topology, "AuxTriples", BuildAuxTriples[topology["AuxiliaryGraph"]]];
-        If[!ListQ[scenarioAuxTriples],
-            Return[
-                Failure["makeSystem", <|"Message" -> "Scenario topology must provide AuxTriples as a list."|>],
-                Module
-            ]
-        ];
+
         (* Preserve canonical AuxTriples ordering from scenario topology:
            downstream transformations may depend on stable order. *)
-        If[ListQ[unknownAuxTriples] && unknownAuxTriples =!= scenarioAuxTriples,
+        If[ListQ[unknownAuxTriples] && unknownAuxTriples =!= auxTriples,
             Return[
                 Failure[
                     "makeSystem",
                     <|
                         "Message" -> "Mismatch between scenario topology AuxTriples and unknown bundle auxTriples; exact order must match.",
-                        "ScenarioAuxTriplesLength" -> Length[scenarioAuxTriples],
+                        "ScenarioAuxTriplesLength" -> Length[auxTriples],
                         "UnknownsAuxTriplesLength" -> Length[unknownAuxTriples]
                     |>
                 ],
                 Module
             ]
         ];
-        auxTriples = scenarioAuxTriples;
 
         (* Signed flows *)
         SignedFlows = AssociationMap[j @@ # - j @@ Reverse @ #&, Join[

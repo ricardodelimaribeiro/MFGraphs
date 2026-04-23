@@ -598,7 +598,7 @@ unknowns = makeUnknowns[typedScenario]
 Column[{
     DescribeOutput[
         "Typed scenario identity",
-        "The contentHash is automatically derived from the Model topology.",
+        "Identity metadata is carried through scenario construction.",
         ScenarioData[typedScenario, "Identity"]
     ],
     DescribeOutput[
