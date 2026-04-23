@@ -174,9 +174,10 @@ $MFGraphsParallelLaunchThreshold::usage =
 launching parallel subkernels. Only applies when $KernelCount === 0. Default is 50.";
 
 (* Load submodules in dependency order *)
-Get["MFGraphs`Examples`ExamplesData`"];
 Get["MFGraphs`DNFReduce`"];
 Get["MFGraphs`Scenario`"];
+Get["MFGraphs`Examples`ExampleScenarios`"];
+Get["MFGraphs`Examples`ExamplesData`"];
 Get["MFGraphs`Unknowns`"];
 Get["MFGraphs`System`"];
 Get["MFGraphs`DataToEquations`"];

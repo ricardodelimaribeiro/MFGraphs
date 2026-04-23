@@ -336,6 +336,9 @@ ComputeKirchhoffResidualFast[numericState_Association, flowVec_] :=
 
 (* --- DataToEquations: main converter --- *)
 
+DataToEquations[s_scenario] :=
+    DataToEquations[MFGraphs`ScenarioData[s, "Model"]];
+
 DataToEquations[Data_Association] :=
     Module[{scenarioObj, systemObj, d2eAssoc},
         
