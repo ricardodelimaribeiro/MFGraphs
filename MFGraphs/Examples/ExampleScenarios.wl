@@ -115,15 +115,15 @@ AMScenario[vl_, am_, entries_, exits_,
 
 (* --- Private factory helpers — thin wrappers used by $ExampleScenarios --- *)
 
-$MakeGridFactory[dims_List] :=
+MakeGridFactory[dims_List] :=
     With[{d = dims},
         Function[{entries, exits, sc, alpha, V, g}, GridScenario[d,  entries, exits, sc, alpha, V, g]]];
 
-$MakeCycleFactory[n_Integer] :=
+MakeCycleFactory[n_Integer] :=
     With[{k = n},
         Function[{entries, exits, sc, alpha, V, g}, CycleScenario[k, entries, exits, sc, alpha, V, g]]];
 
-$MakeAMFactory[vl_, am_] :=
+MakeAMFactory[vl_, am_] :=
     With[{vertices = vl, matrix = am},
         Function[{entries, exits, sc, alpha, V, g}, AMScenario[vertices, matrix, entries, exits, sc, alpha, V, g]]];
 
@@ -135,70 +135,70 @@ $ExampleScenarios = Association[
     (* Linear chains (cases 1–6): directed GridGraph[{n}]                 *)
     (* ------------------------------------------------------------------ *)
 
-    1 -> $MakeGridFactory[{1}],
-    2 -> $MakeGridFactory[{2}],
-    3 -> $MakeGridFactory[{3}],
-    4 -> $MakeGridFactory[{4}],
-    5 -> $MakeGridFactory[{5}],
-    6 -> $MakeGridFactory[{10}],
+    1 -> MakeGridFactory[{1}],
+    2 -> MakeGridFactory[{2}],
+    3 -> MakeGridFactory[{3}],
+    4 -> MakeGridFactory[{4}],
+    5 -> MakeGridFactory[{5}],
+    6 -> MakeGridFactory[{10}],
 
     (* ------------------------------------------------------------------ *)
     (* Y 1-in 2-out, 4 vertices (cases 7, 8, 19)                          *)
     (* ------------------------------------------------------------------ *)
 
-    7  -> $MakeAMFactory[{1,2,3,4}, $Y1In2OutAM],
-    8  -> $MakeAMFactory[{1,2,3,4}, $Y1In2OutAM],
-    19 -> $MakeAMFactory[{1,2,3,4}, $Y1In2OutAM],
+    7  -> MakeAMFactory[{1,2,3,4}, $Y1In2OutAM],
+    8  -> MakeAMFactory[{1,2,3,4}, $Y1In2OutAM],
+    19 -> MakeAMFactory[{1,2,3,4}, $Y1In2OutAM],
 
     (* ------------------------------------------------------------------ *)
     (* Y 2-in 1-out, 4 vertices (cases 9, 10)                             *)
     (* ------------------------------------------------------------------ *)
 
-    9  -> $MakeAMFactory[{1,2,3,4}, $Y2In1OutAM],
-    10 -> $MakeAMFactory[{1,2,3,4}, $Y2In1OutAM],
+    9  -> MakeAMFactory[{1,2,3,4}, $Y2In1OutAM],
+    10 -> MakeAMFactory[{1,2,3,4}, $Y2In1OutAM],
 
     (* ------------------------------------------------------------------ *)
     (* Attraction 4-vertex diamond (cases 11, 12, 13)                     *)
     (* ------------------------------------------------------------------ *)
 
-    11 -> $MakeAMFactory[{1,2,3,4}, $Attraction4AM],
-    12 -> $MakeAMFactory[{1,2,3,4}, $Attraction4AM],
-    13 -> $MakeAMFactory[{1,2,3,4}, {{0,1,1,0},{0,0,0,1},{0,0,0,1},{0,0,0,0}}],
+    11 -> MakeAMFactory[{1,2,3,4}, $Attraction4AM],
+    12 -> MakeAMFactory[{1,2,3,4}, $Attraction4AM],
+    13 -> MakeAMFactory[{1,2,3,4}, {{0,1,1,0},{0,0,0,1},{0,0,0,1},{0,0,0,0}}],
 
     (* ------------------------------------------------------------------ *)
     (* Triangle 3-vertex directed cycle: 1->2->3->1                       *)
     (* ------------------------------------------------------------------ *)
 
-    14                        -> $MakeCycleFactory[3],
-    104                       -> $MakeCycleFactory[3],
-    "triangle with two exits" -> $MakeCycleFactory[3],
+    14                        -> MakeCycleFactory[3],
+    104                       -> MakeCycleFactory[3],
+    "triangle with two exits" -> MakeCycleFactory[3],
 
     (* ------------------------------------------------------------------ *)
     (* 3-vertex directed chain with two exits (cases 105, alias)          *)
     (* ------------------------------------------------------------------ *)
 
-    "chain with two exits" -> $MakeGridFactory[{3}],
-    105                    -> $MakeGridFactory[{3}],
+    "chain with two exits" -> MakeGridFactory[{3}],
+    105                    -> MakeGridFactory[{3}],
 
     (* ------------------------------------------------------------------ *)
     (* 3-vertex misc (cases 15–18)                                        *)
     (* ------------------------------------------------------------------ *)
 
-    15 -> $MakeAMFactory[{1,2,3}, {{0,0,0},{1,0,0},{1,0,0}}],
-    16 -> $MakeAMFactory[{1,2,3}, {{0,1,0},{0,0,1},{0,0,0}}],
-    17 -> $MakeAMFactory[{1,2,3}, {{0,1,0},{0,0,1},{0,0,0}}],
-    18 -> $MakeAMFactory[{1,2,3}, {{0,1,0},{0,0,1},{0,0,0}}],
+    15 -> MakeAMFactory[{1,2,3}, {{0,0,0},{1,0,0},{1,0,0}}],
+    16 -> MakeAMFactory[{1,2,3}, {{0,1,0},{0,0,1},{0,0,0}}],
+    17 -> MakeAMFactory[{1,2,3}, {{0,1,0},{0,0,1},{0,0,0}}],
+    18 -> MakeAMFactory[{1,2,3}, {{0,1,0},{0,0,1},{0,0,0}}],
 
     (* ------------------------------------------------------------------ *)
     (* Multi-entrance/exit (cases 20–23, "Jamaratv9")                     *)
     (* ------------------------------------------------------------------ *)
 
-    20 -> $MakeAMFactory[Range[9], {
+    20 -> MakeAMFactory[Range[9], {
             {0,0,1,0,0,0,0,0,0},{0,0,1,0,0,0,0,0,0},{0,0,0,1,0,0,0,0,0},
             {0,0,0,0,1,0,0,0,0},{0,0,0,0,0,1,0,0,0},{0,0,0,0,0,0,1,1,1},
             {0,0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0,0}}],
 
-    21 -> $MakeAMFactory[Range[12], {
+    21 -> MakeAMFactory[Range[12], {
             {0,0,1,0,0,0,0,0,0,0,0,0},{0,0,0,1,0,0,0,0,0,0,0,0},
             {0,0,0,1,1,0,0,0,0,0,0,0},{0,0,0,0,0,1,0,0,0,0,0,0},
             {0,0,0,0,0,1,1,0,0,0,0,0},{0,0,0,0,0,0,0,1,0,0,0,0},
@@ -206,16 +206,16 @@ $ExampleScenarios = Association[
             {0,0,0,0,0,0,0,0,0,0,0,1},{0,0,0,0,0,0,0,0,0,0,0,0},
             {0,0,0,0,0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0,0,0,0,0}}],
 
-    22 -> $MakeAMFactory[Range[7], {
+    22 -> MakeAMFactory[Range[7], {
             {0,1,1,0,0,0,0},{0,0,0,1,0,0,0},{0,0,0,1,1,0,0},
             {0,0,0,0,0,1,0},{0,0,0,0,0,1,1},{0,0,0,0,0,0,1},{0,0,0,0,0,0,0}}],
 
-    "Jamaratv9" -> $MakeAMFactory[Range[9], {
+    "Jamaratv9" -> MakeAMFactory[Range[9], {
             {0,1,1,0,0,0,0,0,0},{0,0,0,1,0,0,0,0,0},{0,0,0,1,1,0,0,0,0},
             {0,0,0,0,0,1,0,0,0},{0,0,0,0,0,1,1,0,0},{0,0,0,0,0,0,0,1,0},
             {0,0,0,0,0,0,0,0,1},{0,0,0,0,0,0,0,0,1},{0,0,0,0,0,0,0,0,0}}],
 
-    23 -> $MakeAMFactory[Range[6], {
+    23 -> MakeAMFactory[Range[6], {
             {0,1,1,0,0,0},{0,0,1,0,0,0},{0,0,0,1,1,0},
             {0,0,0,0,1,1},{0,0,0,0,0,1},{0,0,0,0,0,0}}],
 
@@ -223,18 +223,18 @@ $ExampleScenarios = Association[
     (* 2-vertex undirected edge (case 27)                                  *)
     (* ------------------------------------------------------------------ *)
 
-    27 -> $MakeAMFactory[{1,2}, {{0,1},{1,0}}],
+    27 -> MakeAMFactory[{1,2}, {{0,1},{1,0}}],
 
     (* ------------------------------------------------------------------ *)
     (* Braess variants                                                     *)
     (* ------------------------------------------------------------------ *)
 
-    "Braess split" -> $MakeAMFactory[Range[8], {
+    "Braess split" -> MakeAMFactory[Range[8], {
             {0,1,1,0,0,0,0,0},{0,0,0,1,0,0,0,0},{0,0,0,0,1,0,0,0},
             {0,0,0,0,0,1,0,0},{0,0,0,0,0,0,1,0},{0,0,0,0,0,0,0,1},
             {0,0,0,0,0,0,0,1},{0,0,0,0,0,0,0,0}}],
 
-    "Braess congest" -> $MakeAMFactory[Range[7], {
+    "Braess congest" -> MakeAMFactory[Range[7], {
             {0,1,1,0,0,0,0},{0,0,0,1,0,0,0},{0,0,0,1,0,0,0},
             {0,0,0,0,1,1,0},{0,0,0,0,0,0,1},{0,0,0,0,0,0,1},{0,0,0,0,0,0,0}}],
 
@@ -259,13 +259,13 @@ $ExampleScenarios = Association[
                 "Hamiltonian" -> <|"Alpha" -> alpha, "V" -> V, "G" -> g|>
             |>]]],
 
-    "Big Braess split" -> $MakeAMFactory[Range[10], {
+    "Big Braess split" -> MakeAMFactory[Range[10], {
             {0,1,1,0,0,0,0,0,0,0},{0,0,0,1,0,0,0,0,0,0},{0,0,0,0,0,1,0,0,0,0},
             {0,0,0,0,1,0,0,0,0,0},{0,0,0,0,0,0,1,0,0,0},{0,0,0,0,0,0,0,1,0,0},
             {0,0,0,0,0,0,0,0,0,1},{0,0,0,0,0,0,0,0,1,0},{0,0,0,0,0,0,0,0,0,1},
             {0,0,0,0,0,0,0,0,0,0}}],
 
-    "Big Braess congest" -> $MakeAMFactory[Range[9], {
+    "Big Braess congest" -> MakeAMFactory[Range[9], {
             {0,1,1,0,0,0,0,0,0},{0,0,0,1,0,0,0,0,0},{0,0,0,0,1,0,0,0,0},
             {0,0,0,0,1,0,0,0,0},{0,0,0,0,0,1,1,0,0},{0,0,0,0,0,0,0,1,0},
             {0,0,0,0,0,0,0,0,1},{0,0,0,0,0,0,0,0,1},{0,0,0,0,0,0,0,0,0}}],
@@ -274,32 +274,32 @@ $ExampleScenarios = Association[
     (* Paper / benchmark cases                                             *)
     (* ------------------------------------------------------------------ *)
 
-    "HRF Scenario 1" -> $MakeAMFactory[Range[10], {
+    "HRF Scenario 1" -> MakeAMFactory[Range[10], {
             {0,1,0,0,0,0,0,0,0,0},{0,0,1,1,0,0,0,0,0,0},{0,0,0,1,1,0,1,0,0,0},
             {0,0,0,0,1,1,1,0,0,0},{0,0,0,0,0,1,1,0,0,0},{0,0,0,0,0,0,1,0,0,0},
             {0,0,0,0,0,0,0,1,0,1},{0,0,0,0,0,0,0,0,0,0},{0,0,1,0,0,0,0,0,0,0},
             {0,0,0,0,0,0,0,0,0,0}}],
 
-    "Paper example" -> $MakeGridFactory[{4}],
+    "Paper example" -> MakeGridFactory[{4}],
 
     (* ------------------------------------------------------------------ *)
     (* Inconsistent switching (feature validation — infeasible by design)  *)
     (* ------------------------------------------------------------------ *)
 
-    "Inconsistent Y shortcut"          -> $MakeAMFactory[{1,2,3,4}, $Y1In2OutAM],
-    "Inconsistent attraction shortcut" -> $MakeAMFactory[{1,2,3,4}, $Attraction4AM],
+    "Inconsistent Y shortcut"          -> MakeAMFactory[{1,2,3,4}, $Y1In2OutAM],
+    "Inconsistent attraction shortcut" -> MakeAMFactory[{1,2,3,4}, $Attraction4AM],
 
     (* ------------------------------------------------------------------ *)
     (* Grid cases: directed GridGraph[{r,c}]                              *)
     (* ------------------------------------------------------------------ *)
 
-    "Grid0303" -> $MakeGridFactory[{3,3}],
-    "Grid0404" -> $MakeGridFactory[{4,4}],
-    "Grid0505" -> $MakeGridFactory[{5,5}],
-    "Grid0707" -> $MakeGridFactory[{7,7}],
-    "Grid0710" -> $MakeGridFactory[{7,10}],
-    "Grid1010" -> $MakeGridFactory[{10,10}],
-    "Grid1020" -> $MakeGridFactory[{10,20}]
+    "Grid0303" -> MakeGridFactory[{3,3}],
+    "Grid0404" -> MakeGridFactory[{4,4}],
+    "Grid0505" -> MakeGridFactory[{5,5}],
+    "Grid0707" -> MakeGridFactory[{7,7}],
+    "Grid0710" -> MakeGridFactory[{7,10}],
+    "Grid1010" -> MakeGridFactory[{10,10}],
+    "Grid1020" -> MakeGridFactory[{10,20}]
 ];
 
 (* --- Accessors --- *)
