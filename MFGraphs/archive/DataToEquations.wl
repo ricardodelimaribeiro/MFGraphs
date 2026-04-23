@@ -325,7 +325,7 @@ DataToEquations[Data_Association] :=
         ];
         
         (* Extract flat association for backward compatibility with existing solvers *)
-        d2eAssoc = SystemData[systemObj];
+        d2eAssoc = SystemDataFlatten[systemObj];
         
         (* Append the numeric state required by Phase 4/5 solvers *)
         Join[d2eAssoc, <|"NumericState" -> BuildNumericState[d2eAssoc]|>]

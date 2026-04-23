@@ -1,12 +1,14 @@
 (* Wolfram Language package *)
-(* 
-   DNFReduce: Symbolic logic reduction for MFG systems. 
-   
-   This module handles the combinatorial complexity of network Mean Field Games 
-   by converting constraints into Disjunctive Normal Form (DNF). it simplifies 
-   systems by solving equalities via substitution and pruning redundant 
+(*
+   DNFReduce: Symbolic logic reduction for MFG systems.
+
+   This module handles the combinatorial complexity of network Mean Field Games
+   by converting constraints into Disjunctive Normal Form (DNF). it simplifies
+   systems by solving equalities via substitution and pruning redundant
    logical branches through subsumption checking.
 *)
+
+BeginPackage["MFGraphs`"];
 
 DNFReduce::usage =
 "DNFReduce[xp, sys] converts the system xp && sys into disjunctive normal form
@@ -303,3 +305,5 @@ RemoveDuplicates = DeduplicateByComplexity;
 ReplaceSolution = SubstituteSolution;
 
 End[];
+
+EndPackage[];

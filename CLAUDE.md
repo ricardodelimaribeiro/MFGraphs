@@ -50,7 +50,10 @@ Archived/inactive modules include:
 
 ### Unknowns/system kernels
 - `unknowns`, `unknownsQ`, `UnknownsData`, `makeUnknowns`
-- `mfgSystem`, `mfgSystemQ`, `SystemData`, `makeSystem`
+- `mfgSystem`, `mfgSystemQ`, `SystemData`, `SystemDataFlatten`, `makeSystem`
+- **System Builders**: `BuildBoundaryData`, `BuildFlowData`, `BuildComplementarityData`, `BuildHamiltonianData`
+- **System Records**: `mfgBoundaryData`, `mfgFlowData`, `mfgComplementarityData`, `mfgHamiltonianData`
+- **Linear Helpers**: `GetKirchhoffLinearSystem`, `GetKirchhoffMatrix`
 
 ### Core symbolic primitives
 - `j`, `u`, `z`, `alpha`, `Cost`
