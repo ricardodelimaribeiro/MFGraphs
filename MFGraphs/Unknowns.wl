@@ -11,19 +11,6 @@ makeUnknowns::usage = "makeUnknowns[s] returns unknowns[<|\"js\" -> ..., \"jts\"
 
 Begin["`Private`"];
 
-DeriveAuxPairs[topology_Association] :=
-    Module[{graph, halfPairs, inAuxEntryPairs, outAuxExitPairs, inAuxExitPairs, 
-            outAuxEntryPairs, pairs},
-        graph = topology["Graph"];
-        halfPairs = List @@@ EdgeList[graph];
-        inAuxEntryPairs = List @@@ topology["AuxEntryEdges"];
-        outAuxExitPairs = List @@@ topology["AuxExitEdges"];
-        inAuxExitPairs = Reverse /@ outAuxExitPairs;
-        outAuxEntryPairs = Reverse /@ inAuxEntryPairs;
-        pairs = Join[halfPairs, Reverse /@ halfPairs];
-        Join[inAuxEntryPairs, outAuxEntryPairs, inAuxExitPairs, outAuxExitPairs, pairs]
-    ];
-
 MakeUnknownsFromPairsTriples[auxPairs_List, auxTriples_List] :=
     unknowns[
         <|

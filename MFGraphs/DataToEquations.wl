@@ -85,40 +85,6 @@ BuildSignedEdgeMatrixFromKirchhoff[Eqs_Association, kirchhoffVars_List] :=
         ]
     ];
 
-ExtractDirectedEdgePairsFromAdjacencyMatrix[adjacency_, vertexList_List] :=
-    Module[{n, rules, densePairs, edgePairs},
-        If[vertexList === {},
-            Return[{}, Module]
-        ];
-        n = Length[vertexList];
-        edgePairs =
-            Which[
-                Head[adjacency] === SparseArray,
-                    rules = Most[ArrayRules[adjacency]];
-                    Cases[
-                        rules,
-                        ({i_Integer, j_Integer} -> val_) /;
-                            1 <= i <= n && 1 <= j <= n && !PossibleZeroQ[val] :>
-                            {vertexList[[i]], vertexList[[j]]}
-                    ],
-                MatrixQ[adjacency],
-                    densePairs = Reap[
-                        Do[
-                            If[
-                                !PossibleZeroQ[adjacency[[i, j]]],
-                                Sow[{vertexList[[i]], vertexList[[j]]}]
-                            ],
-                            {i, 1, Min[Length[adjacency], n]},
-                            {j, 1, Min[Length[adjacency[[i]]], n]}
-                        ]
-                    ][[2]];
-                    If[densePairs === {}, {}, First[densePairs]],
-                True,
-                    {}
-            ];
-        DeleteDuplicates[edgePairs]
-    ];
-
 BuildCriticalDecouplingPartition[Eqs_Association, numericState_Association] :=
     Module[{jVars, uVars, kirchhoffVars, kirchhoffIndices, km, bRaw, bVec,
       adjacency, vertexList, edgePairs, directedGraph, cycleSample, isDAG,
@@ -140,7 +106,9 @@ BuildCriticalDecouplingPartition[Eqs_Association, numericState_Association] :=
 
         adjacency = Lookup[Eqs, "Adjacency Matrix", {}];
         vertexList = Lookup[Eqs, "Vertices List", Lookup[numericState, "VertexList", {}]];
-        edgePairs = ExtractDirectedEdgePairsFromAdjacencyMatrix[adjacency, vertexList];
+        edgePairs = DeleteDuplicates @ ModelDirectedEdgePairs[
+            <|"Vertices List" -> vertexList, "Adjacency Matrix" -> adjacency|>
+        ];
         directedGraph = Graph[vertexList, DirectedEdge @@@ edgePairs, DirectedEdges -> True];
         cycleSample = Quiet @ Check[FindCycle[directedGraph, {1, Infinity}, 1], {}];
         isDAG = cycleSample === {};

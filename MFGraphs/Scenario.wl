@@ -396,6 +396,19 @@ BuildAuxTriples[auxGraph_Graph] :=
         ]
     ];
 
+DeriveAuxPairs[topology_Association] :=
+    Module[{graph, halfPairs, inAuxEntryPairs, outAuxExitPairs, inAuxExitPairs,
+            outAuxEntryPairs, pairs},
+        graph = topology["Graph"];
+        halfPairs = List @@@ EdgeList[graph];
+        inAuxEntryPairs = List @@@ topology["AuxEntryEdges"];
+        outAuxExitPairs = List @@@ topology["AuxExitEdges"];
+        inAuxExitPairs = Reverse /@ outAuxExitPairs;
+        outAuxEntryPairs = Reverse /@ inAuxEntryPairs;
+        pairs = Join[halfPairs, Reverse /@ halfPairs];
+        Join[inAuxEntryPairs, outAuxEntryPairs, inAuxExitPairs, outAuxExitPairs, pairs]
+    ];
+
 BuildAuxiliaryTopology[model_Association] :=
     Module[{vertices, adjacency, adjacencyForGraph, entryFlows, exitCosts, graph, 
             entryVertices, exitVertices, auxEntryVertices, auxExitVertices,
