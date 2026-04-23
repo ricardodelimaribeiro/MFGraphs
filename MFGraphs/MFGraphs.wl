@@ -173,6 +173,10 @@ $MFGraphsParallelLaunchThreshold::usage =
 "$MFGraphsParallelLaunchThreshold is the minimum list length required to justify
 launching parallel subkernels. Only applies when $KernelCount === 0. Default is 50.";
 
+GetExampleScenario::usage =
+"GetExampleScenario[n] returns a typed scenario[...] for built-in example n. \
+All boundary values are concrete numbers. Returns $Failed for unknown keys.";
+
 (* Load submodules in dependency order *)
 Get["MFGraphs`DNFReduce`"];
 Get["MFGraphs`Scenario`"];

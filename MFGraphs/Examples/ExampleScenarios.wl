@@ -5,10 +5,6 @@
    Uses WL built-in graph constructors where possible; NormalizeScenarioModel
    derives "Vertices List" and "Adjacency Matrix" from the "Graph" key. *)
 
-GetExampleScenario::usage =
-"GetExampleScenario[n] returns a typed scenario[...] for built-in example n. \
-All boundary values are concrete numbers. Returns $Failed for unknown keys.";
-
 Begin["`Private`"];
 
 (* --- Shared adjacency-matrix constants for custom topologies --- *)
