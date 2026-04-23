@@ -6,16 +6,18 @@
    keeping workbook-specific scenario helpers and density/value plots in the
    workbook for later extraction.
 
-   Load order dependency: DataToEquations.wl should be loaded before this file
-   when plotting solution-derived flows.
+   Load order dependency: plotting helpers expect a compiled equation/system-style
+   association with keys such as edgeList, SignedFlows, and boundary-flow rules.
 *)
+
+BeginPackage["MFGraphs`"];
 
 (* --- Public API declarations --- *)
 NetworkGraphPlot::usage =
-"NetworkGraphPlot[d2e] plots the network structure contained in the standardized DataToEquations association d2e. An optional second argument sets the plot title. The function is intended for workbook and package-level visualization of the directed network topology.";
+"NetworkGraphPlot[d2e] plots the network structure contained in a compiled equation/system-style association d2e. An optional second argument sets the plot title. The function is intended for workbook and package-level visualization of the directed network topology.";
 
 SolutionFlowPlot::usage =
-"SolutionFlowPlot[d2e, solution] plots the network with edge labels and edge styling determined by the net edge flows implied by solution. An optional third argument sets the plot title. The input d2e should be the standardized DataToEquations association and solution should be an association of replacement rules or solved values compatible with its symbolic flow expressions.";
+"SolutionFlowPlot[d2e, solution] plots the network with edge labels and edge styling determined by the net edge flows implied by solution. An optional third argument sets the plot title. The input d2e should be a compiled equation/system-style association and solution should be an association of replacement rules or solved values compatible with its symbolic flow expressions.";
 
 ExitFlowPlot::usage =
 "ExitFlowPlot[exitFlows] produces a bar chart of exit-flow totals from an association mapping exit vertices to numeric flow values. An optional second argument sets the plot title.";
@@ -176,3 +178,5 @@ ExitFlowPlot[exitFlows_Association, title_: Automatic, OptionsPattern[]] :=
     ];
 
 End[];
+
+EndPackage[];
