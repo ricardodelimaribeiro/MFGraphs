@@ -54,7 +54,8 @@ $CaseDefaultSC = <|
          {2,3,4,1},{4,3,2,1},{3,1,2,1},{2,1,3,1}}
 |>;
 
-$MakeGridFactory[dims_List] := $MakeGraphFactory[GridGraph[dims, DirectedEdges -> True]];
+$MakeGridFactory[dims_List]  := $MakeGraphFactory[GridGraph[dims, DirectedEdges -> True]];
+$MakeCycleFactory[n_Integer] := $MakeGraphFactory[CycleGraph[n,   DirectedEdges -> True]];
 
 $MakeGraphFactory[graph_] :=
     With[{g = graph},
@@ -126,9 +127,9 @@ $ExampleScenarios = Association[
     (* CycleGraph[3, DirectedEdges->True]                                  *)
     (* ------------------------------------------------------------------ *)
 
-    14                        -> $MakeGraphFactory[CycleGraph[3, DirectedEdges -> True]],
-    104                       -> $MakeGraphFactory[CycleGraph[3, DirectedEdges -> True]],
-    "triangle with two exits" -> $MakeGraphFactory[CycleGraph[3, DirectedEdges -> True]],
+    14                        -> $MakeCycleFactory[3],
+    104                       -> $MakeCycleFactory[3],
+    "triangle with two exits" -> $MakeCycleFactory[3],
 
     (* ------------------------------------------------------------------ *)
     (* 3-vertex directed chain with two exits (cases 105, alias)          *)
