@@ -358,22 +358,42 @@ NormalizeHamiltonianSpec[spec_, model_Association] :=
 (* --- Topology Helpers --- *)
 
 BuildAuxTriples[auxGraph_Graph] :=
-    Module[{vertices = VertexList[auxGraph], collected},
-        collected = Reap[
-            Do[
-                Module[{neighbors = AdjacencyList[auxGraph, v]},
-                    Do[
-                        If[in =!= out,
-                            Sow[{in, v, out}]
-                        ],
-                        {in, neighbors},
-                        {out, neighbors}
-                    ]
-                ],
-                {v, vertices}
-            ]
-        ][[2]];
-        If[collected === {}, {}, First[collected]]
+    Module[{edges, directedEdges, incomingByVertex, outgoingByVertex, middleVertices},
+        (* 
+           PERFORMANCE NOTE: This implementation uses a "generate and filter" pattern 
+           with 'Nothing' and 'DeleteDuplicates'. 
+           
+           - In Wolfram Language: This is faster because 'Flatten' and 'DeleteDuplicates' 
+             are heavily optimized C-internal functions. Vectorized cleanup is cheaper 
+             than top-level conditional logic (like Select or If) inside the loops.
+           - In Compiled Languages (e.g., Rust/C++): A "zero-waste" strategy is 
+             preferable. You should filter 'vIn != vOut' before triple allocation 
+             to avoid transient memory overhead.
+        *)
+        edges = EdgeList[auxGraph];
+        directedEdges = Flatten[
+            Replace[
+                edges,
+                {
+                    DirectedEdge[a_, b_] :> {{a, b}},
+                    UndirectedEdge[a_, b_] :> {{a, b}, {b, a}}
+                },
+                {1}
+            ],
+            1
+        ];
+        incomingByVertex = GroupBy[directedEdges, Last -> First];
+        outgoingByVertex = GroupBy[directedEdges, First -> Last];
+        middleVertices = Intersection[Keys[incomingByVertex], Keys[outgoingByVertex]];
+        DeleteDuplicates @ Flatten[
+            Table[
+                If[vIn =!= vOut, {vIn, vMid, vOut}, Nothing],
+                {vMid, middleVertices},
+                {vIn, Lookup[incomingByVertex, vMid, {}]},
+                {vOut, Lookup[outgoingByVertex, vMid, {}]}
+            ],
+            2
+        ]
     ];
 
 BuildAuxiliaryTopology[model_Association] :=
