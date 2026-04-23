@@ -13,17 +13,36 @@
      SystemData[sys]     →  returns the underlying equation association
 *)
 
+BeginPackage["MFGraphs`"];
+
 (* --- Public API declarations --- *)
 
 mfgSystem::usage =
 "mfgSystem[assoc] is the typed head for an MFG structural equation system. Use \
 makeSystem to construct one; use SystemData to access keys.";
 
+mfgBoundaryData::usage =
+"mfgBoundaryData[assoc] is a typed record for boundary conditions and rules.";
+
+mfgFlowData::usage =
+"mfgFlowData[assoc] is a typed record for flow balance and non-negativity constraints.";
+
+mfgComplementarityData::usage =
+"mfgComplementarityData[assoc] is a typed record for complementarity conditions and switching costs.";
+
+mfgHamiltonianData::usage =
+"mfgHamiltonianData[assoc] is a typed record for Hamiltonian residuals and general equations.";
+
 mfgSystem::switchingcosts = "Switching costs are inconsistent.";
 
 mfgSystemQ::usage =
 "mfgSystemQ[x] returns True if x is a typed mfgSystem[assoc_Association] object, \
 False otherwise.";
+
+mfgBoundaryDataQ::usage = "mfgBoundaryDataQ[x] returns True if x is a typed mfgBoundaryData object.";
+mfgFlowDataQ::usage = "mfgFlowDataQ[x] returns True if x is a typed mfgFlowData object.";
+mfgComplementarityDataQ::usage = "mfgComplementarityDataQ[x] returns True if x is a typed mfgComplementarityData object.";
+mfgHamiltonianDataQ::usage = "mfgHamiltonianDataQ[x] returns True if x is a typed mfgHamiltonianData object.";
 
 makeSystem::usage =
 "makeSystem[s_scenario, unk_unknowns] constructs an mfgSystem by building the \
@@ -36,7 +55,16 @@ SystemData::usage =
 Missing[\"KeyAbsent\", key] if absent. SystemData[sys] returns the underlying \
 Association.";
 
+SystemDataFlatten::usage =
+"SystemDataFlatten[sys] returns a single flat Association containing all keys from \
+all nested typed sub-records within the system. Useful for backward compatibility \
+with legacy solvers.";
+
 (* Structural Helpers *)
+
+GetKirchhoffLinearSystem::usage = "GetKirchhoffLinearSystem[sys] returns the entry current vector, Kirchhoff matrix, and the variables in the order corresponding to the Kirchhoff matrix.";
+
+GetKirchhoffMatrix::usage = "GetKirchhoffMatrix[sys] returns the entry current vector, Kirchhoff matrix, (critical congestion) cost function placeholder, and the variables in the order corresponding to the Kirchhoff matrix. The third slot is retained for backward compatibility.";
 
 ConsistentSwitchingCosts::usage = "ConsistentSwitchingCosts[switchingcosts][{a,b,c}->S]
 returns True if S, the cost of switching from the edge ab to cb, is smaller than any other combination,
@@ -113,131 +141,162 @@ AltSwitch[j_, u_, Switching_][r_, i_, w_] :=
 mfgSystemQ[mfgSystem[_Association]] := True;
 mfgSystemQ[_]                         := False;
 
+mfgBoundaryDataQ[mfgBoundaryData[_Association]] := True;
+mfgBoundaryDataQ[_]                             := False;
+
+mfgFlowDataQ[mfgFlowData[_Association]] := True;
+mfgFlowDataQ[_]                         := False;
+
+mfgComplementarityDataQ[mfgComplementarityData[_Association]] := True;
+mfgComplementarityDataQ[_]                                     := False;
+
+mfgHamiltonianDataQ[mfgHamiltonianData[_Association]] := True;
+mfgHamiltonianDataQ[_]                                 := False;
+
 (* --- Accessor --- *)
 
 SystemData[mfgSystem[assoc_Association]]           := assoc;
-SystemData[mfgSystem[assoc_Association], key_]     := Lookup[assoc, key, Missing["KeyAbsent", key]];
-
-(* --- Constructors --- *)
-
-makeSystem[s_?scenarioQ] := makeSystem[s, makeUnknowns[s]];
-
-makeSystem[s_?scenarioQ, unk_?unknownsQ] :=
-    Module[{model, topology, verticesList, adjacencyMatrix, entryVerticesFlows,
-         exitVerticesCosts, graph, entryVertices, exitVertices, auxEntryVertices, 
-         auxExitVertices, entryEdges, exitEdges, auxiliaryGraph, auxEdgeList, 
-         edgeList, auxVerticesList, auxPairs, auxTriples, EntryDataAssociation,
-         ExitCosts, js, us, jts, SignedFlows, SwitchingCosts, IneqJs, IneqJts,
-         AltFlows, AltTransitionFlows, splittingPairs, EqBalanceSplittingFlows,
-         BalanceSplittingFlows, NoDeadStarts, RuleBalanceGatheringFlows, BalanceGatheringFlows,
-         EqBalanceGatheringFlows, EqEntryIn, RuleEntryValues, RuleEntryOut, RuleExitFlowsIn,
-         RuleExitValues, EqValueAuxiliaryEdges, IneqSwitchingByVertex, AltOptCond,
-         blockedIncomingPairs, blockedIncomingLookup, activeAuxTriples, auxTriplesByMiddle,
-         scenarioAuxTriples, unknownAuxTriples,
-         Nlhs, ModuleVars, ModuleVarsNames, Nrhs, costpluscurrents, EqGeneral,
-         inAuxEntryPairs, outAuxEntryPairs, inAuxExitPairs, outAuxExitPairs, 
-        pairs, halfPairs, consistentCosts, hamiltonian, alphaDefault, edgeAlpha, alphaAtEdge, edgeCost},
+SystemData[mfgSystem[assoc_Association], key_] :=
+    Module[{val},
+        val = Lookup[assoc, key, $Failed];
+        If[val =!= $Failed, Return[val, Module]];
         
+        (* Search recursively in typed sub-records *)
+        Do[
+            If[MatchQ[sub, _[_Association]],
+                val = Lookup[First[sub], key, $Failed];
+                If[val =!= $Failed, Return[val, Module]]
+            ],
+            {sub, Values[assoc]}
+        ];
+        
+        Missing["KeyAbsent", key]
+    ];
+
+SystemDataFlatten[mfgSystem[assoc_Association]] :=
+    Module[{flat = assoc},
+        (* Merge sub-records into the top-level association *)
+        Do[
+            If[MatchQ[sub, _[_Association]],
+                AssociateTo[flat, First[sub]]
+            ],
+            {sub, Values[assoc]}
+        ];
+        (* Prune the typed sub-record keys to keep it clean *)
+        KeyDrop[flat, {"BoundaryData", "FlowData", "ComplementarityData", "HamiltonianData"}]
+    ];
+
+(* --- Modular Builders --- *)
+
+BuildBoundaryData[s_?scenarioQ, topology_Association] :=
+    Module[{model, entryVerticesFlows, exitVerticesCosts, inAuxEntryPairs,
+         outAuxExitPairs, inAuxExitPairs, outAuxEntryPairs, EntryDataAssociation,
+         ExitCosts, EqEntryIn, RuleEntryOut, RuleExitFlowsIn, RuleExitValues,
+         RuleEntryValues, EqValueAuxiliaryEdges, auxExitVertices},
         model = ScenarioData[s, "Model"];
-        topology = ScenarioData[s, "Topology"];
-        hamiltonian = ScenarioData[s, "Hamiltonian"];
-        If[!AssociationQ[hamiltonian],
-            hamiltonian = <||>
-        ];
-        alphaDefault = Lookup[hamiltonian, "Alpha", 1];
-        edgeAlpha = Lookup[hamiltonian, "EdgeAlpha", <||>];
-        If[!AssociationQ[edgeAlpha],
-            edgeAlpha = <||>
-        ];
-        alphaAtEdge[edge_List] :=
-            Lookup[
-                edgeAlpha,
-                Key[edge],
-                Lookup[edgeAlpha, Key[Reverse[edge]], alphaDefault]
-            ];
-        edgeCost[m_, edge_List] := m^alphaAtEdge[edge];
-        
-        If[!AssociationQ[topology],
-            topology = BuildAuxiliaryTopology[model]
-        ];
-        
-        If[topology === $Failed,
-            Return[Failure["makeSystem", <|"Message" -> "Could not build topology from scenario."|>], Module]
-        ];
-
-        verticesList = model["Vertices List"];
-        adjacencyMatrix = model["Adjacency Matrix"];
         entryVerticesFlows = model["Entrance Vertices and Flows"];
         exitVerticesCosts = model["Exit Vertices and Terminal Costs"];
-        SwitchingCosts = model["Switching Costs"];
-
-        graph = topology["Graph"];
-        auxiliaryGraph = topology["AuxiliaryGraph"];
-        auxEntryVertices = topology["AuxEntryVertices"];
-        auxExitVertices = topology["AuxExitVertices"];
-        entryEdges = topology["AuxEntryEdges"];
-        exitEdges = topology["AuxExitEdges"];
-        auxTriples = topology["AuxTriples"];
-        
-        halfPairs = topology["HalfPairs"];
         inAuxEntryPairs = topology["InAuxEntryPairs"];
         outAuxExitPairs = topology["OutAuxExitPairs"];
         inAuxExitPairs = topology["InAuxExitPairs"];
         outAuxEntryPairs = topology["OutAuxEntryPairs"];
-        pairs = topology["Pairs"];
-            
-        auxEdgeList = EdgeList[auxiliaryGraph];
-        edgeList = EdgeList[graph];
-        auxVerticesList = VertexList[auxiliaryGraph];
+        auxExitVertices = topology["AuxExitVertices"];
 
-        entryVertices = First /@ entryVerticesFlows;
-        exitVertices = First /@ exitVerticesCosts;
-
-        (* Prepare boundary data *)
         EntryDataAssociation = RoundValues @ AssociationThread[inAuxEntryPairs,
              Last /@ entryVerticesFlows];
         ExitCosts = AssociationThread[auxExitVertices, Last /@ exitVerticesCosts];
+        
+        EqEntryIn = (j @@ # == EntryDataAssociation[#])& /@ inAuxEntryPairs;
+        RuleEntryOut = Association[(j @@ # -> 0)& /@ outAuxEntryPairs];
+        RuleExitFlowsIn = Association[(j @@ # -> 0)& /@ inAuxExitPairs];
+        
+        RuleExitValues = AssociationThread[u @@@ (Reverse /@ outAuxExitPairs),
+             Last /@ exitVerticesCosts];
+        RuleExitValues = Join[RuleExitValues, AssociationThread[u @@@
+             outAuxExitPairs, Last /@ exitVerticesCosts]];
+        RuleEntryValues = AssociationThread[u @@@ outAuxEntryPairs, u
+             @@@ inAuxEntryPairs];
+        EqValueAuxiliaryEdges = And @@ ((u @@ # == u @@ Reverse[#])& 
+            /@ Join[inAuxEntryPairs, outAuxExitPairs]);
 
-        (* Variables from unknown bundle *)
+        mfgBoundaryData @ <|
+            "EntryDataAssociation" -> EntryDataAssociation,
+            "ExitCosts" -> ExitCosts,
+            "EqEntryIn" -> EqEntryIn,
+            "RuleEntryOut" -> RuleEntryOut,
+            "RuleExitFlowsIn" -> RuleExitFlowsIn,
+            "RuleExitValues" -> RuleExitValues,
+            "RuleEntryValues" -> RuleEntryValues,
+            "EqValueAuxiliaryEdges" -> EqValueAuxiliaryEdges
+        |>
+    ];
+
+BuildFlowData[s_?scenarioQ, topology_Association, unk_?unknownsQ] :=
+    Module[{inAuxEntryPairs, outAuxExitPairs, halfPairs, js, jts, pairs, auxTriples,
+         SignedFlows, IneqJs, IneqJts, splittingPairs, BalanceSplittingFlows,
+         EqBalanceSplittingFlows, NoDeadStarts, RuleBalanceGatheringFlows,
+         BalanceGatheringFlows, EqBalanceGatheringFlows},
+        inAuxEntryPairs = topology["InAuxEntryPairs"];
+        outAuxExitPairs = topology["OutAuxExitPairs"];
+        halfPairs = topology["HalfPairs"];
+        pairs = topology["Pairs"];
+        auxTriples = topology["AuxTriples"];
+        
         js = UnknownsData[unk, "js"];
         jts = UnknownsData[unk, "jts"];
-        us = UnknownsData[unk, "us"];
-        auxPairs = UnknownsData[unk, "auxPairs"];
-        unknownAuxTriples = UnknownsData[unk, "auxTriples"];
 
-        (* Preserve canonical AuxTriples ordering from scenario topology:
-           downstream transformations may depend on stable order. *)
-        If[ListQ[unknownAuxTriples] && unknownAuxTriples =!= auxTriples,
-            Return[
-                Failure[
-                    "makeSystem",
-                    <|
-                        "Message" -> "Mismatch between scenario topology AuxTriples and unknown bundle auxTriples; exact order must match.",
-                        "ScenarioAuxTriplesLength" -> Length[auxTriples],
-                        "UnknownsAuxTriplesLength" -> Length[unknownAuxTriples]
-                    |>
-                ],
-                Module
-            ]
-        ];
-
-        (* Signed flows *)
         SignedFlows = AssociationMap[j @@ # - j @@ Reverse @ #&, Join[
             inAuxEntryPairs, outAuxExitPairs, halfPairs]];
-
-        consistentCosts = IsSwitchingCostConsistent[Normal @ SwitchingCosts];
-        
-        Which[
-            consistentCosts === False,
-                Message[mfgSystem::switchingcosts]
-            ,
-            consistentCosts =!= True,
-                MFGPrint["Switching costs conditions are ", consistentCosts]
-        ];
 
         IneqJs = And @@ (# >= 0& /@ js);
         IneqJts = And @@ (# >= 0& /@ jts);
         
+        splittingPairs = Join[inAuxEntryPairs, topology["InAuxExitPairs"], pairs];
+        BalanceSplittingFlows = (j @@ # - Total[j @@@ FlowSplitting[auxTriples
+            ][#]])& /@ splittingPairs;
+        EqBalanceSplittingFlows = Simplify /@ (And @@ ((# == 0)& /@ BalanceSplittingFlows
+            ));
+            
+        NoDeadStarts = Join[topology["OutAuxEntryPairs"], outAuxExitPairs, pairs];
+        RuleBalanceGatheringFlows = Association[(j @@ # -> Total[j @@@
+             FlowGathering[auxTriples][#]])& /@ NoDeadStarts];
+             
+        BalanceGatheringFlows = ((-j @@ # + Total[j @@@ FlowGathering[
+            auxTriples][#]])& /@ NoDeadStarts);
+        EqBalanceGatheringFlows = Simplify /@ (And @@ (# == 0& /@ BalanceGatheringFlows
+            ));
+
+        mfgFlowData @ <|
+            "SignedFlows" -> SignedFlows,
+            "IneqJs" -> IneqJs,
+            "IneqJts" -> IneqJts,
+            "BalanceSplittingFlows" -> BalanceSplittingFlows,
+            "EqBalanceSplittingFlows" -> EqBalanceSplittingFlows,
+            "RuleBalanceGatheringFlows" -> RuleBalanceGatheringFlows,
+            "BalanceGatheringFlows" -> BalanceGatheringFlows,
+            "EqBalanceGatheringFlows" -> EqBalanceGatheringFlows,
+            "splittingPairs" -> splittingPairs,
+            "NoDeadStarts" -> NoDeadStarts
+        |>
+    ];
+
+BuildComplementarityData[s_?scenarioQ, topology_Association, unk_?unknownsQ] :=
+    Module[{model, verticesList, SwitchingCosts, inAuxEntryPairs, outAuxExitPairs,
+         halfPairs, auxTriples, consistentCosts, AltFlows, AltTransitionFlows,
+         blockedIncomingPairs, blockedIncomingLookup, activeAuxTriples,
+         auxTriplesByMiddle, IneqSwitchingByVertex, AltOptCond},
+        model = ScenarioData[s, "Model"];
+        verticesList = model["Vertices List"];
+        SwitchingCosts = model["Switching Costs"];
+        inAuxEntryPairs = topology["InAuxEntryPairs"];
+        outAuxExitPairs = topology["OutAuxExitPairs"];
+        halfPairs = topology["HalfPairs"];
+        auxTriples = topology["AuxTriples"];
+
+        consistentCosts = IsSwitchingCostConsistent[Normal @ SwitchingCosts];
+        
+        If[consistentCosts === False, Message[mfgSystem::switchingcosts]];
+
         AltFlows = And @@ (AltFlowOp[j] /@ Join[
             inAuxEntryPairs, outAuxExitPairs, halfPairs]);
             
@@ -268,27 +327,7 @@ makeSystem[s_?scenarioQ, unk_?unknownsQ] :=
                     Select[auxTriples, OrderedQ[{First[#], Last[#]}]&])
             ];
             
-        splittingPairs = Join[inAuxEntryPairs, inAuxExitPairs, pairs];
-        BalanceSplittingFlows = (j @@ # - Total[j @@@ FlowSplitting[auxTriples
-            ][#]])& /@ splittingPairs;
-        EqBalanceSplittingFlows = Simplify /@ (And @@ ((# == 0)& /@ BalanceSplittingFlows
-            ));
-            
-        NoDeadStarts = Join[outAuxEntryPairs, outAuxExitPairs, pairs];
-        RuleBalanceGatheringFlows = Association[(j @@ # -> Total[j @@@
-             FlowGathering[auxTriples][#]])& /@ NoDeadStarts];
-             
-        BalanceGatheringFlows = ((-j @@ # + Total[j @@@ FlowGathering[
-            auxTriples][#]])& /@ NoDeadStarts);
-        EqBalanceGatheringFlows = Simplify /@ (And @@ (# == 0& /@ BalanceGatheringFlows
-            ));
-            
-        EqEntryIn = (j @@ # == EntryDataAssociation[#])& /@ inAuxEntryPairs;
-        
-        RuleEntryOut = Association[(j @@ # -> 0)& /@ outAuxEntryPairs];
-        RuleExitFlowsIn = Association[(j @@ # -> 0)& /@ inAuxExitPairs];
-        
-        blockedIncomingPairs = DeleteDuplicates @ Join[outAuxEntryPairs, inAuxExitPairs];
+        blockedIncomingPairs = DeleteDuplicates @ Join[topology["OutAuxEntryPairs"], topology["InAuxExitPairs"]];
         blockedIncomingLookup =
             AssociationThread[blockedIncomingPairs, ConstantArray[True, Length[blockedIncomingPairs]]];
         activeAuxTriples = Select[
@@ -297,16 +336,6 @@ makeSystem[s_?scenarioQ, unk_?unknownsQ] :=
         ];
         auxTriplesByMiddle = GroupBy[auxTriples, #[[2]] &];
         
-        RuleExitValues = AssociationThread[u @@@ (Reverse /@ outAuxExitPairs
-            ), Last /@ exitVerticesCosts];
-        RuleExitValues = Join[RuleExitValues, AssociationThread[u @@@
-             outAuxExitPairs, Last /@ exitVerticesCosts]];
-        RuleEntryValues = AssociationThread[u @@@ outAuxEntryPairs, u
-             @@@ inAuxEntryPairs];
-             
-        EqValueAuxiliaryEdges = And @@ ((u @@ # == u @@ Reverse[#])& 
-            /@ Join[inAuxEntryPairs, outAuxExitPairs]);
-            
         IneqSwitchingByVertex =
             IneqSwitch[u, SwitchingCosts] @@@
                 Select[
@@ -316,47 +345,170 @@ makeSystem[s_?scenarioQ, unk_?unknownsQ] :=
         IneqSwitchingByVertex = And @@@ IneqSwitchingByVertex;
         
         AltOptCond = And @@ AltSwitch[j, u, SwitchingCosts] @@@ activeAuxTriples;
+
+        mfgComplementarityData @ <|
+            "SwitchingCosts" -> SwitchingCosts,
+            "consistentCosts" -> consistentCosts,
+            "AltFlows" -> AltFlows,
+            "AltTransitionFlows" -> AltTransitionFlows,
+            "IneqSwitchingByVertex" -> IneqSwitchingByVertex,
+            "AltOptCond" -> AltOptCond,
+            "activeAuxTriples" -> activeAuxTriples
+        |>
+    ];
+
+BuildHamiltonianData[s_?scenarioQ, topology_Association, flowData_mfgFlowData] :=
+    Module[{hamiltonian, alphaDefault, edgeAlpha, alphaAtEdge, edgeCost, halfPairs,
+         SignedFlows, edgeList, Nlhs, Nrhs, costpluscurrents, EqGeneral},
+        hamiltonian = ScenarioData[s, "Hamiltonian"];
+        If[!AssociationQ[hamiltonian], hamiltonian = <||>];
+        alphaDefault = Lookup[hamiltonian, "Alpha", 1];
+        edgeAlpha = Lookup[hamiltonian, "EdgeAlpha", <||>];
         
-        Nlhs = Flatten[u @@ # - u @@ Reverse @ # + SignedFlows[#]& /@
-             halfPairs];
-        Nrhs = Flatten[SignedFlows[#] - Sign[SignedFlows[#]] edgeCost[SignedFlows[
-            #], #]& /@ halfPairs];
+        alphaAtEdge[edge_List] :=
+            Lookup[
+                edgeAlpha,
+                Key[edge],
+                Lookup[edgeAlpha, Key[Reverse[edge]], alphaDefault]
+            ];
+        edgeCost[m_, edge_List] := m^alphaAtEdge[edge];
+        
+        halfPairs = topology["HalfPairs"];
+        SignedFlows = First[flowData]["SignedFlows"];
+        edgeList = EdgeList[topology["Graph"]];
+
+        Nlhs = Flatten[u @@ # - u @@ Reverse @ # + SignedFlows[#]& /@ halfPairs];
+        Nrhs = Flatten[SignedFlows[#] - Sign[SignedFlows[#]] edgeCost[SignedFlows[#], #]& /@ halfPairs];
             
-        costpluscurrents = Table[Symbol["cpc" <> ToString[k]], {k, 1,
-             Length @ edgeList}];
-        EqGeneral = And @@ (MapThread[Equal, {Nlhs, costpluscurrents}
-            ]);
+        costpluscurrents = Table[Symbol["cpc" <> ToString[k]], {k, 1, Length @ edgeList}];
+        EqGeneral = And @@ (MapThread[Equal, {Nlhs, costpluscurrents}]);
         costpluscurrents = AssociationThread[costpluscurrents, Nrhs];
+
+        mfgHamiltonianData @ <|
+            "Nlhs" -> Nlhs,
+            "Nrhs" -> Nrhs,
+            "costpluscurrents" -> costpluscurrents,
+            "EqGeneral" -> EqGeneral
+        |>
+    ];
+
+(* --- Linear System Construction --- *)
+
+GetKirchhoffLinearSystem[sys_] :=
+    Module[{Kirchhoff, EqEntryIn, BalanceGatheringFlows, BalanceSplittingFlows,
+         RuleExitFlowsIn, RuleEntryOut, BM, KM, vars},
+        EqEntryIn = SystemData[sys, "EqEntryIn"];
+        BalanceGatheringFlows = SystemData[sys, "BalanceGatheringFlows"];
+        BalanceSplittingFlows = SystemData[sys, "BalanceSplittingFlows"];
+        RuleExitFlowsIn = SystemData[sys, "RuleExitFlowsIn"];
+        RuleEntryOut = SystemData[sys, "RuleEntryOut"];
+
+        (* Use defaults for missing data *)
+        If[MissingQ[EqEntryIn], EqEntryIn = True];
+        If[MissingQ[BalanceGatheringFlows], BalanceGatheringFlows = {}];
+        If[MissingQ[BalanceSplittingFlows], BalanceSplittingFlows = {}];
+        If[MissingQ[RuleExitFlowsIn], RuleExitFlowsIn = <||>];
+        If[MissingQ[RuleEntryOut], RuleEntryOut = <||>];
+
+        Kirchhoff = Join[
+            If[Head[EqEntryIn] === List, EqEntryIn, {EqEntryIn}],
+            (# == 0& /@ (BalanceGatheringFlows + BalanceSplittingFlows))
+        ];
+        Kirchhoff = Kirchhoff /. Join[Normal[RuleExitFlowsIn], Normal[RuleEntryOut]];
             
-        ModuleVars = {graph, pairs, entryVertices, auxEntryVertices, 
-            exitVertices,
-            auxExitVertices, entryEdges, exitEdges, auxiliaryGraph,
-             auxEdgeList, edgeList, auxVerticesList, auxTriples, EntryDataAssociation,
-             ExitCosts, js, us, jts, SignedFlows, SwitchingCosts, IneqJs, IneqJts,
-             AltFlows, AltTransitionFlows, splittingPairs, EqBalanceSplittingFlows,
-             BalanceSplittingFlows, NoDeadStarts, RuleBalanceGatheringFlows, BalanceGatheringFlows,
-             EqBalanceGatheringFlows, EqEntryIn, RuleEntryOut, RuleEntryValues, RuleExitFlowsIn,
-             RuleExitValues, EqValueAuxiliaryEdges, IneqSwitchingByVertex, AltOptCond,
-             Nlhs, Nrhs, costpluscurrents, EqGeneral};
-             
-        ModuleVarsNames = {"graph", "pairs", "entryVertices", "auxEntryVertices",
-             "exitVertices", "auxExitVertices", "entryEdges", "exitEdges", "auxiliaryGraph",
-             "auxEdgeList", "edgeList", "auxVerticesList", "auxTriples", "EntryDataAssociation",
-             "ExitCosts", "js", "us", "jts", "SignedFlows", "SwitchingCosts", "IneqJs",
-             "IneqJts", "AltFlows", "AltTransitionFlows", "splittingPairs", "EqBalanceSplittingFlows",
-             "BalanceSplittingFlows", "NoDeadStarts", "RuleBalanceGatheringFlows",
-             "BalanceGatheringFlows", "EqBalanceGatheringFlows", "EqEntryIn", "RuleEntryOut",
-             "RuleEntryValues", "RuleExitFlowsIn", "RuleExitValues", "EqValueAuxiliaryEdges",
-             "IneqSwitchingByVertex", "AltOptCond", "Nlhs", "Nrhs", "costpluscurrents",
-             "EqGeneral"};
-             
-        mfgSystem @ Join[
-            model,
-            AssociationThread[ModuleVarsNames, ModuleVars]
+        vars = Select[Variables[Kirchhoff /. Equal -> List], MatchQ[#, j[_, _, _] | j[_, _]]&];
+        If[Length[vars] === 0,
+            {0, 0, {}}
+            ,
+            {BM, KM} = CoefficientArrays[Kirchhoff, vars];
+            {-BM, KM, vars}
         ]
+    ];
+
+GetKirchhoffMatrix[sys_] :=
+    Module[{B, KM, vars, cost, CCost},
+        {B, KM, vars} = GetKirchhoffLinearSystem[sys];
+        If[Length[vars] === 0,
+            Return[{B, KM, <||>, vars}, Module]
+        ];
+        (* Legacy zero-cost placeholder *)
+        cost = AssociationThread[vars, (0&) /@ vars];
+        CCost = cost /@ vars /. MapThread[Rule, {vars, #}]&;
+        {B, KM, CCost, vars}
+    ];
+
+(* --- Constructors --- *)
+
+makeSystem[s_?scenarioQ] := makeSystem[s, makeUnknowns[s]];
+
+makeSystem[s_?scenarioQ, unk_?unknownsQ] :=
+    Module[{model, topology, graph, auxiliaryGraph, auxEdgeList, edgeList,
+         auxVerticesList, auxTriples, boundaryData, flowData, compData, hamData,
+         finalAssoc},
+        
+        model = ScenarioData[s, "Model"];
+        topology = ScenarioData[s, "Topology"];
+        If[!AssociationQ[topology], topology = BuildAuxiliaryTopology[model]];
+        
+        If[topology === $Failed,
+            Return[Failure["makeSystem", <|"Message" -> "Could not build topology from scenario."|>], Module]
+        ];
+
+        (* Variables from scenario/unknowns needed for the top-level mfgSystem *)
+        graph = topology["Graph"];
+        auxiliaryGraph = topology["AuxiliaryGraph"];
+        auxEdgeList = EdgeList[auxiliaryGraph];
+        edgeList = EdgeList[graph];
+        auxVerticesList = VertexList[auxiliaryGraph];
+        auxTriples = topology["AuxTriples"];
+        
+        (* Preserve canonical AuxTriples ordering from scenario topology:
+           downstream transformations may depend on stable order. *)
+        unknownAuxTriples = UnknownsData[unk, "auxTriples"];
+        If[ListQ[unknownAuxTriples] && unknownAuxTriples =!= auxTriples,
+            Return[
+                Failure[
+                    "makeSystem",
+                    <|
+                        "Message" -> "Mismatch between scenario topology AuxTriples and unknown bundle auxTriples; exact order must match.",
+                        "ScenarioAuxTriplesLength" -> Length[auxTriples],
+                        "UnknownsAuxTriplesLength" -> Length[unknownAuxTriples]
+                    |>
+                ],
+                Module
+            ]
+        ];
+
+        (* Orchestrate Builders *)
+        boundaryData = BuildBoundaryData[s, topology];
+        flowData = BuildFlowData[s, topology, unk];
+        compData = BuildComplementarityData[s, topology, unk];
+        hamData = BuildHamiltonianData[s, topology, flowData];
+
+        finalAssoc = Join[
+            model,
+            topology,
+            <|
+                "js" -> UnknownsData[unk, "js"],
+                "us" -> UnknownsData[unk, "us"],
+                "jts" -> UnknownsData[unk, "jts"],
+                "edgeList" -> edgeList,
+                "auxEdgeList" -> auxEdgeList,
+                "auxVerticesList" -> auxVerticesList,
+                "auxTriples" -> auxTriples,
+                "BoundaryData" -> boundaryData,
+                "FlowData" -> flowData,
+                "ComplementarityData" -> compData,
+                "HamiltonianData" -> hamData
+            |>
+        ];
+
+        mfgSystem[finalAssoc]
     ];
 
 makeSystem[_] :=
     Failure["makeSystem", <|"Message" -> "makeSystem requires a scenario object."|>];
 
 End[];
+
+EndPackage[];

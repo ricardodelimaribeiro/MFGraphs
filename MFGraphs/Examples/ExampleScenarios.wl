@@ -16,6 +16,8 @@
    Defaults: sc={}, alpha=1, V=0, g=Function[z,-1/z] (from $DefaultHamiltonian).
    Numeric benchmark defaults are in Scripts/BenchmarkHelpers.wls. *)
 
+BeginPackage["MFGraphs`"];
+
 Begin["`Private`"];
 
 (* --- Shared topology constants --- *)
@@ -299,3 +301,5 @@ GetExampleScenario[n_, entries_, exits_,
     ];
 
 End[];
+
+EndPackage[];

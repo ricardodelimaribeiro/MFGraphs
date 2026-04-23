@@ -1,6 +1,8 @@
 (* Wolfram Language package *)
 (* Unknowns: construction helpers for MFGraphs symbolic unknown families. *)
 
+BeginPackage["MFGraphs`"];
+
 unknowns::usage = "unknowns[assoc] is the typed head for MFGraphs unknown-variable bundles.";
 
 unknownsQ::usage = "unknownsQ[x] returns True iff x is an unknowns[assoc_Association] object.";
@@ -66,3 +68,5 @@ makeUnknowns[s_] :=
     ];
 
 End[];
+
+EndPackage[];

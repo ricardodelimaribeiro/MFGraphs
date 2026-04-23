@@ -1,7 +1,7 @@
 (* Wolfram Language package *)
 (*
    Solvers: Critical-congestion solver suite for MFGraphs.
-   
+
    Extracted from DataToEquations.wl as part of the Phase 3 architectural
    refactor. Contains all solver-layer code: DirectCriticalSolver,
    CriticalCongestionSolver, numeric backends, IsCriticalSolution, and
@@ -10,6 +10,8 @@
    Load order dependency: DataToEquations.wl and DNFReduce.wl must be
    loaded before this file (enforced by MFGraphs.wl).
 *)
+
+BeginPackage["MFGraphs`"];
 
 Begin["`Private`"];
 
@@ -1570,3 +1572,5 @@ IsCriticalSolution[Eqs_Association, OptionsPattern[]] :=
 
 
 End[];
+
+EndPackage[];
