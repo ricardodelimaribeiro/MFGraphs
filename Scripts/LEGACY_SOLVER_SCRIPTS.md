@@ -6,16 +6,18 @@ The scripts listed here still depend on solver-era symbols such as
 They are **not part of the active core-only workflow** while `MFGraphs.wl`
 loads only Scenario/ExampleScenarios/Unknowns/System.
 
+These scripts now live under `Scripts/archive/`.
+
 ## Typical affected scripts
 
-- `BenchmarkSuite.wls`
-- `BottleneckReport.wls`
-- `CompareDNF.wls`
-- `Profile*.wls`
-- `InstrumentJamarat.wls`
-- `GenerateReferenceHashes.wls`
-- `SmokeTestExactMode.wls`
-- `JamaratFeasibilityPhaseDiagram.wls`
+- `archive/BenchmarkSuite.wls`
+- `archive/BottleneckReport.wls`
+- `archive/CompareDNF.wls`
+- `archive/Profile*.wls`
+- `archive/InstrumentJamarat.wls`
+- `archive/GenerateReferenceHashes.wls`
+- `archive/SmokeTestExactMode.wls`
+- `archive/JamaratFeasibilityPhaseDiagram.wls`
 
 ## Active workflow
 

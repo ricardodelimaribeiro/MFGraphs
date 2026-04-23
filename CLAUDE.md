@@ -36,6 +36,11 @@ wolframscript -version
 Archived/inactive modules include:
 - `MFGraphs/Examples/archive/ExamplesData.wl`
 - `MFGraphs/archive/DataToEquations.wl`
+- `MFGraphs/archive/DNFReduce.wl`
+- `MFGraphs/archive/FictitiousPlayBackend.wl`
+- `MFGraphs/archive/Graphics.wl`
+- `MFGraphs/archive/SolveMFGDispatch.wl`
+- `MFGraphs/archive/Solvers.wl`
 
 ## Active public API (current phase)
 
@@ -62,7 +67,8 @@ Archived/inactive modules include:
 
 The following are currently not loaded from `MFGraphs.wl`:
 - `ScenarioByKey`, `GetExampleData`
-- `DataToEquations`, `CriticalCongestionSolver`, `SolveMFG`
+- `DataToEquations`, `DNFReduce`, `CriticalCongestionSolver`, `SolveMFG`
+- `SolveCriticalFictitiousPlayBackend`, `NetworkGraphPlot`, `SolutionFlowPlot`
 - legacy/extended solver modules and solver benchmarking workflows
 
 If solver work resumes, restore the module loading and docs in a dedicated pass.

@@ -21,6 +21,11 @@ Loaded by `Needs["MFGraphs`"]`:
 Archived/inactive modules:
 - `MFGraphs/Examples/archive/ExamplesData.wl`
 - `MFGraphs/archive/DataToEquations.wl`
+- `MFGraphs/archive/DNFReduce.wl`
+- `MFGraphs/archive/FictitiousPlayBackend.wl`
+- `MFGraphs/archive/Graphics.wl`
+- `MFGraphs/archive/SolveMFGDispatch.wl`
+- `MFGraphs/archive/Solvers.wl`
 
 ## Installation
 
@@ -84,7 +89,8 @@ Core symbolic primitives:
 
 Not loaded by current `MFGraphs.wl` bootstrap:
 - `ScenarioByKey`, `GetExampleData`
-- `DataToEquations`, `CriticalCongestionSolver`, `SolveMFG`
+- `DataToEquations`, `DNFReduce`, `CriticalCongestionSolver`, `SolveMFG`
+- `SolveCriticalFictitiousPlayBackend`, `NetworkGraphPlot`, `SolutionFlowPlot`
 - legacy/extended solver modules and solver benchmarking paths
 
 ## Running tests
@@ -115,6 +121,11 @@ MFGraphs/
       ExamplesData.wl
   archive/
     DataToEquations.wl
+    DNFReduce.wl
+    FictitiousPlayBackend.wl
+    Graphics.wl
+    SolveMFGDispatch.wl
+    Solvers.wl
   Tests/
     scenario-kernel.mt
     make-unknowns.mt
@@ -122,6 +133,7 @@ MFGraphs/
   Kernel/init.m
 Scripts/
   RunTests.wls
+  archive/
 ```
 
 ## Documentation

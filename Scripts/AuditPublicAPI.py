@@ -26,14 +26,7 @@ STOP_NAMES = {
 }
 
 CATEGORY_OVERRIDES = {
-    'SolveMFG': ('core', 'keep'),
-    'DataToEquations': ('core', 'keep'),
-    'CriticalCongestionSolver': ('core', 'keep'),
-    'IsCriticalSolution': ('core', 'keep'),
     'IsFeasible': ('core', 'keep'),
-    'NetworkGraphPlot': ('core', 'keep'),
-    'SolutionFlowPlot': ('core', 'keep'),
-    'ExitFlowPlot': ('core', 'keep'),
     'makeScenario': ('core', 'keep'),
     'validateScenario': ('core', 'keep'),
     'completeScenario': ('core', 'keep'),
