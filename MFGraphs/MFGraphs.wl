@@ -174,8 +174,10 @@ $MFGraphsParallelLaunchThreshold::usage =
 launching parallel subkernels. Only applies when $KernelCount === 0. Default is 50.";
 
 GetExampleScenario::usage =
-"GetExampleScenario[n] returns a typed scenario[...] for built-in example n. \
-All boundary values are concrete numbers. Returns $Failed for unknown keys.";
+"GetExampleScenario[n] returns a scenario factory Function[{entries, exits}, scenario[...]] \
+for built-in example n. entries = {{vertex, flow}, ...}, exits = {{vertex, cost}, ...}. \
+Topology and switching costs are fixed; boundary conditions are supplied by the caller. \
+Returns $Failed for unknown keys.";
 
 (* Load submodules in dependency order *)
 Get["MFGraphs`DNFReduce`"];
