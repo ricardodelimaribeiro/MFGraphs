@@ -585,8 +585,7 @@ JamaratScenario[params_List] :=
 (* Scenarios provide a typed wrapper for model data and parameters. *)
 typedScenario = makeScenario[<|
     "Identity" -> <|"Name" -> "Y-junction benchmark"|>,
-    "Model" -> GetExampleData[7],
-    "Data" -> {I1 -> 100, U1 -> 0, U2 -> 0}
+    "Model" -> (GetExampleData[7] /. {I1 -> 100, U1 -> 0, U2 -> 0})
 |>]
 Head@%
 

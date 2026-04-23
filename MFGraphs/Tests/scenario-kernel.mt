@@ -18,7 +18,7 @@ Test[
 (* Test: makeScenario returns a typed scenario for valid input *)
 Test[
     Module[{data, s},
-        data = Quiet[GetExampleData[12], {GetExampleData::deprecated}] /. {I1 -> 100, U1 -> 0};
+        data = GetExampleDataRaw[12] /. {I1 -> 100, U1 -> 0};
         s = makeScenario[<|"Model" -> data|>];
         scenarioQ[s]
     ]
@@ -45,7 +45,7 @@ Test[
 (* Test: Hamiltonian block defaults are filled *)
 Test[
     Module[{data, s, h},
-        data = Quiet[GetExampleData[12], {GetExampleData::deprecated}] /. {I1 -> 100, U1 -> 0};
+        data = GetExampleDataRaw[12] /. {I1 -> 100, U1 -> 0};
         s = makeScenario[<|"Model" -> data|>];
         h = ScenarioData[s, "Hamiltonian"];
         AssociationQ[h] &&
@@ -287,61 +287,7 @@ Test[
     TestID -> "Scenario kernel: completeScenario callable directly on validated scenario"
 ]
 
-(* Test: makeScenario applies Data substitutions to boundary values and materializes numerics *)
-Test[
-    Module[{raw, s, model, entryVals, exitVals},
-        raw = <|
-            "Model" -> <|
-                "Vertices List" -> {1, 2},
-                "Adjacency Matrix" -> {{0, 1}, {0, 0}},
-                "Entrance Vertices and Flows" -> {{1, inflowParam}},
-                "Exit Vertices and Terminal Costs" -> {{2, exitCostParam}},
-                "Switching Costs" -> {}
-            |>,
-            "Data" -> {inflowParam -> 100, exitCostParam -> 0}
-        |>;
-        s = MFGraphs`makeScenario[raw];
-        model = MFGraphs`ScenarioData[s, "Model"];
-        entryVals = Last /@ model["Entrance Vertices and Flows"];
-        exitVals = Last /@ model["Exit Vertices and Terminal Costs"];
-        MFGraphs`scenarioQ[s] && AllTrue[entryVals, NumericQ] && AllTrue[exitVals, NumericQ]
-    ]
-    ,
-    True
-    ,
-    TestID -> "Scenario kernel: boundary values are numeric after makeScenario"
-]
-
-(* Test: makeScenario applies Data substitutions by symbol name across contexts *)
-Test[
-    Module[{raw, s, model, gIn, gOut, foreignIn, foreignOut},
-        gIn = Symbol["Global`inCtxParam"];
-        gOut = Symbol["Global`outCtxParam"];
-        foreignIn = Symbol["TmpCtx`inCtxParam"];
-        foreignOut = Symbol["TmpCtx`outCtxParam"];
-        raw = <|
-            "Model" -> <|
-                "Vertices List" -> {1, 2},
-                "Adjacency Matrix" -> {{0, 1}, {0, 0}},
-                "Entrance Vertices and Flows" -> {{1, foreignIn}},
-                "Exit Vertices and Terminal Costs" -> {{2, foreignOut}},
-                "Switching Costs" -> {}
-            |>,
-            "Data" -> {gIn -> 100, gOut -> 0}
-        |>;
-        s = MFGraphs`makeScenario[raw];
-        model = MFGraphs`ScenarioData[s, "Model"];
-        MFGraphs`scenarioQ[s] &&
-        Last /@ model["Entrance Vertices and Flows"] === {100} &&
-        Last /@ model["Exit Vertices and Terminal Costs"] === {0}
-    ]
-    ,
-    True
-    ,
-    TestID -> "Scenario kernel: cross-context Data symbol substitution is supported"
-]
-
-(* Test: makeScenario fails when boundary values remain symbolic after Data substitution *)
+(* Test: makeScenario rejects legacy Data substitutions *)
 Test[
     Module[{raw, result},
         raw = <|
@@ -352,7 +298,7 @@ Test[
                 "Exit Vertices and Terminal Costs" -> {{2, exitCostParam}},
                 "Switching Costs" -> {}
             |>,
-            "Data" -> {inflowParam -> 100}
+            "Data" -> {inflowParam -> 100, exitCostParam -> 0}
         |>;
         result = MFGraphs`makeScenario[raw];
         FailureQ[result] && result["Tag"] === "ScenarioValidation"
@@ -360,7 +306,49 @@ Test[
     ,
     True
     ,
-    TestID -> "Scenario kernel: non-numeric boundary values are rejected"
+    TestID -> "Scenario kernel: legacy Data substitutions are rejected"
+]
+
+(* Test: makeScenario fails when boundary values are symbolic *)
+Test[
+    Module[{raw, result},
+        raw = <|
+            "Model" -> <|
+                "Vertices List" -> {1, 2},
+                "Adjacency Matrix" -> {{0, 1}, {0, 0}},
+                "Entrance Vertices and Flows" -> {{1, inflowParam}},
+                "Exit Vertices and Terminal Costs" -> {{2, exitCostParam}},
+                "Switching Costs" -> {}
+            |>
+        |>;
+        result = MFGraphs`makeScenario[raw];
+        FailureQ[result] && result["Tag"] === "ScenarioValidation"
+    ]
+    ,
+    True
+    ,
+    TestID -> "Scenario kernel: symbolic boundary values are rejected"
+]
+
+(* Test: makeScenario fails when switching cost values are symbolic *)
+Test[
+    Module[{raw, result},
+        raw = <|
+            "Model" -> <|
+                "Vertices List" -> {1, 2},
+                "Adjacency Matrix" -> {{0, 1}, {0, 0}},
+                "Entrance Vertices and Flows" -> {{1, 100}},
+                "Exit Vertices and Terminal Costs" -> {{2, 0}},
+                "Switching Costs" -> {{1, 1, 2, c12}}
+            |>
+        |>;
+        result = MFGraphs`makeScenario[raw];
+        FailureQ[result] && result["Tag"] === "ScenarioValidation"
+    ]
+    ,
+    True
+    ,
+    TestID -> "Scenario kernel: non-numeric switching costs are rejected"
 ]
 
 (* Test: Graph-only model derives Vertices List and Adjacency Matrix *)
@@ -516,14 +504,11 @@ Test[
 (* Test: ScenarioByKey reports unknown key as structured Failure *)
 Test[
     Module[{result},
-        result = Quiet[
-            ScenarioByKey["does-not-exist", <|
-                "Entry flows" -> <|1 -> 1|>,
-                "Exit costs" -> <|1 -> 0|>,
-                "Switching Costs" -> <||>
-            |>],
-            {GetExampleData::badfields}
-        ];
+        result = ScenarioByKey["does-not-exist", <|
+            "Entry flows" -> <|1 -> 1|>,
+            "Exit costs" -> <|1 -> 0|>,
+            "Switching Costs" -> <||>
+        |>];
         FailureQ[result] && result["Tag"] === "ScenarioByKey"
     ]
     ,
