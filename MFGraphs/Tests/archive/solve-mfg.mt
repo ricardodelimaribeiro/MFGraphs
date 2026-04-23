@@ -1,9 +1,7 @@
 (* Wolfram Language Test file *)
 (* Critical-only routing tests for SolveMFG. *)
 
-If[!MemberQ[$Packages, "MFGraphs`"],
-    Get["/Users/ribeirrd/Documents/GitHub/MFGraphs/MFGraphs/MFGraphs.wl"]
-];
+Get[FileNameJoin[{DirectoryName[$InputFileName], "..", "MFGraphs.wl"}]];
 
 Test[
     Module[{data, result},
