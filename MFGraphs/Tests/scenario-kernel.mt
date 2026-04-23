@@ -18,7 +18,7 @@ Test[
 (* Test: makeScenario returns a typed scenario for valid input *)
 Test[
     Module[{data, s},
-        data = Quiet[GetExampleData[12], {GetExampleData::deprecated}] /. {I1 -> 100, U1 -> 0};
+        data = GetExampleDataRaw[12] /. {I1 -> 100, U1 -> 0};
         s = makeScenario[<|"Model" -> data|>];
         scenarioQ[s]
     ]
@@ -45,7 +45,7 @@ Test[
 (* Test: Hamiltonian block defaults are filled *)
 Test[
     Module[{data, s, h},
-        data = Quiet[GetExampleData[12], {GetExampleData::deprecated}] /. {I1 -> 100, U1 -> 0};
+        data = GetExampleDataRaw[12] /. {I1 -> 100, U1 -> 0};
         s = makeScenario[<|"Model" -> data|>];
         h = ScenarioData[s, "Hamiltonian"];
         AssociationQ[h] &&
@@ -504,14 +504,11 @@ Test[
 (* Test: ScenarioByKey reports unknown key as structured Failure *)
 Test[
     Module[{result},
-        result = Quiet[
-            ScenarioByKey["does-not-exist", <|
-                "Entry flows" -> <|1 -> 1|>,
-                "Exit costs" -> <|1 -> 0|>,
-                "Switching Costs" -> <||>
-            |>],
-            {GetExampleData::badfields}
-        ];
+        result = ScenarioByKey["does-not-exist", <|
+            "Entry flows" -> <|1 -> 1|>,
+            "Exit costs" -> <|1 -> 0|>,
+            "Switching Costs" -> <||>
+        |>];
         FailureQ[result] && result["Tag"] === "ScenarioByKey"
     ]
     ,

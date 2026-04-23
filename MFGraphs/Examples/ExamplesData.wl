@@ -569,7 +569,11 @@ $ExampleDataFields6 = Join[$ExampleDataFields5, {"a"}];
 $ExampleDataFields7 = Join[$ExampleDataFields6, {"alpha"}];
 
 GetExampleDataRaw[n_] :=
-    With[{data = test[n]},
+    Module[{data},
+        If[!ValueQ[test[n]],
+            Return[$Failed, Module]
+        ];
+        data = test[n];
         Switch[Length[data],
             5, AssociationThread[$ExampleDataFields5, data],
             6, AssociationThread[$ExampleDataFields6, data],
@@ -600,7 +604,7 @@ AdjacentVerticesQ[adjacency_, vertexIndex_Association, u_, v_] :=
         iu = Lookup[vertexIndex, u, Missing["KeyAbsent", u]];
         iv = Lookup[vertexIndex, v, Missing["KeyAbsent", v]];
         If[MissingQ[iu] || MissingQ[iv], Return[False, Module]];
-        Quiet @ Check[
+        Check[
             TrueQ[adjacency[[iu, iv]] =!= 0] || TrueQ[adjacency[[iv, iu]] =!= 0],
             False
         ]
