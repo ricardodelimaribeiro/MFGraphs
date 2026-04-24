@@ -161,9 +161,9 @@ SystemData[mfgSystem[assoc_Association], key_] :=
         val = Lookup[assoc, key, $Failed];
         If[val =!= $Failed, Return[val, Module]];
         
-        (* Search recursively in typed sub-records *)
+        (* Search in typed sub-records only *)
         Do[
-            If[MatchQ[sub, _[_Association]],
+            If[MatchQ[sub, (mfgBoundaryData|mfgFlowData|mfgComplementarityData|mfgHamiltonianData)[_Association]],
                 val = Lookup[First[sub], key, $Failed];
                 If[val =!= $Failed, Return[val, Module]]
             ],
@@ -174,16 +174,10 @@ SystemData[mfgSystem[assoc_Association], key_] :=
     ];
 
 SystemDataFlatten[mfgSystem[assoc_Association]] :=
-    Module[{flat = assoc},
-        (* Merge sub-records into the top-level association *)
-        Do[
-            If[MatchQ[sub, _[_Association]],
-                AssociateTo[flat, First[sub]]
-            ],
-            {sub, Values[assoc]}
-        ];
-        (* Prune the typed sub-record keys to keep it clean *)
-        KeyDrop[flat, {"BoundaryData", "FlowData", "ComplementarityData", "HamiltonianData"}]
+    KeyDrop[
+        Join[assoc, Sequence @@ (First /@ Select[Values[assoc],
+            MatchQ[#, (mfgBoundaryData|mfgFlowData|mfgComplementarityData|mfgHamiltonianData)[_Association]]&])],
+        {"BoundaryData", "FlowData", "ComplementarityData", "HamiltonianData"}
     ];
 
 (* --- Modular Builders --- *)
@@ -359,7 +353,7 @@ BuildComplementarityData[s_?scenarioQ, topology_Association, unk_?unknownsQ] :=
 
 BuildHamiltonianData[s_?scenarioQ, topology_Association, flowData_mfgFlowData] :=
     Module[{hamiltonian, alphaDefault, edgeAlpha, alphaAtEdge, edgeCost, halfPairs,
-         SignedFlows, edgeList, Nlhs, Nrhs, costpluscurrents, EqGeneral},
+         SignedFlows, Nlhs, Nrhs, costpluscurrents, EqGeneral},
         hamiltonian = ScenarioData[s, "Hamiltonian"];
         If[!AssociationQ[hamiltonian], hamiltonian = <||>];
         alphaDefault = Lookup[hamiltonian, "Alpha", 1];
@@ -375,12 +369,11 @@ BuildHamiltonianData[s_?scenarioQ, topology_Association, flowData_mfgFlowData] :
         
         halfPairs = topology["HalfPairs"];
         SignedFlows = First[flowData]["SignedFlows"];
-        edgeList = EdgeList[topology["Graph"]];
 
         Nlhs = Flatten[u @@ # - u @@ Reverse @ # + SignedFlows[#]& /@ halfPairs];
         Nrhs = Flatten[SignedFlows[#] - Sign[SignedFlows[#]] edgeCost[SignedFlows[#], #]& /@ halfPairs];
-            
-        costpluscurrents = Table[Symbol["cpc" <> ToString[k]], {k, 1, Length @ edgeList}];
+
+        costpluscurrents = Table[Symbol["cpc" <> ToString[k]], {k, 1, EdgeCount[topology["Graph"]]}];
         EqGeneral = And @@ (MapThread[Equal, {Nlhs, costpluscurrents}]);
         costpluscurrents = AssociationThread[costpluscurrents, Nrhs];
 
@@ -443,7 +436,7 @@ makeSystem[s_?scenarioQ] := makeSystem[s, makeUnknowns[s]];
 
 makeSystem[s_?scenarioQ, unk_?unknownsQ] :=
     Module[{model, topology, graph, auxiliaryGraph, auxEdgeList, edgeList,
-         auxVerticesList, auxTriples, boundaryData, flowData, compData, hamData,
+         auxVerticesList, auxTriples, unknownAuxTriples, boundaryData, flowData, compData, hamData,
          finalAssoc},
         
         model = ScenarioData[s, "Model"];
