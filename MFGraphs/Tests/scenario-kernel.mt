@@ -449,3 +449,57 @@ Test[
     ,
     TestID -> "Scenario kernel: non-integer vertices are rejected"
 ]
+
+(* Test: GraphScenario with non-integer vertex labels is rejected *)
+Test[
+    Module[{result},
+        result = GraphScenario[
+            Graph[{"a" -> "b"}],
+            {{"a", 1}},
+            {{"b", 0}}
+        ];
+        FailureQ[result] && result["Tag"] === "ScenarioValidation"
+    ]
+    ,
+    True
+    ,
+    TestID -> "GraphScenario-rejects-non-integer-vertices"
+]
+
+(* Test: malformed switching-cost row {1} (length != 4) must be rejected *)
+Test[
+    FailureQ @ makeScenario[<|
+        "Model" -> <|
+            "Vertices List"                   -> {1, 2},
+            "Adjacency Matrix"                -> {{0, 1}, {0, 0}},
+            "Entrance Vertices and Flows"     -> {{1, 1}},
+            "Exit Vertices and Terminal Costs" -> {{2, 0}},
+            "Switching Costs"                 -> {{1}}
+        |>
+    |>]
+    ,
+    True
+    ,
+    TestID -> "SwitchingCosts-malformed-row-rejected"
+]
+
+(* Test: Association-form switching costs are accepted and stored as Association *)
+Test[
+    Module[{s, sc},
+        s = makeScenario[<|
+            "Model" -> <|
+                "Vertices List"                   -> {1, 2, 3, 4},
+                "Adjacency Matrix"                -> {{0,1,0,0},{0,0,1,1},{0,0,0,0},{0,0,0,0}},
+                "Entrance Vertices and Flows"     -> {{1, 1}},
+                "Exit Vertices and Terminal Costs" -> {{3, 0}, {4, 0}},
+                "Switching Costs"                 -> <|{1,2,3} -> 2, {1,2,4} -> 3|>
+            |>
+        |>];
+        sc = ScenarioData[s, "Model"]["Switching Costs"];
+        scenarioQ[s] && AssociationQ[sc] && sc[{1,2,3}] === 2
+    ]
+    ,
+    True
+    ,
+    TestID -> "SwitchingCosts-association-form-accepted"
+]

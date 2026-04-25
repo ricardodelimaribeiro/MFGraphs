@@ -373,7 +373,7 @@ BuildHamiltonianData[s_?scenarioQ, topology_Association, flowData_mfgFlowData] :
         Nlhs = Flatten[u @@ # - u @@ Reverse @ # + SignedFlows[#]& /@ halfPairs];
         Nrhs = Flatten[SignedFlows[#] - Sign[SignedFlows[#]] edgeCost[SignedFlows[#], #]& /@ halfPairs];
 
-        costpluscurrents = Table[Symbol["cpc" <> ToString[k]], {k, 1, EdgeCount[topology["Graph"]]}];
+        costpluscurrents = Table[Symbol["MFGraphs`Private`cpc" <> ToString[k]], {k, 1, EdgeCount[topology["Graph"]]}];
         EqGeneral = And @@ (MapThread[Equal, {Nlhs, costpluscurrents}]);
         costpluscurrents = AssociationThread[costpluscurrents, Nrhs];
 

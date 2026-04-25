@@ -92,6 +92,8 @@ $DefaultBenchmarkTier    = "core";
 $DefaultBenchmarkTimeout = 300;
 (* Default Hamiltonian:
    alpha = 1 on all edges, V = 0 on all edges, and g(z) = -1/z. *)
+(* Alpha here is the default Hamiltonian exponent — independent of the global alpha[_]
+   congestion function. Overriding alpha[_] in a user session does not affect this default. *)
 $DefaultHamiltonian = <|
     "Alpha" -> 1,
     "V" -> 0,
@@ -165,13 +167,20 @@ SwitchingCostsNumericQ[model_Association] :=
         switching = Lookup[model, "Switching Costs", Missing["KeyAbsent", "Switching Costs"]];
         Which[
             AssociationQ[switching],
+                AllTrue[Keys[switching], ListQ[#] && Length[#] === 3 && AllTrue[#, IntegerQ] &] &&
                 AllTrue[Values[switching], NumericQ],
             ListQ[switching],
-                AllTrue[switching, ListQ] && AllTrue[Last /@ switching, NumericQ],
+                switching === {} ||
+                (AllTrue[switching, ListQ[#] && Length[#] === 4 && AllTrue[Take[#, 3], IntegerQ] &] &&
+                 AllTrue[Last /@ switching, NumericQ]),
             True,
                 False
         ]
     ];
+
+NormalizeSwitchingCosts[sc_Association] := sc;
+NormalizeSwitchingCosts[sc_List] :=
+    If[sc === {}, <||>, AssociationThread[Most /@ sc, Last /@ sc]];
 
 IntegerVertexLabelsQ[model_Association] :=
     Module[{vertices},
@@ -276,7 +285,7 @@ NormalizeHamiltonianSpec[spec_, model_Association] :=
             Join[Normal[edgeAlpha], Normal[edgeV], Normal[edgeG]],
             !(
                 NumericQ[Last[#]] ||
-                (First[#] =!= {} && KeyExistsQ[edgeG, First[#]] && HamiltonianGTermQ[Last[#]])
+                (KeyExistsQ[edgeG, First[#]] && HamiltonianGTermQ[Last[#]])
             ) &
         ];
         If[badValues =!= {},
@@ -369,8 +378,8 @@ BuildAuxiliaryTopology[model_Association] :=
         entryVertices = First /@ entryFlows;
         exitVertices = First /@ exitCosts;
         
-        auxEntryVertices = Symbol["en" <> ToString[#]] & /@ entryVertices;
-        auxExitVertices = Symbol["ex" <> ToString[#]] & /@ exitVertices;
+        auxEntryVertices = Symbol["MFGraphs`Private`auxEntry" <> ToString[#]] & /@ entryVertices;
+        auxExitVertices  = Symbol["MFGraphs`Private`auxExit"  <> ToString[#]] & /@ exitVertices;
         
         entryEdges = MapThread[DirectedEdge, {auxEntryVertices, entryVertices}];
         exitEdges = MapThread[DirectedEdge, {exitVertices, auxExitVertices}];
@@ -451,17 +460,9 @@ validateScenario[x_] :=
 (* --- Complete --- *)
 
 CompleteSwitchingCosts[model_Association, topology_Association] :=
-    Module[{inputSC, scAssoc, triples},
-        inputSC = Lookup[model, "Switching Costs", {}];
-        scAssoc = If[AssociationQ[inputSC],
-            inputSC,
-            AssociationThread[Most /@ inputSC, Last /@ inputSC]
-        ];
-        
-        (* Derive triples for completion *)
+    Module[{scAssoc, triples},
+        scAssoc = Lookup[model, "Switching Costs", <||>];
         triples = Lookup[topology, "AuxTriples", BuildAuxTriples[topology["AuxiliaryGraph"]]];
-        
-        (* Explicitly complement with 0 for all possible transitions in the auxiliary graph *)
         Join[AssociationMap[0&, triples], scAssoc]
     ];
 
@@ -561,6 +562,7 @@ makeScenario[rawAssoc_Association] :=
                     Module
                 ]
             ];
+            model = Join[model, <|"Switching Costs" -> NormalizeSwitchingCosts[model["Switching Costs"]]|>];
             hamiltonian = NormalizeHamiltonianSpec[
                 Lookup[validatedAssoc, "Hamiltonian", <||>],
                 model
