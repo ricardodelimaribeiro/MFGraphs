@@ -177,3 +177,40 @@ Test[
     True,
     TestID -> "makeSystem: canonical auxTriples from scenario are propagated downstream"
 ]
+
+Test[
+    Module[{data, s, unk, sys, entryEq, entryRules, exitValueRules, entryOutRules, exitInRules,
+            B, KM, vars},
+        data = <|
+            "Vertices List" -> {1, 2, 3},
+            "Adjacency Matrix" -> {
+                {0, 1, 0},
+                {1, 0, 1},
+                {0, 1, 0}
+            },
+            "Entrance Vertices and Flows" -> {{1, 10}},
+            "Exit Vertices and Terminal Costs" -> {{3, 0}},
+            "Switching Costs" -> {}
+        |>;
+        s = makeScenario[<|"Model" -> data|>];
+        unk = makeUnknowns[s];
+        sys = makeSystem[s, unk];
+        entryEq = SystemData[sys, "EqEntryIn"];
+        entryRules = SystemData[sys, "RuleEntryIn"];
+        exitValueRules = SystemData[sys, "RuleExitValues"];
+        entryOutRules = SystemData[sys, "RuleEntryOut"];
+        exitInRules = SystemData[sys, "RuleExitFlowsIn"];
+        {B, KM, vars} = GetKirchhoffLinearSystem[sys];
+        mfgSystemQ[sys] &&
+        MemberQ[entryEq, j["auxEntry1", 1] == 10] &&
+        KeyExistsQ[entryRules, j["auxEntry1", 1]] &&
+        entryRules[j["auxEntry1", 1]] === 10 &&
+        KeyExistsQ[exitValueRules, u[3, "auxExit3"]] &&
+        !KeyExistsQ[exitValueRules, u["auxExit3", 3]] &&
+        AssociationQ[entryOutRules] && entryOutRules === <||> &&
+        AssociationQ[exitInRules] && exitInRules === <||> &&
+        !MemberQ[vars, j["auxEntry1", 1]]
+    ],
+    True,
+    TestID -> "makeSystem: boundary conditions include RuleEntryIn and Kirchhoff eliminates entry boundary variables"
+]

@@ -203,7 +203,7 @@ SystemDataFlatten[mfgSystem[assoc_Association]] :=
 BuildBoundaryData[s_?scenarioQ, topology_Association] :=
     Module[{model, entryVerticesFlows, exitVerticesCosts, inAuxEntryPairs,
          outAuxExitPairs, EntryDataAssociation,
-         ExitCosts, EqEntryIn, RuleEntryOut, RuleExitFlowsIn, RuleExitValues,
+         ExitCosts, EqEntryIn, RuleEntryIn, RuleEntryOut, RuleExitFlowsIn, RuleExitValues,
          auxExitVertices},
         model = ScenarioData[s, "Model"];
         entryVerticesFlows = model["Entrance Vertices and Flows"];
@@ -217,6 +217,7 @@ BuildBoundaryData[s_?scenarioQ, topology_Association] :=
         ExitCosts = AssociationThread[auxExitVertices, Last /@ exitVerticesCosts];
         
         EqEntryIn = (j @@ # == EntryDataAssociation[#])& /@ inAuxEntryPairs;
+        RuleEntryIn = AssociationThread[j @@@ inAuxEntryPairs, Last /@ entryVerticesFlows];
         RuleEntryOut = <||>;
         RuleExitFlowsIn = <||>;
         
@@ -226,6 +227,7 @@ BuildBoundaryData[s_?scenarioQ, topology_Association] :=
             "EntryDataAssociation" -> EntryDataAssociation,
             "ExitCosts" -> ExitCosts,
             "EqEntryIn" -> EqEntryIn,
+            "RuleEntryIn" -> RuleEntryIn,
             "RuleEntryOut" -> RuleEntryOut,
             "RuleExitFlowsIn" -> RuleExitFlowsIn,
             "RuleExitValues" -> RuleExitValues
@@ -404,10 +406,11 @@ BuildHamiltonianData[s_?scenarioQ, topology_Association, flowData_mfgFlowData] :
 
 GetKirchhoffLinearSystem[sys_] :=
     Module[{Kirchhoff, EqEntryIn, BalanceGatheringFlows, BalanceSplittingFlows,
-         RuleExitFlowsIn, RuleEntryOut, BM, KM, vars},
+         RuleEntryIn, RuleExitFlowsIn, RuleEntryOut, BM, KM, vars},
         EqEntryIn = SystemData[sys, "EqEntryIn"];
         BalanceGatheringFlows = SystemData[sys, "BalanceGatheringFlows"];
         BalanceSplittingFlows = SystemData[sys, "BalanceSplittingFlows"];
+        RuleEntryIn = SystemData[sys, "RuleEntryIn"];
         RuleExitFlowsIn = SystemData[sys, "RuleExitFlowsIn"];
         RuleEntryOut = SystemData[sys, "RuleEntryOut"];
 
@@ -415,6 +418,7 @@ GetKirchhoffLinearSystem[sys_] :=
         If[MissingQ[EqEntryIn], EqEntryIn = True];
         If[MissingQ[BalanceGatheringFlows], BalanceGatheringFlows = {}];
         If[MissingQ[BalanceSplittingFlows], BalanceSplittingFlows = {}];
+        If[MissingQ[RuleEntryIn], RuleEntryIn = <||>];
         If[MissingQ[RuleExitFlowsIn], RuleExitFlowsIn = <||>];
         If[MissingQ[RuleEntryOut], RuleEntryOut = <||>];
 
@@ -422,7 +426,9 @@ GetKirchhoffLinearSystem[sys_] :=
             If[Head[EqEntryIn] === List, EqEntryIn, {EqEntryIn}],
             (# == 0& /@ (BalanceGatheringFlows + BalanceSplittingFlows))
         ];
-        Kirchhoff = Kirchhoff /. Join[Normal[RuleExitFlowsIn], Normal[RuleEntryOut]];
+        Kirchhoff = Kirchhoff /. Join[Normal[RuleEntryIn], Normal[RuleExitFlowsIn], Normal[RuleEntryOut]];
+        Kirchhoff = DeleteCases[Kirchhoff, True];
+        Kirchhoff = Replace[Kirchhoff, False -> (0 == 1), {1}];
             
         vars = Select[Variables[Kirchhoff /. Equal -> List], MatchQ[#, j[_, _, _] | j[_, _]]&];
         If[Length[vars] === 0,
