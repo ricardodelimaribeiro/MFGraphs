@@ -247,13 +247,17 @@ BuildFlowData[s_?scenarioQ, topology_Association, unk_?unknownsQ] :=
     Module[{inAuxEntryPairs, outAuxExitPairs, halfPairs, js, jts, pairs, auxTriples,
          SignedFlows, IneqJs, IneqJts, splittingPairs, BalanceSplittingFlows,
          EqBalanceSplittingFlows, NoDeadStarts, RuleBalanceGatheringFlows,
-         BalanceGatheringFlows, EqBalanceGatheringFlows},
+         BalanceGatheringFlows, EqBalanceGatheringFlows,
+         splittingMaps, gatheringMaps},
         inAuxEntryPairs = topology["InAuxEntryPairs"];
         outAuxExitPairs = topology["OutAuxExitPairs"];
         halfPairs = topology["HalfPairs"];
         pairs = topology["Pairs"];
         auxTriples = topology["AuxTriples"];
         
+        splittingMaps = GroupBy[auxTriples, #[[{1, 2}]] &];
+        gatheringMaps = GroupBy[auxTriples, #[[{2, 3}]] &];
+
         js = UnknownsData[unk, "js"];
         jts = UnknownsData[unk, "jts"];
 
@@ -264,17 +268,16 @@ BuildFlowData[s_?scenarioQ, topology_Association, unk_?unknownsQ] :=
         IneqJts = And @@ (# >= 0& /@ jts);
         
         splittingPairs = Join[inAuxEntryPairs, topology["InAuxExitPairs"], pairs];
-        BalanceSplittingFlows = (j @@ # - Total[j @@@ FlowSplitting[auxTriples
-            ][#]])& /@ splittingPairs;
+        BalanceSplittingFlows = (j @@ # - Total[j @@@ Lookup[splittingMaps, Key[#], {}]])& /@ splittingPairs;
         EqBalanceSplittingFlows = Simplify /@ (And @@ ((# == 0)& /@ BalanceSplittingFlows
             ));
             
         NoDeadStarts = Join[topology["OutAuxEntryPairs"], outAuxExitPairs, pairs];
         RuleBalanceGatheringFlows = Association[(j @@ # -> Total[j @@@
-             FlowGathering[auxTriples][#]])& /@ NoDeadStarts];
+             Lookup[gatheringMaps, Key[#], {}]])& /@ NoDeadStarts];
              
-        BalanceGatheringFlows = ((-j @@ # + Total[j @@@ FlowGathering[
-            auxTriples][#]])& /@ NoDeadStarts);
+        BalanceGatheringFlows = ((-j @@ # + Total[j @@@ Lookup[gatheringMaps, 
+            Key[#], {}]])& /@ NoDeadStarts);
         EqBalanceGatheringFlows = Simplify /@ (And @@ (# == 0& /@ BalanceGatheringFlows
             ));
 
