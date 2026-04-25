@@ -13,7 +13,8 @@ AltFlowOp[j][list] returns the alternative: j@@list ==0 || j@@Reverse@list ==0.
 ## AltSwitch
 
 AltSwitch[j, u, switchingCosts][v, e1, e2] returns the complementarity condition:
-(j[v, e1, e2] == 0) || (u[v, e1] == u[e2, e1] + switchingCosts[{v, e1, e2}])
+(j[v, e1, e2] == 0) || (u[e1, v] == u[e2, v] + switchingCosts[{v, e1, e2}])
+Note that u[r, i] represents the value-function at vertex i on the edge e_{r,i}; thus u[e1, v] and u[e2, v] are both evaluated at vertex v.
 
 ## AMScenario
 
@@ -86,7 +87,8 @@ GridScenario[dims, entries, exits] creates a scenario on a directed GridGraph[di
 ## IneqSwitch
 
 IneqSwitch[u, switchingCosts][v, e1, e2] returns the optimality condition at the vertex v related to switching from e1 to e2. Namely,
-u[v, e1] <= u[v, e2] + switchingCosts[{v, e1, e2}]
+u[e1, v] <= u[e2, v] + switchingCosts[{v, e1, e2}]
+Note that u[r, i] represents the value-function at vertex i on the edge e_{r,i}; thus u[e1, v] and u[e2, v] are both evaluated at vertex v.
 
 ## IsSwitchingCostConsistent
 
@@ -189,7 +191,7 @@ SystemDataFlatten[sys] returns a single flat Association containing all keys fro
 
 ## u
 
-u[v, e] represents a utility/potential variable.
+u[v, e] represents a utility/potential variable. u[r, i] represents the value of the value-function at vertex v_i on the edge e_{r,i}.
 
 ## unknowns
 

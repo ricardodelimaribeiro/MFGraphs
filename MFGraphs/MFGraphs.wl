@@ -36,7 +36,7 @@ alpha::usage = "alpha[edge] is the congestion exponent for an edge. Default is 1
 Cost::usage = "Cost[m, edge] is the congestion cost function.";
 
 j::usage = "j[v, e] or j[v, e1, e2] represents a flow variable.";
-u::usage = "u[v, e] represents a utility/potential variable.";
+u::usage = "u[v, e] represents a utility/potential variable. u[r, i] represents the value of the value-function at vertex v_i on the edge e_{r,i}.";
 z::usage = "z[v] represents a vertex potential variable.";
 
 (* Verbose flag: set to False to suppress progress messages *)
