@@ -104,6 +104,31 @@ RoundValues[x_List] :=
 RoundValues[x_Association] :=
     RoundValues /@ x
 
+iExactBoundaryValue[val_] /; ExactNumberQ[val] := val;
+
+iExactBoundaryValue[val_?NumericQ] :=
+    Module[{nval = N[val]},
+        If[TrueQ[Im[nval] == 0],
+            Rationalize[val, 0],
+            Failure["BuildBoundaryData", <|
+                "Message" -> "Boundary values must be real numeric values.",
+                "Value" -> val
+            |>]
+        ]
+    ];
+
+iExactBoundaryValue[val_] :=
+    Failure["BuildBoundaryData", <|
+        "Message" -> "Boundary values must be numeric values.",
+        "Value" -> val
+    |>];
+
+iExactBoundaryValues[vals_List] :=
+    Module[{exactVals = iExactBoundaryValue /@ vals, firstFailure},
+        firstFailure = FirstCase[exactVals, _Failure, Missing["NotFound"]];
+        If[FailureQ[firstFailure], firstFailure, exactVals]
+    ];
+
 ConsistentSwitchingCosts[sc_Association][trip:{a_, b_, c_}] :=
     Module[{S = sc[trip], originTriples, conds},
         originTriples = DeleteCases[
@@ -204,7 +229,7 @@ BuildBoundaryData[s_?scenarioQ, topology_Association] :=
     Module[{model, entryVerticesFlows, exitVerticesCosts, inAuxEntryPairs,
          outAuxExitPairs, EntryDataAssociation,
          ExitCosts, EqEntryIn, RuleEntryIn, RuleEntryOut, RuleExitFlowsIn, RuleExitValues,
-         auxExitVertices},
+         auxExitVertices, eqExitJunctions, entryValues, exitValues},
         model = ScenarioData[s, "Model"];
         entryVerticesFlows = model["Entrance Vertices and Flows"];
         exitVerticesCosts = model["Exit Vertices and Terminal Costs"];
@@ -212,17 +237,36 @@ BuildBoundaryData[s_?scenarioQ, topology_Association] :=
         outAuxExitPairs = topology["OutAuxExitPairs"];
         auxExitVertices = topology["AuxExitVertices"];
 
-        EntryDataAssociation = RoundValues @ AssociationThread[inAuxEntryPairs,
-             Last /@ entryVerticesFlows];
-        ExitCosts = AssociationThread[auxExitVertices, Last /@ exitVerticesCosts];
+        entryValues = iExactBoundaryValues[Last /@ entryVerticesFlows];
+        If[FailureQ[entryValues], Return[entryValues, Module]];
+        exitValues = iExactBoundaryValues[Last /@ exitVerticesCosts];
+        If[FailureQ[exitValues], Return[exitValues, Module]];
+
+        EntryDataAssociation = AssociationThread[inAuxEntryPairs, entryValues];
+        ExitCosts = AssociationThread[auxExitVertices, exitValues];
         
         EqEntryIn = (j @@ # == EntryDataAssociation[#])& /@ inAuxEntryPairs;
-        RuleEntryIn = AssociationThread[j @@@ inAuxEntryPairs, Last /@ entryVerticesFlows];
+        RuleEntryIn = AssociationThread[j @@@ inAuxEntryPairs, entryValues];
         RuleEntryOut = <||>;
         RuleExitFlowsIn = <||>;
         
-        RuleExitValues = AssociationThread[u @@@ outAuxExitPairs,
-             Last /@ exitVerticesCosts];
+        RuleExitValues = AssociationThread[u @@@ outAuxExitPairs, exitValues];
+
+        With[{exitVertices = First /@ exitVerticesCosts},
+            eqExitJunctions = And @@ Flatten[
+                Table[
+                    With[{exitV = pair[[1]], auxExitV = pair[[2]]},
+                        (u[#, exitV] == u[exitV, auxExitV]) & /@
+                            Select[
+                                Cases[topology["Pairs"], {_, exitV}][[All, 1]],
+                                !MemberQ[exitVertices, #] &
+                            ]
+                    ],
+                    {pair, outAuxExitPairs}
+                ]
+            ]
+        ];
+
         mfgBoundaryData @ <|
             "EntryDataAssociation" -> EntryDataAssociation,
             "ExitCosts" -> ExitCosts,
@@ -230,7 +274,8 @@ BuildBoundaryData[s_?scenarioQ, topology_Association] :=
             "RuleEntryIn" -> RuleEntryIn,
             "RuleEntryOut" -> RuleEntryOut,
             "RuleExitFlowsIn" -> RuleExitFlowsIn,
-            "RuleExitValues" -> RuleExitValues
+            "RuleExitValues" -> RuleExitValues,
+            "EqExitJunctions" -> eqExitJunctions
         |>
     ];
 
@@ -495,6 +540,15 @@ makeSystem[s_?scenarioQ, unk_?unknownsQ] :=
 
         (* Orchestrate Builders *)
         boundaryData = BuildBoundaryData[s, topology];
+        If[FailureQ[boundaryData],
+            Return[
+                Failure["makeSystem", <|
+                    "Message" -> Lookup[boundaryData[[2]], "Message", "Failed to build boundary data."],
+                    "Cause" -> boundaryData
+                |>],
+                Module
+            ]
+        ];
         flowData = BuildFlowData[s, topology, unk];
         compData = BuildComplementarityData[s, topology, unk];
         hamData = BuildHamiltonianData[s, topology, flowData];

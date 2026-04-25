@@ -38,3 +38,26 @@ Test[
     True,
     TestID -> "ReduceSystem: chain 2-exits yields non-False solution"
 ]
+
+Test[
+    Module[{s, sys, entryVals, exitVals},
+        s = GridScenario[{3}, {{1, 120.0}}, {{2, 0.0}, {3, 10.0}}];
+        sys = makeSystem[s];
+        entryVals = Values @ Normal @ SystemData[sys, "RuleEntryIn"];
+        exitVals = Values @ Normal @ SystemData[sys, "RuleExitValues"];
+        FreeQ[Join[entryVals, exitVals], _Real]
+    ],
+    True,
+    TestID -> "ReduceSystem: boundary rules are exactified (no Real coefficients)"
+]
+
+Test[
+    Module[{s, sys, result},
+        s = GridScenario[{3}, {{1, 10.5}}, {{3, 0.25}}];
+        sys = makeSystem[s];
+        result = ReduceSystem[sys];
+        result =!= False
+    ],
+    True,
+    TestID -> "ReduceSystem: non-integer decimal boundaries solve after exactification"
+]
