@@ -30,8 +30,10 @@ wolframscript -version
 ## Current package load behavior
 
 `Needs["MFGraphs`"]` loads the current core stack:
-- Preloaded: `MFGraphs/Scenario.wl`, `MFGraphs/Examples/ExampleScenarios.wl`
-- Submodules: `MFGraphs/Unknowns.wl`, `MFGraphs/System.wl`
+- Preloaded via `Get` before `BeginPackage`: `MFGraphs/Scenario.wl`, `MFGraphs/Examples/ExampleScenarios.wl` (each establishes `MFGraphs`` independently)
+- Loaded via `Scan[Get, ...]` inside `Private` after `BeginPackage`: `MFGraphs/Unknowns.wl`, `MFGraphs/System.wl`
+
+The two-phase load is intentional: `Scenario.wl` and `ExampleScenarios.wl` must be available before `BeginPackage` because submodules depend on their exports.
 
 Archived/inactive modules include:
 - `MFGraphs/Examples/archive/ExamplesData.wl`
@@ -55,6 +57,13 @@ Archived/inactive modules include:
 - **System Records**: `mfgBoundaryData`, `mfgFlowData`, `mfgComplementarityData`, `mfgHamiltonianData`
 - **Linear Helpers**: `GetKirchhoffLinearSystem`, `GetKirchhoffMatrix`
 
+### Shared topology helpers (from `Scenario.wl`)
+- `BuildAuxiliaryTopology`, `DeriveAuxPairs`, `BuildAuxTriples`
+
+### Runtime flags
+- `$MFGraphsVerbose` — set `True` to enable progress/timing prints (default `False`)
+- `$MFGraphsParallelThreshold` — minimum list length for `ParallelMap`/`ParallelTable` (default `6`; set `Infinity` to disable)
+
 ### Core symbolic primitives
 - `j`, `u`, `z`, `alpha`, `Cost`
 
@@ -64,6 +73,12 @@ The following are currently not loaded from `MFGraphs.wl`:
 - `ScenarioByKey`, `GetExampleData`
 - `DataToEquations`, `CriticalCongestionSolver`, `SolveMFG`
 - legacy/extended solver modules and solver benchmarking workflows
+- solver-phase backend helpers (archived in `MFGraphs/archive/SolverBackendHelpers.wl`)
+
+**V, G, EdgeV, EdgeG Hamiltonian parameters** are validated and stored in the scenario
+schema but are **not applied** in `BuildHamiltonianData` — only `Alpha`/`EdgeAlpha` are
+used in system construction. Implementing V and G requires extending the HJ-equation
+builder. Treat these fields as schema-only for now.
 
 If solver work resumes, restore the module loading and docs in a dedicated pass.
 
@@ -109,6 +124,12 @@ Run tests from repository root:
 wolframscript -file Scripts/RunTests.wls fast
 wolframscript -file MFGraphs/Tests/scenario-kernel.mt
 wolframscript -file MFGraphs/Tests/make-unknowns.mt
+```
+
+Run a single `.mt` file (note: `Scripts/RunSingleTest.wls` has a hardcoded `$RepoRoot` — update it if your repo is not at `/Users/ribeirrd/Documents/GitHub/MFGraphs`):
+
+```bash
+wolframscript -file Scripts/RunSingleTest.wls MFGraphs/Tests/scenario-kernel.mt
 ```
 
 ## Documentation maintenance policy
