@@ -263,6 +263,47 @@ Test[
     TestID -> "Scenario kernel: sparse adjacency is accepted and topology is present"
 ]
 
+(* Test: topology auxiliary vertices are string labels *)
+Test[
+    Module[{model, s, topology, auxEntry, auxExit, auxEntryEdges, auxExitEdges},
+        model = <|
+            "Vertices List" -> {1, 2, 3},
+            "Adjacency Matrix" -> {{0, 1, 0}, {1, 0, 1}, {0, 1, 0}},
+            "Entrance Vertices and Flows" -> {{1, 10}},
+            "Exit Vertices and Terminal Costs" -> {{3, 0}},
+            "Switching Costs" -> <||>
+        |>;
+        s = makeScenario[<|"Model" -> model|>];
+        topology = ScenarioData[s, "Topology"];
+        auxEntry = topology["AuxEntryVertices"];
+        auxExit = topology["AuxExitVertices"];
+        auxEntryEdges = topology["AuxEntryEdges"];
+        auxExitEdges = topology["AuxExitEdges"];
+        scenarioQ[s] &&
+        AllTrue[auxEntry, StringQ] &&
+        AllTrue[auxExit, StringQ] &&
+        MatchQ[First[auxEntryEdges], DirectedEdge[_String, _Integer]] &&
+        MatchQ[First[auxExitEdges], DirectedEdge[_Integer, _String]] &&
+        topology["AuxPairs"] === {
+            {"auxEntry1", 1},
+            {3, "auxExit3"},
+            {1, 2},
+            {2, 3},
+            {2, 1},
+            {3, 2}
+        } &&
+        AllTrue[
+            topology["AuxTriples"],
+            !(StringQ[First[#]] && StringStartsQ[First[#], "auxExit"]) &&
+            !(StringQ[Last[#]] && StringStartsQ[Last[#], "auxEntry"]) &
+        ]
+    ]
+    ,
+    True
+    ,
+    TestID -> "Scenario kernel: auxiliary vertices are strings and aux triples respect boundary direction"
+]
+
 (* Test: user-provided sparse adjacency is preserved when Graph is also present *)
 Test[
     Module[{g, model, s, normalizedModel},
@@ -502,4 +543,32 @@ Test[
     True
     ,
     TestID -> "SwitchingCosts-association-form-accepted"
+]
+
+(* Test: non-symmetric AM produces the same topology as its symmetrized counterpart *)
+Test[
+    Module[{am, entries, exits, s1, s2},
+        am      = {{0,1,0},{0,0,1},{0,0,0}};
+        entries = {{1, 10}};
+        exits   = {{3, 0}};
+        s1 = makeScenario[<|"Model" -> <|
+            "Vertices List"                    -> {1,2,3},
+            "Adjacency Matrix"                 -> am,
+            "Entrance Vertices and Flows"      -> entries,
+            "Exit Vertices and Terminal Costs" -> exits,
+            "Switching Costs"                  -> {}
+        |>|>];
+        s2 = makeScenario[<|"Model" -> <|
+            "Vertices List"                    -> {1,2,3},
+            "Adjacency Matrix"                 -> am + Transpose[am],
+            "Entrance Vertices and Flows"      -> entries,
+            "Exit Vertices and Terminal Costs" -> exits,
+            "Switching Costs"                  -> {}
+        |>|>];
+        ScenarioData[s1, "Topology"] === ScenarioData[s2, "Topology"]
+    ]
+    ,
+    True
+    ,
+    TestID -> "directed-am-symmetrized-topology"
 ]

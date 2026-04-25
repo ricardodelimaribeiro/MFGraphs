@@ -142,6 +142,7 @@ NormalizeScenarioModel[model_Association] :=
         If[!KeyExistsQ[normalized, "Adjacency Matrix"],
             normalized = Join[normalized, <|"Adjacency Matrix" -> adjacency|>]
         ];
+        normalized = Join[normalized, <|"Graph" -> AdjacencyGraph[vertices, Unitize[adjacency + Transpose[adjacency]], DirectedEdges -> False]|>];
         normalized
     ];
 
@@ -311,11 +312,14 @@ NormalizeHamiltonianSpec[spec_, model_Association] :=
 (* --- Topology Helpers --- *)
 
 iBuildAuxTriples[directedEdges_List] :=
-    Module[{incomingByVertex, outgoingByVertex, middleVertices},
+    Module[{incomingByVertex, outgoingByVertex, middleVertices, triples,
+            auxEntryVertexQ, auxExitVertexQ},
+        auxEntryVertexQ[v_] := StringQ[v] && StringStartsQ[v, "auxEntry"];
+        auxExitVertexQ[v_] := StringQ[v] && StringStartsQ[v, "auxExit"];
         incomingByVertex = GroupBy[directedEdges, Last -> First];
         outgoingByVertex = GroupBy[directedEdges, First -> Last];
         middleVertices = Intersection[Keys[incomingByVertex], Keys[outgoingByVertex]];
-        DeleteDuplicates @ Flatten[
+        triples = DeleteDuplicates @ Flatten[
             Table[
                 If[vIn =!= vOut, {vIn, vMid, vOut}, Nothing],
                 {vMid, middleVertices},
@@ -323,7 +327,8 @@ iBuildAuxTriples[directedEdges_List] :=
                 {vOut, Lookup[outgoingByVertex, vMid, {}]}
             ],
             2
-        ]
+        ];
+        Select[triples, !(auxExitVertexQ[First[#]] || auxEntryVertexQ[Last[#]]) &]
     ];
 
 BuildAuxTriples[auxGraph_Graph] :=
@@ -334,16 +339,13 @@ BuildAuxTriples[auxGraph_Graph] :=
 
 DeriveAuxPairs[topology_Association] :=
     Lookup[topology, "AuxPairs",
-        Module[{graph, halfPairs, inAuxEntryPairs, outAuxExitPairs, inAuxExitPairs,
-                outAuxEntryPairs, pairs},
+        Module[{graph, halfPairs, inAuxEntryPairs, outAuxExitPairs, pairs},
             graph = topology["Graph"];
             halfPairs = List @@@ EdgeList[graph];
             inAuxEntryPairs = List @@@ topology["AuxEntryEdges"];
             outAuxExitPairs = List @@@ topology["AuxExitEdges"];
-            inAuxExitPairs = Reverse /@ outAuxExitPairs;
-            outAuxEntryPairs = Reverse /@ inAuxEntryPairs;
             pairs = Join[halfPairs, Reverse /@ halfPairs];
-            Join[inAuxEntryPairs, outAuxEntryPairs, inAuxExitPairs, outAuxExitPairs, pairs]
+            Join[inAuxEntryPairs, outAuxExitPairs, pairs]
         ]
     ];
 
@@ -351,8 +353,7 @@ BuildAuxiliaryTopology[model_Association] :=
     Module[{vertices, adjacency, adjacencyForGraph, entryFlows, exitCosts, graph, 
             entryVertices, exitVertices, auxEntryVertices, auxExitVertices,
             entryEdges, exitEdges, auxiliaryGraph, auxTriples,
-            halfPairs, inAuxEntryPairs, outAuxExitPairs, inAuxExitPairs,
-            outAuxEntryPairs, pairs, auxPairs},
+            halfPairs, inAuxEntryPairs, outAuxExitPairs, pairs, auxPairs},
         
         vertices = Lookup[model, "Vertices List"];
         adjacency = Lookup[model, "Adjacency Matrix"];
@@ -378,8 +379,8 @@ BuildAuxiliaryTopology[model_Association] :=
         entryVertices = First /@ entryFlows;
         exitVertices = First /@ exitCosts;
         
-        auxEntryVertices = Symbol["MFGraphs`Private`auxEntry" <> ToString[#]] & /@ entryVertices;
-        auxExitVertices  = Symbol["MFGraphs`Private`auxExit"  <> ToString[#]] & /@ exitVertices;
+        auxEntryVertices = ("auxEntry" <> ToString[#]) & /@ entryVertices;
+        auxExitVertices  = ("auxExit" <> ToString[#]) & /@ exitVertices;
         
         entryEdges = MapThread[DirectedEdge, {auxEntryVertices, entryVertices}];
         exitEdges = MapThread[DirectedEdge, {exitVertices, auxExitVertices}];
@@ -387,11 +388,9 @@ BuildAuxiliaryTopology[model_Association] :=
         halfPairs = List @@@ EdgeList[graph];
         inAuxEntryPairs = List @@@ entryEdges;
         outAuxExitPairs = List @@@ exitEdges;
-        inAuxExitPairs = Reverse[outAuxExitPairs, {2}];
-        outAuxEntryPairs = Reverse[inAuxEntryPairs, {2}];
         pairs = Join[halfPairs, Reverse[halfPairs, {2}]];
         
-        auxPairs = Join[inAuxEntryPairs, outAuxEntryPairs, inAuxExitPairs, outAuxExitPairs, pairs];
+        auxPairs = Join[inAuxEntryPairs, outAuxExitPairs, pairs];
         
         auxiliaryGraph = EdgeAdd[graph, Join[entryEdges, exitEdges]];
         auxTriples = iBuildAuxTriples[auxPairs];
@@ -407,8 +406,8 @@ BuildAuxiliaryTopology[model_Association] :=
             "HalfPairs" -> halfPairs,
             "InAuxEntryPairs" -> inAuxEntryPairs,
             "OutAuxExitPairs" -> outAuxExitPairs,
-            "InAuxExitPairs" -> inAuxExitPairs,
-            "OutAuxEntryPairs" -> outAuxEntryPairs,
+            (* "InAuxExitPairs" -> inAuxExitPairs, *)
+            (* "OutAuxEntryPairs" -> outAuxEntryPairs, *)
             "Pairs" -> pairs,
             "AuxPairs" -> auxPairs
         |>

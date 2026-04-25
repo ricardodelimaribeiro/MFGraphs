@@ -33,11 +33,51 @@ wolframscript -version
 - Preloaded via `Get` before `BeginPackage`: `MFGraphs/Scenario.wl`, `MFGraphs/Examples/ExampleScenarios.wl` (each establishes `MFGraphs`` independently)
 - Loaded via `Scan[Get, ...]` inside `Private` after `BeginPackage`: `MFGraphs/Unknowns.wl`, `MFGraphs/System.wl`
 
-The two-phase load is intentional: `Scenario.wl` and `ExampleScenarios.wl` must be available before `BeginPackage` because submodules depend on their exports.
+The two-phase load is intentional: `ExampleScenarios.wl` calls `makeScenario` during factory construction, so `Scenario.wl` must be fully evaluated before `MFGraphs.wl`'s own `BeginPackage` runs. Moving either Phase 1 module into Phase 2 (or vice versa) breaks cross-module symbol resolution.
 
 Archived/inactive modules include:
 - `MFGraphs/Examples/archive/ExamplesData.wl`
 - `MFGraphs/archive/DataToEquations.wl`
+
+## Core architecture
+
+### Composition pipeline
+
+Every workflow follows the same three-step chain:
+
+```
+makeScenario[input]  →  makeUnknowns[s]  →  makeSystem[s, unk]
+```
+
+- **`makeScenario`** normalizes input (Graph objects → adjacency matrix), validates, fills defaults, then builds and caches `BuildAuxiliaryTopology` output inside the returned `scenario[<|...|>]` wrapper.
+- **`makeUnknowns`** reads the cached topology and generates symbolic variable families (`j`, `u`, `z`).
+- **`makeSystem`** orchestrates four typed builders — `BuildBoundaryData`, `BuildFlowData`, `BuildComplementarityData`, `BuildHamiltonianData` — each returning its own typed record (`mfgBoundaryData`, etc.), merged into the final `mfgSystem`.
+
+### Typed wrapper pattern
+
+All kernel objects follow one pattern: `TypeHead[Association]` with a predicate and accessor:
+
+| Head | Predicate | Accessor |
+|---|---|---|
+| `scenario` | `scenarioQ` | `ScenarioData[s]` / `ScenarioData[s, key]` |
+| `unknowns` | `unknownsQ` | `UnknownsData[u]` / `UnknownsData[u, key]` |
+| `mfgSystem` | `mfgSystemQ` | `SystemData[sys]` / `SystemData[sys, key]` |
+
+`TypeData[obj, key]` returns `Missing["KeyAbsent", key]` for absent keys. Sub-records (`mfgBoundaryData` etc.) follow the same accessor convention.
+
+### Topology construction and caching
+
+`BuildAuxiliaryTopology` creates synthetic auxiliary vertices as string labels (`"auxEntry1"`, `"auxEntry2"`, …) for network boundary points and computes all valid three-vertex transitions (triples `{vIn, vMid, vOut}`) for flow variable generation. Building topology is expensive — it is computed once inside `makeScenario` and cached in `ScenarioData[s, "Topology"]`. Always pass the full scenario object to downstream constructors rather than rebuilding.
+
+The graph is always undirected. A non-symmetric AM is symmetrized (`Unitize[AM + Transpose[AM]]`) before topology construction, so `makeScenario` with AM or `AM + Transpose[AM]` produces identical topologies. Edge directionality is imposed exclusively via switching costs = `Infinity` on the blocked triples.
+
+### Switching costs
+
+Switching costs may be supplied as a List of 4-tuples or an Association with 3-tuple keys. `completeScenario` normalizes all representations and fills every missing triple with cost `0`. A triangle-inequality check runs at validation time; violations emit a message but do **not** abort scenario construction.
+
+### Examples registry
+
+`GetExampleScenario[key]` returns a 6-argument `Function[{entries, exits, sc, alpha, V, g}, ...]`. Integer keys 1–23 plus named strings ("Braess split", "Jamaratv9", etc.) are registered in `$ExampleScenarios`. Call with 3 arguments to use canonical defaults: `GetExampleScenario[key, entries, exits]`.
 
 ## Active public API (current phase)
 
@@ -118,19 +158,24 @@ Active suite (`Scripts/RunTests.wls`):
 - `fast`: `scenario-kernel.mt`, `make-unknowns.mt`
 - `slow`, `legacy-fast`, `legacy-slow`: empty in current phase
 
-Run tests from repository root:
+Run tests from repository root using the current runner workflow:
 
 ```bash
 wolframscript -file Scripts/RunTests.wls fast
-wolframscript -file MFGraphs/Tests/scenario-kernel.mt
-wolframscript -file MFGraphs/Tests/make-unknowns.mt
 ```
 
-Run a single `.mt` file (note: `Scripts/RunSingleTest.wls` has a hardcoded `$RepoRoot` — update it if your repo is not at `/Users/ribeirrd/Documents/GitHub/MFGraphs`):
+`all` currently resolves to the same core-phase set (no active slow suites):
 
 ```bash
-wolframscript -file Scripts/RunSingleTest.wls MFGraphs/Tests/scenario-kernel.mt
+wolframscript -file Scripts/RunTests.wls all
 ```
+
+Solver-oriented suites are intentionally excluded in this phase while solver
+modules remain out of scope.
+
+## Development notebook
+
+`MFGraphs/Getting started.wl` is an interactive notebook script — not intended to be run end-to-end with `wolframscript`. It includes force-reload logic for safe iteration and demonstrates the full Scenario → Unknowns → System pipeline with formatted output. Use it as a sandbox; run it cell-by-cell in the Mathematica front end.
 
 ## Documentation maintenance policy
 
