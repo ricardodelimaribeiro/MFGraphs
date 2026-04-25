@@ -97,6 +97,9 @@ Switching costs may be supplied as a List of 4-tuples or an Association with 3-t
 - **System Records**: `mfgBoundaryData`, `mfgFlowData`, `mfgComplementarityData`, `mfgHamiltonianData`
 - **Linear Helpers**: `GetKirchhoffLinearSystem`, `GetKirchhoffMatrix`
 
+### Solver (from `Solver.wl`)
+- `ReduceSystem` — naive `Reduce`-based solver (no switching costs)
+
 ### Shared topology helpers (from `Scenario.wl`)
 - `BuildAuxiliaryTopology`, `DeriveAuxPairs`, `BuildAuxTriples`
 
