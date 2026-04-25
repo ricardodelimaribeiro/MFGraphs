@@ -5,8 +5,8 @@
      GridScenario[{n}, entries, exits]          chain, vertices 1..n
      GridScenario[{r,c}, entries, exits]        grid, vertices 1..r*c row-major
      CycleScenario[n, entries, exits]           directed n-cycle 1->2->...->n->1
-     GraphScenario[graph, entries, exits]       any WL directed Graph object
-     AMScenario[vl, am, entries, exits]         explicit vertices list + adjacency matrix
+     GraphScenario[graph, entries, exits]       any WL directed Graph object; integer vertex labels required
+     AMScenario[vl, am, entries, exits]         explicit vertices list + adjacency matrix; integer vertex labels required
 
    Named examples (benchmark registry):
      GetExampleScenario[7, {{1,80}}, {{3,0},{4,10}}]      canonical SC for case 7
@@ -17,6 +17,38 @@
    Numeric benchmark defaults are in Scripts/BenchmarkHelpers.wls. *)
 
 BeginPackage["MFGraphs`"];
+
+(* --- Public API declarations --- *)
+
+GridScenario::usage =
+"GridScenario[dims, entries, exits] creates a scenario on a directed GridGraph[dims]. \
+{n} gives a chain with vertices 1..n; {r,c} gives an r\[Times]c grid with vertices 1..r*c (row-major). \
+Optional: sc (switching costs, default {}), alpha, V, g (Hamiltonian defaults from $DefaultHamiltonian).";
+
+CycleScenario::usage =
+"CycleScenario[n, entries, exits] creates a scenario on a directed n-cycle (1->2->...->n->1), \
+vertices 1..n. Optional: sc, alpha, V, g.";
+
+GraphScenario::usage =
+"GraphScenario[graph, entries, exits] creates a scenario from any WL directed Graph object. \
+Vertex labels must be positive integers; non-integer labels are not accepted (makeScenario \
+returns Failure). Optional: sc, alpha, V, g.";
+
+AMScenario::usage =
+"AMScenario[vl, am, entries, exits] creates a scenario from an explicit vertices list vl \
+and adjacency matrix am. Vertex labels in vl must be positive integers; non-integer labels \
+are not accepted. Optional: sc, alpha, V, g.";
+
+GetExampleScenario::usage =
+"GetExampleScenario[n] returns a 6-arg factory Function[{entries,exits,sc,alpha,V,g}, scenario[...]] \
+for built-in example n. Topology is baked in; all parameters are caller-supplied. \
+GetExampleScenario[n, entries, exits] calls the factory using the canonical switching costs \
+for that case (sc=Automatic resolves via $CaseDefaultSC, defaulting to {} if none defined) \
+and standard Hamiltonian defaults (alpha=1, V=0, g=Function[z,-1/z]). \
+Additional optional arguments override each default in order: sc, alpha, V, g. \
+Pass sc={} explicitly to force no switching costs. \
+entries={{vertex,flow},...}, exits={{vertex,cost},...}, sc={{i,k,j,cost},...}. \
+Returns $Failed for unknown keys.";
 
 Begin["`Private`"];
 
