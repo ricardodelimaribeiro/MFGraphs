@@ -12,10 +12,14 @@ $MFGraphsVerbose = False;
 $TestsDir = FileNameJoin[{$RepoRoot, "MFGraphs", "Tests"}];
 
 $TestSuites = <|
-    (* Active suites: only Scenario/System/Unknowns-related coverage. *)
+    (* Policy: launch package tests through this runner workflow
+       (`wolframscript -file Scripts/RunTests.wls <suite>`). *)
+    (* Current phase scope: only Scenario/Unknowns/System coverage.
+       Solver tests are intentionally not part of active suites yet. *)
     "fast" -> {
         "scenario-kernel.mt",
-        "make-unknowns.mt"
+        "make-unknowns.mt",
+        "reduce-system.mt"
     },
     "slow" -> {},
     "legacy-fast" -> {},

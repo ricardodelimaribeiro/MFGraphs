@@ -87,7 +87,8 @@ Scan[
     Get,
     {
         "MFGraphs`Unknowns`",
-        "MFGraphs`System`"
+        "MFGraphs`System`",
+        "MFGraphs`Solver`"
     }
 ];
 
