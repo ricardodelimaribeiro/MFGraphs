@@ -202,16 +202,14 @@ SystemDataFlatten[mfgSystem[assoc_Association]] :=
 
 BuildBoundaryData[s_?scenarioQ, topology_Association] :=
     Module[{model, entryVerticesFlows, exitVerticesCosts, inAuxEntryPairs,
-         outAuxExitPairs, inAuxExitPairs, outAuxEntryPairs, EntryDataAssociation,
+         outAuxExitPairs, EntryDataAssociation,
          ExitCosts, EqEntryIn, RuleEntryOut, RuleExitFlowsIn, RuleExitValues,
-         RuleEntryValues, EqValueAuxiliaryEdges, auxExitVertices},
+         auxExitVertices},
         model = ScenarioData[s, "Model"];
         entryVerticesFlows = model["Entrance Vertices and Flows"];
         exitVerticesCosts = model["Exit Vertices and Terminal Costs"];
         inAuxEntryPairs = topology["InAuxEntryPairs"];
         outAuxExitPairs = topology["OutAuxExitPairs"];
-        inAuxExitPairs = topology["InAuxExitPairs"];
-        outAuxEntryPairs = topology["OutAuxEntryPairs"];
         auxExitVertices = topology["AuxExitVertices"];
 
         EntryDataAssociation = RoundValues @ AssociationThread[inAuxEntryPairs,
@@ -219,27 +217,18 @@ BuildBoundaryData[s_?scenarioQ, topology_Association] :=
         ExitCosts = AssociationThread[auxExitVertices, Last /@ exitVerticesCosts];
         
         EqEntryIn = (j @@ # == EntryDataAssociation[#])& /@ inAuxEntryPairs;
-        RuleEntryOut = Association[(j @@ # -> 0)& /@ outAuxEntryPairs];
-        RuleExitFlowsIn = Association[(j @@ # -> 0)& /@ inAuxExitPairs];
+        RuleEntryOut = <||>;
+        RuleExitFlowsIn = <||>;
         
-        RuleExitValues = AssociationThread[u @@@ (Reverse /@ outAuxExitPairs),
+        RuleExitValues = AssociationThread[u @@@ outAuxExitPairs,
              Last /@ exitVerticesCosts];
-        RuleExitValues = Join[RuleExitValues, AssociationThread[u @@@
-             outAuxExitPairs, Last /@ exitVerticesCosts]];
-        RuleEntryValues = AssociationThread[u @@@ outAuxEntryPairs, u
-             @@@ inAuxEntryPairs];
-        EqValueAuxiliaryEdges = And @@ ((u @@ # == u @@ Reverse[#])& 
-            /@ Join[inAuxEntryPairs, outAuxExitPairs]);
-
         mfgBoundaryData @ <|
             "EntryDataAssociation" -> EntryDataAssociation,
             "ExitCosts" -> ExitCosts,
             "EqEntryIn" -> EqEntryIn,
             "RuleEntryOut" -> RuleEntryOut,
             "RuleExitFlowsIn" -> RuleExitFlowsIn,
-            "RuleExitValues" -> RuleExitValues,
-            "RuleEntryValues" -> RuleEntryValues,
-            "EqValueAuxiliaryEdges" -> EqValueAuxiliaryEdges
+            "RuleExitValues" -> RuleExitValues
         |>
     ];
 
@@ -248,7 +237,7 @@ BuildFlowData[s_?scenarioQ, topology_Association, unk_?unknownsQ] :=
          SignedFlows, IneqJs, IneqJts, splittingPairs, BalanceSplittingFlows,
          EqBalanceSplittingFlows, NoDeadStarts, RuleBalanceGatheringFlows,
          BalanceGatheringFlows, EqBalanceGatheringFlows,
-         splittingMaps, gatheringMaps},
+         splittingMaps, gatheringMaps, boundaryPairs},
         inAuxEntryPairs = topology["InAuxEntryPairs"];
         outAuxExitPairs = topology["OutAuxExitPairs"];
         halfPairs = topology["HalfPairs"];
@@ -260,19 +249,22 @@ BuildFlowData[s_?scenarioQ, topology_Association, unk_?unknownsQ] :=
 
         js = UnknownsData[unk, "js"];
         jts = UnknownsData[unk, "jts"];
+        boundaryPairs = Join[inAuxEntryPairs, outAuxExitPairs];
 
-        SignedFlows = AssociationMap[j @@ # - j @@ Reverse @ #&, Join[
-            inAuxEntryPairs, outAuxExitPairs, halfPairs]];
+        SignedFlows = AssociationMap[
+            If[MemberQ[boundaryPairs, #], j @@ #, j @@ # - j @@ Reverse @ #] &,
+            Join[inAuxEntryPairs, outAuxExitPairs, halfPairs]
+        ];
 
         IneqJs = And @@ (# >= 0& /@ js);
         IneqJts = And @@ (# >= 0& /@ jts);
         
-        splittingPairs = Join[inAuxEntryPairs, topology["InAuxExitPairs"], pairs];
+        splittingPairs = Join[inAuxEntryPairs, pairs];
         BalanceSplittingFlows = (j @@ # - Total[j @@@ Lookup[splittingMaps, Key[#], {}]])& /@ splittingPairs;
         EqBalanceSplittingFlows = Simplify /@ (And @@ ((# == 0)& /@ BalanceSplittingFlows
             ));
             
-        NoDeadStarts = Join[topology["OutAuxEntryPairs"], outAuxExitPairs, pairs];
+        NoDeadStarts = Join[outAuxExitPairs, pairs];
         RuleBalanceGatheringFlows = Association[(j @@ # -> Total[j @@@
              Lookup[gatheringMaps, Key[#], {}]])& /@ NoDeadStarts];
              
@@ -298,8 +290,8 @@ BuildFlowData[s_?scenarioQ, topology_Association, unk_?unknownsQ] :=
 BuildComplementarityData[s_?scenarioQ, topology_Association, unk_?unknownsQ] :=
     Module[{model, verticesList, SwitchingCosts, inAuxEntryPairs, outAuxExitPairs,
          halfPairs, auxTriples, consistentCosts, AltFlows, AltTransitionFlows,
-         blockedIncomingPairs, blockedIncomingLookup, activeAuxTriples,
-         auxTriplesByMiddle, IneqSwitchingByVertex, AltOptCond},
+         activeAuxTriples, auxTriplesByMiddle, IneqSwitchingByVertex, AltOptCond,
+         auxEntrySet, auxExitSet, interiorTripleQ},
         model = ScenarioData[s, "Model"];
         verticesList = model["Vertices List"];
         SwitchingCosts = model["Switching Costs"];
@@ -308,12 +300,19 @@ BuildComplementarityData[s_?scenarioQ, topology_Association, unk_?unknownsQ] :=
         halfPairs = topology["HalfPairs"];
         auxTriples = topology["AuxTriples"];
 
+        auxEntrySet = AssociationThread[topology["AuxEntryVertices"], True];
+        auxExitSet  = AssociationThread[topology["AuxExitVertices"],  True];
+        (* A triple is interior if neither endpoint is a boundary aux vertex.
+           Reversed boundary triples are always 0, making AltFlowOp trivially true. *)
+        interiorTripleQ[{r_, _, w_}] :=
+            !KeyExistsQ[auxEntrySet, r] && !KeyExistsQ[auxExitSet, w] &&
+            !KeyExistsQ[auxExitSet,  r] && !KeyExistsQ[auxEntrySet, w];
+
         consistentCosts = IsSwitchingCostConsistent[Normal @ SwitchingCosts];
-        
+
         If[consistentCosts === False, Message[mfgSystem::switchingcosts]];
 
-        AltFlows = And @@ (AltFlowOp[j] /@ Join[
-            inAuxEntryPairs, outAuxExitPairs, halfPairs]);
+        AltFlows = And @@ (AltFlowOp[j] /@ halfPairs);
             
         AltTransitionFlows =
             If[consistentCosts === False,
@@ -339,24 +338,15 @@ BuildComplementarityData[s_?scenarioQ, topology_Association, unk_?unknownsQ] :=
                     ]
                 ],
                 And @@ (AltFlowOp[j] /@
-                    Select[auxTriples, OrderedQ[{First[#], Last[#]}]&])
+                    Select[auxTriples, interiorTripleQ[#] && OrderedQ[{First[#], Last[#]}]&])
             ];
             
-        blockedIncomingPairs = DeleteDuplicates @ Join[topology["OutAuxEntryPairs"], topology["InAuxExitPairs"]];
-        blockedIncomingLookup =
-            AssociationThread[blockedIncomingPairs, ConstantArray[True, Length[blockedIncomingPairs]]];
-        activeAuxTriples = Select[
-            auxTriples,
-            !KeyExistsQ[blockedIncomingLookup, #[[{1, 2}]]] &
-        ];
+        activeAuxTriples = auxTriples;
         auxTriplesByMiddle = GroupBy[auxTriples, #[[2]] &];
         
         IneqSwitchingByVertex =
             IneqSwitch[u, SwitchingCosts] @@@
-                Select[
-                    Lookup[auxTriplesByMiddle, #, {}],
-                    !KeyExistsQ[blockedIncomingLookup, #[[{1, 2}]]] &
-                ] & /@ verticesList;
+                Lookup[auxTriplesByMiddle, #, {}] & /@ verticesList;
         IneqSwitchingByVertex = And @@@ IneqSwitchingByVertex;
         
         AltOptCond = And @@ AltSwitch[j, u, SwitchingCosts] @@@ activeAuxTriples;
@@ -395,7 +385,11 @@ BuildHamiltonianData[s_?scenarioQ, topology_Association, flowData_mfgFlowData] :
         Nrhs = Flatten[SignedFlows[#] - Sign[SignedFlows[#]] edgeCost[SignedFlows[#], #]& /@ halfPairs];
 
         costpluscurrents = Table[Symbol["MFGraphs`Private`cpc" <> ToString[k]], {k, 1, EdgeCount[topology["Graph"]]}];
-        EqGeneral = And @@ (MapThread[Equal, {Nlhs, costpluscurrents}]);
+        (* For alpha = 1 (critical congestion) the rhs is identically 0; use 0 directly. *)
+        EqGeneral = And @@ MapThread[
+            Equal[#1, If[alphaAtEdge[halfPairs[[#3]]] === 1, 0, #2]] &,
+            {Nlhs, costpluscurrents, Range[Length[halfPairs]]}
+        ];
         costpluscurrents = AssociationThread[costpluscurrents, Nrhs];
 
         mfgHamiltonianData @ <|
