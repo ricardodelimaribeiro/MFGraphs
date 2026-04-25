@@ -1,12 +1,49 @@
-# GEMINI.md
+# GEMINI.md - MFGraphs Project Guidance
 
-This file is intentionally brief to avoid duplicating project guidance.
+For comprehensive guidance on working with MFGraphs, see **[CLAUDE.md](CLAUDE.md)**.
 
-## Canonical Guidance
+## Quick Reference
 
-- Use [CLAUDE.md](CLAUDE.md) as the canonical developer and AI workflow guide.
+**MFGraphs** is currently in a **core scenario-kernel phase**.
+The active package surface focuses on typed scenario, unknown, and structural system construction.
 
-## Maintenance Policy
+### Load the package
+```mathematica
+Needs["MFGraphs`"]
+```
 
-- Keep this file as a pointer only.
-- When workflows change, update `CLAUDE.md` and keep this file synchronized.
+### Quick start (Core Scenario Kernels)
+```mathematica
+(* Build a scenario using a factory or makeScenario *)
+s = GetExampleScenario[12][{{1, 100}}, {{4, 0}}, {}];
+
+(* Generate symbolic unknowns and structural equations *)
+unk = makeUnknowns[s];
+sys = makeSystem[s, unk];
+
+(* Access structural data *)
+data = SystemDataFlatten[sys];
+data["AltFlows"]
+```
+
+## For Detailed Documentation
+
+→ See **[CLAUDE.md](CLAUDE.md)** for:
+- Environment setup and prerequisites
+- Complete Quick Start with code examples
+- Architecture overview (Scenario, Unknowns, System)
+
+→ See **[CONTRIBUTING.md](CONTRIBUTING.md)** for:
+- PR workflow and code style
+- Testing procedures
+- Commit message conventions
+
+## Key Files
+
+| File | Purpose |
+|------|---------|
+| `MFGraphs/MFGraphs.wl` | Package loader |
+| `MFGraphs/Scenario.wl` | Typed scenario kernel |
+| `MFGraphs/Unknowns.wl` | Symbolic unknown bundle construction |
+| `MFGraphs/System.wl` | Structural equation system kernel |
+| `Scripts/RunTests.wls` | Test suite runner |

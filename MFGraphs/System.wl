@@ -104,22 +104,40 @@ RoundValues[x_List] :=
 RoundValues[x_Association] :=
     RoundValues /@ x
 
-ConsistentSwitchingCosts[sc_][{a_, b_, c_} -> S_] :=
-    Module[{origin, bounds},
-        origin = Cases[sc, HoldPattern[{a, b, _} -> _]];
-        origin = DeleteCases[origin, {a, b, c} -> S];
-        If[origin =!= {},
-            bounds = ((S <= Last[#] + Association[sc][{Part[First[#],
-                 3], b, c}])& /@ origin);
-            And @@ bounds
-            ,
-            True
+ConsistentSwitchingCosts[sc_Association][trip:{a_, b_, c_}] :=
+    Module[{S = sc[trip], originTriples, conds},
+        originTriples = DeleteCases[
+            Select[Keys[sc], MatchQ[#, {a, b, _}] &],
+            trip
+        ];
+        If[originTriples === {},
+            True,
+            conds = (S <= sc[#] + Lookup[sc, Key[{#[[3]], b, c}], Missing["KeyAbsent", {#[[3]], b, c}]]) & /@ originTriples;
+            And @@ conds
         ]
     ];
 
-IsSwitchingCostConsistent[switchingCosts_] :=
-    And @@ Simplify[ConsistentSwitchingCosts[switchingCosts] /@ switchingCosts
-        ];
+ConsistentSwitchingCosts[sc_List][{a_, b_, c_} -> S_] :=
+    ConsistentSwitchingCosts[Association[sc]][{a, b, c}];
+
+IsSwitchingCostConsistent[switchingCosts_Association] :=
+    Module[{triples, groupByAB, checkCost},
+        triples = Keys[switchingCosts];
+        groupByAB = GroupBy[triples, #[[;; 2]] &];
+        checkCost[trip:{a_, b_, c_}] :=
+            Module[{S = switchingCosts[trip], originTriples, conds},
+                originTriples = DeleteCases[Lookup[groupByAB, Key[{a, b}], {}], trip];
+                If[originTriples === {},
+                    True,
+                    conds = (S <= switchingCosts[#] + Lookup[switchingCosts, Key[{#[[3]], b, c}], Missing["KeyAbsent", {#[[3]], b, c}]]) & /@ originTriples;
+                    And @@ conds
+                ]
+            ];
+        And @@ Simplify[checkCost /@ triples]
+    ];
+
+IsSwitchingCostConsistent[switchingCosts_List] :=
+    IsSwitchingCostConsistent[Association[switchingCosts]];
 
 AltFlowOp[j_][list_] :=
     j @@ list == 0 || j @@ Reverse @ list == 0;
