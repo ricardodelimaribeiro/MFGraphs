@@ -61,6 +61,42 @@ This generates `Results/bottleneck_report.md` with detailed call counts and timi
 ## Solver benchmarked
 
 1. **CriticalCongestionSolver** -- Symbolic solver for the zero-flow case. Uses `Solve`, `Reduce`, `DNFReduce` (disjunctive normal form), and `TripleClean` (fixed-point simplification).
+2. **ReduceSystem** -- Current symbolic structural-system solver (`MFGraphs/Solver.wl`) over Reals.
+
+## ReduceSystem benchmark history (manual)
+
+### 2026-04-25 — core notebook solver sanity + timeout sweep
+
+**Commit:** `e7ed719`  
+**Environment:** local `wolframscript`, `$MFGraphsVerbose=False`
+
+Method:
+- Build scenario -> `makeSystem` -> `ReduceSystem`.
+- For baseline cases: one warmup + `RepeatedTiming[..., 5]`.
+- For hard case (Example 12): `TimeConstrained` sweep at 20/40/80/160 seconds.
+
+#### Baseline cases
+
+| Case | Warmup (ms) | Repeated (ms) | Head | NonFalse |
+|------|-------------|---------------|------|----------|
+| 2-vertex chain | 317.07 | 2.04 | `And` | True |
+| `GridScenario[{3}]` one-exit | 5.84 | 5.43 | `And` | True |
+| `GridScenario[{3}]` two-exit | 13.09 | 12.74 | `And` | True |
+| `Example 7` | 158.34 | 157.81 | `And` | True |
+| `GridScenario[{5}]` one-exit | 284.71 | 283.87 | `And` | True |
+
+#### Timeout sweep — `Example 12`
+
+| Timeout (s) | Elapsed (s) | TimedOut | Head |
+|-------------|-------------|----------|------|
+| 20 | 20.13 | True | `TimedOut` |
+| 40 | 40.13 | True | `TimedOut` |
+| 80 | 82.33 | True | `TimedOut` |
+| 160 | 168.68 | True | `TimedOut` |
+
+Interpretation:
+- `ReduceSystem` is fast on small/core examples and moderate on larger chains.
+- `Example 12` does not complete even at 160s under current formulation.
 
 ## Identified bottlenecks
 

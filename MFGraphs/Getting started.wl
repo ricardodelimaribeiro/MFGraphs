@@ -183,12 +183,12 @@ DescribeOutput[
 chain2ExNoSC = GridScenario[
     {3},
     {{1, 120.0}},
-    {{2, 0.0}, {3, 10.0}}
+    {{2, 10.0}, {3, 0.0}}
 ];
 chain2ExWithSC = GridScenario[
     {3},
     {{1, 120.0}},
-    {{2, 0.0}, {3, 10.0}},
+    {{2, 10.0}, {3, 0.0}},
     {{1, 2, 3, 2.0}}
 ];
 
@@ -289,5 +289,189 @@ DescribeOutput[
     "Parametric solution: one free variable governs how flow splits between exits.",
     ReduceSystem[sysNoSC]
 ]
+
+
+(* --- 9. Visualize ReduceSystem solutions --- *)
+
+(* Extract rules from either a flat rule list or an Underdetermined association. *)
+ClearAll[ExtractRules];
+ExtractRules[sol_List] := sol;
+ExtractRules[sol_Association] := Lookup[sol, "Rules", {}];
+
+(* Net flow on real edge a\[Rule]b: j[a,b] - j[b,a] applied to rules. *)
+ClearAll[NetEdgeFlow];
+NetEdgeFlow[a_, b_, rules_List] :=
+    (j[a, b] - j[b, a]) /. rules /. {_j -> 0};
+
+(* Value at vertex v: first u[_, v] found in rules (all should agree by junction eqs). *)
+ClearAll[VertexValue];
+VertexValue[v_, rules_List] :=
+    FirstCase[rules, HoldPattern[u[_, v] -> val_] :> val, Missing["NotAvailable"]];
+
+(* First u[_, v] unknown in the system's us list for vertex v. *)
+ClearAll[iUVarFor];
+iUVarFor[v_, sys_?mfgSystemQ] :=
+    FirstCase[SystemData[sys, "us"], HoldPattern[u[_, v]], Missing["NoVar"]];
+
+(* Project residual equations onto uvar via Reduce; return display string. *)
+ClearAll[iBoundsStr];
+iBoundsStr[uvar_, equations_] :=
+    Module[{proj = Quiet @ Check[Reduce[equations, uvar, Reals], $Failed]},
+        Which[
+            proj === $Failed || proj === False, "?",
+            True, ToString[proj, TraditionalForm]
+        ]
+    ];
+
+(* Flow plot: real edges colored/scaled by net flow magnitude. *)
+ClearAll[MFGFlowPlot];
+MFGFlowPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, title_: Automatic] :=
+    Module[{model, entryV, exitV, allV, internalV, edges, rules,
+            flowAssoc, maxFlow, edgeStyles, edgeLabels, plotTitle},
+        model     = ScenarioData[s, "Model"];
+        entryV    = First /@ model["Entrance Vertices and Flows"];
+        exitV     = First /@ model["Exit Vertices and Terminal Costs"];
+        allV      = model["Vertices List"];
+        internalV = Complement[allV, entryV, exitV];
+        edges     = SystemData[sys, "edgeList"];
+        rules     = ExtractRules[sol];
+
+        flowAssoc = Association[
+            Map[(# -> NetEdgeFlow[#[[1]], #[[2]], rules]) &,
+                List @@@ edges]
+        ];
+        maxFlow = Max[Append[Abs[Values[flowAssoc]], 1]];
+
+        edgeStyles = Association @ Map[
+            With[{f = flowAssoc[List @@ #]},
+                # -> Directive[
+                    If[NumericQ[f] && f >= 0,
+                        RGBColor[0.12, 0.45, 0.78],
+                        RGBColor[0.82, 0.39, 0.2]],
+                    AbsoluteThickness[
+                        If[NumericQ[f],
+                            Rescale[Abs[f], {0, maxFlow}, {1.5, 7}],
+                            1.5]],
+                    Opacity[0.85]
+                ]
+            ] &, edges
+        ];
+        edgeLabels = Association @ Map[
+            With[{f = flowAssoc[List @@ #]},
+                # -> Placed[
+                    Style[If[NumericQ[f], NumberForm[N[f], {5, 1}], "?"],
+                          10, Black, Background -> White],
+                    Center]
+            ] &, edges
+        ];
+
+        plotTitle = Replace[title, Automatic -> "Net edge flows"];
+        Graph[allV, edges,
+            VertexLabels -> Placed["Name", Center],
+            VertexStyle  -> Normal @ Join[
+                AssociationThread[entryV,    RGBColor[0.22, 0.6, 0.3]],
+                AssociationThread[exitV,     RGBColor[0.82, 0.27, 0.2]],
+                AssociationThread[internalV, GrayLevel[0.75]]
+            ],
+            VertexSize   -> 0.3,
+            EdgeStyle    -> Normal[edgeStyles],
+            EdgeLabels   -> Normal[edgeLabels],
+            GraphLayout  -> "LayeredDigraphEmbedding",
+            PlotLabel    -> Style[plotTitle, 14, Bold],
+            ImageSize    -> Large
+        ]
+    ];
+
+(* Value plot: vertices labeled with their u value from the solution. *)
+ClearAll[MFGValuePlot];
+MFGValuePlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, title_: Automatic] :=
+    Module[{model, entryV, exitV, allV, internalV, edges, rules, equations,
+            vertexLabels, plotTitle},
+        model     = ScenarioData[s, "Model"];
+        entryV    = First /@ model["Entrance Vertices and Flows"];
+        exitV     = First /@ model["Exit Vertices and Terminal Costs"];
+        allV      = model["Vertices List"];
+        internalV = Complement[allV, entryV, exitV];
+        edges     = SystemData[sys, "edgeList"];
+        rules     = ExtractRules[sol];
+        equations = If[AssociationQ[sol] && KeyExistsQ[sol, "Equations"],
+                       Lookup[sol, "Equations"], True];
+
+        vertexLabels = Map[
+            With[{val  = VertexValue[#, rules],
+                  uvar = iUVarFor[#, sys]},
+                With[{display =
+                    Which[
+                        NumericQ[val],
+                            "u=" <> ToString[NumberForm[N[val], {4,1}]],
+                        !MissingQ[uvar] && equations =!= True,
+                            "u\[Element]" <> iBoundsStr[uvar, equations],
+                        True, "u=?"
+                    ]},
+                    # -> Placed[
+                        Column[{
+                            Style[#, 10, Bold, White],
+                            Style[display, 8, White]
+                        }, Center, 0],
+                        Center]
+                ]
+            ] &, allV
+        ];
+
+        plotTitle = Replace[title, Automatic -> "Value function u at vertices"];
+        Graph[allV, edges,
+            VertexLabels -> Normal[Association[vertexLabels]],
+            VertexStyle  -> Normal @ Join[
+                AssociationThread[entryV,    RGBColor[0.22, 0.6, 0.3]],
+                AssociationThread[exitV,     RGBColor[0.82, 0.27, 0.2]],
+                AssociationThread[internalV, GrayLevel[0.55]]
+            ],
+            VertexSize   -> 0.5,
+            EdgeStyle    -> Directive[GrayLevel[0.5], AbsoluteThickness[2]],
+            GraphLayout  -> "LayeredDigraphEmbedding",
+            PlotLabel    -> Style[plotTitle, 14, Bold],
+            ImageSize    -> Large
+        ]
+    ];
+
+(* --- Apply to chain with one exit --- *)
+
+sol1Ex = ReduceSystem[sys1Ex];
+
+Column[{
+    DescribeOutput[
+        "Flow plot \[LongDash] chain 1\[Rule]2\[Rule]3, single exit",
+        "Blue edges = positive net flow. Edge labels = net flow value.",
+        MFGFlowPlot[chain1Ex, sys1Ex, sol1Ex,
+            "Chain 1\[Rule]2\[Rule]3: net flows (exit at 3, cost=0)"]
+    ],
+    DescribeOutput[
+        "Value plot \[LongDash] chain 1\[Rule]2\[Rule]3, single exit",
+        "u decreases toward the exit (cost=0 at vertex 3).",
+        MFGValuePlot[chain1Ex, sys1Ex, sol1Ex,
+            "Chain 1\[Rule]2\[Rule]3: value function (exit at 3, cost=0)"]
+    ]
+}]
+
+
+(* --- Apply to chain with two exits (partial rules from underdetermined solution) --- *)
+
+solNoSC = ReduceSystem[sysNoSC];
+
+Column[{
+    DescribeOutput[
+        "Flow plot \[LongDash] chain with two exits (no SC)",
+        "Only j[1,2]=120 and j[2,1]=0 are pinned; downstream split is parametric.",
+        MFGFlowPlot[chain2ExNoSC, sysNoSC, solNoSC,
+            "Chain 1\[Rule]2\[Rule]3: net flows (exits at 2 and 3)"]
+    ],
+    DescribeOutput[
+        "Value plot \[LongDash] chain with two exits (no SC)",
+        "u[1,2]=0 is pinned (exit at 2, cost=0); other u values depend on the flow split.",
+        MFGValuePlot[chain2ExNoSC, sysNoSC, solNoSC,
+            "Chain 1\[Rule]2\[Rule]3: value function (exits at 2 and 3)"]
+    ]
+}]
+
 
 
