@@ -1,15 +1,17 @@
 ---
 name: ship
-description: Branch-guarded delivery workflow for MFGraphs changes with mandatory fast-suite verification and PR creation.
+description: Delivery workflow for MFGraphs changes with automatic branch creation on master, mandatory fast-suite verification, and PR creation.
 ---
 
 # /ship
 
 Run this workflow in order:
 
-1. Branch Guard
+1. Branch Setup
 - Run `git branch --show-current`.
-- Abort if the branch is `master`.
+- If current branch is `master`, create and switch to a new feature branch before continuing.
+- Branch name format: `chore/ship-<YYYYMMDD-HHMMSS>`.
+- Use: `git switch -c chore/ship-$(date +%Y%m%d-%H%M%S)`.
 
 2. Verification
 - Run `wolframscript -file Scripts/RunTests.wls fast`.
@@ -20,6 +22,6 @@ Run this workflow in order:
 - Commit using a Conventional Commits message such as `feat: ...` or `fix: ...`.
 
 4. Delivery
-- Push to origin: `git push origin HEAD`.
+- Push to origin: `git push -u origin HEAD`.
 - Open a PR using the GitHub MCP `create_pull_request` tool.
 - If MCP PR creation is unavailable, fallback to `gh pr create --fill`.

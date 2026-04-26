@@ -1,23 +1,20 @@
 # MFGraphs Test Layout
 
-This directory mixes active CI tests, long-running paper-scale tests, and legacy coverage retained for reference.
+This directory contains the active scenario-kernel tests and archived legacy/solver-oriented suites.
 
 ## Runner suites (`Scripts/RunTests.wls`)
 
-- `fast`: active scenario/unknowns/system kernel checks.
-- `slow`: active non-kernel checks (currently `graphics.mt`).
-- `all`: `fast + slow`.
-- `legacy`: `legacy-fast + legacy-slow` (currently empty placeholders).
-- `full`: `all + legacy`.
+- `fast`: active scenario-kernel suite.
+- `all`: alias for `fast`.
+- `archive`: archived compatibility/legacy suites (explicit use only).
+- `full`: `fast + archive`.
 
 ## File groups
 
-- Active root tests:
-  - Fast suite: `scenario-kernel.mt`, `make-unknowns.mt`, `reduce-system.mt`, `scenario-consistency.mt`
-  - Slow suite: `graphics.mt`
-- Archived tests: `archive/` (dormant tests with removed or unsupported surfaces and APIs).
+- Active tests: root `.mt` files (`scenario-kernel`, `make-unknowns`, `reduce-system`, `scenario-consistency`, `graphics`).
+- Archived tests: `archive/` (legacy or non-core surfaces).
 
 ## Notes
 
 - `reference_solutions.json` is generated fixture data for solver regression checks.
-- Keep `archive/` tests out of active suites unless their dependent public API is restored.
+- Keep `archive/` tests out of CI unless intentionally validating legacy compatibility.

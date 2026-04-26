@@ -12,25 +12,36 @@ $MFGraphsVerbose = False;
 $TestsDir = FileNameJoin[{$RepoRoot, "MFGraphs", "Tests"}];
 
 $TestSuites = <|
-    (* Policy: launch package tests through this runner workflow
-       (`wolframscript -file Scripts/RunTests.wls <suite>`). *)
-    (* Current phase scope: only Scenario/Unknowns/System coverage.
-       Solver tests are intentionally not part of active suites yet. *)
+    (* Active suite for the scenario-kernel phase. *)
     "fast" -> {
         "scenario-kernel.mt",
         "make-unknowns.mt",
         "reduce-system.mt",
-        "scenario-consistency.mt"
-    },
-    "slow" -> {
+        "scenario-consistency.mt",
         "graphics.mt"
     },
-    "legacy-fast" -> {},
-    "legacy-slow" -> {}
+    (* Archived tests are intentionally excluded from active CI.
+       Use this suite only for explicit compatibility checks. *)
+    "archive" -> {
+        "archive/package-loading.mt",
+        "archive/graphics-public-api.mt",
+        "archive/critical-basic-cases.mt",
+        "archive/critical-numeric-backend.mt",
+        "archive/exit-pass-through.mt",
+        "archive/exit-pass-through-nonzero.mt",
+        "archive/exact-mode.mt",
+        "archive/infeasible-status.mt",
+        "archive/solve-mfg.mt",
+        "archive/solver-contracts.mt",
+        "archive/J9F-critical_congestion.mt",
+        "archive/Jm9-critical_congestion.mt",
+        "archive/run-tests-smoke.mt",
+        "archive/inconsistent-switching-critical.mt",
+        "archive/symbolic-underdetermined.mt"
+    }
 |>;
-$TestSuites["all"] = Join[$TestSuites["fast"], $TestSuites["slow"]];
-$TestSuites["legacy"] = Join[$TestSuites["legacy-fast"], $TestSuites["legacy-slow"]];
-$TestSuites["full"] = Join[$TestSuites["all"], $TestSuites["legacy"]];
+$TestSuites["all"] = $TestSuites["fast"];
+$TestSuites["full"] = Join[$TestSuites["fast"], $TestSuites["archive"]];
 
 args = Select[
     Rest[$ScriptCommandLine],
