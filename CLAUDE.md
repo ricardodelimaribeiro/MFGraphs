@@ -10,7 +10,7 @@ The active package surface focuses on:
 - example scenario factories (`examples.wl`)
 - unknown bundle construction (`unknownsTools.wl`)
 - structural system construction (`systemTools.wl`)
-- symbolic solver (`solver.wl`)
+- symbolic solver (`solversTools.wl`)
 - shared primitives (`primitives.wl`)
 
 ## Environment & prerequisites
@@ -34,7 +34,7 @@ wolframscript -version
 ```wolfram
 PrependTo[$Path, DirectoryName[$InputFileName]];
 BeginPackage["MFGraphs`", {"primitives`", "scenarioTools`", "examples`",
-                            "unknownsTools`", "systemTools`", "solver`", "graphics`"}];
+                            "unknownsTools`", "systemTools`", "solversTools`", "graphics`"}];
 EndPackage[]
 ```
 
@@ -43,7 +43,7 @@ EndPackage[]
 Loading DAG (each file is an independent package with its own flat context):
 ```
 primitives`  →  scenarioTools`  →  examples`
-                               →  unknownsTools`  →  systemTools`  →  solver`
+                               →  unknownsTools`  →  systemTools`  →  solversTools`
                                                                    →  graphics`
 ```
 
@@ -110,7 +110,7 @@ Switching costs may be supplied as a List of 4-tuples or an Association with 3-t
 - **System Records**: `mfgBoundaryData`, `mfgFlowData`, `mfgComplementarityData`, `mfgHamiltonianData`
 - **Linear Helpers**: `getKirchhoffLinearSystem`, `getKirchhoffMatrix`
 
-### Solver (`solver``)
+### Solver (`solversTools``)
 - `reduceSystem` — naive `Reduce`-based solver (no switching costs)
 - `isReduceSystemSolution` — solution validator
 

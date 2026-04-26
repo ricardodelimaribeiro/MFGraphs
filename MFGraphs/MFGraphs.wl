@@ -19,7 +19,7 @@
        ↓
      systemTools    (structural equation system)
        ↓
-     solver         (ReduceSystem solver)
+     solversTools   (ReduceSystem solver)
      graphics       (visualization helpers)
 *)
 
@@ -31,7 +31,7 @@ BeginPackage["MFGraphs`",
     "examples`",
     "unknownsTools`",
     "systemTools`",
-    "solver`",
+    "solversTools`",
     "graphics`"
   }
 ];
