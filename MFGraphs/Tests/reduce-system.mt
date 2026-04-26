@@ -1,7 +1,7 @@
 (* Tests for reduceSystem *)
 
 Test[
-    NameQ["solver`reduceSystem"],
+    NameQ["solversTools`reduceSystem"],
     True,
     TestID -> "reduceSystem: public symbol exists"
 ]

@@ -479,6 +479,9 @@ getKirchhoffMatrix[sys_] :=
 
 (* --- Constructors --- *)
 
+(* When Alpha == 1, the generated system consists of linear equations,
+   alternatives between linear equations, and linear inequalities; nothing is
+   non-linear. *)
 makeSystem[s_?scenarioQ] := makeSystem[s, makeUnknowns[s]];
 
 makeSystem[s_?scenarioQ, unk_?unknownsQ] :=

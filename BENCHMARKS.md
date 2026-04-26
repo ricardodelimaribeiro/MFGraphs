@@ -61,7 +61,7 @@ This generates `Results/bottleneck_report.md` with detailed call counts and timi
 ## Solver benchmarked
 
 1. **CriticalCongestionSolver** -- Symbolic solver for the zero-flow case. Uses `Solve`, `Reduce`, `DNFReduce` (disjunctive normal form), and `TripleClean` (fixed-point simplification).
-2. **ReduceSystem** -- Current symbolic structural-system solver (`MFGraphs/Solver.wl`) over Reals.
+2. **ReduceSystem** -- Current symbolic structural-system solver (`MFGraphs/solversTools.wl`) over Reals.
 
 ## ReduceSystem benchmark history (manual)
 

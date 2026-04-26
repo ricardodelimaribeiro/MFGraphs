@@ -1,6 +1,6 @@
 (* Wolfram Language package *)
 (*
-   Solver.wl: symbolic solver for mfgSystem objects.
+   solversTools.wl: symbolic solver for mfgSystem objects.
 
    Current scope: reduceSystem collects the structural equations,
    flow-balance constraints, non-negativity inequalities, and
@@ -9,7 +9,7 @@
    equations, then calls Reduce over the Reals on the residual system.
 *)
 
-BeginPackage["solver`", {"primitives`", "systemTools`"}];
+BeginPackage["solversTools`", {"primitives`", "systemTools`"}];
 
 reduceSystem::usage =
 "reduceSystem[sys] reduces the structural equations, flow balance, \
