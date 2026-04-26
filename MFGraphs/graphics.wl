@@ -11,8 +11,8 @@ mfgSolutionPlot::usage =
 
 Begin["`Private`"];
 
-extractRules[sol_List] := sol;
-extractRules[sol_Association] := Lookup[sol, "Rules", {}];
+extractRules[sol_List] := Select[sol, MatchQ[#, _Rule | _RuleDelayed] &];
+extractRules[sol_Association] := extractRules[Lookup[sol, "Rules", {}]];
 extractRules[_] := {};
 
 netEdgeFlow[a_, b_, rules_List] :=
@@ -81,7 +81,7 @@ mfgSolutionPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, title_: Automatic] :=
 
         edgeStyles = Association @ Map[
             With[{a = #[[1]], b = #[[2]], jv = edgeJValue[#[[1]], #[[2]], rules],
-                  auxQ = StringStartsQ[ToString[#[[1]]], "aux"] || StringStartsQ[ToString[#[[2]]], "aux"]},
+                  auxQ = MemberQ[auxV, #[[1]]] || MemberQ[auxV, #[[2]]]},
                 DirectedEdge[a, b] -> Directive[
                     Which[
                         auxQ, RGBColor[0.35, 0.35, 0.35],
@@ -121,8 +121,8 @@ mfgSolutionPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, title_: Automatic] :=
                 AssociationThread[entryV,    RGBColor[0.22, 0.6, 0.3]],
                 AssociationThread[exitV,     RGBColor[0.82, 0.27, 0.2]],
                 AssociationThread[internalV, GrayLevel[0.72]],
-                AssociationThread[Select[auxV, StringStartsQ[ToString[#], "auxEntry"] &], RGBColor[0.38, 0.74, 0.9]],
-                AssociationThread[Select[auxV, StringStartsQ[ToString[#], "auxExit"] &],  RGBColor[0.95, 0.7, 0.4]]
+                AssociationThread[Select[auxV, StringStartsQ[TextString[#], "auxEntry"] &], RGBColor[0.38, 0.74, 0.9]],
+                AssociationThread[Select[auxV, StringStartsQ[TextString[#], "auxExit"] &],  RGBColor[0.95, 0.7, 0.4]]
             ],
             VertexSize   -> Normal @ Join[
                 AssociationThread[realV, 0.38],
