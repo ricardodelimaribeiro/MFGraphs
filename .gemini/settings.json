@@ -1,0 +1,28 @@
+{
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": ""
+      }
+    }
+  },
+  "skills": {
+    "enabled": true
+  },
+  "hooks": {
+    "AfterTool": [
+      {
+        "matcher": ".*(write_file|replace|run_shell_command).*",
+        "hooks": [
+          {
+            "name": "Wolfram Syntax Check",
+            "type": "command",
+            "command": "if ls *.wl 1> /dev/null 2>&1; then wolframscript -code 'Get[\"MFGraphs`\"]'; fi"
+          }
+        ]
+      }
+    ]
+  }
+}
