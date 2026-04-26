@@ -1,7 +1,7 @@
 (* ::Package:: *)
 
 (* Notebook-friendly MFGraphs workbook covering the typed scenario kernels
-   and the ReduceSystem solver. *)
+   and the reduceSystem solver. *)
 
 (* Evaluate cells one at a time or section by section \[LongDash] do not evaluate the entire file at once. *)
 
@@ -38,13 +38,13 @@ MFGraphs`$MFGraphsVerbose = False;
 
 (* --- 1. Build scenarios with ExampleScenarios constructors --- *)
 
-gridScenario = GridScenario[
+gridScenario = gridScenario[
     {3},
     {{1, 120.0}},
     {{3, 0.0}}
 ];
 
-cycleScenario = CycleScenario[
+cycleScenario = cycleScenario[
     3,
     {{1, 50.0}},
     {{2, 0.0}, {3, 10.0}},
@@ -54,7 +54,7 @@ cycleScenario = CycleScenario[
     }
 ];
 
-amScenario = AMScenario[
+amScenario = amScenario[
     {1, 2, 3, 4},
     {
         {0, 1, 1, 0},
@@ -68,17 +68,17 @@ amScenario = AMScenario[
 
 Column[{
     DescribeOutput[
-        "GridScenario output",
+        "gridScenario output",
         "A typed scenario object with completed defaults and derived topology.",
         gridScenario
     ],
     DescribeOutput[
-        "CycleScenario output",
+        "cycleScenario output",
         "Cycle topology with explicit switching costs.",
         cycleScenario
     ],
     DescribeOutput[
-        "AMScenario output",
+        "amScenario output",
         "Adjacency-matrix constructor for explicit benchmark topologies.",
         amScenario
     ]
@@ -87,13 +87,13 @@ Column[{
 
 (* --- 2. Use named factory examples from ExampleScenarios.wl --- *)
 
-exampleY = GetExampleScenario[
+exampleY = getExampleScenario[
     7,
     {{1, 100.0}},
     {{3, 0.0}, {4, 10.0}}
 ];
 
-exampleGrid = GetExampleScenario[
+exampleGrid = getExampleScenario[
     "Grid0303",
     {{1, 30.0}},
     {{9, 0.0}}
@@ -117,15 +117,15 @@ Column[{
 
 scenarioChecks = <|
     "scenarioQ[exampleY]" -> scenarioQ[exampleY],
-    "Identity" -> ScenarioData[exampleY, "Identity"],
-    "Benchmark" -> ScenarioData[exampleY, "Benchmark"],
-    "Hamiltonian" -> ScenarioData[exampleY, "Hamiltonian"],
-    "Model keys" -> Keys @ ScenarioData[exampleY, "Model"],
-    "Topology keys" -> Keys @ ScenarioData[exampleY, "Topology"]
+    "Identity" -> scenarioData[exampleY, "Identity"],
+    "Benchmark" -> scenarioData[exampleY, "Benchmark"],
+    "Hamiltonian" -> scenarioData[exampleY, "Hamiltonian"],
+    "Model keys" -> Keys @ scenarioData[exampleY, "Model"],
+    "Topology keys" -> Keys @ scenarioData[exampleY, "Topology"]
 |>;
 
 DescribeOutput[
-    "ScenarioData overview",
+    "scenarioData overview",
     "Typed scenarios expose canonical blocks used by the downstream kernels.",
     scenarioChecks
 ]
@@ -137,12 +137,12 @@ exampleUnknowns = makeUnknowns[exampleY];
 
 unknownSummary = <|
     "unknownsQ" -> unknownsQ[exampleUnknowns],
-    "js count" -> Length @ UnknownsData[exampleUnknowns, "js"],
-    "jts count" -> Length @ UnknownsData[exampleUnknowns, "jts"],
-    "us count" -> Length @ UnknownsData[exampleUnknowns, "us"],
-    "first js" -> Take[UnknownsData[exampleUnknowns, "js"], UpTo[6]],
-    "first jts" -> Take[UnknownsData[exampleUnknowns, "jts"], UpTo[6]],
-    "first us" -> Take[UnknownsData[exampleUnknowns, "us"], UpTo[6]]
+    "js count" -> Length @ unknownsData[exampleUnknowns, "Js"],
+    "jts count" -> Length @ unknownsData[exampleUnknowns, "Jts"],
+    "us count" -> Length @ unknownsData[exampleUnknowns, "Us"],
+    "first js" -> Take[unknownsData[exampleUnknowns, "Js"], UpTo[6]],
+    "first jts" -> Take[unknownsData[exampleUnknowns, "Jts"], UpTo[6]],
+    "first us" -> Take[unknownsData[exampleUnknowns, "Us"], UpTo[6]]
 |>;
 
 DescribeOutput[
@@ -158,16 +158,16 @@ exampleSystem = makeSystem[exampleY, exampleUnknowns];
 
 systemSummary = <|
     "mfgSystemQ" -> mfgSystemQ[exampleSystem],
-    "System keys" -> Keys @ SystemData[exampleSystem],
-    "# EqEntryIn" -> Length @ SystemData[exampleSystem, "EqEntryIn"],
-    "# EqGeneral" -> Length @ SystemData[exampleSystem, "EqGeneral"],
-    "# AltTransitionFlows" -> Length @ SystemData[exampleSystem, "AltTransitionFlows"],
-    "# IneqSwitchingByVertex" -> Length @ SystemData[exampleSystem, "IneqSwitchingByVertex"],
-    "# js" -> Length @ SystemData[exampleSystem, "js"],
-    "# jts" -> Length @ SystemData[exampleSystem, "jts"],
-    "# us" -> Length @ SystemData[exampleSystem, "us"],
+    "System keys" -> Keys @ systemData[exampleSystem],
+    "# EqEntryIn" -> Length @ systemData[exampleSystem, "EqEntryIn"],
+    "# EqGeneral" -> Length @ systemData[exampleSystem, "EqGeneral"],
+    "# AltTransitionFlows" -> Length @ systemData[exampleSystem, "AltTransitionFlows"],
+    "# IneqSwitchingByVertex" -> Length @ systemData[exampleSystem, "IneqSwitchingByVertex"],
+    "# js" -> Length @ systemData[exampleSystem, "Js"],
+    "# jts" -> Length @ systemData[exampleSystem, "Jts"],
+    "# us" -> Length @ systemData[exampleSystem, "Us"],
     "Switching-cost consistency" -> IsSwitchingCostConsistent[
-        Normal @ SystemData[exampleSystem, "SwitchingCosts"]
+        Normal @ systemData[exampleSystem, "SwitchingCosts"]
     ]
 |>;
 
@@ -180,16 +180,16 @@ DescribeOutput[
 
 (* --- 6. Chain with two exits: equations without and with switching costs --- *)
 
-chain2ExNoSC = GridScenario[
+chain2ExNoSC = gridScenario[
     {3},
-    {{1, 120.0}},
-    {{2, 10.0}, {3, 0.0}}
+    {{1, 120}},
+    {{2, 10}, {3, 0}}
 ];
-chain2ExWithSC = GridScenario[
+chain2ExWithSC = gridScenario[
     {3},
-    {{1, 120.0}},
-    {{2, 10.0}, {3, 0.0}},
-    {{1, 2, 3, 2.0}}
+    {{1, 120}},
+    {{2, 10}, {3, 0}},
+    {{1, 2, 3, 2}}
 ];
 
 unkNoSC   = makeUnknowns[chain2ExNoSC];
@@ -201,277 +201,95 @@ Column[{
     DescribeOutput[
         "Chain 1\[Rule]2\[Rule]3, exits at {2,3} \[LongDash] no switching costs: HJ equations",
         "One Hamilton-Jacobi equation per directed edge.",
-        SystemData[sysNoSC, "EqGeneral"]
+        systemData[sysNoSC, "EqGeneral"]
     ],
     DescribeOutput[
         "Chain 1\[Rule]2\[Rule]3, exits at {2,3} \[LongDash] with SC {1,2,3}=2.0: HJ equations",
         "Same HJ equations; switching costs enter via complementarity, not HJ.",
-        SystemData[sysWithSC, "EqGeneral"]
+        systemData[sysWithSC, "EqGeneral"]
     ],
     DescribeOutput[
         "Entry/exit boundary conditions (no SC)",
         "Entry flow pinned via EqEntryIn; exit value substitution rules from RuleExitValues.",
-        Column[{SystemData[sysNoSC, "EqEntryIn"], Normal @ SystemData[sysNoSC, "RuleExitValues"]}]
+        Column[{systemData[sysNoSC, "EqEntryIn"], Normal @ systemData[sysNoSC, "RuleExitValues"]}]
     ],
     DescribeOutput[
         "Flow complementarity \[LongDash] no switching costs",
         "AltFlows: j[i,k]*j[k,i]=0 per edge pair. AltTransitionFlows: trivial (no jts).",
-        Column[{SystemData[sysNoSC, "AltFlows"], SystemData[sysNoSC, "AltTransitionFlows"]}]
+        Column[{systemData[sysNoSC, "AltFlows"], systemData[sysNoSC, "AltTransitionFlows"]}]
     ],
     DescribeOutput[
         "Flow complementarity \[LongDash] with switching costs",
         "IneqSwitchingByVertex: optimality at vertex 2. AltOptCond: combined condition.",
-        Column[{SystemData[sysWithSC, "IneqSwitchingByVertex"], SystemData[sysWithSC, "AltOptCond"]}]
+        Column[{systemData[sysWithSC, "IneqSwitchingByVertex"], systemData[sysWithSC, "AltOptCond"]}]
     ]
 }]
 
 
-(* --- 7. Topology visualization --- *)
-
-ClearAll[ScenarioTopologyPlot];
-
-ScenarioTopologyPlot[s_?scenarioQ, sys_?mfgSystemQ, title_: Automatic] :=
-    Module[{model, entryV, exitV, internalV, allV, edges, plotTitle},
-        model    = ScenarioData[s, "Model"];
-        entryV   = First /@ model["Entrance Vertices and Flows"];
-        exitV    = First /@ model["Exit Vertices and Terminal Costs"];
-        allV     = model["Vertices List"];
-        internalV = Complement[allV, entryV, exitV];
-        edges    = SystemData[sys, "edgeList"];
-        plotTitle = Replace[title, Automatic -> "Network topology"];
-        Graph[allV, edges,
-            VertexLabels -> Placed["Name", Center],
-            VertexStyle  -> Normal @ Join[
-                AssociationThread[entryV,    RGBColor[0.22, 0.6, 0.3]],
-                AssociationThread[exitV,     RGBColor[0.82, 0.27, 0.2]],
-                AssociationThread[internalV, GrayLevel[0.75]]
-            ],
-            VertexSize -> 0.3,
-            EdgeStyle  -> Directive[GrayLevel[0.5], AbsoluteThickness[2]],
-            GraphLayout -> "LayeredDigraphEmbedding",
-            PlotLabel  -> Style[plotTitle, 14, Bold],
-            ImageSize  -> Medium
-        ]
-    ];
+(* --- 7. Topology visualization (from MFGraphs`Graphics`) --- *)
 
 Column[{
     DescribeOutput[
         "Chain topology \[LongDash] no switching costs",
         "Green = entry, red = exits, gray = internal.",
-        ScenarioTopologyPlot[chain2ExNoSC, sysNoSC, "Chain 1\[Rule]2\[Rule]3 (no SC)"]
+        scenarioTopologyPlot[chain2ExNoSC, sysNoSC, "Chain 1\[Rule]2\[Rule]3 (no SC)"]
     ],
     DescribeOutput[
         "Chain topology \[LongDash] with switching cost {1,2,3}=2.0",
         "Same topology; SC at vertex 2 penalises continuing from edge 1\[Rule]2 to 2\[Rule]3.",
-        ScenarioTopologyPlot[chain2ExWithSC, sysWithSC, "Chain 1\[Rule]2\[Rule]3 (SC at 2)"]
+        scenarioTopologyPlot[chain2ExWithSC, sysWithSC, "Chain 1\[Rule]2\[Rule]3 (SC at 2)"]
     ]
 }]
 
 
-(* --- 8. Solve with ReduceSystem --- *)
+(* --- 8. Solve with reduceSystem --- *)
 
 (* Chain 1->2->3, single exit at 3 (cost=0), entry flow=10.
    All variables are uniquely determined. *)
-chain1Ex = GridScenario[{3}, {{1, 10}}, {{3, 0}}];
+chain1Ex = gridScenario[{3}, {{1, 10}}, {{3, 0}}];
 sys1Ex   = makeSystem[chain1Ex];
 
 DescribeOutput[
-    "ReduceSystem \[LongDash] chain with one exit",
+    "reduceSystem \[LongDash] chain with one exit",
     "Unique solution: all j and u values pinned by flow balance + HJ + complementarity.",
-    ReduceSystem[sys1Ex]
+    reduceSystem[sys1Ex]
 ]
 
 
 (* Chain 1->2->3, two exits at {2,0} and {3,10}, entry flow=120.
    Flow split between exits is under-determined; Reduce returns a parametric solution. *)
 DescribeOutput[
-    "ReduceSystem \[LongDash] chain with two exits (no switching costs)",
+    "reduceSystem \[LongDash] chain with two exits (no switching costs)",
     "Parametric solution: one free variable governs how flow splits between exits.",
-    ReduceSystem[sysNoSC]
+    reduceSystem[sysNoSC]
 ]
 
 
-(* --- 9. Visualize ReduceSystem solutions --- *)
-
-(* Extract rules from either a flat rule list or an Underdetermined association. *)
-ClearAll[ExtractRules];
-ExtractRules[sol_List] := sol;
-ExtractRules[sol_Association] := Lookup[sol, "Rules", {}];
-
-(* Net flow on real edge a\[Rule]b: j[a,b] - j[b,a] applied to rules. *)
-ClearAll[NetEdgeFlow];
-NetEdgeFlow[a_, b_, rules_List] :=
-    (j[a, b] - j[b, a]) /. rules /. {_j -> 0};
-
-(* Value at vertex v: first u[_, v] found in rules (all should agree by junction eqs). *)
-ClearAll[VertexValue];
-VertexValue[v_, rules_List] :=
-    FirstCase[rules, HoldPattern[u[_, v] -> val_] :> val, Missing["NotAvailable"]];
-
-(* First u[_, v] unknown in the system's us list for vertex v. *)
-ClearAll[iUVarFor];
-iUVarFor[v_, sys_?mfgSystemQ] :=
-    FirstCase[SystemData[sys, "us"], HoldPattern[u[_, v]], Missing["NoVar"]];
-
-(* Project residual equations onto uvar via Reduce; return display string. *)
-ClearAll[iBoundsStr];
-iBoundsStr[uvar_, equations_] :=
-    Module[{proj = Quiet @ Check[Reduce[equations, uvar, Reals], $Failed]},
-        Which[
-            proj === $Failed || proj === False, "?",
-            True, ToString[proj, TraditionalForm]
-        ]
-    ];
-
-(* Flow plot: real edges colored/scaled by net flow magnitude. *)
-ClearAll[MFGFlowPlot];
-MFGFlowPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, title_: Automatic] :=
-    Module[{model, entryV, exitV, allV, internalV, edges, rules,
-            flowAssoc, maxFlow, edgeStyles, edgeLabels, plotTitle},
-        model     = ScenarioData[s, "Model"];
-        entryV    = First /@ model["Entrance Vertices and Flows"];
-        exitV     = First /@ model["Exit Vertices and Terminal Costs"];
-        allV      = model["Vertices List"];
-        internalV = Complement[allV, entryV, exitV];
-        edges     = SystemData[sys, "edgeList"];
-        rules     = ExtractRules[sol];
-
-        flowAssoc = Association[
-            Map[(# -> NetEdgeFlow[#[[1]], #[[2]], rules]) &,
-                List @@@ edges]
-        ];
-        maxFlow = Max[Append[Abs[Values[flowAssoc]], 1]];
-
-        edgeStyles = Association @ Map[
-            With[{f = flowAssoc[List @@ #]},
-                # -> Directive[
-                    If[NumericQ[f] && f >= 0,
-                        RGBColor[0.12, 0.45, 0.78],
-                        RGBColor[0.82, 0.39, 0.2]],
-                    AbsoluteThickness[
-                        If[NumericQ[f],
-                            Rescale[Abs[f], {0, maxFlow}, {1.5, 7}],
-                            1.5]],
-                    Opacity[0.85]
-                ]
-            ] &, edges
-        ];
-        edgeLabels = Association @ Map[
-            With[{f = flowAssoc[List @@ #]},
-                # -> Placed[
-                    Style[If[NumericQ[f], NumberForm[N[f], {5, 1}], "?"],
-                          10, Black, Background -> White],
-                    Center]
-            ] &, edges
-        ];
-
-        plotTitle = Replace[title, Automatic -> "Net edge flows"];
-        Graph[allV, edges,
-            VertexLabels -> Placed["Name", Center],
-            VertexStyle  -> Normal @ Join[
-                AssociationThread[entryV,    RGBColor[0.22, 0.6, 0.3]],
-                AssociationThread[exitV,     RGBColor[0.82, 0.27, 0.2]],
-                AssociationThread[internalV, GrayLevel[0.75]]
-            ],
-            VertexSize   -> 0.3,
-            EdgeStyle    -> Normal[edgeStyles],
-            EdgeLabels   -> Normal[edgeLabels],
-            GraphLayout  -> "LayeredDigraphEmbedding",
-            PlotLabel    -> Style[plotTitle, 14, Bold],
-            ImageSize    -> Large
-        ]
-    ];
-
-(* Value plot: vertices labeled with their u value from the solution. *)
-ClearAll[MFGValuePlot];
-MFGValuePlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, title_: Automatic] :=
-    Module[{model, entryV, exitV, allV, internalV, edges, rules, equations,
-            vertexLabels, plotTitle},
-        model     = ScenarioData[s, "Model"];
-        entryV    = First /@ model["Entrance Vertices and Flows"];
-        exitV     = First /@ model["Exit Vertices and Terminal Costs"];
-        allV      = model["Vertices List"];
-        internalV = Complement[allV, entryV, exitV];
-        edges     = SystemData[sys, "edgeList"];
-        rules     = ExtractRules[sol];
-        equations = If[AssociationQ[sol] && KeyExistsQ[sol, "Equations"],
-                       Lookup[sol, "Equations"], True];
-
-        vertexLabels = Map[
-            With[{val  = VertexValue[#, rules],
-                  uvar = iUVarFor[#, sys]},
-                With[{display =
-                    Which[
-                        NumericQ[val],
-                            "u=" <> ToString[NumberForm[N[val], {4,1}]],
-                        !MissingQ[uvar] && equations =!= True,
-                            "u\[Element]" <> iBoundsStr[uvar, equations],
-                        True, "u=?"
-                    ]},
-                    # -> Placed[
-                        Column[{
-                            Style[#, 10, Bold, White],
-                            Style[display, 8, White]
-                        }, Center, 0],
-                        Center]
-                ]
-            ] &, allV
-        ];
-
-        plotTitle = Replace[title, Automatic -> "Value function u at vertices"];
-        Graph[allV, edges,
-            VertexLabels -> Normal[Association[vertexLabels]],
-            VertexStyle  -> Normal @ Join[
-                AssociationThread[entryV,    RGBColor[0.22, 0.6, 0.3]],
-                AssociationThread[exitV,     RGBColor[0.82, 0.27, 0.2]],
-                AssociationThread[internalV, GrayLevel[0.55]]
-            ],
-            VertexSize   -> 0.5,
-            EdgeStyle    -> Directive[GrayLevel[0.5], AbsoluteThickness[2]],
-            GraphLayout  -> "LayeredDigraphEmbedding",
-            PlotLabel    -> Style[plotTitle, 14, Bold],
-            ImageSize    -> Large
-        ]
-    ];
+(* --- 9. Visualize reduceSystem solutions (from MFGraphs`Graphics`) --- *)
 
 (* --- Apply to chain with one exit --- *)
 
-sol1Ex = ReduceSystem[sys1Ex];
+sol1Ex = reduceSystem[sys1Ex];
 
 Column[{
     DescribeOutput[
-        "Flow plot \[LongDash] chain 1\[Rule]2\[Rule]3, single exit",
-        "Blue edges = positive net flow. Edge labels = net flow value.",
-        MFGFlowPlot[chain1Ex, sys1Ex, sol1Ex,
-            "Chain 1\[Rule]2\[Rule]3: net flows (exit at 3, cost=0)"]
-    ],
-    DescribeOutput[
-        "Value plot \[LongDash] chain 1\[Rule]2\[Rule]3, single exit",
-        "u decreases toward the exit (cost=0 at vertex 3).",
-        MFGValuePlot[chain1Ex, sys1Ex, sol1Ex,
-            "Chain 1\[Rule]2\[Rule]3: value function (exit at 3, cost=0)"]
+        "Combined solution plot \[LongDash] chain 1\[Rule]2\[Rule]3, single exit",
+        "Directed edges show j-flow direction/magnitude; labels show both j and u. Auxiliary edges are included.",
+        mfgSolutionPlot[chain1Ex, sys1Ex, sol1Ex,
+            "Chain 1\[Rule]2\[Rule]3: combined solution (exit at 3, cost=0)"]
     ]
 }]
 
 
 (* --- Apply to chain with two exits (partial rules from underdetermined solution) --- *)
 
-solNoSC = ReduceSystem[sysNoSC];
+solNoSC = reduceSystem[sysNoSC];
 
 Column[{
     DescribeOutput[
-        "Flow plot \[LongDash] chain with two exits (no SC)",
-        "Only j[1,2]=120 and j[2,1]=0 are pinned; downstream split is parametric.",
-        MFGFlowPlot[chain2ExNoSC, sysNoSC, solNoSC,
-            "Chain 1\[Rule]2\[Rule]3: net flows (exits at 2 and 3)"]
-    ],
-    DescribeOutput[
-        "Value plot \[LongDash] chain with two exits (no SC)",
-        "u[1,2]=0 is pinned (exit at 2, cost=0); other u values depend on the flow split.",
-        MFGValuePlot[chain2ExNoSC, sysNoSC, solNoSC,
-            "Chain 1\[Rule]2\[Rule]3: value function (exits at 2 and 3)"]
+        "Combined solution plot \[LongDash] chain with two exits (no SC)",
+        "Edge {1,2} is directed 1\[Rule]2 (j[1,2]>0). Labels show j and u on real + auxiliary edges.",
+        mfgSolutionPlot[chain2ExNoSC, sysNoSC, solNoSC,
+            "Chain 1\[Rule]2\[Rule]3: combined solution (exits at 2 and 3)"]
     ]
 }]
-
-
-

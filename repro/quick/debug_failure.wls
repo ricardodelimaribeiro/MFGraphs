@@ -1,6 +1,6 @@
 Get["/Users/ribeirrd/Documents/GitHub/MFGraphs/MFGraphs/MFGraphs.wl"];
 
-f = GetExampleScenario["Inconsistent Y shortcut"];
+f = getExampleScenario["Inconsistent Y shortcut"];
 sc = f[{{1, 100}}, {{3, 0}, {4, 0}}, Automatic];
 
 If[FailureQ[sc],

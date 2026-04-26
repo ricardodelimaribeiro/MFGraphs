@@ -2,21 +2,21 @@
 
 (* Inline test fixture — case 12 (4-vertex attraction network) with concrete values. *)
 $testModel12 = <|
-    "Vertices List"                    -> {1, 2, 3, 4},
-    "Adjacency Matrix"                 -> {{0,1,1,0},{0,0,1,1},{0,0,0,1},{0,0,0,0}},
-    "Entrance Vertices and Flows"      -> {{1, 100}},
-    "Exit Vertices and Terminal Costs" -> {{4, 0}},
-    "Switching Costs"                  -> {}
+    "Vertices"                    -> {1, 2, 3, 4},
+    "Adjacency"                 -> {{0,1,1,0},{0,0,1,1},{0,0,0,1},{0,0,0,0}},
+    "Entries"      -> {{1, 100}},
+    "Exits" -> {{4, 0}},
+    "Switching"                  -> {}
 |>;
 
 (* Test: public symbols exist in MFGraphs` context *)
 Test[
-    NameQ["MFGraphs`scenario"] &&
-    NameQ["MFGraphs`scenarioQ"] &&
-    NameQ["MFGraphs`makeScenario"] &&
-    NameQ["MFGraphs`validateScenario"] &&
-    NameQ["MFGraphs`completeScenario"] &&
-    NameQ["MFGraphs`ScenarioData"]
+    NameQ["scenarioTools`scenario"] &&
+    NameQ["scenarioTools`scenarioQ"] &&
+    NameQ["scenarioTools`makeScenario"] &&
+    NameQ["scenarioTools`validateScenario"] &&
+    NameQ["scenarioTools`completeScenario"] &&
+    NameQ["scenarioTools`scenarioData"]
     ,
     True
     ,
@@ -32,7 +32,7 @@ Test[
             "makeScenario",
             "validateScenario",
             "completeScenario",
-            "ScenarioData"
+            "scenarioData"
         };
         globalNames = ("Global`" <> #) & /@ names;
         Scan[
@@ -67,7 +67,7 @@ Test[
     Module[{data, s, bench},
         data = $testModel12;
         s = makeScenario[<|"Model" -> data|>];
-        bench = ScenarioData[s, "Benchmark"];
+        bench = scenarioData[s, "Benchmark"];
         bench["Tier"] === "core" && bench["Timeout"] === 300
     ]
     ,
@@ -81,7 +81,7 @@ Test[
     Module[{data, s, h},
         data = $testModel12;
         s = makeScenario[<|"Model" -> data|>];
-        h = ScenarioData[s, "Hamiltonian"];
+        h = scenarioData[s, "Hamiltonian"];
         AssociationQ[h] &&
         h["Alpha"] === 1 &&
         h["V"] === 0 &&
@@ -101,11 +101,11 @@ Test[
 Test[
     Module[{model, s, h},
         model = <|
-            "Vertices List" -> {1, 2, 3},
-            "Adjacency Matrix" -> {{0, 1, 0}, {1, 0, 1}, {0, 1, 0}},
-            "Entrance Vertices and Flows" -> {{1, 10}},
-            "Exit Vertices and Terminal Costs" -> {{3, 0}},
-            "Switching Costs" -> <||>
+            "Vertices" -> {1, 2, 3},
+            "Adjacency" -> {{0, 1, 0}, {1, 0, 1}, {0, 1, 0}},
+            "Entries" -> {{1, 10}},
+            "Exits" -> {{3, 0}},
+            "Switching" -> <||>
         |>;
         s = makeScenario[<|
             "Model" -> model,
@@ -118,7 +118,7 @@ Test[
                 "EdgeG" -> <|{1, 2} -> 6|>
             |>
         |>];
-        h = ScenarioData[s, "Hamiltonian"];
+        h = scenarioData[s, "Hamiltonian"];
         scenarioQ[s] &&
         h["EdgeAlpha"][{1, 2}] === 2 &&
         h["EdgeV"][{1, 2}] === 5 &&
@@ -136,18 +136,18 @@ Test[
 Test[
     Module[{model, s, h, gfun},
         model = <|
-            "Vertices List" -> {1, 2, 3},
-            "Adjacency Matrix" -> {{0, 1, 0}, {1, 0, 1}, {0, 1, 0}},
-            "Entrance Vertices and Flows" -> {{1, 10}},
-            "Exit Vertices and Terminal Costs" -> {{3, 0}},
-            "Switching Costs" -> <||>
+            "Vertices" -> {1, 2, 3},
+            "Adjacency" -> {{0, 1, 0}, {1, 0, 1}, {0, 1, 0}},
+            "Entries" -> {{1, 10}},
+            "Exits" -> {{3, 0}},
+            "Switching" -> <||>
         |>;
         gfun = Function[z, -2/z];
         s = makeScenario[<|
             "Model" -> model,
             "Hamiltonian" -> <|"EdgeG" -> <|{1, 2} -> gfun|>|>
         |>];
-        h = ScenarioData[s, "Hamiltonian"];
+        h = scenarioData[s, "Hamiltonian"];
         scenarioQ[s] &&
         MatchQ[h["EdgeG"][{1, 2}], _Function] &&
         h["EdgeG"][{1, 2}][2] === -1
@@ -163,7 +163,7 @@ Test[
     Module[{data, s, bench},
         data = $testModel12;
         s = makeScenario[<|"Model" -> data, "Benchmark" -> <|"Tier" -> "stress", "Timeout" -> 900|>|>];
-        bench = ScenarioData[s, "Benchmark"];
+        bench = scenarioData[s, "Benchmark"];
         bench["Tier"] === "stress" && bench["Timeout"] === 900
     ]
     ,
@@ -176,11 +176,11 @@ Test[
 Test[
     Module[{incomplete, result},
         incomplete = <|
-            "Vertices List" -> {1, 2},
-            "Adjacency Matrix" -> {{0, 1}, {0, 0}},
-            "Entrance Vertices and Flows" -> {{1, 100}},
-            "Exit Vertices and Terminal Costs" -> {{2, 0}}
-            (* "Switching Costs" intentionally absent *)
+            "Vertices" -> {1, 2},
+            "Adjacency" -> {{0, 1}, {0, 0}},
+            "Entries" -> {{1, 100}},
+            "Exits" -> {{2, 0}}
+            (* "Switching" intentionally absent *)
         |>;
         result = makeScenario[<|"Model" -> incomplete|>];
         FailureQ[result] && result["Tag"] === "ScenarioValidation"
@@ -212,18 +212,18 @@ Test[
     TestID -> "Scenario kernel: non-scenario input rejected by validateScenario"
 ]
 
-(* Test: ScenarioData accessor returns underlying association *)
+(* Test: scenarioData accessor returns underlying association *)
 Test[
     Module[{data, s, underlying},
         data = $testModel12;
         s = makeScenario[<|"Model" -> data|>];
-        underlying = ScenarioData[s];
+        underlying = scenarioData[s];
         AssociationQ[underlying] && KeyExistsQ[underlying, "Model"]
     ]
     ,
     True
     ,
-    TestID -> "Scenario kernel: ScenarioData returns association"
+    TestID -> "Scenario kernel: scenarioData returns association"
 ]
 
 (* Test: partial Identity override — user name is preserved *)
@@ -231,7 +231,7 @@ Test[
     Module[{data, s, identity},
         data = $testModel12;
         s = makeScenario[<|"Model" -> data, "Identity" -> <|"name" -> "my-scenario"|>|>];
-        identity = ScenarioData[s, "Identity"];
+        identity = scenarioData[s, "Identity"];
         identity["name"] === "my-scenario"
     ]
     ,
@@ -244,18 +244,18 @@ Test[
 Test[
     Module[{model, s, topology, normalizedModel},
         model = <|
-            "Vertices List" -> {1, 2},
-            "Adjacency Matrix" -> SparseArray[{{1, 2} -> 1, {2, 1} -> 1}, {2, 2}],
-            "Entrance Vertices and Flows" -> {{1, 10}},
-            "Exit Vertices and Terminal Costs" -> {{2, 0}},
-            "Switching Costs" -> <||>
+            "Vertices" -> {1, 2},
+            "Adjacency" -> SparseArray[{{1, 2} -> 1, {2, 1} -> 1}, {2, 2}],
+            "Entries" -> {{1, 10}},
+            "Exits" -> {{2, 0}},
+            "Switching" -> <||>
         |>;
         s = makeScenario[<|"Model" -> model|>];
-        topology = ScenarioData[s, "Topology"];
-        normalizedModel = ScenarioData[s, "Model"];
+        topology = scenarioData[s, "Topology"];
+        normalizedModel = scenarioData[s, "Model"];
         scenarioQ[s] &&
         AssociationQ[topology] &&
-        Head[normalizedModel["Adjacency Matrix"]] === SparseArray
+        Head[normalizedModel["Adjacency"]] === SparseArray
     ]
     ,
     True
@@ -267,14 +267,14 @@ Test[
 Test[
     Module[{model, s, topology, auxEntry, auxExit, auxEntryEdges, auxExitEdges},
         model = <|
-            "Vertices List" -> {1, 2, 3},
-            "Adjacency Matrix" -> {{0, 1, 0}, {1, 0, 1}, {0, 1, 0}},
-            "Entrance Vertices and Flows" -> {{1, 10}},
-            "Exit Vertices and Terminal Costs" -> {{3, 0}},
-            "Switching Costs" -> <||>
+            "Vertices" -> {1, 2, 3},
+            "Adjacency" -> {{0, 1, 0}, {1, 0, 1}, {0, 1, 0}},
+            "Entries" -> {{1, 10}},
+            "Exits" -> {{3, 0}},
+            "Switching" -> <||>
         |>;
         s = makeScenario[<|"Model" -> model|>];
-        topology = ScenarioData[s, "Topology"];
+        topology = scenarioData[s, "Topology"];
         auxEntry = topology["AuxEntryVertices"];
         auxExit = topology["AuxExitVertices"];
         auxEntryEdges = topology["AuxEntryEdges"];
@@ -310,17 +310,17 @@ Test[
         g = AdjacencyGraph[{1, 2}, {{0, 1}, {1, 0}}, DirectedEdges -> True];
         model = <|
             "Graph" -> g,
-            "Vertices List" -> {1, 2},
-            "Adjacency Matrix" -> SparseArray[{{1, 2} -> 3, {2, 1} -> 0}, {2, 2}],
-            "Entrance Vertices and Flows" -> {{1, 10}},
-            "Exit Vertices and Terminal Costs" -> {{2, 0}},
-            "Switching Costs" -> <||>
+            "Vertices" -> {1, 2},
+            "Adjacency" -> SparseArray[{{1, 2} -> 3, {2, 1} -> 0}, {2, 2}],
+            "Entries" -> {{1, 10}},
+            "Exits" -> {{2, 0}},
+            "Switching" -> <||>
         |>;
         s = makeScenario[<|"Model" -> model|>];
-        normalizedModel = ScenarioData[s, "Model"];
+        normalizedModel = scenarioData[s, "Model"];
         scenarioQ[s] &&
-        Head[normalizedModel["Adjacency Matrix"]] === SparseArray &&
-        normalizedModel["Adjacency Matrix"][[1, 2]] === 3
+        Head[normalizedModel["Adjacency"]] === SparseArray &&
+        normalizedModel["Adjacency"][[1, 2]] === 3
     ]
     ,
     True
@@ -332,11 +332,11 @@ Test[
 Test[
     Module[{model, result},
         model = <|
-            "Vertices List" -> {1, 2},
-            "Adjacency Matrix" -> "invalid-adjacency",
-            "Entrance Vertices and Flows" -> {{1, 10}},
-            "Exit Vertices and Terminal Costs" -> {{2, 0}},
-            "Switching Costs" -> <||>
+            "Vertices" -> {1, 2},
+            "Adjacency" -> "invalid-adjacency",
+            "Entries" -> {{1, 10}},
+            "Exits" -> {{2, 0}},
+            "Switching" -> <||>
         |>;
         result = makeScenario[<|"Model" -> model|>];
         FailureQ[result] && result["Tag"] === "ScenarioValidation"
@@ -369,11 +369,11 @@ Test[
     Module[{raw, result},
         raw = <|
             "Model" -> <|
-                "Vertices List" -> {1, 2},
-                "Adjacency Matrix" -> {{0, 1}, {0, 0}},
-                "Entrance Vertices and Flows" -> {{1, inflowParam}},
-                "Exit Vertices and Terminal Costs" -> {{2, exitCostParam}},
-                "Switching Costs" -> {}
+                "Vertices" -> {1, 2},
+                "Adjacency" -> {{0, 1}, {0, 0}},
+                "Entries" -> {{1, inflowParam}},
+                "Exits" -> {{2, exitCostParam}},
+                "Switching" -> {}
             |>,
             "Data" -> {inflowParam -> 100, exitCostParam -> 0}
         |>;
@@ -391,11 +391,11 @@ Test[
     Module[{raw, result},
         raw = <|
             "Model" -> <|
-                "Vertices List" -> {1, 2},
-                "Adjacency Matrix" -> {{0, 1}, {0, 0}},
-                "Entrance Vertices and Flows" -> {{1, inflowParam}},
-                "Exit Vertices and Terminal Costs" -> {{2, exitCostParam}},
-                "Switching Costs" -> {}
+                "Vertices" -> {1, 2},
+                "Adjacency" -> {{0, 1}, {0, 0}},
+                "Entries" -> {{1, inflowParam}},
+                "Exits" -> {{2, exitCostParam}},
+                "Switching" -> {}
             |>
         |>;
         result = makeScenario[raw];
@@ -412,11 +412,11 @@ Test[
     Module[{raw, result},
         raw = <|
             "Model" -> <|
-                "Vertices List" -> {1, 2},
-                "Adjacency Matrix" -> {{0, 1}, {0, 0}},
-                "Entrance Vertices and Flows" -> {{1, 100}},
-                "Exit Vertices and Terminal Costs" -> {{2, 0}},
-                "Switching Costs" -> {{1, 1, 2, c12}}
+                "Vertices" -> {1, 2},
+                "Adjacency" -> {{0, 1}, {0, 0}},
+                "Entries" -> {{1, 100}},
+                "Exits" -> {{2, 0}},
+                "Switching" -> {{1, 1, 2, c12}}
             |>
         |>;
         result = makeScenario[raw];
@@ -433,16 +433,16 @@ Test[
     Module[{model, s, normalized},
         model = <|
             "Graph" -> Graph[{UndirectedEdge[1, 2], UndirectedEdge[2, 3]}],
-            "Entrance Vertices and Flows" -> {{1, 10}},
-            "Exit Vertices and Terminal Costs" -> {{3, 0}},
-            "Switching Costs" -> {}
+            "Entries" -> {{1, 10}},
+            "Exits" -> {{3, 0}},
+            "Switching" -> {}
         |>;
         s = makeScenario[<|"Model" -> model|>];
-        normalized = ScenarioData[s, "Model"];
+        normalized = scenarioData[s, "Model"];
         scenarioQ[s] &&
-        ListQ[normalized["Vertices List"]] &&
-        MatrixQ[normalized["Adjacency Matrix"]] &&
-        Length[normalized["Vertices List"]] == Length[normalized["Adjacency Matrix"]]
+        ListQ[normalized["Vertices"]] &&
+        MatrixQ[normalized["Adjacency"]] &&
+        Length[normalized["Vertices"]] == Length[normalized["Adjacency"]]
     ]
     ,
     True
@@ -455,16 +455,16 @@ Test[
     Module[{model, s, normalized},
         model = <|
             "Graph" -> Graph[{UndirectedEdge[1, 2], UndirectedEdge[2, 3]}],
-            "Vertices List" -> {3, 2, 1},
-            "Entrance Vertices and Flows" -> {{1, 10}},
-            "Exit Vertices and Terminal Costs" -> {{3, 0}},
-            "Switching Costs" -> {}
+            "Vertices" -> {3, 2, 1},
+            "Entries" -> {{1, 10}},
+            "Exits" -> {{3, 0}},
+            "Switching" -> {}
         |>;
         s = makeScenario[<|"Model" -> model|>];
-        normalized = ScenarioData[s, "Model"];
+        normalized = scenarioData[s, "Model"];
         scenarioQ[s] &&
-        normalized["Vertices List"] === {3, 2, 1} &&
-        MatrixQ[normalized["Adjacency Matrix"]]
+        normalized["Vertices"] === {3, 2, 1} &&
+        MatrixQ[normalized["Adjacency"]]
     ]
     ,
     True
@@ -476,11 +476,11 @@ Test[
 Test[
     Module[{model, result},
         model = <|
-            "Vertices List" -> {1, "2"},
-            "Adjacency Matrix" -> {{0, 1}, {1, 0}},
-            "Entrance Vertices and Flows" -> {{1, 10}},
-            "Exit Vertices and Terminal Costs" -> {{"2", 0}},
-            "Switching Costs" -> {}
+            "Vertices" -> {1, "2"},
+            "Adjacency" -> {{0, 1}, {1, 0}},
+            "Entries" -> {{1, 10}},
+            "Exits" -> {{"2", 0}},
+            "Switching" -> {}
         |>;
         result = makeScenario[<|"Model" -> model|>];
         FailureQ[result] && result["Tag"] === "ScenarioValidation"
@@ -491,10 +491,10 @@ Test[
     TestID -> "Scenario kernel: non-integer vertices are rejected"
 ]
 
-(* Test: GraphScenario with non-integer vertex labels is rejected *)
+(* Test: graphScenario with non-integer vertex labels is rejected *)
 Test[
     Module[{result},
-        result = GraphScenario[
+        result = graphScenario[
             Graph[{"a" -> "b"}],
             {{"a", 1}},
             {{"b", 0}}
@@ -504,18 +504,18 @@ Test[
     ,
     True
     ,
-    TestID -> "GraphScenario-rejects-non-integer-vertices"
+    TestID -> "graphScenario-rejects-non-integer-vertices"
 ]
 
 (* Test: malformed switching-cost row {1} (length != 4) must be rejected *)
 Test[
     FailureQ @ makeScenario[<|
         "Model" -> <|
-            "Vertices List"                   -> {1, 2},
-            "Adjacency Matrix"                -> {{0, 1}, {0, 0}},
-            "Entrance Vertices and Flows"     -> {{1, 1}},
-            "Exit Vertices and Terminal Costs" -> {{2, 0}},
-            "Switching Costs"                 -> {{1}}
+            "Vertices"                   -> {1, 2},
+            "Adjacency"                -> {{0, 1}, {0, 0}},
+            "Entries"     -> {{1, 1}},
+            "Exits" -> {{2, 0}},
+            "Switching"                 -> {{1}}
         |>
     |>]
     ,
@@ -529,14 +529,14 @@ Test[
     Module[{s, sc},
         s = makeScenario[<|
             "Model" -> <|
-                "Vertices List"                   -> {1, 2, 3, 4},
-                "Adjacency Matrix"                -> {{0,1,0,0},{0,0,1,1},{0,0,0,0},{0,0,0,0}},
-                "Entrance Vertices and Flows"     -> {{1, 1}},
-                "Exit Vertices and Terminal Costs" -> {{3, 0}, {4, 0}},
-                "Switching Costs"                 -> <|{1,2,3} -> 2, {1,2,4} -> 3|>
+                "Vertices"                   -> {1, 2, 3, 4},
+                "Adjacency"                -> {{0,1,0,0},{0,0,1,1},{0,0,0,0},{0,0,0,0}},
+                "Entries"     -> {{1, 1}},
+                "Exits" -> {{3, 0}, {4, 0}},
+                "Switching"                 -> <|{1,2,3} -> 2, {1,2,4} -> 3|>
             |>
         |>];
-        sc = ScenarioData[s, "Model"]["Switching Costs"];
+        sc = scenarioData[s, "Model"]["Switching"];
         scenarioQ[s] && AssociationQ[sc] && sc[{1,2,3}] === 2
     ]
     ,
@@ -552,20 +552,20 @@ Test[
         entries = {{1, 10}};
         exits   = {{3, 0}};
         s1 = makeScenario[<|"Model" -> <|
-            "Vertices List"                    -> {1,2,3},
-            "Adjacency Matrix"                 -> am,
-            "Entrance Vertices and Flows"      -> entries,
-            "Exit Vertices and Terminal Costs" -> exits,
-            "Switching Costs"                  -> {}
+            "Vertices"                    -> {1,2,3},
+            "Adjacency"                 -> am,
+            "Entries"      -> entries,
+            "Exits" -> exits,
+            "Switching"                  -> {}
         |>|>];
         s2 = makeScenario[<|"Model" -> <|
-            "Vertices List"                    -> {1,2,3},
-            "Adjacency Matrix"                 -> am + Transpose[am],
-            "Entrance Vertices and Flows"      -> entries,
-            "Exit Vertices and Terminal Costs" -> exits,
-            "Switching Costs"                  -> {}
+            "Vertices"                    -> {1,2,3},
+            "Adjacency"                 -> am + Transpose[am],
+            "Entries"      -> entries,
+            "Exits" -> exits,
+            "Switching"                  -> {}
         |>|>];
-        ScenarioData[s1, "Topology"] === ScenarioData[s2, "Topology"]
+        scenarioData[s1, "Topology"] === scenarioData[s2, "Topology"]
     ]
     ,
     True

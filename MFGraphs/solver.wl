@@ -2,27 +2,27 @@
 (*
    Solver.wl: symbolic solver for mfgSystem objects.
 
-   Current scope: ReduceSystem collects the structural equations,
+   Current scope: reduceSystem collects the structural equations,
    flow-balance constraints, non-negativity inequalities, and
-   complementarity alternatives from an mfgSystem, substitutes the
-   exit-value boundary conditions, then calls Reduce over the Reals.
-   Switching-cost inequalities are not included.
+   complementarity alternatives from an mfgSystem, seeds the rule set
+   with exit-value boundary conditions, iteratively eliminates linear
+   equations, then calls Reduce over the Reals on the residual system.
 *)
 
-BeginPackage["MFGraphs`"];
+BeginPackage["solver`", {"primitives`", "systemTools`"}];
 
-ReduceSystem::usage =
-"ReduceSystem[sys] reduces the structural equations, flow balance, \
+reduceSystem::usage =
+"reduceSystem[sys] reduces the structural equations, flow balance, \
 non-negativity constraints, and complementarity conditions of the \
 mfgSystem sys using Reduce over the Reals. Includes AltOptCond \
-(switching-cost optimality complementarity). IneqSwitchingByVertex \
-is not included in this pass. \
+(switching-cost optimality complementarity) and \
+IneqSwitchingByVertex (switching-cost optimality inequalities). \
 Returns a list of rules when the system is fully determined, or \
 <|\"Rules\" -> rules, \"Equations\" -> residual|> when underdetermined.";
 
-IsReduceSystemSolution::usage =
-"IsReduceSystemSolution[sys, sol] checks whether sol (the output of \
-ReduceSystem[sys]) satisfies the constraint blocks of sys. Returns True or \
+isReduceSystemSolution::usage =
+"isReduceSystemSolution[sys, sol] checks whether sol (the output of \
+reduceSystem[sys]) satisfies the constraint blocks of sys. Returns True or \
 False. With option \"ReturnReport\" -> True, returns a detailed association \
 with per-block results. Tolerance for numeric checks is set via \
 \"Tolerance\" (default 10^-6). For underdetermined solutions the partial \
@@ -31,43 +31,121 @@ reported as Indeterminate, not False.";
 
 Begin["`Private`"];
 
-ReduceSystem[sys_?mfgSystemQ] :=
+reduceSystem[sys_?mfgSystemQ] :=
     Module[{eqEntryIn, eqSplit, eqGather, eqHJ,
-            ineqJs, ineqJts, altFlows, altTrans, altOptCond, eqExitJunctions,
-            ruleExitVals, constraints, allVars},
+            ineqJs, ineqJts, ineqSwitchingByVertex, altFlows, altTrans, altOptCond,
+            ruleExitVals, baseConstraints, constraints, allVars, rulesAcc},
 
-        eqEntryIn    = SystemData[sys, "EqEntryIn"];
-        eqSplit      = SystemData[sys, "EqBalanceSplittingFlows"];
-        eqGather     = SystemData[sys, "EqBalanceGatheringFlows"];
-        eqHJ         = SystemData[sys, "EqGeneral"];
-        ineqJs       = SystemData[sys, "IneqJs"];
-        ineqJts      = SystemData[sys, "IneqJts"];
-        altFlows     = SystemData[sys, "AltFlows"];
-        altTrans     = SystemData[sys, "AltTransitionFlows"];
-        altOptCond      = SystemData[sys, "AltOptCond"];
-        eqExitJunctions = SystemData[sys, "EqExitJunctions"];
-        ruleExitVals    = Normal @ SystemData[sys, "RuleExitValues"];
+        eqEntryIn    = systemData[sys, "EqEntryIn"];
+        eqSplit      = systemData[sys, "EqBalanceSplittingFlows"];
+        eqGather     = systemData[sys, "EqBalanceGatheringFlows"];
+        eqHJ         = systemData[sys, "EqGeneral"];
+        ineqJs       = systemData[sys, "IneqJs"];
+        ineqJts      = systemData[sys, "IneqJts"];
+        ineqSwitchingByVertex = systemData[sys, "IneqSwitchingByVertex"];
+        altFlows     = systemData[sys, "AltFlows"];
+        altTrans     = systemData[sys, "AltTransitionFlows"];
+        altOptCond      = systemData[sys, "AltOptCond"];
+        ruleExitVals    = Normal @ systemData[sys, "RuleExitValues"];
 
-        constraints = And[
+        baseConstraints = And[
             And @@ eqEntryIn,
             eqSplit, eqGather, eqHJ,
             ineqJs, ineqJts,
+            ineqSwitchingByVertex,
             altFlows, altTrans,
-            altOptCond,
-            eqExitJunctions
-        ] /. ruleExitVals;
+            altOptCond
+        ];
 
         allVars = Select[
+            Variables[(baseConstraints /. ruleExitVals) /. {Equal -> List, Or -> List, And -> List}],
+            trackedVarQ
+        ];
+        {constraints, rulesAcc} = accumulateLinearRules[baseConstraints, allVars, ruleExitVals];
+        allVars = Select[
             Variables[constraints /. {Equal -> List, Or -> List, And -> List}],
-            MatchQ[#, _j | _u] &
+            trackedVarQ
         ];
 
         With[{reduced = Reduce[constraints, allVars, Reals]},
-            iParseReduceResult[reduced, allVars]
+            attachAccumulatedRules[parseReduceResult[reduced, allVars], rulesAcc]
         ]
     ];
 
-iBranchToRules[branch_, allVars_] :=
+trackedVarQ[var_] :=
+    MatchQ[var, _[__]] && MemberQ[{"j", "u"}, Quiet @ Check[SymbolName[Head[var]], ""]];
+
+mergeRules[oldRules_List, newRules_List] :=
+    Reverse @ DeleteDuplicatesBy[Reverse @ Join[oldRules, newRules], First];
+
+normalizeRules[rules_List] :=
+    Module[{normalized = rules, next, iter = 0, maxIter},
+        maxIter = Max[10, 2 Length[rules] + 5];
+        While[iter < maxIter,
+            next = Map[
+                Rule[First[#], (Last[#] /. normalized)] &,
+                normalized
+            ];
+            If[next === normalized, Break[]];
+            normalized = next;
+            iter++
+        ];
+        normalized
+    ];
+
+linearEquationQ[eq_Equal, vars_List] :=
+    Module[{expr = Subtract @@ List @@ eq},
+        PolynomialQ[expr, vars] && Exponent[expr, vars] <= 1
+    ];
+
+topLevelEquations[constraints_] :=
+    Select[
+        Switch[Head[constraints], And, List @@ constraints, _, {constraints}],
+        MatchQ[#, _Equal] &
+    ];
+
+extractLinearRules[equations_List, vars_List, existingRules_List] :=
+    Module[{sol, solRules},
+        If[equations === {}, Return[{}, Module]];
+        sol = Check[
+            Quiet[Solve[equations, vars, Reals], Solve::svars],
+            $Failed
+        ];
+        If[sol === $Failed || !ListQ[sol] || Length[sol] =!= 1 || !ListQ[First[sol]],
+            Return[{}, Module]
+        ];
+        solRules = Cases[First[sol],
+            r : Rule[v_, rhs_] /; MemberQ[vars, v] && FreeQ[rhs, v] :> r
+        ];
+        solRules = Select[solRules, FreeQ[Last[#], C] &];
+        Select[solRules, FreeQ[existingRules[[All, 1]], First[#]] &]
+    ];
+
+accumulateLinearRules[baseConstraints_, vars_List, initRules_List] :=
+    Module[{rulesAcc = normalizeRules[initRules], constraints, eqs, newRules, iter = 0, maxIter},
+        maxIter = Max[10, 2 Length[vars] + 5];
+        constraints = baseConstraints /. rulesAcc;
+        While[iter < maxIter,
+            eqs = topLevelEquations[constraints];
+            If[eqs === {}, Break[]];
+            newRules = extractLinearRules[eqs, vars, rulesAcc];
+            If[newRules === {}, Break[]];
+            rulesAcc = normalizeRules[mergeRules[rulesAcc, newRules]];
+            constraints = baseConstraints /. rulesAcc;
+            iter++
+        ];
+        {constraints, rulesAcc}
+    ];
+
+attachAccumulatedRules[result_, rulesAcc_List] /; ListQ[result] :=
+    normalizeRules[mergeRules[rulesAcc, result]];
+
+attachAccumulatedRules[result_, rulesAcc_List] /; AssociationQ[result] :=
+    Association[result, "Rules" -> normalizeRules[mergeRules[rulesAcc, Lookup[result, "Rules", {}]]]];
+
+attachAccumulatedRules[result_, _] := result;
+
+branchToRules[branch_, allVars_] :=
     With[{conjuncts = Switch[Head[branch], And, List @@ branch, _, {branch}]},
         Cases[conjuncts,
             HoldPattern[v_ == val_] /;
@@ -76,12 +154,12 @@ iBranchToRules[branch_, allVars_] :=
         ]
     ];
 
-iParseReduceResult[reduced_, allVars_] :=
+parseReduceResult[reduced_, allVars_] :=
     Module[{conjuncts, rules, residual},
         If[Head[reduced] === Or,
             Return[
                 With[{common = Fold[Intersection,
-                                    iBranchToRules[#, allVars] & /@ List @@ reduced]},
+                                    branchToRules[#, allVars] & /@ List @@ reduced]},
                     <|"Rules" -> common, "Equations" -> reduced|>
                 ]
             ]
@@ -109,12 +187,12 @@ iParseReduceResult[reduced_, allVars_] :=
 
 (* --- Solution validation --- *)
 
-Options[IsReduceSystemSolution] = {
+Options[isReduceSystemSolution] = {
     "Tolerance"    -> 10^-6,
     "ReturnReport" -> False
 };
 
-IsReduceSystemSolution[sys_?mfgSystemQ, sol_, OptionsPattern[]] :=
+isReduceSystemSolution[sys_?mfgSystemQ, sol_, OptionsPattern[]] :=
     Module[{tol, returnReportQ, kind, rules, ruleExitVals,
             blocks, blockResults, concretelyFailed, overall, report},
         tol          = OptionValue["Tolerance"];
@@ -134,7 +212,7 @@ IsReduceSystemSolution[sys_?mfgSystemQ, sol_, OptionsPattern[]] :=
         ];
 
         rules        = If[kind === "Determined", sol, Lookup[sol, "Rules", {}]];
-        ruleExitVals = Normal @ SystemData[sys, "RuleExitValues"];
+        ruleExitVals = Normal @ systemData[sys, "RuleExitValues"];
 
         (* For underdetermined: fail fast if residual equations are False *)
         If[kind === "Underdetermined",
@@ -149,20 +227,20 @@ IsReduceSystemSolution[sys_?mfgSystemQ, sol_, OptionsPattern[]] :=
         ];
 
         blocks = <|
-            "EqEntryIn"               -> (And @@ SystemData[sys, "EqEntryIn"]),
-            "EqBalanceSplittingFlows" -> SystemData[sys, "EqBalanceSplittingFlows"],
-            "EqBalanceGatheringFlows" -> SystemData[sys, "EqBalanceGatheringFlows"],
-            "EqGeneral"               -> SystemData[sys, "EqGeneral"],
-            "IneqJs"                  -> SystemData[sys, "IneqJs"],
-            "IneqJts"                 -> SystemData[sys, "IneqJts"],
-            "AltFlows"                -> SystemData[sys, "AltFlows"],
-            "AltTransitionFlows"      -> SystemData[sys, "AltTransitionFlows"],
-            "AltOptCond"              -> SystemData[sys, "AltOptCond"],
-            "EqExitJunctions"         -> SystemData[sys, "EqExitJunctions"]
+            "EqEntryIn"               -> (And @@ systemData[sys, "EqEntryIn"]),
+            "EqBalanceSplittingFlows" -> systemData[sys, "EqBalanceSplittingFlows"],
+            "EqBalanceGatheringFlows" -> systemData[sys, "EqBalanceGatheringFlows"],
+            "EqGeneral"               -> systemData[sys, "EqGeneral"],
+            "IneqJs"                  -> systemData[sys, "IneqJs"],
+            "IneqJts"                 -> systemData[sys, "IneqJts"],
+            "IneqSwitchingByVertex"   -> systemData[sys, "IneqSwitchingByVertex"],
+            "AltFlows"                -> systemData[sys, "AltFlows"],
+            "AltTransitionFlows"      -> systemData[sys, "AltTransitionFlows"],
+            "AltOptCond"              -> systemData[sys, "AltOptCond"]
         |>;
 
         blockResults = Association @ KeyValueMap[
-            #1 -> iCheckBlock[#2 /. ruleExitVals /. rules, tol] &,
+            #1 -> checkBlock[#2 /. ruleExitVals /. rules, tol] &,
             blocks
         ];
 
@@ -183,11 +261,11 @@ IsReduceSystemSolution[sys_?mfgSystemQ, sol_, OptionsPattern[]] :=
 
 (* Recursively evaluate a constraint expression after solution substitution.
    Returns True, False, or Indeterminate. *)
-iCheckBlock[True,  _] := True;
-iCheckBlock[False, _] := False;
+checkBlock[True,  _] := True;
+checkBlock[False, _] := False;
 
-iCheckBlock[expr_And, tol_] :=
-    With[{results = iCheckBlock[#, tol] & /@ List @@ expr},
+checkBlock[expr_And, tol_] :=
+    With[{results = checkBlock[#, tol] & /@ List @@ expr},
         Which[
             MemberQ[results, False],       False,
             MemberQ[results, Indeterminate], Indeterminate,
@@ -195,8 +273,8 @@ iCheckBlock[expr_And, tol_] :=
         ]
     ];
 
-iCheckBlock[expr_Or, tol_] :=
-    With[{results = iCheckBlock[#, tol] & /@ List @@ expr},
+checkBlock[expr_Or, tol_] :=
+    With[{results = checkBlock[#, tol] & /@ List @@ expr},
         Which[
             MemberQ[results, True],          True,
             MemberQ[results, Indeterminate], Indeterminate,
@@ -204,7 +282,7 @@ iCheckBlock[expr_Or, tol_] :=
         ]
     ];
 
-iCheckBlock[lhs_ == rhs_, tol_] :=
+checkBlock[lhs_ == rhs_, tol_] :=
     With[{d = Quiet @ Check[N[lhs - rhs], $Failed]},
         Which[
             d === $Failed,     Indeterminate,
@@ -214,27 +292,27 @@ iCheckBlock[lhs_ == rhs_, tol_] :=
         ]
     ];
 
-iCheckBlock[lhs_ >= rhs_, tol_] :=
+checkBlock[lhs_ >= rhs_, tol_] :=
     With[{d = Quiet @ Check[N[lhs - rhs], $Failed]},
         Which[d === $Failed, Indeterminate, NumericQ[d], d >= -tol, True, Indeterminate]
     ];
 
-iCheckBlock[lhs_ <= rhs_, tol_] :=
+checkBlock[lhs_ <= rhs_, tol_] :=
     With[{d = Quiet @ Check[N[rhs - lhs], $Failed]},
         Which[d === $Failed, Indeterminate, NumericQ[d], d >= -tol, True, Indeterminate]
     ];
 
-iCheckBlock[lhs_ > rhs_, tol_] :=
+checkBlock[lhs_ > rhs_, tol_] :=
     With[{d = Quiet @ Check[N[lhs - rhs], $Failed]},
         Which[d === $Failed, Indeterminate, NumericQ[d], d > tol, True, Indeterminate]
     ];
 
-iCheckBlock[lhs_ < rhs_, tol_] :=
+checkBlock[lhs_ < rhs_, tol_] :=
     With[{d = Quiet @ Check[N[rhs - lhs], $Failed]},
         Which[d === $Failed, Indeterminate, NumericQ[d], d > tol, True, Indeterminate]
     ];
 
-iCheckBlock[Inequality[a_, Less, b_, Less, c_], tol_] :=
+checkBlock[Inequality[a_, Less, b_, Less, c_], tol_] :=
     With[{d1 = Quiet @ Check[N[b - a], $Failed], d2 = Quiet @ Check[N[c - b], $Failed]},
         Which[
             d1 === $Failed || d2 === $Failed, Indeterminate,
@@ -243,7 +321,7 @@ iCheckBlock[Inequality[a_, Less, b_, Less, c_], tol_] :=
         ]
     ];
 
-iCheckBlock[expr_, tol_] :=
+checkBlock[expr_, tol_] :=
     With[{s = Quiet @ Check[Simplify[expr], $Failed]},
         Which[s === True, True, s === False, False, True, Indeterminate]
     ];

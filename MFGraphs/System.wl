@@ -81,7 +81,7 @@ FlowSplitting::usage = "FlowSplitting[AT][UndirectedEdge[a, b]] returns the spli
 FlowGathering::usage = "FlowGathering[auxTriples_List][x_] returns the triples that end with x.";
 
 IneqSwitch::usage = "IneqSwitch[u, switchingCosts][v, e1, e2] returns the optimality condition at the vertex v related to switching from e1 to e2. Namely,
-u[v, e1] <= u[v, e2] + switchingCosts[{v, e1, e2}]"
+u[v, e1] <= u[e2, e1] + switchingCosts[{v, e1, e2}]"
 
 AltSwitch::usage = "AltSwitch[j, u, switchingCosts][v, e1, e2] returns the complementarity condition:
 (j[v, e1, e2] == 0) || (u[v, e1] == u[e2, e1] + switchingCosts[{v, e1, e2}])"
@@ -154,7 +154,12 @@ IsSwitchingCostConsistent[switchingCosts_Association] :=
                 originTriples = DeleteCases[Lookup[groupByAB, Key[{a, b}], {}], trip];
                 If[originTriples === {},
                     True,
-                    conds = (S <= switchingCosts[#] + Lookup[switchingCosts, Key[{#[[3]], b, c}], Missing["KeyAbsent", {#[[3]], b, c}]]) & /@ originTriples;
+                    conds = Table[
+                        With[{leg2 = Lookup[switchingCosts, Key[{trip2[[3]], b, c}], Missing["Impossible"]]},
+                            If[MissingQ[leg2], True, S <= switchingCosts[trip2] + leg2]
+                        ],
+                        {trip2, originTriples}
+                    ];
                     And @@ conds
                 ]
             ];
@@ -229,7 +234,7 @@ BuildBoundaryData[s_?scenarioQ, topology_Association] :=
     Module[{model, entryVerticesFlows, exitVerticesCosts, inAuxEntryPairs,
          outAuxExitPairs, EntryDataAssociation,
          ExitCosts, EqEntryIn, RuleEntryIn, RuleEntryOut, RuleExitFlowsIn, RuleExitValues,
-         auxExitVertices, eqExitJunctions, entryValues, exitValues},
+         auxExitVertices, entryValues, exitValues},
         model = ScenarioData[s, "Model"];
         entryVerticesFlows = model["Entrance Vertices and Flows"];
         exitVerticesCosts = model["Exit Vertices and Terminal Costs"];
@@ -250,22 +255,7 @@ BuildBoundaryData[s_?scenarioQ, topology_Association] :=
         RuleEntryOut = <||>;
         RuleExitFlowsIn = <||>;
         
-        RuleExitValues = AssociationThread[u @@@ outAuxExitPairs, exitValues];
-
-        With[{exitVertices = First /@ exitVerticesCosts},
-            eqExitJunctions = And @@ Flatten[
-                Table[
-                    With[{exitV = pair[[1]], auxExitV = pair[[2]]},
-                        (u[#, exitV] == u[exitV, auxExitV]) & /@
-                            Select[
-                                Cases[topology["Pairs"], {_, exitV}][[All, 1]],
-                                !MemberQ[exitVertices, #] &
-                            ]
-                    ],
-                    {pair, outAuxExitPairs}
-                ]
-            ]
-        ];
+        RuleExitValues = AssociationThread[u @@@ (Reverse /@ outAuxExitPairs), exitValues];
 
         mfgBoundaryData @ <|
             "EntryDataAssociation" -> EntryDataAssociation,
@@ -274,8 +264,7 @@ BuildBoundaryData[s_?scenarioQ, topology_Association] :=
             "RuleEntryIn" -> RuleEntryIn,
             "RuleEntryOut" -> RuleEntryOut,
             "RuleExitFlowsIn" -> RuleExitFlowsIn,
-            "RuleExitValues" -> RuleExitValues,
-            "EqExitJunctions" -> eqExitJunctions
+            "RuleExitValues" -> RuleExitValues
         |>
     ];
 
@@ -394,7 +383,7 @@ BuildComplementarityData[s_?scenarioQ, topology_Association, unk_?unknownsQ] :=
         IneqSwitchingByVertex =
             IneqSwitch[u, SwitchingCosts] @@@
                 Lookup[auxTriplesByMiddle, #, {}] & /@ verticesList;
-        IneqSwitchingByVertex = And @@@ IneqSwitchingByVertex;
+        IneqSwitchingByVertex = And @@ Flatten[IneqSwitchingByVertex];
         
         AltOptCond = And @@ AltSwitch[j, u, SwitchingCosts] @@@ activeAuxTriples;
 

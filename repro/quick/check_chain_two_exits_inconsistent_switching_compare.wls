@@ -8,9 +8,9 @@ printable[expr_] := StringReplace[
 
 runCase[label_, switchingCosts_] := Module[{data, d2e, consistency, result},
   data = GetExampleData["chain with two exits"] /. {I1 -> 100, U1 -> 0, U2 -> 0};
-  data = AssociateTo[data, "Switching Costs" -> switchingCosts];
+  data = AssociateTo[data, "Switching" -> switchingCosts];
   Print["CASE=" <> label];
-  Print["DATA_SWITCHING=" <> printable[data["Switching Costs"]]];
+  Print["DATA_SWITCHING=" <> printable[data["Switching"]]];
   d2e = Quiet[DataToEquations[data], {DataToEquations::switchingcosts}];
   consistency = IsSwitchingCostConsistent[Normal @ d2e["SwitchingCosts"]];
   Print["CONSISTENCY_D2E=" <> printable[consistency]];

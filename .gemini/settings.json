@@ -1,10 +1,11 @@
 {
   "mcpServers": {
     "github": {
+      "type": "stdio",
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-github"],
       "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": ""
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}"
       }
     }
   },
@@ -14,12 +15,12 @@
   "hooks": {
     "AfterTool": [
       {
-        "matcher": ".*(write_file|replace|run_shell_command).*",
+        "matcher": ".*(write_file|replace).*",
         "hooks": [
           {
             "name": "Wolfram Syntax Check",
             "type": "command",
-            "command": "if ls *.wl 1> /dev/null 2>&1; then wolframscript -code 'Get[\"MFGraphs`\"]'; fi"
+            "command": "jq -r '.tool_input.file_path // empty' | { read -r f; case \"$f\" in *.wl|*.mt) (if ls *.wl 1> /dev/null 2>&1; then wolframscript -code \"Get[\\\"MFGraphs\\\"]\"; fi) >/tmp/mfgraphs_syntax_check.log 2>&1 & ;; esac; } 2>/dev/null || true"
           }
         ]
       }

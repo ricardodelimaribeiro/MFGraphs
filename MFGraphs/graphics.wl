@@ -1,27 +1,27 @@
 (* Wolfram Language package *)
 (* Graphics: public visualization helpers for MFGraphs systems and solutions. *)
 
-BeginPackage["MFGraphs`"];
+BeginPackage["graphics`", {"primitives`", "scenarioTools`", "systemTools`"}];
 
-ScenarioTopologyPlot::usage =
-"ScenarioTopologyPlot[s, sys] plots the scenario topology using vertex coloring for entry, exit, and internal vertices. An optional third argument sets the title.";
+scenarioTopologyPlot::usage =
+"scenarioTopologyPlot[s, sys] plots the scenario topology using vertex coloring for entry, exit, and internal vertices. An optional third argument sets the title.";
 
-MFGSolutionPlot::usage =
-"MFGSolutionPlot[s, sys, sol] plots a combined solution graph with real and auxiliary edges. Edge labels include both j and u values, and real-edge directions follow solved net flow orientation. An optional fourth argument sets the title.";
+mfgSolutionPlot::usage =
+"mfgSolutionPlot[s, sys, sol] plots a combined solution graph with real and auxiliary edges. Edge labels include both j and u values, and real-edge directions follow solved net flow orientation. An optional fourth argument sets the title.";
 
 Begin["`Private`"];
 
-ExtractRules[sol_List] := sol;
-ExtractRules[sol_Association] := Lookup[sol, "Rules", {}];
-ExtractRules[_] := {};
+extractRules[sol_List] := sol;
+extractRules[sol_Association] := Lookup[sol, "Rules", {}];
+extractRules[_] := {};
 
-NetEdgeFlow[a_, b_, rules_List] :=
+netEdgeFlow[a_, b_, rules_List] :=
     (j[a, b] - j[b, a]) /. rules /. {_j -> 0};
 
-EdgeJValue[a_, b_, rules_List] :=
+edgeJValue[a_, b_, rules_List] :=
     (j[a, b] /. rules /. {_j -> 0});
 
-EdgeUValue[a_, b_, rules_List] :=
+edgeUValue[a_, b_, rules_List] :=
     Module[{v1, v2},
         v1 = u[a, b] /. rules;
         v2 = u[b, a] /. rules;
@@ -32,22 +32,22 @@ EdgeUValue[a_, b_, rules_List] :=
         ]
     ];
 
-iDirectedDisplayEdges[edges_List, rules_List] :=
+directedDisplayEdges[edges_List, rules_List] :=
     edges /. {
-        UndirectedEdge[a_, b_] :> Module[{f = NetEdgeFlow[a, b, rules]},
+        UndirectedEdge[a_, b_] :> Module[{f = netEdgeFlow[a, b, rules]},
             If[NumericQ[f] && f < 0, DirectedEdge[b, a], DirectedEdge[a, b]]
         ],
         DirectedEdge[a_, b_] :> DirectedEdge[a, b]
     };
 
-ScenarioTopologyPlot[s_?scenarioQ, sys_?mfgSystemQ, title_: Automatic] :=
+scenarioTopologyPlot[s_?scenarioQ, sys_?mfgSystemQ, title_: Automatic] :=
     Module[{model, entryV, exitV, internalV, allV, edges, plotTitle},
-        model    = ScenarioData[s, "Model"];
-        entryV   = First /@ model["Entrance Vertices and Flows"];
-        exitV    = First /@ model["Exit Vertices and Terminal Costs"];
-        allV     = model["Vertices List"];
+        model    = scenarioData[s, "Model"];
+        entryV   = First /@ model["Entries"];
+        exitV    = First /@ model["Exits"];
+        allV     = model["Vertices"];
         internalV = Complement[allV, entryV, exitV];
-        edges    = SystemData[sys, "edgeList"];
+        edges    = systemData[sys, "Edges"];
         plotTitle = Replace[title, Automatic -> "Network topology"];
         Graph[allV, edges,
             VertexLabels -> Placed["Name", Center],
@@ -64,23 +64,23 @@ ScenarioTopologyPlot[s_?scenarioQ, sys_?mfgSystemQ, title_: Automatic] :=
         ]
     ];
 
-MFGSolutionPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, title_: Automatic] :=
+mfgSolutionPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, title_: Automatic] :=
     Module[{model, entryV, exitV, realV, auxV, internalV, edges, dispEdges, rules,
             edgeStyles, edgeLabels, plotTitle, numericJ, maxJ},
-        model     = ScenarioData[s, "Model"];
-        entryV    = First /@ model["Entrance Vertices and Flows"];
-        exitV     = First /@ model["Exit Vertices and Terminal Costs"];
-        realV     = model["Vertices List"];
-        auxV      = Complement[SystemData[sys, "auxVerticesList"], realV];
+        model     = scenarioData[s, "Model"];
+        entryV    = First /@ model["Entries"];
+        exitV     = First /@ model["Exits"];
+        realV     = model["Vertices"];
+        auxV      = Complement[systemData[sys, "AuxVertices"], realV];
         internalV = Complement[realV, entryV, exitV];
-        edges     = SystemData[sys, "auxEdgeList"];
-        rules     = ExtractRules[sol];
-        dispEdges = iDirectedDisplayEdges[edges, rules];
-        numericJ  = Cases[EdgeJValue @@ (List @@ #) & /@ dispEdges, _?NumericQ, Infinity];
+        edges     = systemData[sys, "AuxEdges"];
+        rules     = extractRules[sol];
+        dispEdges = directedDisplayEdges[edges, rules];
+        numericJ  = Cases[edgeJValue @@ (List @@ #) & /@ dispEdges, _?NumericQ, Infinity];
         maxJ      = Max[Append[Abs @ numericJ, 1]];
 
         edgeStyles = Association @ Map[
-            With[{a = #[[1]], b = #[[2]], jv = EdgeJValue[#[[1]], #[[2]], rules],
+            With[{a = #[[1]], b = #[[2]], jv = edgeJValue[#[[1]], #[[2]], rules],
                   auxQ = StringStartsQ[ToString[#[[1]]], "aux"] || StringStartsQ[ToString[#[[2]]], "aux"]},
                 DirectedEdge[a, b] -> Directive[
                     Which[
@@ -99,7 +99,7 @@ MFGSolutionPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, title_: Automatic] :=
         ];
 
         edgeLabels = Association @ Map[
-            With[{a = #[[1]], b = #[[2]], jv = EdgeJValue[#[[1]], #[[2]], rules], uv = EdgeUValue[#[[1]], #[[2]], rules]},
+            With[{a = #[[1]], b = #[[2]], jv = edgeJValue[#[[1]], #[[2]], rules], uv = edgeUValue[#[[1]], #[[2]], rules]},
                 DirectedEdge[a, b] -> Placed[
                     Style[
                         Row[{

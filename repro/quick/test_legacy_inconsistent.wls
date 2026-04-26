@@ -14,10 +14,10 @@ data = Append[
         MFGraphs`U1 -> 0,
         MFGraphs`U2 -> 0
     },
-    "Switching Costs" -> {{1, 2, 3, 10}}
+    "Switching" -> {{1, 2, 3, 10}}
 ];
 
-Print["DATA_SC=" , data["Switching Costs"]];
+Print["DATA_SC=" , data["Switching"]];
 
 d2e = Quiet[
     MFGraphs`DataToEquations[data],
