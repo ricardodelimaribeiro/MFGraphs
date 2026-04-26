@@ -1,97 +1,27 @@
 (* ::Package:: *)
 
-(* Notebook-friendly MFGraphs workbook.
-   This file is meant to be evaluated section-by-section inside a notebook.
-   It does not assume that the notebook directory is already on $Path. *)
+(* Notebook-friendly MFGraphs workbook covering the typed scenario kernels
+   and the reduceSystem solver. *)
 
-ClearAll[
-    FindMFGraphsRoot,
-    ClearMFGraphsNotebookShadows,
-    EnsureMFGraphsLoaded,
-    DescribeOutput,
-    AssociationValue,
-    NetEdgeFlows,
-    NetworkVisualData,
-    FlowStyleDirective,
-    NetworkGraphPlot,
-    SolutionFlowPlot,
-    DensityNetworkGraphic,
-    MassDensityCurve,
-    ValueFunctionCurve,
-    ExitFlowPlot,
-    JamaratScenario
+(* Evaluate cells one at a time or section by section \[LongDash] do not evaluate the entire file at once. *)
+
+(* This file lives alongside MFGraphs.wl in the same directory. *)
+mfgDir = If[$InputFileName === "", NotebookDirectory[], DirectoryName[$InputFileName]];
+
+(* Force clean reload \[LongDash] safe to re-evaluate without restarting the kernel. *)
+Quiet[
+    Unprotect /@ Names["MFGraphs`*"];
+    Remove /@ Names["MFGraphs`*"];
+    Unprotect[$Packages];
+    $Packages = DeleteCases[$Packages, "MFGraphs`"];
+    Protect[$Packages]
 ];
+PrependTo[$Path, ParentDirectory[mfgDir]];
+Get[FileNameJoin[{mfgDir, "MFGraphs.wl"}]];
 
-FindMFGraphsRoot[] :=
-    Module[{origins, candidates},
-        origins = DeleteDuplicates @ Select[
-            {
-                Quiet @ Check[NotebookDirectory[], Nothing],
-                If[StringQ[$InputFileName] && $InputFileName =!= "",
-                    DirectoryName[$InputFileName],
-                    Nothing
-                ],
-                Directory[]
-            },
-            StringQ
-        ];
-        candidates = DeleteDuplicates @ Flatten[{
-            origins,
-            FileNameJoin[{#, "MFGraphs"}] & /@ origins,
-            FileNameJoin[{#, "..", "MFGraphs"}] & /@ origins
-        }];
-        SelectFirst[
-            candidates,
-            FileExistsQ[FileNameJoin[{#, "MFGraphs.wl"}]] &,
-            $Failed
-        ]
-    ];
 
-ClearMFGraphsNotebookShadows[] :=
-    Module[{shadowNames, shadowed},
-        shadowNames = {
-            "GetExampleData",
-            "DataToEquations",
-            "CriticalCongestionSolver",
-            "IsSwitchingCostConsistent",
-            "PlotMassDensity",
-            "PlotValueFunction",
-            "NetworkGraphPlot",
-            "SolutionFlowPlot",
-            "ExitFlowPlot",
-            "I1", "I2", "I3",
-            "U1", "U2", "U3",
-            "S1", "S2", "S3", "S4", "S5", "S6",
-            "V", "alpha", "g"
-        };
-        shadowed = Select[shadowNames, NameQ["Global`" <> #] &];
-        Scan[ToExpression["Global`" <> #, InputForm, Remove] &, shadowed];
-        shadowed
-    ];
 
-EnsureMFGraphsLoaded[] :=
-    Module[{packageDir = FindMFGraphsRoot[], searchRoot, cleared},
-        If[packageDir === $Failed,
-            Print["Could not locate MFGraphs.wl relative to the notebook or current directory."];
-            Abort[]
-        ];
-        searchRoot = DirectoryName[packageDir];
-        cleared = ClearMFGraphsNotebookShadows[];
-        If[FreeQ[$Path, searchRoot], PrependTo[$Path, searchRoot]];
-        Get[FileNameJoin[{packageDir, "MFGraphs.wl"}]];
-        If[cleared =!= {},
-            Print["Removed shadowing Global` symbols before loading MFGraphs: ", cleared];
-        ];
-        packageDir
-    ];
-
-mfGraphsRoot = EnsureMFGraphsLoaded[];
-MFGraphs`$MFGraphsVerbose = False;
-
-(* Public MFGraphs symbols are now on $ContextPath, so the examples below can
-   use GetExampleData, DataToEquations, I1, U1, ... without a context prefix.
-   V, alpha, and g are now public MFGraphs symbols as well, so you can
-   override them directly with Block[...] or with WithHamiltonianFunctions[...]. *)
+ClearAll[DescribeOutput];
 
 DescribeOutput[title_String, description_String, expr_] :=
     Column[
@@ -104,373 +34,262 @@ DescribeOutput[title_String, description_String, expr_] :=
         Spacings -> {0.2, 0.7}
     ];
 
-(* Reuse canonical visualization helpers from Graphics.wl to avoid workbook drift. *)
-AssociationValue[assoc_Association, key_, default_: Missing["NotAvailable"]] :=
-    MFGraphs`AssociationValue[assoc, key, default];
+MFGraphs`$MFGraphsVerbose = False;
 
-(* Net flow on each displayed edge, after eliminating dependent current variables. *)
-NetEdgeFlows[d2e_Association, solution_Association, pairs_: Automatic] :=
-    MFGraphs`NetEdgeFlows[d2e, solution, pairs];
+(* --- 1. Build scenarios with ExampleScenarios constructors --- *)
 
-NetworkVisualData[d2e_Association] :=
-    MFGraphs`NetworkVisualData[d2e];
+gridScenario = gridScenario[
+    {3},
+    {{1, 120.0}},
+    {{3, 0.0}}
+];
 
-FlowStyleDirective[flow_?NumericQ, maxFlow_?NumericQ] :=
-    MFGraphs`FlowStyleDirective[flow, maxFlow];
+cycleScenario = cycleScenario[
+    3,
+    {{1, 50.0}},
+    {{2, 0.0}, {3, 10.0}},
+    {
+        {1, 2, 3, 2.0},
+        {3, 2, 1, 1.0}
+    }
+];
 
-(* NetworkGraphPlot and SolutionFlowPlot now live in Graphics.wl. *)
-
-DensityNetworkGraphic[d2e_Association, solution_Association, title_: Automatic, samples_Integer: 24] :=
-    Module[{visual, coords, pairs, flows, sampleXs, densitiesByPair, allDensities,
-      maxDensity, colorScale, edgeSegments, edgeLabels, vertexDisks, vertexLabels,
-      plotTitle, legendRange},
-        visual = NetworkVisualData[d2e];
-        coords = visual["coords"];
-        pairs = List @@@ Lookup[d2e, "edgeList", {}];
-        flows = NetEdgeFlows[d2e, solution, pairs];
-        sampleXs = N @ Subdivide[0., 1., samples];
-        densitiesByPair = AssociationThread[
-            pairs,
-            Table[
-                Quiet @ Check[
-                    MFGraphs`Private`M[AssociationValue[flows, pair, 0.], x, UndirectedEdge @@ pair],
-                    0.
-                ],
-                {pair, pairs}, {x, sampleXs}
-            ]
-        ];
-        allDensities = Select[Flatten[Values[densitiesByPair]], NumericQ];
-        maxDensity = Max[Append[allDensities, 0.]];
-        legendRange = {0., Max[maxDensity, 1.]};
-        colorScale[value_] :=
-            ColorData["SolarColors"][Rescale[value, legendRange]];
-        edgeSegments = Flatten @ Map[
-            Function[pair,
-                Module[{edgePoints, densities},
-                    edgePoints = ((1 - #) coords[pair[[1]]] + # coords[pair[[2]]]) & /@ sampleXs;
-                    densities = AssociationValue[densitiesByPair, pair, ConstantArray[0., Length[sampleXs]]];
-                    Table[
-                        {
-                            colorScale[Mean[densities[[k ;; k + 1]]]],
-                            AbsoluteThickness[8],
-                            Line[edgePoints[[k ;; k + 1]]]
-                        },
-                        {k, 1, Length[edgePoints] - 1}
-                    ]
-                ]
-            ],
-            pairs
-        ];
-        edgeLabels = Map[
-            Function[pair,
-                Inset[
-                    Framed[
-                        Style[
-                            Row[{"flow = ", NumberForm[AssociationValue[flows, pair, 0.], {Infinity, 1}]}],
-                            11,
-                            Black
-                        ],
-                        Background -> White,
-                        FrameStyle -> GrayLevel[0.8],
-                        RoundingRadius -> 3,
-                        FrameMargins -> Tiny
-                    ],
-                    Mean[{coords[pair[[1]]], coords[pair[[2]]]}]
-                ]
-            ],
-            pairs
-        ];
-        vertexDisks = Map[
-            Function[vertex,
-                {
-                    Lookup[visual["vertexColors"], vertex, GrayLevel[0.75]],
-                    EdgeForm[Directive[White, AbsoluteThickness[1.5]]],
-                    Disk[
-                        coords[vertex],
-                        Lookup[visual["vertexRadii"], vertex, 0.04]
-                    ]
-                }
-            ],
-            VertexList[visual["graph"]]
-        ];
-        vertexLabels = Map[
-            Function[vertex,
-                Inset[
-                    Style[vertex, 11, Bold, Black],
-                    coords[vertex]
-                ]
-            ],
-            VertexList[visual["graph"]]
-        ];
-        plotTitle = Replace[title, Automatic -> "Edge density profile"];
-        Legended[
-            Graphics[
-                {
-                    edgeSegments,
-                    edgeLabels,
-                    vertexDisks,
-                    vertexLabels
-                },
-                PlotRange -> All,
-                PlotRangePadding -> Scaled[0.15],
-                ImageSize -> Large,
-                PlotLabel -> Style[plotTitle, 14, Bold]
-            ],
-            Placed[
-                BarLegend[
-                    {ColorData["SolarColors"], legendRange},
-                    LegendLabel -> Style["Local density", 11]
-                ],
-                Right
-            ]
-        ]
-    ];
-
-(* ExitFlowPlot now lives in Graphics.wl. *)
-
-(* Jamarat helper: solve one release/cost scenario and summarize exit usage. *)
-JamaratScenario[params_List] :=
-    Module[{data, d2e, result, exitPairs, exitFlows},
-        data = GetExampleData["Jamaratv9"] /. params;
-        d2e = DataToEquations[data];
-        result = Quiet @ CriticalCongestionSolver[d2e];
-        exitPairs = List @@@ Lookup[d2e, "exitEdges", {}];
-        exitFlows = If[AssociationQ[result["Solution"]],
-            AssociationThread[
-                Lookup[d2e, "exitVertices", {}],
-                N[((Lookup[d2e, "SignedFlows", <||>] /@ exitPairs) /. result["Solution"])]
-            ],
-            Missing["NotAvailable"]
-        ];
-        <|
-            "Parameters" -> params,
-            "Model" -> d2e,
-            "Solution" -> result["Solution"],
-            "Feasibility" -> result["Feasibility"],
-            "ExitFlows" -> exitFlows,
-            "InteriorFlows" ->
-                If[AssociationQ[result["Solution"]],
-                    NetEdgeFlows[d2e, result["Solution"]],
-                    Missing["NotAvailable"]
-                ]
-        |>
-    ];
-
-
-(* --- 1. Explore built-in data --- *)
-
-examplePreview = <|
-    "Linear path" -> GetExampleData[3],
-    "Y network" -> GetExampleData[7],
-    "Attraction problem" -> GetExampleData[12],
-    "Jamarat" -> GetExampleData["Jamaratv9"]
-|>;
-
-examplePreview["Jamarat"]
-
-
-(* --- 2. Define your own network --- *)
-
-customData = <|
-    "Vertices List" -> {1, 2, 3, 4},
-    "Adjacency Matrix" -> {
+amScenario = amScenario[
+    {1, 2, 3, 4},
+    {
         {0, 1, 1, 0},
         {0, 0, 0, 1},
         {0, 0, 0, 1},
         {0, 0, 0, 0}
     },
-    "Entrance Vertices and Flows" -> {{1, 120}},
-    "Exit Vertices and Terminal Costs" -> {{4, 0}},
-    "Switching Costs" -> {}
+    {{1, 80.0}},
+    {{4, 0.0}}
+];
+
+Column[{
+    DescribeOutput[
+        "gridScenario output",
+        "A typed scenario object with completed defaults and derived topology.",
+        gridScenario
+    ],
+    DescribeOutput[
+        "cycleScenario output",
+        "Cycle topology with explicit switching costs.",
+        cycleScenario
+    ],
+    DescribeOutput[
+        "amScenario output",
+        "Adjacency-matrix constructor for explicit benchmark topologies.",
+        amScenario
+    ]
+}]
+
+
+(* --- 2. Use named factory examples from ExampleScenarios.wl --- *)
+
+exampleY = getExampleScenario[
+    7,
+    {{1, 100.0}},
+    {{3, 0.0}, {4, 10.0}}
+];
+
+exampleGrid = getExampleScenario[
+    "Grid0303",
+    {{1, 30.0}},
+    {{9, 0.0}}
+];
+
+Column[{
+    DescribeOutput[
+        "Named example (7)",
+        "Factory-backed scenario with canonical topology and defaults.",
+        exampleY
+    ],
+    DescribeOutput[
+        "Named example (Grid0303)",
+        "Grid example from the scenario registry.",
+        exampleGrid
+    ]
+}]
+
+
+(* --- 3. Inspect scenario structure from Scenario.wl --- *)
+
+scenarioChecks = <|
+    "scenarioQ[exampleY]" -> scenarioQ[exampleY],
+    "Identity" -> scenarioData[exampleY, "Identity"],
+    "Benchmark" -> scenarioData[exampleY, "Benchmark"],
+    "Hamiltonian" -> scenarioData[exampleY, "Hamiltonian"],
+    "Model keys" -> Keys @ scenarioData[exampleY, "Model"],
+    "Topology keys" -> Keys @ scenarioData[exampleY, "Topology"]
 |>;
 
-customD2E = DataToEquations[customData];
-Column[{
-    DescribeOutput[
-        "Custom network edge list",
-        "The undirected edges below are the interior corridors of the model before any solve is run.",
-        customD2E["edgeList"]
-    ],
-    DescribeOutput[
-        "Custom network topology",
-        "Green vertices are entrances, red vertices are exits, and gray vertices are interior junctions.",
-        NetworkGraphPlot[customD2E, "Custom network topology"]
-    ]
-}]
-
-
-(* --- 3. Critical congestion solver --- *)
-
-criticalData = GetExampleData[7] /. {
-    I1 -> 100,
-    U1 -> 0,
-    U2 -> 0
-};
-criticalD2E = DataToEquations[criticalData];
-
-criticalLegacy = CriticalCongestionSolver[criticalD2E];
-criticalLegacy["AssoCritical"];
-
-criticalStandard = CriticalCongestionSolver[criticalD2E];
-Column[{
-    DescribeOutput[
-        "Critical solver solution",
-        "This association stores the equilibrium directional currents, switching currents, and edge values for the critical-congestion model.",
-        criticalStandard["Solution"]
-    ],
-    DescribeOutput[
-        "Net edge flows",
-        "Edge thickness and labels show the signed net flow on each interior edge. Positive values follow the stored edge orientation.",
-        SolutionFlowPlot[
-            criticalD2E,
-            criticalStandard["Solution"],
-            "Critical-congestion net flows"
-        ]
-    ],
-    DescribeOutput[
-        "Density along each edge",
-        "The color scale shows local agent density along each edge under a simple baseline Hamiltonian with zero potential and the default congestion law.",
-        WithHamiltonianFunctions[
-            Function[{x, edge}, 0],
-            Function[edge, 1],
-            Function[{m, edge}, -1 / m^2],
-            DensityNetworkGraphic[
-                criticalD2E,
-                criticalStandard["Solution"],
-                "Critical-congestion edge densities"
-            ]
-        ]
-    ],
-    DescribeOutput[
-        "Net edge flow values",
-        "This association is often the easiest summary to inspect numerically when checking route splits.",
-        NetEdgeFlows[criticalD2E, criticalStandard["Solution"]]
-    ]
-}]
-
-
-(* --- 4. Switching-cost validation --- *)
-
-switchingData = GetExampleData[8] /. {
-    I1 -> 100, U1 -> 0, U2 -> 0,
-    S1 -> 2, S2 -> 3, S3 -> 2,
-    S4 -> 1, S5 -> 3, S6 -> 1
-};
-switchingD2E = DataToEquations[switchingData];
 DescribeOutput[
-    "Switching-cost consistency check",
-    "A value of True means the local switching penalties are compatible with a globally consistent potential at each junction.",
-    IsSwitchingCostConsistent[Normal @ switchingD2E["SwitchingCosts"]]
+    "scenarioData overview",
+    "Typed scenarios expose canonical blocks used by the downstream kernels.",
+    scenarioChecks
 ]
 
 
-(* --- 5. Jamarat / pilgrimage crowd routing --- *)
+(* --- 4. Build unknown bundles from Unknowns.wl --- *)
 
-(* The built-in Jamarat network has two entrances and three exits. *)
-jamaratTemplate = GetExampleData["Jamaratv9"];
-jamaratTemplate["Vertices List"];
-jamaratTemplate["Exit Vertices and Terminal Costs"];
+exampleUnknowns = makeUnknowns[exampleY];
 
-(* Feasible release plan from the existing regression tests. *)
-jamaratBase = JamaratScenario[
-    {
-        I1 -> 2,
-        I2 -> 2000,
-        U1 -> 20,
-        U2 -> 100,
-        U3 -> 0
-    }
+unknownSummary = <|
+    "unknownsQ" -> unknownsQ[exampleUnknowns],
+    "js count" -> Length @ unknownsData[exampleUnknowns, "Js"],
+    "jts count" -> Length @ unknownsData[exampleUnknowns, "Jts"],
+    "us count" -> Length @ unknownsData[exampleUnknowns, "Us"],
+    "first js" -> Take[unknownsData[exampleUnknowns, "Js"], UpTo[6]],
+    "first jts" -> Take[unknownsData[exampleUnknowns, "Jts"], UpTo[6]],
+    "first us" -> Take[unknownsData[exampleUnknowns, "Us"], UpTo[6]]
+|>;
+
+DescribeOutput[
+    "Unknown bundle",
+    "makeUnknowns derives flow, transition-flow, and value-function symbolic variables from scenario topology.",
+    unknownSummary
+]
+
+
+(* --- 5. Build structural systems from System.wl --- *)
+
+exampleSystem = makeSystem[exampleY, exampleUnknowns];
+
+systemSummary = <|
+    "mfgSystemQ" -> mfgSystemQ[exampleSystem],
+    "System keys" -> Keys @ systemData[exampleSystem],
+    "# EqEntryIn" -> Length @ systemData[exampleSystem, "EqEntryIn"],
+    "# EqGeneral" -> Length @ systemData[exampleSystem, "EqGeneral"],
+    "# AltTransitionFlows" -> Length @ systemData[exampleSystem, "AltTransitionFlows"],
+    "# IneqSwitchingByVertex" -> Length @ systemData[exampleSystem, "IneqSwitchingByVertex"],
+    "# js" -> Length @ systemData[exampleSystem, "Js"],
+    "# jts" -> Length @ systemData[exampleSystem, "Jts"],
+    "# us" -> Length @ systemData[exampleSystem, "Us"],
+    "Switching-cost consistency" -> IsSwitchingCostConsistent[
+        Normal @ systemData[exampleSystem, "SwitchingCosts"]
+    ]
+|>;
+
+DescribeOutput[
+    "mfgSystem overview",
+    "makeSystem builds structural equations and inequalities without running any solver.",
+    systemSummary
+]
+
+
+(* --- 6. Chain with two exits: equations without and with switching costs --- *)
+
+chain2ExNoSC = gridScenario[
+    {3},
+    {{1, 120}},
+    {{2, 10}, {3, 0}}
 ];
+chain2ExWithSC = gridScenario[
+    {3},
+    {{1, 120}},
+    {{2, 10}, {3, 0}},
+    {{1, 2, 3, 2}}
+];
+
+unkNoSC   = makeUnknowns[chain2ExNoSC];
+sysNoSC   = makeSystem[chain2ExNoSC, unkNoSC];
+unkWithSC = makeUnknowns[chain2ExWithSC];
+sysWithSC = makeSystem[chain2ExWithSC, unkWithSC];
+
 Column[{
     DescribeOutput[
-        "Jamarat feasibility status",
-        "This baseline release plan is the first check: it tells you whether the symbolic critical-congestion model finds a feasible equilibrium.",
-        jamaratBase["Feasibility"]
+        "Chain 1\[Rule]2\[Rule]3, exits at {2,3} \[LongDash] no switching costs: HJ equations",
+        "One Hamilton-Jacobi equation per directed edge.",
+        systemData[sysNoSC, "EqGeneral"]
     ],
     DescribeOutput[
-        "Jamarat baseline net flows",
-        "The network view shows where the pilgrims are routed through the interior corridors under the baseline release and exit-cost assumptions.",
-        SolutionFlowPlot[
-            jamaratBase["Model"],
-            jamaratBase["Solution"],
-            "Jamarat baseline net flows"
-        ]
+        "Chain 1\[Rule]2\[Rule]3, exits at {2,3} \[LongDash] with SC {1,2,3}=2.0: HJ equations",
+        "Same HJ equations; switching costs enter via complementarity, not HJ.",
+        systemData[sysWithSC, "EqGeneral"]
     ],
     DescribeOutput[
-        "Jamarat baseline densities",
-        "The edge color gradient highlights where the baseline routing would concentrate agents most strongly under the default Hamiltonian model.",
-        WithHamiltonianFunctions[
-            Function[{x, edge}, 0],
-            Function[edge, 1],
-            Function[{m, edge}, -1 / m^2],
-            DensityNetworkGraphic[
-                jamaratBase["Model"],
-                jamaratBase["Solution"],
-                "Jamarat baseline density map"
-            ]
-        ]
+        "Entry/exit boundary conditions (no SC)",
+        "Entry flow pinned via EqEntryIn; exit value substitution rules from RuleExitValues.",
+        Column[{systemData[sysNoSC, "EqEntryIn"], Normal @ systemData[sysNoSC, "RuleExitValues"]}]
     ],
     DescribeOutput[
-        "Jamarat exit split",
-        "Bar heights summarize the total predicted outflow through each exit in the feasible baseline scenario.",
-        ExitFlowPlot[jamaratBase["ExitFlows"], "Jamarat baseline exit split"]
+        "Flow complementarity \[LongDash] no switching costs",
+        "AltFlows: j[i,k]*j[k,i]=0 per edge pair. AltTransitionFlows: trivial (no jts).",
+        Column[{systemData[sysNoSC, "AltFlows"], systemData[sysNoSC, "AltTransitionFlows"]}]
     ],
     DescribeOutput[
-        "Jamarat exit totals",
-        "This association is the numeric form of the exit split shown in the chart above.",
-        jamaratBase["ExitFlows"]
+        "Flow complementarity \[LongDash] with switching costs",
+        "IneqSwitchingByVertex: optimality at vertex 2. AltOptCond: combined condition.",
+        Column[{systemData[sysWithSC, "IneqSwitchingByVertex"], systemData[sysWithSC, "AltOptCond"]}]
     ]
 }]
 
 
-(* Overloaded plan: the symbolic critical-congestion solver detects infeasibility. *)
-jamaratOverload = JamaratScenario[
-    {
-        I1 -> 130,
-        I2 -> 128,
-        U1 -> 20,
-        U2 -> 100,
-        U3 -> 0
-    }
-];
+(* --- 7. Topology visualization (from MFGraphs`Graphics`) --- *)
+
 Column[{
     DescribeOutput[
-        "Overloaded Jamarat scenario",
-        "This release plan is intentionally infeasible. Use it as a comparison point when stress-testing gate releases or exit penalties.",
-        jamaratOverload["Feasibility"]
+        "Chain topology \[LongDash] no switching costs",
+        "Green = entry, red = exits, gray = internal.",
+        scenarioTopologyPlot[chain2ExNoSC, sysNoSC, "Chain 1\[Rule]2\[Rule]3 (no SC)"]
     ],
     DescribeOutput[
-        "Jamarat network structure",
-        "When a scenario is infeasible, it is still useful to inspect the topology alone before changing releases or costs.",
-        NetworkGraphPlot[jamaratOverload["Model"], "Jamarat network structure"]
+        "Chain topology \[LongDash] with switching cost {1,2,3}=2.0",
+        "Same topology; SC at vertex 2 penalises continuing from edge 1\[Rule]2 to 2\[Rule]3.",
+        scenarioTopologyPlot[chain2ExWithSC, sysWithSC, "Chain 1\[Rule]2\[Rule]3 (SC at 2)"]
     ]
 }]
 
-(* Optional extension for later:
-   To compare guidance policies, create a small list of cost scenarios and map
-   JamaratScenario over them. Start from the tested baseline above, then change
-   U1, U2, and U3 one at a time and inspect ExitFlows. Keep the first sweep
-   conservative so you can tell whether a surprising split comes from your
-   policy choice or from a numerically delicate symbolic branch.
 
-   Example template:
-   jamaratScenarios = Association[
-       "Baseline" -> JamaratScenario[{I1 -> 2, I2 -> 2000, U1 -> 20, U2 -> 100, U3 -> 0}],
-       "Discourage Exit 8" -> JamaratScenario[{I1 -> 2, I2 -> 2000, U1 -> 20, U2 -> 130, U3 -> 0}]
-   ];
+(* --- 8. Solve with reduceSystem --- *)
 
-   KeyValueMap[
-       <|
-           "Scenario" -> #1,
-           "Feasibility" -> #2["Feasibility"],
-           "Exit7" -> Lookup[#2["ExitFlows"], 7, Missing["NotAvailable"]],
-           "Exit8" -> Lookup[#2["ExitFlows"], 8, Missing["NotAvailable"]],
-           "Exit9" -> Lookup[#2["ExitFlows"], 9, Missing["NotAvailable"]]
-       |>&,
-       jamaratScenarios
-   ];
+(* Chain 1->2->3, single exit at 3 (cost=0), entry flow=10.
+   All variables are uniquely determined. *)
+chain1Ex = gridScenario[{3}, {{1, 10}}, {{3, 0}}];
+sys1Ex   = makeSystem[chain1Ex];
 
-   Once you have calibrated edge classes for wide corridors, ramps, and merges,
-   reuse the same visualization and comparison pattern on the Jamarat graph.
-   In practice, start with the critical-congestion symbolic solve to screen release
-   plans and destination costs, then iterate on graph geometry and demand windows. *)
+DescribeOutput[
+    "reduceSystem \[LongDash] chain with one exit",
+    "Unique solution: all j and u values pinned by flow balance + HJ + complementarity.",
+    reduceSystem[sys1Ex]
+]
+
+
+(* Chain 1->2->3, two exits at {2,0} and {3,10}, entry flow=120.
+   Flow split between exits is under-determined; Reduce returns a parametric solution. *)
+DescribeOutput[
+    "reduceSystem \[LongDash] chain with two exits (no switching costs)",
+    "Parametric solution: one free variable governs how flow splits between exits.",
+    reduceSystem[sysNoSC]
+]
+
+
+(* --- 9. Visualize reduceSystem solutions (from MFGraphs`Graphics`) --- *)
+
+(* --- Apply to chain with one exit --- *)
+
+sol1Ex = reduceSystem[sys1Ex];
+
+Column[{
+    DescribeOutput[
+        "Combined solution plot \[LongDash] chain 1\[Rule]2\[Rule]3, single exit",
+        "Directed edges show j-flow direction/magnitude; labels show both j and u. Auxiliary edges are included.",
+        mfgSolutionPlot[chain1Ex, sys1Ex, sol1Ex,
+            "Chain 1\[Rule]2\[Rule]3: combined solution (exit at 3, cost=0)"]
+    ]
+}]
+
+
+(* --- Apply to chain with two exits (partial rules from underdetermined solution) --- *)
+
+solNoSC = reduceSystem[sysNoSC];
+
+Column[{
+    DescribeOutput[
+        "Combined solution plot \[LongDash] chain with two exits (no SC)",
+        "Edge {1,2} is directed 1\[Rule]2 (j[1,2]>0). Labels show j and u on real + auxiliary edges.",
+        mfgSolutionPlot[chain2ExNoSC, sysNoSC, solNoSC,
+            "Chain 1\[Rule]2\[Rule]3: combined solution (exits at 2 and 3)"]
+    ]
+}]

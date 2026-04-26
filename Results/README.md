@@ -155,7 +155,7 @@ Temporary CSV/JSON files are gitignored to avoid cluttering history.
 
 ### Can't find expected output file
 - Files are created in `Results/` (not current directory)
-- Timestamped files use format: `benchmark_YYYY-MM-DD_HHMMSS.csv`
+- Timestamped files use format: `benchmark_YYYYMMDD-HHMMSS.csv`
 - Latest run always accessible via `benchmark_latest.csv`
 
 ## References

@@ -8,8 +8,11 @@ This directory contains dormant tests that are intentionally excluded from the a
 - `solve-mfg-legacy.mt` contains legacy `SolveMFG` routing coverage for removed NonLinear/Monotone/NormalizeEdgeFunction public surface.
 - `solver-contracts-legacy.mt` contains return-shape contracts for removed NonLinear/Monotone public solvers.
 
-Additional non-archived but unsupported root-level tests are tracked under the `unsupported`
-suite in `Scripts/RunTests.wls`:
-
-- `inconsistent-switching-critical.mt`
-- `symbolic-underdetermined.mt`
+Additional tests archived on April 23, 2026:
+- `J9F-critical_congestion.mt`, `Jm9-critical_congestion.mt`, `critical-basic-cases.mt`,
+  `critical-numeric-backend.mt`, `exact-mode.mt`, `exit-pass-through.mt`,
+  `exit-pass-through-nonzero.mt`, `graphics-public-api.mt`,
+  `inconsistent-switching-critical.mt`, `infeasible-status.mt`, `run-tests-smoke.mt`,
+  `solve-mfg.mt`, `solver-contracts.mt`, `symbolic-underdetermined.mt`,
+  `package-loading.mt`.
+- Reason: these suites are not focused on `Scenario.wl`, `System.wl`, or `Unknowns.wl`.

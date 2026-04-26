@@ -3,11 +3,13 @@
 Print["MFGraphs Test Runner"];
 Print["==================="];
 
-PrependTo[$Path, Directory[]];
+$RepoRoot = FileNameJoin[{DirectoryName[$InputFileName], ".."}];
+
+PrependTo[$Path, $RepoRoot];
 Needs["MFGraphs`"];
 $MFGraphsVerbose = False;
 
-$TestsDir = FileNameJoin[{Directory[], "MFGraphs", "Tests"}];
+$TestsDir = FileNameJoin[{$RepoRoot, "MFGraphs", "Tests"}];
 
 (* Active suites organized by stability/support level. *)
 $FastSuite = {
@@ -41,17 +43,23 @@ $UnsupportedSuite = {
 };
 
 $TestSuites = <|
-    (* `fast` is the critical-only public CI gate. *)
-    "fast" -> $FastSuite,
-    (* `slow` adds long-running paper-scale cases. *)
-    "slow" -> $SlowSuite,
-    (* `meta` validates test-runner entrypoints themselves. *)
-    "meta" -> $MetaSuite,
-    (* `unsupported` are legacy/non-critical tests excluded from active CI. *)
-    "unsupported" -> $UnsupportedSuite
+    (* Policy: launch package tests through this runner workflow
+       (`wolframscript -file Scripts/RunTests.wls <suite>`). *)
+    (* Current phase scope: only Scenario/Unknowns/System coverage.
+       Solver tests are intentionally not part of active suites yet. *)
+    "fast" -> {
+        "scenario-kernel.mt",
+        "make-unknowns.mt",
+        "reduce-system.mt",
+        "scenario-consistency.mt"
+    },
+    "slow" -> {},
+    "legacy-fast" -> {},
+    "legacy-slow" -> {}
 |>;
 $TestSuites["all"] = Join[$TestSuites["fast"], $TestSuites["slow"]];
-$TestSuites["full"] = Join[$TestSuites["all"], $TestSuites["meta"]];
+$TestSuites["legacy"] = Join[$TestSuites["legacy-fast"], $TestSuites["legacy-slow"]];
+$TestSuites["full"] = Join[$TestSuites["all"], $TestSuites["legacy"]];
 
 args = Select[
     Rest[$ScriptCommandLine],
@@ -67,22 +75,42 @@ If[MissingQ[suiteFiles],
 ];
 
 Print["Suite: ", suiteName];
-Print["Files: ", StringRiffle[suiteFiles, ", "]];
+Print["Files: ", Length[suiteFiles]];
 Print[];
 
-report = TestReport[FileNameJoin[{$TestsDir, #}] & /@ suiteFiles];
+$totalPassed = 0;
+$totalFailed = 0;
+$allFailed = {};
 
-Print["Tests run: ", report["TestsSucceededCount"] + report["TestsFailedCount"]];
-Print["Passed: ", report["TestsSucceededCount"]];
-Print["Failed: ", report["TestsFailedCount"]];
-
-If[report["TestsFailedCount"] > 0,
-    Print["\nFailed Tests:"];
-    failed = Select[report["TestResults"], !MatchQ[#["Outcome"], "Success"] &];
-    KeyValueMap[
-        (Print["  [", #2["Outcome"], "] ", #2["TestID"]]) &,
-        failed
+Do[
+    Print["--- ", file, " ---"];
+    $t0 = AbsoluteTime[];
+    report = TestReport[FileNameJoin[{$TestsDir, file}]];
+    $elapsed = Round[AbsoluteTime[] - $t0];
+    passed = report["TestsSucceededCount"];
+    failed = report["TestsFailedCount"];
+    $totalPassed += passed;
+    $totalFailed += failed;
+    Print["  Passed: ", passed, "  Failed: ", failed, "  (", $elapsed, "s)"];
+    If[failed > 0,
+        failedHere = Select[report["TestResults"], !MatchQ[#["Outcome"], "Success"] &];
+        KeyValueMap[
+            (Print["  [FAIL] ", #2["TestID"]]; AppendTo[$allFailed, #2["TestID"]]) &,
+            failedHere
+        ]
     ];
+    Print[];
+    ,
+    {file, suiteFiles}
+];
+
+Print["==================="];
+Print["Total passed: ", $totalPassed];
+Print["Total failed: ", $totalFailed];
+
+If[$totalFailed > 0,
+    Print["\nFailed tests:"];
+    Scan[Print["  ", #] &, $allFailed];
     Exit[1]
 ,
     Exit[0]

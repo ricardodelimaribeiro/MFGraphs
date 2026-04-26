@@ -119,17 +119,17 @@ Test[
 
 Test[
     Module[{data, d2e, result},
-        data = MFGraphs`GetExampleData["Jamaratv9"] /. {
-            MFGraphs`I1 -> 130,
-            MFGraphs`I2 -> 128,
-            MFGraphs`U1 -> 20,
-            MFGraphs`U2 -> 100,
-            MFGraphs`U3 -> 0
+        data = GetExampleData["Jamaratv9"] /. {
+            I1 -> 130,
+            I2 -> 128,
+            U1 -> 20,
+            U2 -> 100,
+            U3 -> 0
         };
-        d2e = MFGraphs`DataToEquations[data];
+        d2e = DataToEquations[data];
         (* Disable numeric backend to guarantee symbolic path is reached *)
         d2e = Append[d2e, "CriticalNumericBackendMode" -> False];
-        result = Quiet[MFGraphs`CriticalCongestionSolver[d2e, "SymbolicTimeLimit" -> 0.01]];
+        result = Quiet[CriticalCongestionSolver[d2e, "SymbolicTimeLimit" -> 0.01]];
         Lookup[result, {"Solver", "ResultKind", "Feasibility", "Message"}] ===
             {"CriticalCongestion", "Failure", Missing["NotAvailable"], "SymbolicTimeout"} &&
         TrueQ[Lookup[result, "SymbolicSolverTimedOut", False]] &&
@@ -328,7 +328,7 @@ Test[
         d2e = DataToEquations[data];
         {b, k, jj} = GetKirchhoffLinearSystem[d2e];
         seed = First @ FindInstance[k . jj == b && And @@ Thread[jj >= 10^-8], jj, Reals];
-        reduced = MFGraphs`Private`BuildReducedKirchhoffCoordinates[d2e, N[jj /. seed]];
+        reduced = BuildReducedKirchhoffCoordinates[d2e, N[jj /. seed]];
         0 <= reduced["StateDimension"] <= Length[jj] - MatrixRank[Normal[k]] &&
         reduced["FullDimension"] === Length[jj] &&
         Max[Abs[k . reduced["BasePoint"] - b]] < 10^-7 &&
@@ -351,7 +351,7 @@ Test[
             {x > 0 && y == 0, x == 0 && y > 0}
         };
         candidate = <|x -> 1, y -> 0|>;
-        pruned = MFGraphs`Private`BuildPrunedSystem[system, candidate];
+        pruned = BuildPrunedSystem[system, candidate];
         pruned[[1]] === system[[1]] &&
         pruned[[2]] === system[[2]] &&
         Length[pruned[[3]]] === 1 &&
@@ -371,7 +371,7 @@ Test[
             {x > 5 && y == 0, x > 10 && y > 0}
         };
         candidate = <|x -> 1, y -> 0|>;
-        pruned = MFGraphs`Private`BuildPrunedSystem[system, candidate];
+        pruned = BuildPrunedSystem[system, candidate];
         pruned[[3]] === system[[3]]
     ]
     ,

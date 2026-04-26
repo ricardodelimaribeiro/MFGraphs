@@ -8,11 +8,11 @@ printable[expr_] := StringReplace[
 ];
 
 data = GetExampleData["chain with two exits"] /. {I1 -> 100, U1 -> 0, U2 -> 20};
-data = AssociateTo[data, "Switching Costs" -> {{1, 2, 3, 10}}];
+data = AssociateTo[data, "Switching" -> {{1, 2, 3, 10}}];
 
 Print["DATA=" <> printable[data]];
 
-consistency = IsSwitchingCostConsistent[Normal @ Association[Most /@ data["Switching Costs"], Last /@ data["Switching Costs"]]];
+consistency = IsSwitchingCostConsistent[Normal @ Association[Most /@ data["Switching"], Last /@ data["Switching"]]];
 Print["CONSISTENCY=" <> printable[consistency]];
 
 Quiet[

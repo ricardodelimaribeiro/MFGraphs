@@ -4,32 +4,26 @@ For comprehensive guidance on working with MFGraphs, see **[CLAUDE.md](CLAUDE.md
 
 ## Quick Reference
 
-**MFGraphs** is a Wolfram Language package for solving Mean Field Games on networks with congestion and switching costs.
+**MFGraphs** is currently in a **core scenario-kernel phase**.
+The active package surface focuses on typed scenario, unknown, and structural system construction.
 
 ### Load the package
 ```mathematica
 Needs["MFGraphs`"]
-(* or: Get["/path/to/MFGraphs/MFGraphs/MFGraphs.wl"] *)
 ```
 
-### Quick start
+### Quick start (Core Scenario Kernels)
 ```mathematica
-Data = GetExampleData[12] /. {I1 -> 100, U1 -> 0};
-d2e = DataToEquations[Data];
-result = CriticalCongestionSolver[d2e];
-result["AssoCritical"]
-```
+(* Build a scenario using a factory or makeScenario *)
+s = GetExampleScenario[12][{{1, 100}}, {{4, 0}}, {}];
 
-### Run tests
-```bash
-wolframscript -file Scripts/RunTests.wls fast  # ~27 min
-wolframscript -file Scripts/RunTests.wls slow  # longer
-```
+(* Generate symbolic unknowns and structural equations *)
+unk = makeUnknowns[s];
+sys = makeSystem[s, unk];
 
-### Run benchmarks
-```bash
-wolframscript -file Scripts/BenchmarkSuite.wls small
-wolframscript -file Scripts/CompareDNF.wls --tag "optimization description"
+(* Access structural data *)
+data = SystemDataFlatten[sys];
+data["AltFlows"]
 ```
 
 ## For Detailed Documentation
@@ -37,32 +31,19 @@ wolframscript -file Scripts/CompareDNF.wls --tag "optimization description"
 → See **[CLAUDE.md](CLAUDE.md)** for:
 - Environment setup and prerequisites
 - Complete Quick Start with code examples
-- Architecture overview (pipeline, module load order, solver chain)
-- Configuration (all global parameters and their defaults)
-- Debugging & Profiling workflows
-- Performance optimization notes
+- Architecture overview (Scenario, Unknowns, System)
 
 → See **[CONTRIBUTING.md](CONTRIBUTING.md)** for:
 - PR workflow and code style
-- Testing and benchmarking procedures
+- Testing procedures
 - Commit message conventions
-- Documentation update guidelines
-
-→ See **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** for:
-- Common issues and solutions
-- Solver timeouts and infeasibility
-- Parallel kernel debugging
-- Data format validation
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
 | `MFGraphs/MFGraphs.wl` | Package loader |
-| `MFGraphs/DataToEquations.wl` | Network → equations converter |
-| `MFGraphs/DNFReduce.wl` | Boolean algebra solver |
-| `MFGraphs/NonLinearSolver.wl` | Iterative solver (Hamiltonian) |
-| `MFGraphs/Monotone.wl` | ODE-based gradient flow solver |
+| `MFGraphs/Scenario.wl` | Typed scenario kernel |
+| `MFGraphs/Unknowns.wl` | Symbolic unknown bundle construction |
+| `MFGraphs/System.wl` | Structural equation system kernel |
 | `Scripts/RunTests.wls` | Test suite runner |
-| `Scripts/BenchmarkSuite.wls` | Performance benchmarking |
-| `Results/` | Benchmark outputs and performance history |
