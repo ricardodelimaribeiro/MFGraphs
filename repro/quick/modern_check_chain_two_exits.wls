@@ -10,12 +10,12 @@ printable[expr_] := StringReplace[
 (* Use the new Scenario and System API *)
 (* Chain 1->2->3, entry at 1 flow 100, exits at 2 (cost 0) and 3 (cost 20) *)
 (* Add inconsistent switching cost: 1->2->3 cost 10 *)
-scenario = GridScenario[{3}, {{1, 100}}, {{2, 0}, {3, 20}}, {{1, 2, 3, 10}}];
+scenario = gridScenario[{3}, {{1, 100}}, {{2, 0}, {3, 20}}, {{1, 2, 3, 10}}];
 
 Print["SCENARIO_VALID=" <> printable[ScenarioQ[scenario]]];
 
 sys = makeSystem[scenario];
-d2e = SystemDataFlatten[sys];
+d2e = systemDataFlatten[sys];
 
 Print["D2E_KEYS=" <> printable[Sort @ Keys[d2e]]];
 Print["D2E_SWITCHING=" <> printable[d2e["SwitchingCosts"]]];

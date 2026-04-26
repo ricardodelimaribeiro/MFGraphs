@@ -13,12 +13,20 @@ makeUnknowns::usage = "makeUnknowns[s] returns unknowns[<|\"js\" -> ..., \"jts\"
 
 Begin["`Private`"];
 
+iCanonicalUPair[pair : {a_, b_}] :=
+    Module[{bName = Quiet @ Check[SymbolName[b], ""]},
+        If[StringStartsQ[bName, "auxEntry"] || StringStartsQ[bName, "auxExit"],
+            {b, a},
+            pair
+        ]
+    ];
+
 MakeUnknownsFromPairsTriples[auxPairs_List, auxTriples_List] :=
     unknowns[
         <|
             "js" -> (j[Sequence @@ #] & /@ auxPairs),
             "jts" -> (j[Sequence @@ #] & /@ auxTriples),
-            "us" -> (u[Sequence @@ #] & /@ auxPairs),
+            "us" -> (u[Sequence @@ #] & /@ (iCanonicalUPair /@ auxPairs)),
             "auxPairs" -> auxPairs,
             "auxTriples" -> auxTriples
         |>

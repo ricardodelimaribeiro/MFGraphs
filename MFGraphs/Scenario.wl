@@ -103,6 +103,12 @@ $DefaultHamiltonian = <|
     "EdgeG" -> <||>
 |>;
 
+(* Shared failure constructors for ScenarioValidation failures. *)
+iScenarioFailure[msg_String] :=
+    Failure["ScenarioValidation", <|"Message" -> msg, "MissingKeys" -> {}|>];
+iScenarioFailure[msg_String, missingKeys_List] :=
+    Failure["ScenarioValidation", <|"Message" -> msg, "MissingKeys" -> missingKeys|>];
+
 HamiltonianGTermQ[value_] :=
     NumericQ[value] || MatchQ[value, _Function];
 
@@ -149,23 +155,17 @@ NormalizeScenarioModel[model_Association] :=
 NormalizeScenarioModel[other_] := other;
 
 BoundaryValuesNumericQ[model_Association] :=
-    Module[{entry, exit, entryVals, exitVals},
-        entry = Lookup[model, "Entrance Vertices and Flows", Missing["KeyAbsent", "Entrance Vertices and Flows"]];
-        exit = Lookup[model, "Exit Vertices and Terminal Costs", Missing["KeyAbsent", "Exit Vertices and Terminal Costs"]];
-        If[!ListQ[entry] || !ListQ[exit],
-            Return[False, Module]
-        ];
-        If[!AllTrue[entry, MatchQ[#, {_, _}] &] || !AllTrue[exit, MatchQ[#, {_, _}] &],
-            Return[False, Module]
-        ];
-        entryVals = Last /@ entry;
-        exitVals = Last /@ exit;
-        AllTrue[Join[entryVals, exitVals], NumericQ]
+    With[{entry = Lookup[model, "Entrance Vertices and Flows", Missing[]],
+          exit  = Lookup[model, "Exit Vertices and Terminal Costs", Missing[]]},
+        ListQ[entry] && ListQ[exit] &&
+        AllTrue[entry, MatchQ[#, {_, _}] &] &&
+        AllTrue[exit,  MatchQ[#, {_, _}] &] &&
+        AllTrue[Last /@ Join[entry, exit], NumericQ]
     ];
 
 SwitchingCostsNumericQ[model_Association] :=
     Module[{switching},
-        switching = Lookup[model, "Switching Costs", Missing["KeyAbsent", "Switching Costs"]];
+        switching = Lookup[model, "Switching Costs", Missing[]];
         Which[
             AssociationQ[switching],
                 AllTrue[Keys[switching], ListQ[#] && Length[#] === 3 && AllTrue[#, IntegerQ] &] &&
@@ -184,14 +184,13 @@ NormalizeSwitchingCosts[sc_List] :=
     If[sc === {}, <||>, AssociationThread[Most /@ sc, Last /@ sc]];
 
 IntegerVertexLabelsQ[model_Association] :=
-    Module[{vertices},
-        vertices = Lookup[model, "Vertices List", Missing["KeyAbsent", "Vertices List"]];
+    With[{vertices = Lookup[model, "Vertices List", Missing[]]},
         ListQ[vertices] && AllTrue[vertices, IntegerQ]
     ];
 
 ModelDirectedEdgePairs[model_Association] :=
     Module[{vertices, adjacency},
-        vertices = Lookup[model, "Vertices List", {}];
+        vertices  = Lookup[model, "Vertices List", {}];
         adjacency = Lookup[model, "Adjacency Matrix", {}];
         If[vertices === {} || adjacency === {},
             {},
@@ -201,111 +200,55 @@ ModelDirectedEdgePairs[model_Association] :=
 
 NormalizeHamiltonianSpec[spec_, model_Association] :=
     Module[
-        {
-            ham, alphaDefault, vDefault, gDefault, edgeAlpha, edgeV, edgeG,
-            edgePairs, validEdges, badEdges, badValues
-        },
-        ham = If[AssociationQ[spec], spec, <||>];
-        alphaDefault = Lookup[ham, "Alpha", $DefaultHamiltonian["Alpha"]];
-        vDefault = Lookup[ham, "V", $DefaultHamiltonian["V"]];
-        gDefault = Lookup[ham, "G", $DefaultHamiltonian["G"]];
-        edgeAlpha = Lookup[ham, "EdgeAlpha", $DefaultHamiltonian["EdgeAlpha"]];
-        edgeV = Lookup[ham, "EdgeV", $DefaultHamiltonian["EdgeV"]];
-        edgeG = Lookup[ham, "EdgeG", $DefaultHamiltonian["EdgeG"]];
+        {ham, alphaDefault, vDefault, gDefault, edgeAlpha, edgeV, edgeG,
+         edgePairs, validEdges, badEdges, badAlpha, badV, badG},
+        ham          = If[AssociationQ[spec], spec, <||>];
+        alphaDefault = Lookup[ham, "Alpha",     $DefaultHamiltonian["Alpha"]];
+        vDefault     = Lookup[ham, "V",         $DefaultHamiltonian["V"]];
+        gDefault     = Lookup[ham, "G",         $DefaultHamiltonian["G"]];
+        edgeAlpha    = Lookup[ham, "EdgeAlpha", $DefaultHamiltonian["EdgeAlpha"]];
+        edgeV        = Lookup[ham, "EdgeV",     $DefaultHamiltonian["EdgeV"]];
+        edgeG        = Lookup[ham, "EdgeG",     $DefaultHamiltonian["EdgeG"]];
+
         If[!NumericQ[alphaDefault],
-            Return[
-                Failure["ScenarioValidation",
-                    <|"Message" -> "\"Hamiltonian\" default \"Alpha\" must be numeric.",
-                      "MissingKeys" -> {}|>
-                ],
-                Module
-            ]
-        ];
+            Return[iScenarioFailure["\"Hamiltonian\" default \"Alpha\" must be numeric."], Module]];
         If[!NumericQ[vDefault],
-            Return[
-                Failure["ScenarioValidation",
-                    <|"Message" -> "\"Hamiltonian\" default \"V\" must be numeric.",
-                      "MissingKeys" -> {}|>
-                ],
-                Module
-            ]
-        ];
+            Return[iScenarioFailure["\"Hamiltonian\" default \"V\" must be numeric."], Module]];
         If[!HamiltonianGTermQ[gDefault],
-            Return[
-                Failure["ScenarioValidation",
-                    <|"Message" -> "\"Hamiltonian\" default \"G\" must be numeric or a pure function.",
-                      "MissingKeys" -> {}|>
-                ],
-                Module
-            ]
-        ];
+            Return[iScenarioFailure["\"Hamiltonian\" default \"G\" must be numeric or a pure function."], Module]];
         If[!AssociationQ[edgeAlpha],
-            Return[
-                Failure["ScenarioValidation",
-                    <|"Message" -> "\"Hamiltonian\" \"EdgeAlpha\" must be an Association.",
-                      "MissingKeys" -> {}|>
-                ],
-                Module
-            ]
-        ];
+            Return[iScenarioFailure["\"Hamiltonian\" \"EdgeAlpha\" must be an Association."], Module]];
         If[!AssociationQ[edgeV],
-            Return[
-                Failure["ScenarioValidation",
-                    <|"Message" -> "\"Hamiltonian\" \"EdgeV\" must be an Association.",
-                      "MissingKeys" -> {}|>
-                ],
-                Module
-            ]
-        ];
+            Return[iScenarioFailure["\"Hamiltonian\" \"EdgeV\" must be an Association."], Module]];
         If[!AssociationQ[edgeG],
-            Return[
-                Failure["ScenarioValidation",
-                    <|"Message" -> "\"Hamiltonian\" \"EdgeG\" must be an Association.",
-                      "MissingKeys" -> {}|>
-                ],
-                Module
-            ]
-        ];
-        edgePairs = DeleteDuplicates[ModelDirectedEdgePairs[model]];
+            Return[iScenarioFailure["\"Hamiltonian\" \"EdgeG\" must be an Association."], Module]];
+
+        edgePairs  = DeleteDuplicates[ModelDirectedEdgePairs[model]];
         validEdges = AssociationThread[edgePairs, ConstantArray[True, Length[edgePairs]]];
-        badEdges = Select[
+        badEdges   = Select[
             DeleteDuplicates @ Join[Keys[edgeAlpha], Keys[edgeV], Keys[edgeG]],
             !MatchQ[#, {_, _}] || (!KeyExistsQ[validEdges, #] && !KeyExistsQ[validEdges, Reverse[#]]) &
         ];
         If[badEdges =!= {},
-            Return[
-                Failure["ScenarioValidation",
-                    <|"Message" -> "\"Hamiltonian\" edge-parameter keys must be valid edge pairs {u,v}.",
-                      "MissingKeys" -> {},
-                      "InvalidEdges" -> badEdges|>
-                ],
-                Module
-            ]
-        ];
-        badValues = Select[
-            Join[Normal[edgeAlpha], Normal[edgeV], Normal[edgeG]],
-            !(
-                NumericQ[Last[#]] ||
-                (KeyExistsQ[edgeG, First[#]] && HamiltonianGTermQ[Last[#]])
-            ) &
-        ];
-        If[badValues =!= {},
-            Return[
-                Failure["ScenarioValidation",
-                    <|"Message" -> "\"Hamiltonian\" edge-parameter values must be numeric.",
-                      "MissingKeys" -> {},
-                      "InvalidRules" -> badValues|>
-                ],
-                Module
-            ]
-        ];
+            Return[Failure["ScenarioValidation",
+                <|"Message" -> "\"Hamiltonian\" edge-parameter keys must be valid edge pairs {u,v}.",
+                  "MissingKeys" -> {}, "InvalidEdges" -> badEdges|>], Module]];
+
+        badAlpha = Select[Normal[edgeAlpha], !NumericQ[Last[#]] &];
+        badV     = Select[Normal[edgeV],     !NumericQ[Last[#]] &];
+        badG     = Select[Normal[edgeG],     !HamiltonianGTermQ[Last[#]] &];
+        If[badAlpha =!= {} || badV =!= {} || badG =!= {},
+            Return[Failure["ScenarioValidation",
+                <|"Message" -> "\"Hamiltonian\" edge-parameter values must be numeric (or Function for EdgeG).",
+                  "MissingKeys" -> {}, "InvalidRules" -> Join[badAlpha, badV, badG]|>], Module]];
+
         Join[ham, <|
-            "Alpha" -> alphaDefault,
-            "V" -> vDefault,
-            "G" -> gDefault,
+            "Alpha"     -> alphaDefault,
+            "V"         -> vDefault,
+            "G"         -> gDefault,
             "EdgeAlpha" -> edgeAlpha,
-            "EdgeV" -> edgeV,
-            "EdgeG" -> edgeG
+            "EdgeV"     -> edgeV,
+            "EdgeG"     -> edgeG
         |>]
     ];
 
@@ -315,15 +258,15 @@ iBuildAuxTriples[directedEdges_List] :=
     Module[{incomingByVertex, outgoingByVertex, middleVertices, triples,
             auxEntryVertexQ, auxExitVertexQ},
         auxEntryVertexQ[v_] := StringQ[v] && StringStartsQ[v, "auxEntry"];
-        auxExitVertexQ[v_] := StringQ[v] && StringStartsQ[v, "auxExit"];
+        auxExitVertexQ[v_]  := StringQ[v] && StringStartsQ[v, "auxExit"];
         incomingByVertex = GroupBy[directedEdges, Last -> First];
         outgoingByVertex = GroupBy[directedEdges, First -> Last];
-        middleVertices = Intersection[Keys[incomingByVertex], Keys[outgoingByVertex]];
+        middleVertices   = Intersection[Keys[incomingByVertex], Keys[outgoingByVertex]];
         triples = DeleteDuplicates @ Flatten[
             Table[
                 If[vIn =!= vOut, {vIn, vMid, vOut}, Nothing],
                 {vMid, middleVertices},
-                {vIn, Lookup[incomingByVertex, vMid, {}]},
+                {vIn,  Lookup[incomingByVertex, vMid, {}]},
                 {vOut, Lookup[outgoingByVertex, vMid, {}]}
             ],
             2
@@ -340,26 +283,26 @@ BuildAuxTriples[auxGraph_Graph] :=
 DeriveAuxPairs[topology_Association] :=
     Lookup[topology, "AuxPairs",
         Module[{graph, halfPairs, inAuxEntryPairs, outAuxExitPairs, pairs},
-            graph = topology["Graph"];
-            halfPairs = List @@@ EdgeList[graph];
+            graph           = topology["Graph"];
+            halfPairs       = List @@@ EdgeList[graph];
             inAuxEntryPairs = List @@@ topology["AuxEntryEdges"];
             outAuxExitPairs = List @@@ topology["AuxExitEdges"];
-            pairs = Join[halfPairs, Reverse /@ halfPairs];
+            pairs           = Join[halfPairs, Reverse /@ halfPairs];
             Join[inAuxEntryPairs, outAuxExitPairs, pairs]
         ]
     ];
 
 BuildAuxiliaryTopology[model_Association] :=
-    Module[{vertices, adjacency, adjacencyForGraph, entryFlows, exitCosts, graph, 
+    Module[{vertices, adjacency, adjacencyForGraph, entryFlows, exitCosts, graph,
             entryVertices, exitVertices, auxEntryVertices, auxExitVertices,
             entryEdges, exitEdges, auxiliaryGraph, auxTriples,
             halfPairs, inAuxEntryPairs, outAuxExitPairs, pairs, auxPairs},
-        
-        vertices = Lookup[model, "Vertices List"];
-        adjacency = Lookup[model, "Adjacency Matrix"];
-        entryFlows = Lookup[model, "Entrance Vertices and Flows"];
-        exitCosts = Lookup[model, "Exit Vertices and Terminal Costs"];
-        
+
+        vertices    = Lookup[model, "Vertices List"];
+        adjacency   = Lookup[model, "Adjacency Matrix"];
+        entryFlows  = Lookup[model, "Entrance Vertices and Flows"];
+        exitCosts   = Lookup[model, "Exit Vertices and Terminal Costs"];
+
         If[
             !ListQ[vertices] ||
             !(Head[adjacency] === SparseArray || MatrixQ[adjacency]) ||
@@ -369,47 +312,43 @@ BuildAuxiliaryTopology[model_Association] :=
         ];
 
         adjacencyForGraph = Unitize[adjacency + Transpose[adjacency]];
-        
+
         graph = Check[
             AdjacencyGraph[vertices, adjacencyForGraph, DirectedEdges -> False],
             $Failed
         ];
         If[!MatchQ[graph, _Graph], Return[$Failed, Module]];
 
-        entryVertices = First /@ entryFlows;
-        exitVertices = First /@ exitCosts;
-        
+        entryVertices    = First /@ entryFlows;
+        exitVertices     = First /@ exitCosts;
         auxEntryVertices = ("auxEntry" <> ToString[#]) & /@ entryVertices;
-        auxExitVertices  = ("auxExit" <> ToString[#]) & /@ exitVertices;
-        
+        auxExitVertices  = ("auxExit"  <> ToString[#]) & /@ exitVertices;
+
         entryEdges = MapThread[DirectedEdge, {auxEntryVertices, entryVertices}];
-        exitEdges = MapThread[DirectedEdge, {exitVertices, auxExitVertices}];
-        
-        halfPairs = List @@@ EdgeList[graph];
+        exitEdges  = MapThread[DirectedEdge, {exitVertices, auxExitVertices}];
+
+        halfPairs       = List @@@ EdgeList[graph];
         inAuxEntryPairs = List @@@ entryEdges;
         outAuxExitPairs = List @@@ exitEdges;
-        pairs = Join[halfPairs, Reverse[halfPairs, {2}]];
-        
-        auxPairs = Join[inAuxEntryPairs, outAuxExitPairs, pairs];
-        
+        pairs           = Join[halfPairs, Reverse[halfPairs, {2}]];
+        auxPairs        = Join[inAuxEntryPairs, outAuxExitPairs, pairs];
+
         auxiliaryGraph = EdgeAdd[graph, Join[entryEdges, exitEdges]];
-        auxTriples = iBuildAuxTriples[auxPairs];
+        auxTriples     = iBuildAuxTriples[auxPairs];
 
         <|
-            "Graph" -> graph,
-            "AuxiliaryGraph" -> auxiliaryGraph,
-            "AuxEntryVertices" -> auxEntryVertices,
-            "AuxExitVertices" -> auxExitVertices,
-            "AuxEntryEdges" -> entryEdges,
-            "AuxExitEdges" -> exitEdges,
-            "AuxTriples" -> auxTriples,
-            "HalfPairs" -> halfPairs,
-            "InAuxEntryPairs" -> inAuxEntryPairs,
-            "OutAuxExitPairs" -> outAuxExitPairs,
-            (* "InAuxExitPairs" -> inAuxExitPairs, *)
-            (* "OutAuxEntryPairs" -> outAuxEntryPairs, *)
-            "Pairs" -> pairs,
-            "AuxPairs" -> auxPairs
+            "Graph"             -> graph,
+            "AuxiliaryGraph"    -> auxiliaryGraph,
+            "AuxEntryVertices"  -> auxEntryVertices,
+            "AuxExitVertices"   -> auxExitVertices,
+            "AuxEntryEdges"     -> entryEdges,
+            "AuxExitEdges"      -> exitEdges,
+            "AuxTriples"        -> auxTriples,
+            "HalfPairs"         -> halfPairs,
+            "InAuxEntryPairs"   -> inAuxEntryPairs,
+            "OutAuxExitPairs"   -> outAuxExitPairs,
+            "Pairs"             -> pairs,
+            "AuxPairs"          -> auxPairs
         |>
     ];
 
@@ -420,8 +359,8 @@ scenarioQ[_]                       := False;
 
 (* --- Accessor --- *)
 
-ScenarioData[scenario[assoc_Association]]           := assoc;
-ScenarioData[scenario[assoc_Association], key_]     := Lookup[assoc, key, Missing["KeyAbsent", key]];
+ScenarioData[scenario[assoc_Association]]       := assoc;
+ScenarioData[scenario[assoc_Association], key_] := Lookup[assoc, key, Missing["KeyAbsent", key]];
 
 (* --- Validate --- *)
 
@@ -431,30 +370,22 @@ validateScenario[s_scenario] :=
         model = Lookup[assoc, "Model", Missing["KeyAbsent", "Model"]];
         Which[
             MissingQ[model],
-                Failure["ScenarioValidation",
-                    <|"Message" -> "\"Model\" key is absent.",
-                      "MissingKeys" -> {"Model"}|>],
+                iScenarioFailure["\"Model\" key is absent.", {"Model"}],
             !AssociationQ[model],
-                Failure["ScenarioValidation",
-                    <|"Message" -> "\"Model\" value must be an Association.",
-                      "MissingKeys" -> {}|>],
+                iScenarioFailure["\"Model\" value must be an Association."],
             True,
                 missing = Select[$RequiredModelKeys, !KeyExistsQ[model, #] &];
                 If[missing === {},
                     s,
-                    Failure["ScenarioValidation",
-                        <|"Message" ->
-                            "Missing required Model keys: " <> StringRiffle[missing, ", "],
-                          "MissingKeys" -> missing|>]
+                    iScenarioFailure[
+                        "Missing required Model keys: " <> StringRiffle[missing, ", "],
+                        missing]
                 ]
         ]
     ];
 
-(* Reject non-scenario inputs immediately. *)
 validateScenario[x_] :=
-    Failure["ScenarioValidation",
-        <|"Message" -> "Input is not a scenario object.",
-          "MissingKeys" -> {}|>];
+    iScenarioFailure["Input is not a scenario object."];
 
 (* --- Complete --- *)
 
@@ -465,16 +396,18 @@ CompleteSwitchingCosts[model_Association, topology_Association] :=
         Join[AssociationMap[0&, triples], scAssoc]
     ];
 
-completeScenario[s_scenario] :=
-    Module[{assoc, identity, benchmark, model, hamiltonian, newAssoc, completedSC, topology},
-        assoc     = ScenarioData[s];
-        model     = Lookup[assoc, "Model", <||>];
-        hamiltonian = Lookup[assoc, "Hamiltonian", $DefaultHamiltonian];
-        identity  = Lookup[assoc, "Identity", <||>];
-        benchmark = Lookup[assoc, "Benchmark", <||>];
-        topology  = Lookup[assoc, "Topology", Missing["KeyAbsent", "Topology"]];
+completeScenario::notscenario =
+    "completeScenario expected a scenario object; got `1`. Returning input unchanged.";
 
-        (* Ensure "Switching Costs" is explicitly completed before hashing. *)
+completeScenario[s_scenario] :=
+    Module[{assoc, identity, benchmark, model, hamiltonian, topology, completedSC},
+        assoc       = ScenarioData[s];
+        model       = Lookup[assoc, "Model",       <||>];
+        hamiltonian = Lookup[assoc, "Hamiltonian", $DefaultHamiltonian];
+        identity    = Lookup[assoc, "Identity",    <||>];
+        benchmark   = Lookup[assoc, "Benchmark",   <||>];
+        topology    = Lookup[assoc, "Topology",    Missing["KeyAbsent", "Topology"]];
+
         If[!MissingQ[topology],
             completedSC = CompleteSwitchingCosts[model, topology];
             model = Join[model, <|"Switching Costs" -> completedSC|>]
@@ -485,112 +418,64 @@ completeScenario[s_scenario] :=
             benchmark
         ];
 
-        newAssoc = Join[assoc, <|
-            "Model" -> model,
+        scenario[Join[assoc, <|
+            "Model"       -> model,
             "Hamiltonian" -> hamiltonian,
-            "Identity" -> identity, 
-            "Benchmark" -> benchmark
-        |>];
-        scenario[newAssoc]
+            "Identity"    -> identity,
+            "Benchmark"   -> benchmark
+        |>]]
     ];
 
-completeScenario[x_] := x;   (* pass-through for non-scenario values *)
+completeScenario[x_] := (Message[completeScenario::notscenario, x]; x);
 
 (* --- Constructor --- *)
 
 makeScenario[rawAssoc_Association] :=
-    Module[{normalizedAssoc, wrapped, validated, validatedAssoc, completed, model, topology, hamiltonian},
-        normalizedAssoc = rawAssoc;
-        model = Lookup[rawAssoc, "Model", Missing["KeyAbsent", "Model"]];
-        
-        If[AssociationQ[model],
-            normalizedAssoc = Join[
-                rawAssoc,
-                <|"Model" -> NormalizeScenarioModel[model]|>
-            ]
+    Module[{rawModel, normalizedAssoc, validated, validatedAssoc, model, topology, hamiltonian},
+        rawModel = Lookup[rawAssoc, "Model", Missing["KeyAbsent", "Model"]];
+        normalizedAssoc = If[AssociationQ[rawModel],
+            Join[rawAssoc, <|"Model" -> NormalizeScenarioModel[rawModel]|>],
+            rawAssoc
         ];
-        
-        wrapped   = scenario[normalizedAssoc];
-        validated = validateScenario[wrapped];
-        If[FailureQ[validated],
-            validated,
-            validatedAssoc = ScenarioData[validated];
-            If[KeyExistsQ[validatedAssoc, "Data"],
-                Return[
-                    Failure["ScenarioValidation",
-                        <|"Message" -> "\"Data\" key is no longer supported. Provide numeric values directly in \"Model\".",
-                          "MissingKeys" -> {}|>
-                    ],
-                    Module
-                ]
-            ];
-            model = validatedAssoc["Model"];
-            If[!AssociationQ[model],
-                Return[
-                    Failure["ScenarioValidation",
-                        <|"Message" -> "Model must remain an Association.",
-                          "MissingKeys" -> {}|>
-                    ],
-                    Module
-                ]
-            ];
-            If[!IntegerVertexLabelsQ[model],
-                Return[
-                    Failure["ScenarioValidation",
-                        <|"Message" -> "\"Vertices List\" must contain only integers.",
-                          "MissingKeys" -> {}|>
-                    ],
-                    Module
-                ]
-            ];
-            If[!BoundaryValuesNumericQ[model],
-                Return[
-                    Failure["ScenarioValidation",
-                        <|"Message" -> "Boundary values must be numeric.",
-                          "MissingKeys" -> {}|>
-                    ],
-                    Module
-                ]
-            ];
-            If[!SwitchingCostsNumericQ[model],
-                Return[
-                    Failure["ScenarioValidation",
-                        <|"Message" -> "Switching cost values must be numeric.",
-                          "MissingKeys" -> {}|>
-                    ],
-                    Module
-                ]
-            ];
-            model = Join[model, <|"Switching Costs" -> NormalizeSwitchingCosts[model["Switching Costs"]]|>];
-            hamiltonian = NormalizeHamiltonianSpec[
-                Lookup[validatedAssoc, "Hamiltonian", <||>],
-                model
-            ];
-            If[FailureQ[hamiltonian],
-                Return[hamiltonian, Module]
-            ];
-            topology = BuildAuxiliaryTopology[model];
-            If[!AssociationQ[topology],
-                Return[
-                    Failure["ScenarioValidation",
-                        <|"Message" -> "Model topology is invalid or could not be constructed.",
-                          "MissingKeys" -> {}|>
-                    ],
-                    Module
-                ]
-            ];
-            completed = completeScenario[scenario[Join[
-                validatedAssoc,
-                <|"Model" -> model, "Topology" -> topology, "Hamiltonian" -> hamiltonian|>
-            ]]];
-            completed
-        ]
+
+        validated = validateScenario[scenario[normalizedAssoc]];
+        If[FailureQ[validated], Return[validated, Module]];
+
+        validatedAssoc = ScenarioData[validated];
+
+        If[KeyExistsQ[validatedAssoc, "Data"],
+            Return[iScenarioFailure[
+                "\"Data\" key is no longer supported. Provide numeric values directly in \"Model\"."],
+                Module]
+        ];
+
+        model = validatedAssoc["Model"];
+        If[!AssociationQ[model],
+            Return[iScenarioFailure["Model must remain an Association."], Module]];
+        If[!IntegerVertexLabelsQ[model],
+            Return[iScenarioFailure["\"Vertices List\" must contain only integers."], Module]];
+        If[!BoundaryValuesNumericQ[model],
+            Return[iScenarioFailure["Boundary values must be numeric."], Module]];
+        If[!SwitchingCostsNumericQ[model],
+            Return[iScenarioFailure["Switching cost values must be numeric."], Module]];
+
+        model = Join[model, <|"Switching Costs" -> NormalizeSwitchingCosts[model["Switching Costs"]]|>];
+
+        hamiltonian = NormalizeHamiltonianSpec[Lookup[validatedAssoc, "Hamiltonian", <||>], model];
+        If[FailureQ[hamiltonian], Return[hamiltonian, Module]];
+
+        topology = BuildAuxiliaryTopology[model];
+        If[!AssociationQ[topology],
+            Return[iScenarioFailure["Model topology is invalid or could not be constructed."], Module]];
+
+        completeScenario[scenario[Join[
+            validatedAssoc,
+            <|"Model" -> model, "Topology" -> topology, "Hamiltonian" -> hamiltonian|>
+        ]]]
     ];
 
 makeScenario[_] :=
-    Failure["ScenarioValidation",
-        <|"Message" -> "makeScenario requires an Association as input.",
-          "MissingKeys" -> {}|>];
+    iScenarioFailure["makeScenario requires an Association as input."];
 
 End[];
 

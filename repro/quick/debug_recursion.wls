@@ -5,11 +5,11 @@ Print["MFGraphs loaded"];
 Print["Testing makeScenario..."];
 raw = <|
     "Model" -> <|
-        "Vertices List" -> {1, 2, 3},
-        "Adjacency Matrix" -> SparseArray[{{1, 2} -> 1, {2, 3} -> 1}, {3, 3}],
-        "Entrance Vertices and Flows" -> {{1, 100}},
-        "Exit Vertices and Terminal Costs" -> {{2, 0}, {3, 20}},
-        "Switching Costs" -> <|{1, 2, 3} -> 10|>
+        "Vertices" -> {1, 2, 3},
+        "Adjacency" -> SparseArray[{{1, 2} -> 1, {2, 3} -> 1}, {3, 3}],
+        "Entries" -> {{1, 100}},
+        "Exits" -> {{2, 0}, {3, 20}},
+        "Switching" -> <|{1, 2, 3} -> 10|>
     |>
 |>;
 
@@ -21,13 +21,13 @@ Print["Testing makeSystem..."];
 sys = makeSystem[sc];
 Print["System head: ", Head[sys]];
 
-Print["Testing SystemDataFlatten..."];
-d2e = SystemDataFlatten[sys];
+Print["Testing systemDataFlatten..."];
+d2e = systemDataFlatten[sys];
 Print["D2E keys: ", Keys[d2e]];
-Print["CONSISTENT_COSTS=", d2e["consistentCosts"]];
+Print["CONSISTENT_COSTS=", d2e["ConsistentCosts"]];
 
 Print["Testing solver..."];
-result = ReduceSystem[sys];
+result = reduceSystem[sys];
 Print["Result keys: ", If[AssociationQ[result], Keys[result], Head[result]]];
 If[AssociationQ[result],
   Print["Rules: ", result["Rules"]];

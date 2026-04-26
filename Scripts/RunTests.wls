@@ -19,7 +19,8 @@ $TestSuites = <|
     "fast" -> {
         "scenario-kernel.mt",
         "make-unknowns.mt",
-        "reduce-system.mt"
+        "reduce-system.mt",
+        "scenario-consistency.mt"
     },
     "slow" -> {},
     "legacy-fast" -> {},

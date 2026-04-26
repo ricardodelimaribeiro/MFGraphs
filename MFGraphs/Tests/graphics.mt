@@ -1,18 +1,18 @@
 (* Tests for Graphics helpers *)
 
 Test[
-    NameQ["MFGraphs`ScenarioTopologyPlot"] && NameQ["MFGraphs`MFGSolutionPlot"],
+    NameQ["graphics`scenarioTopologyPlot"] && NameQ["graphics`mfgSolutionPlot"],
     True,
     TestID -> "Graphics: public symbols exist"
 ]
 
 Test[
     Module[{s, sys, sol, topoPlot, solPlot},
-        s = GridScenario[{3}, {{1, 120}}, {{2, 10}, {3, 0}}];
+        s = gridScenario[{3}, {{1, 120}}, {{2, 10}, {3, 0}}];
         sys = makeSystem[s];
-        sol = ReduceSystem[sys];
-        topoPlot = ScenarioTopologyPlot[s, sys];
-        solPlot = MFGSolutionPlot[s, sys, sol];
+        sol = reduceSystem[sys];
+        topoPlot = scenarioTopologyPlot[s, sys];
+        solPlot = mfgSolutionPlot[s, sys, sol];
         MatchQ[topoPlot, _Graph] && MatchQ[solPlot, _Graph]
     ],
     True,
@@ -21,10 +21,10 @@ Test[
 
 Test[
     Module[{s, sys, sol, edges},
-        s = GridScenario[{3}, {{1, 120}}, {{2, 10}, {3, 0}}];
+        s = gridScenario[{3}, {{1, 120}}, {{2, 10}, {3, 0}}];
         sys = makeSystem[s];
-        sol = ReduceSystem[sys];
-        edges = EdgeList[MFGSolutionPlot[s, sys, sol]];
+        sol = reduceSystem[sys];
+        edges = EdgeList[mfgSolutionPlot[s, sys, sol]];
         MemberQ[edges, DirectedEdge[1, 2]]
     ],
     True,

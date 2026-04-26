@@ -10,11 +10,11 @@ Print["All Last NumericQ: ", AllTrue[Last /@ scList, NumericQ]];
 
 (* Check what makeScenario sees *)
 model = <|
-    "Vertices List" -> {1, 2, 3, 4},
-    "Adjacency Matrix" -> {{0,1,0,0},{0,0,1,1},{0,0,0,0},{0,0,0,0}},
-    "Entrance Vertices and Flows" -> {{1, 100}},
-    "Exit Vertices and Terminal Costs" -> {{3, 0}, {4, 0}},
-    "Switching Costs" -> scList
+    "Vertices" -> {1, 2, 3, 4},
+    "Adjacency" -> {{0,1,0,0},{0,0,1,1},{0,0,0,0},{0,0,0,0}},
+    "Entries" -> {{1, 100}},
+    "Exits" -> {{3, 0}, {4, 0}},
+    "Switching" -> scList
 |>;
 
 Print["SwitchingCostsNumericQ result: ", MFGraphs`Private`SwitchingCostsNumericQ[model]];

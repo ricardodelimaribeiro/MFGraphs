@@ -1,11 +1,11 @@
 #!/usr/bin/env wolframscript
 (* Usage: wolframscript -file Scripts/BenchmarkReduceSystem.wls [--tag label] [--timeout s] [--case name] *)
-(* Benchmarks ReduceSystem across representative cases and stores solutions to a file. *)
+(* Benchmarks reduceSystem across representative cases and stores solutions to a file. *)
 
 (* :!CodeAnalysis::BeginBlock:: *)
 (* :!CodeAnalysis::Disable::SuspiciousSessionSymbol:: *)
 
-Print["MFGraphs ReduceSystem Benchmark"];
+Print["MFGraphs reduceSystem Benchmark"];
 Print["================================"];
 Print["Date: ", DateString[]];
 Print["Mathematica: ", $Version];
@@ -51,17 +51,17 @@ Print[];
 
 $BenchCases = {
   {"chain-2v",
-    Function[GridScenario[{2}, {{1, 10}}, {{2, 0}}]] },
+    Function[gridScenario[{2}, {{1, 10}}, {{2, 0}}]] },
   {"chain-3v-1exit",
-    Function[GridScenario[{3}, {{1, 10}}, {{3, 0}}]] },
+    Function[gridScenario[{3}, {{1, 10}}, {{3, 0}}]] },
   {"chain-3v-2exit",
-    Function[GridScenario[{3}, {{1, 120.0}}, {{2, 0.0}, {3, 10.0}}]] },
+    Function[gridScenario[{3}, {{1, 120.0}}, {{2, 0.0}, {3, 10.0}}]] },
   {"example-7",
-    Function[GetExampleScenario[7, {{1, 100.0}}, {{3, 0.0}, {4, 10.0}}]] },
+    Function[getExampleScenario[7, {{1, 100.0}}, {{3, 0.0}, {4, 10.0}}]] },
   {"chain-5v-1exit",
-    Function[GridScenario[{5}, {{1, 10}}, {{5, 0}}]] },
+    Function[gridScenario[{5}, {{1, 10}}, {{5, 0}}]] },
   {"example-12",
-    Function[GetExampleScenario[12, {{1, 100.0}}, {{4, 0.0}}]] }
+    Function[getExampleScenario[12, {{1, 100.0}}, {{4, 0.0}}]] }
 };
 
 If[$SelectedCase =!= All,
@@ -111,7 +111,7 @@ RunCase[{name_String, buildFn_}] :=
 
     (* Warmup run with timeout *)
     {warmupTime, solWarmup} = AbsoluteTiming[
-      TimeConstrained[ReduceSystem[sys], timeout, $TimedOut]
+      TimeConstrained[reduceSystem[sys], timeout, $TimedOut]
     ];
     If[solWarmup === $TimedOut,
       Print["  Warmup: TIMED OUT after ", FmtMs[warmupTime]];
@@ -124,14 +124,14 @@ RunCase[{name_String, buildFn_}] :=
 
     (* Repeated timing — 3 reps, short timeout per rep *)
     repTime = RepeatedTiming[
-      TimeConstrained[ReduceSystem[sys], timeout, $TimedOut],
+      TimeConstrained[reduceSystem[sys], timeout, $TimedOut],
       3
     ][[1]];
-    sol  = ReduceSystem[sys];  (* final solution to store *)
+    sol  = reduceSystem[sys];  (* final solution to store *)
     kind = ResultKind[sol];
     repMs = repTime * 1000;
 
-    valid = IsReduceSystemSolution[sys, sol];
+    valid = isReduceSystemSolution[sys, sol];
 
     Print["  Warmup: ", FmtMs[warmupTime],
           " | Repeated: ", FmtMs[repTime],
@@ -235,7 +235,7 @@ If[$HistoryTag =!= None,
     }, "\n"];
 
     existing = Import[histPath, "Text"];
-    insertPos = StringPosition[existing, "## ReduceSystem benchmark history"];
+    insertPos = StringPosition[existing, "## reduceSystem benchmark history"];
     If[Length[insertPos] > 0,
       (* Insert after the section header and the next blank line *)
       Module[{afterHeader, nextEntry},
@@ -248,7 +248,7 @@ If[$HistoryTag =!= None,
           existing = existing <> "\n---\n\n" <> entry
         ]
       ],
-      existing = existing <> "\n\n## ReduceSystem benchmark history (manual)\n\n---\n\n" <> entry
+      existing = existing <> "\n\n## reduceSystem benchmark history (manual)\n\n---\n\n" <> entry
     ];
     Export[histPath, existing, "Text"];
     Print["\nHistory entry appended to BENCHMARKS.md (tag: ", $HistoryTag, ")"];
