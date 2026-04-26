@@ -131,7 +131,7 @@ RunCase[{name_String, buildFn_}] :=
     kind = ResultKind[sol];
     repMs = repTime * 1000;
 
-    valid = isReduceSystemSolution[sys, sol];
+    valid = isValidSystemSolution[sys, sol];
 
     Print["  Warmup: ", FmtMs[warmupTime],
           " | Repeated: ", FmtMs[repTime],

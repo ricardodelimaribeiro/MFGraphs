@@ -28,13 +28,14 @@ edgeUValue[a_, b_, rules_List] :=
         Which[
             v1 =!= u[a, b], v1,
             v2 =!= u[b, a], v2,
-            True, Missing["NotAvailable"]
+            True, Missing[]
         ]
     ];
 
 directedDisplayEdges[edges_List, rules_List] :=
     edges /. {
-        UndirectedEdge[a_, b_] :> Module[{f = netEdgeFlow[a, b, rules]},
+        UndirectedEdge[a_, b_] :> Module[{f},
+            f = netEdgeFlow[a, b, rules];
             If[NumericQ[f] && f < 0, DirectedEdge[b, a], DirectedEdge[a, b]]
         ],
         DirectedEdge[a_, b_] :> DirectedEdge[a, b]
@@ -76,13 +77,15 @@ mfgSolutionPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, title_: Automatic] :=
         edges     = systemData[sys, "AuxEdges"];
         rules     = extractRules[sol];
         dispEdges = directedDisplayEdges[edges, rules];
-        numericJ  = Cases[edgeJValue @@ (List @@ #) & /@ dispEdges, _?NumericQ, Infinity];
+        numericJ  = Cases[edgeJValue @@@ (List @@@ dispEdges), _?NumericQ, Infinity];
         maxJ      = Max[Append[Abs @ numericJ, 1]];
 
         edgeStyles = Association @ Map[
-            With[{a = #[[1]], b = #[[2]], jv = edgeJValue[#[[1]], #[[2]], rules],
-                  auxQ = MemberQ[auxV, #[[1]]] || MemberQ[auxV, #[[2]]]},
-                DirectedEdge[a, b] -> Directive[
+            Module[{a, b, jv, auxQ},
+                {a, b} = List @@ #;
+                jv = edgeJValue[a, b, rules];
+                auxQ = MemberQ[auxV, a] || MemberQ[auxV, b];
+                # -> Directive[
                     Which[
                         auxQ, RGBColor[0.35, 0.35, 0.35],
                         NumericQ[jv] && jv > 0, RGBColor[0.12, 0.45, 0.78],
@@ -95,12 +98,15 @@ mfgSolutionPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, title_: Automatic] :=
                     Opacity[0.9]
                 ]
             ] &,
-            List @@@ dispEdges
+            dispEdges
         ];
 
         edgeLabels = Association @ Map[
-            With[{a = #[[1]], b = #[[2]], jv = edgeJValue[#[[1]], #[[2]], rules], uv = edgeUValue[#[[1]], #[[2]], rules]},
-                DirectedEdge[a, b] -> Placed[
+            Module[{a, b, jv, uv},
+                {a, b} = List @@ #;
+                jv = edgeJValue[a, b, rules];
+                uv = edgeUValue[a, b, rules];
+                # -> Placed[
                     Style[
                         Row[{
                             "j=", If[NumericQ[jv], NumberForm[N[jv], {5, 1}], "?"],
@@ -111,7 +117,7 @@ mfgSolutionPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, title_: Automatic] :=
                     Center
                 ]
             ] &,
-            List @@@ dispEdges
+            dispEdges
         ];
 
         plotTitle = Replace[title, Automatic -> "Solution graph: flows and values"];

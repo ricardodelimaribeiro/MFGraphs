@@ -112,7 +112,7 @@ Switching costs may be supplied as a List of 4-tuples or an Association with 3-t
 
 ### Solver (`solversTools``)
 - `reduceSystem` — naive `Reduce`-based solver (no switching costs)
-- `isReduceSystemSolution` — solution validator
+- `isValidSystemSolution` — solution validator
 
 ### Runtime flags
 - `$MFGraphsVerbose` — set `True` to enable progress/timing prints (default `False`)
