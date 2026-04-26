@@ -60,7 +60,7 @@ Test[
         us = unknownsData[unk, "Us"];
         !AnyTrue[
             us,
-            MatchQ[#, HoldPattern[u[_, b_]] /; StringStartsQ[Quiet @ Check[SymbolName[b], ""], "aux"]] &
+            MatchQ[#, HoldPattern[u[_, b_]] /; StringQ[b] && StringStartsQ[b, "aux"]] &
         ]
     ],
     True,

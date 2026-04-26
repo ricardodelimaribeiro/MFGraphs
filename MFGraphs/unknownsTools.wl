@@ -14,11 +14,9 @@ makeUnknowns::usage = "makeUnknowns[s] returns unknowns[<|\"Js\" -> ..., \"Jts\"
 Begin["`Private`"]
 
 canonicalUPair[pair : {a_, b_}] :=
-    Module[{bName = Quiet @ Check[SymbolName[b], ""]},
-        If[StringStartsQ[bName, "auxEntry"] || StringStartsQ[bName, "auxExit"],
-            {b, a},
-            pair
-        ]
+    If[StringQ[b] && (StringStartsQ[b, "auxEntry"] || StringStartsQ[b, "auxExit"]),
+        {b, a},
+        pair
     ];
 
 makeUnknownsFromPairsTriples[auxPairs_List, auxTriples_List] :=
