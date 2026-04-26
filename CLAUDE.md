@@ -158,8 +158,10 @@ s = f[{{1, 100}}, {{4, 0}}, {}, 1, 0, Function[z, -1/z]];
 ## Testing
 
 Active suite (`Scripts/RunTests.wls`):
-- `fast`: `scenario-kernel.mt`, `make-unknowns.mt`
-- `slow`, `legacy-fast`, `legacy-slow`: empty in current phase
+- `fast`: `scenario-kernel.mt`, `make-unknowns.mt`, `reduce-system.mt`, `scenario-consistency.mt`, `graphics.mt`
+- `all`: alias for `fast`
+- `archive`: archived compatibility/legacy suites (explicit use only)
+- `full`: `fast + archive`
 
 Run tests from repository root using the current runner workflow:
 
@@ -167,7 +169,7 @@ Run tests from repository root using the current runner workflow:
 wolframscript -file Scripts/RunTests.wls fast
 ```
 
-`all` currently resolves to the same core-phase set (no active slow suites):
+`all` currently resolves to the active core-phase set:
 
 ```bash
 wolframscript -file Scripts/RunTests.wls all

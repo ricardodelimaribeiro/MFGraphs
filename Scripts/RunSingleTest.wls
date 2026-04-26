@@ -5,7 +5,7 @@
 (* :!CodeAnalysis::BeginBlock:: *)
 (* :!CodeAnalysis::Disable::SuspiciousSessionSymbol:: *)
 
-$RepoRoot = "/Users/ribeirrd/Documents/GitHub/MFGraphs";
+$RepoRoot = FileNameJoin[{DirectoryName[$InputFileName], ".."}];
 PrependTo[$Path, $RepoRoot];
 Needs["MFGraphs`"];
 $MFGraphsVerbose = False;
@@ -13,6 +13,7 @@ $MFGraphsVerbose = False;
 args = Select[Rest[$ScriptCommandLine], !StringEndsQ[#, ".wls"] &];
 If[args === {}, Print["Missing test file argument"]; Exit[1]];
 testFile = First[args];
+If[!FileExistsQ[testFile], Print["Test file not found: ", testFile]; Exit[1]];
 
 Print["Running: ", testFile];
 report = TestReport[testFile];

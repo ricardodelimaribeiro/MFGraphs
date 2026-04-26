@@ -98,8 +98,10 @@ wolframscript -file MFGraphs/Tests/make-unknowns.mt
 ```
 
 Current active runner suites (`Scripts/RunTests.wls`):
-- `fast`: `scenario-kernel.mt`, `make-unknowns.mt`
-- `slow`, `legacy-fast`, `legacy-slow`: empty
+- `fast`: `scenario-kernel.mt`, `make-unknowns.mt`, `reduce-system.mt`, `scenario-consistency.mt`, `graphics.mt`
+- `all`: alias for `fast`
+- `archive`: archived compatibility/legacy suites (explicit use only)
+- `full`: `fast + archive`
 
 ## Repository structure
 

@@ -1,26 +1,20 @@
 # MFGraphs Test Layout
 
-This directory mixes active CI tests, long-running paper-scale tests, and legacy coverage retained for reference.
+This directory contains the active scenario-kernel tests and archived legacy/solver-oriented suites.
 
 ## Runner suites (`Scripts/RunTests.wls`)
 
-- `fast`: critical-only public CI gate.
-- `slow`: long-running paper-scale cases.
-- `all`: `fast + slow`.
-- `meta`: runner-level smoke checks.
-- `full`: `all + meta`.
-- `unsupported`: legacy/non-critical tests excluded from active CI.
+- `fast`: active scenario-kernel suite.
+- `all`: alias for `fast`.
+- `archive`: archived compatibility/legacy suites (explicit use only).
+- `full`: `fast + archive`.
 
 ## File groups
 
-- Core/active tests: most `.mt` files at this directory root.
-- Meta tests: `run-tests-smoke.mt`.
-- Unsupported tests:
-  - `inconsistent-switching-critical.mt`
-  - `symbolic-underdetermined.mt`
-- Archived tests: `archive/` (dormant tests with removed or unsupported surfaces).
+- Active tests: root `.mt` files (`scenario-kernel`, `make-unknowns`, `reduce-system`, `scenario-consistency`, `graphics`).
+- Archived tests: `archive/` (legacy or non-core surfaces).
 
 ## Notes
 
 - `reference_solutions.json` is generated fixture data for solver regression checks.
-- Keep `archive/` tests out of active suites unless their dependent public API is restored.
+- Keep `archive/` tests out of CI unless intentionally validating legacy compatibility.

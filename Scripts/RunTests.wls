@@ -11,55 +11,37 @@ $MFGraphsVerbose = False;
 
 $TestsDir = FileNameJoin[{$RepoRoot, "MFGraphs", "Tests"}];
 
-(* Active suites organized by stability/support level. *)
-$FastSuite = {
-    "package-loading.mt",
-    "graphics-public-api.mt",
-    "007-critical_congestion.mt",
-    "007-critical_congestion_ok.mt",
-    "012-critical_congestion.mt",
-    "critical-numeric-backend.mt",
-    "exit-pass-through.mt",
-    "exit-pass-through-nonzero.mt",
-    "exact-mode.mt",
-    "infeasible-status.mt",
-    "scenario-kernel.mt",
-    "solve-mfg.mt",
-    "solver-contracts.mt"
-};
-
-$SlowSuite = {
-    "J9F-critical_congestion.mt",
-    "Jm9-critical_congestion.mt"
-};
-
-$MetaSuite = {
-    "run-tests-smoke.mt"
-};
-
-$UnsupportedSuite = {
-    "inconsistent-switching-critical.mt",
-    "symbolic-underdetermined.mt"
-};
-
 $TestSuites = <|
-    (* Policy: launch package tests through this runner workflow
-       (`wolframscript -file Scripts/RunTests.wls <suite>`). *)
-    (* Current phase scope: only Scenario/Unknowns/System coverage.
-       Solver tests are intentionally not part of active suites yet. *)
+    (* Active suite for the scenario-kernel phase. *)
     "fast" -> {
         "scenario-kernel.mt",
         "make-unknowns.mt",
         "reduce-system.mt",
-        "scenario-consistency.mt"
+        "scenario-consistency.mt",
+        "graphics.mt"
     },
-    "slow" -> {},
-    "legacy-fast" -> {},
-    "legacy-slow" -> {}
+    (* Archived tests are intentionally excluded from active CI.
+       Use this suite only for explicit compatibility checks. *)
+    "archive" -> {
+        "archive/package-loading.mt",
+        "archive/graphics-public-api.mt",
+        "archive/critical-basic-cases.mt",
+        "archive/critical-numeric-backend.mt",
+        "archive/exit-pass-through.mt",
+        "archive/exit-pass-through-nonzero.mt",
+        "archive/exact-mode.mt",
+        "archive/infeasible-status.mt",
+        "archive/solve-mfg.mt",
+        "archive/solver-contracts.mt",
+        "archive/J9F-critical_congestion.mt",
+        "archive/Jm9-critical_congestion.mt",
+        "archive/run-tests-smoke.mt",
+        "archive/inconsistent-switching-critical.mt",
+        "archive/symbolic-underdetermined.mt"
+    }
 |>;
-$TestSuites["all"] = Join[$TestSuites["fast"], $TestSuites["slow"]];
-$TestSuites["legacy"] = Join[$TestSuites["legacy-fast"], $TestSuites["legacy-slow"]];
-$TestSuites["full"] = Join[$TestSuites["all"], $TestSuites["legacy"]];
+$TestSuites["all"] = $TestSuites["fast"];
+$TestSuites["full"] = Join[$TestSuites["fast"], $TestSuites["archive"]];
 
 args = Select[
     Rest[$ScriptCommandLine],
