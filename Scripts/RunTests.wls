@@ -11,6 +11,37 @@ $MFGraphsVerbose = False;
 
 $TestsDir = FileNameJoin[{$RepoRoot, "MFGraphs", "Tests"}];
 
+(* Active suites organized by stability/support level. *)
+$FastSuite = {
+    "package-loading.mt",
+    "graphics-public-api.mt",
+    "007-critical_congestion.mt",
+    "007-critical_congestion_ok.mt",
+    "012-critical_congestion.mt",
+    "critical-numeric-backend.mt",
+    "exit-pass-through.mt",
+    "exit-pass-through-nonzero.mt",
+    "exact-mode.mt",
+    "infeasible-status.mt",
+    "scenario-kernel.mt",
+    "solve-mfg.mt",
+    "solver-contracts.mt"
+};
+
+$SlowSuite = {
+    "J9F-critical_congestion.mt",
+    "Jm9-critical_congestion.mt"
+};
+
+$MetaSuite = {
+    "run-tests-smoke.mt"
+};
+
+$UnsupportedSuite = {
+    "inconsistent-switching-critical.mt",
+    "symbolic-underdetermined.mt"
+};
+
 $TestSuites = <|
     (* Policy: launch package tests through this runner workflow
        (`wolframscript -file Scripts/RunTests.wls <suite>`). *)
