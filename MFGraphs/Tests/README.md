@@ -4,21 +4,18 @@ This directory mixes active CI tests, long-running paper-scale tests, and legacy
 
 ## Runner suites (`Scripts/RunTests.wls`)
 
-- `fast`: critical-only public CI gate.
-- `slow`: long-running paper-scale cases.
+- `fast`: active scenario/unknowns/system kernel checks.
+- `slow`: active non-kernel checks (currently `graphics.mt`).
 - `all`: `fast + slow`.
-- `meta`: runner-level smoke checks.
-- `full`: `all + meta`.
-- `unsupported`: legacy/non-critical tests excluded from active CI.
+- `legacy`: `legacy-fast + legacy-slow` (currently empty placeholders).
+- `full`: `all + legacy`.
 
 ## File groups
 
-- Core/active tests: most `.mt` files at this directory root.
-- Meta tests: `run-tests-smoke.mt`.
-- Unsupported tests:
-  - `inconsistent-switching-critical.mt`
-  - `symbolic-underdetermined.mt`
-- Archived tests: `archive/` (dormant tests with removed or unsupported surfaces).
+- Active root tests:
+  - Fast suite: `scenario-kernel.mt`, `make-unknowns.mt`, `reduce-system.mt`, `scenario-consistency.mt`
+  - Slow suite: `graphics.mt`
+- Archived tests: `archive/` (dormant tests with removed or unsupported surfaces and APIs).
 
 ## Notes
 
