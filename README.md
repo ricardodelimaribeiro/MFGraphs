@@ -22,6 +22,10 @@ Archived/inactive modules:
 - `MFGraphs/Examples/archive/ExamplesData.wl`
 - `MFGraphs/archive/DataToEquations.wl`
 
+## Solver Status
+
+The symbolic solver (`MFGraphs/solver.wl`) is currently designed for **critical congestion only** (`alpha = 1`). It does not yet support non-linear Hamiltonian cost currents or general `alpha != 1` cases.
+
 ## Installation
 
 ```mathematica

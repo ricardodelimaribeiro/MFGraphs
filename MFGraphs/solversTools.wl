@@ -20,8 +20,8 @@ IneqSwitchingByVertex (switching-cost optimality inequalities). \
 Returns a list of rules when the system is fully determined, or \
 <|\"Rules\" -> rules, \"Equations\" -> residual|> when underdetermined.";
 
-isReduceSystemSolution::usage =
-"isReduceSystemSolution[sys, sol] checks whether sol (the output of \
+isValidSystemSolution::usage =
+"isValidSystemSolution[sys, sol] checks whether sol (the output of \
 reduceSystem[sys]) satisfies the constraint blocks of sys. Returns True or \
 False. With option \"ReturnReport\" -> True, returns a detailed association \
 with per-block results. Tolerance for numeric checks is set via \
@@ -73,30 +73,13 @@ reduceSystem[sys_?mfgSystemQ] :=
     ];
 
 trackedVarQ[var_] :=
-    MatchQ[var, _[__]] && MemberQ[{"j", "u"}, Quiet @ Check[SymbolName[Head[var]], ""]];
+    MatchQ[var, j[__] | u[__]];
 
 mergeRules[oldRules_List, newRules_List] :=
     Reverse @ DeleteDuplicatesBy[Reverse @ Join[oldRules, newRules], First];
 
 normalizeRules[rules_List] :=
-    Module[{normalized = rules, next, iter = 0, maxIter},
-        maxIter = Max[10, 2 Length[rules] + 5];
-        While[iter < maxIter,
-            next = Map[
-                Rule[First[#], (Last[#] /. normalized)] &,
-                normalized
-            ];
-            If[next === normalized, Break[]];
-            normalized = next;
-            iter++
-        ];
-        normalized
-    ];
-
-linearEquationQ[eq_Equal, vars_List] :=
-    Module[{expr = Subtract @@ List @@ eq},
-        PolynomialQ[expr, vars] && Exponent[expr, vars] <= 1
-    ];
+    Map[Rule[First[#], ReplaceRepeated[Last[#], rules]] &, rules];
 
 topLevelEquations[constraints_] :=
     Select[
@@ -107,17 +90,12 @@ topLevelEquations[constraints_] :=
 extractLinearRules[equations_List, vars_List, existingRules_List] :=
     Module[{sol, solRules},
         If[equations === {}, Return[{}, Module]];
-        sol = Check[
-            Quiet[Solve[equations, vars, Reals], Solve::svars],
-            $Failed
-        ];
-        If[sol === $Failed || !ListQ[sol] || Length[sol] =!= 1 || !ListQ[First[sol]],
-            Return[{}, Module]
-        ];
+        sol = Quiet[Check[Solve[equations, vars, Reals], $Failed], Solve::svars];
+        If[sol === $Failed || !ListQ[sol] || Length[sol] === 0, Return[{}, Module]];
+        
         solRules = Cases[First[sol],
-            r : Rule[v_, rhs_] /; MemberQ[vars, v] && FreeQ[rhs, v] :> r
+            r : Rule[v_, rhs_] /; MemberQ[vars, v] && FreeQ[rhs, v] && FreeQ[rhs, C] :> r
         ];
-        solRules = Select[solRules, FreeQ[Last[#], C] &];
         Select[solRules, FreeQ[existingRules[[All, 1]], First[#]] &]
     ];
 
@@ -167,7 +145,7 @@ parseReduceResult[reduced_, allVars_] :=
         conjuncts = Switch[Head[reduced],
             And,   List @@ reduced,
             True,  {},
-            False, Return[{}],
+            False, Return[<|"Rules" -> {}, "Equations" -> False|>],
             _,     {reduced}
         ];
         rules = Cases[conjuncts,
@@ -187,12 +165,12 @@ parseReduceResult[reduced_, allVars_] :=
 
 (* --- Solution validation --- *)
 
-Options[isReduceSystemSolution] = {
+Options[isValidSystemSolution] = {
     "Tolerance"    -> 10^-6,
     "ReturnReport" -> False
 };
 
-isReduceSystemSolution[sys_?mfgSystemQ, sol_, OptionsPattern[]] :=
+isValidSystemSolution[sys_?mfgSystemQ, sol_, OptionsPattern[]] :=
     Module[{tol, returnReportQ, kind, rules, ruleExitVals,
             blocks, blockResults, concretelyFailed, overall, report},
         tol          = OptionValue["Tolerance"];
