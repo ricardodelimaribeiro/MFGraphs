@@ -1,0 +1,27 @@
+{
+  "mcpServers": {
+    "github": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}"
+      }
+    }
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // empty' | { read -r f; case \"$f\" in *.wl|*.mt) wolframscript -code 'Get[\"MFGraphs`\"]' 2>&1 || true ;; esac; } 2>/dev/null || true",
+            "timeout": 60,
+            "statusMessage": "Checking WL syntax..."
+          }
+        ]
+      }
+    ]
+  }
+}
