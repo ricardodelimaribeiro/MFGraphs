@@ -45,11 +45,11 @@ Test[
 
 Test[
     Module[{s, sys, sol, edges},
-        s = gridScenario[{3}, {{3, 120}}, {{1, 0}}];
+        s = gridScenario[{3}, {{3, 120.0}}, {{1, 0.0}, {2, 10.0}}];
         sys = makeSystem[s];
         sol = reduceSystem[sys];
         edges = EdgeList[mfgSolutionPlot[s, sys, sol]];
-        MemberQ[edges, DirectedEdge[2, 1]]
+        ListQ[sol] && MemberQ[edges, DirectedEdge[2, 1]]
     ],
     True,
     TestID -> "Graphics: negative net flow flips display direction to DirectedEdge[2,1]"

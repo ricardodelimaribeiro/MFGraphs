@@ -6,12 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **MFGraphs** is currently in a **core scenario-kernel phase**.
 The active package surface focuses on:
-- typed scenario construction (`Scenario.wl`)
-- example scenario factories (`Examples/ExampleScenarios.wl`)
-- unknown bundle construction (`Unknowns.wl`)
-- structural system construction (`System.wl`)
-
-Solver modules are intentionally not loaded in this phase.
+- typed scenario construction (`scenarioTools.wl`)
+- example scenario factories (`examples.wl`)
+- unknown bundle construction (`unknownsTools.wl`)
+- structural system construction (`systemTools.wl`)
+- symbolic solver (`solver.wl`)
+- shared primitives (`primitives.wl`)
 
 ## Environment & prerequisites
 
@@ -29,11 +29,23 @@ wolframscript -version
 
 ## Current package load behavior
 
-`Needs["MFGraphs`"]` loads the current core stack:
-- Preloaded via `Get` before `BeginPackage`: `MFGraphs/Scenario.wl`, `MFGraphs/Examples/ExampleScenarios.wl` (each establishes `MFGraphs`` independently)
-- Loaded via `Scan[Get, ...]` inside `Private` after `BeginPackage`: `MFGraphs/Unknowns.wl`, `MFGraphs/System.wl`
+`Needs["MFGraphs`"]` loads the full core stack via the numerics-style architecture:
 
-The two-phase load is intentional: `ExampleScenarios.wl` calls `makeScenario` during factory construction, so `Scenario.wl` must be fully evaluated before `MFGraphs.wl`'s own `BeginPackage` runs. Moving either Phase 1 module into Phase 2 (or vice versa) breaks cross-module symbol resolution.
+```wolfram
+PrependTo[$Path, DirectoryName[$InputFileName]];
+BeginPackage["MFGraphs`", {"primitives`", "scenarioTools`", "examples`",
+                            "unknownsTools`", "systemTools`", "solver`", "graphics`"}];
+EndPackage[]
+```
+
+`EndPackage` appends all dependency contexts to `$ContextPath`, so every public symbol is accessible unqualified after a single `Needs["MFGraphs`"]`.
+
+Loading DAG (each file is an independent package with its own flat context):
+```
+primitives`  →  scenarioTools`  →  examples`
+                               →  unknownsTools`  →  systemTools`  →  solver`
+                                                                   →  graphics`
+```
 
 Archived/inactive modules include:
 - `MFGraphs/Examples/archive/ExamplesData.wl`
@@ -49,9 +61,9 @@ Every workflow follows the same three-step chain:
 makeScenario[input]  →  makeUnknowns[s]  →  makeSystem[s, unk]
 ```
 
-- **`makeScenario`** normalizes input (Graph objects → adjacency matrix), validates, fills defaults, then builds and caches `BuildAuxiliaryTopology` output inside the returned `scenario[<|...|>]` wrapper.
+- **`makeScenario`** normalizes input (Graph objects → adjacency matrix), validates, fills defaults, then builds and caches `buildAuxiliaryTopology` output inside the returned `scenario[<|...|>]` wrapper.
 - **`makeUnknowns`** reads the cached topology and generates symbolic variable families (`j`, `u`, `z`).
-- **`makeSystem`** orchestrates four typed builders — `BuildBoundaryData`, `BuildFlowData`, `BuildComplementarityData`, `BuildHamiltonianData` — each returning its own typed record (`mfgBoundaryData`, etc.), merged into the final `mfgSystem`.
+- **`makeSystem`** orchestrates four typed builders — `buildBoundaryData`, `buildFlowData`, `buildComplementarityData`, `buildHamiltonianData` — each returning its own typed record (`mfgBoundaryData`, etc.), merged into the final `mfgSystem`.
 
 ### Typed wrapper pattern
 
@@ -59,15 +71,15 @@ All kernel objects follow one pattern: `TypeHead[Association]` with a predicate 
 
 | Head | Predicate | Accessor |
 |---|---|---|
-| `scenario` | `scenarioQ` | `ScenarioData[s]` / `ScenarioData[s, key]` |
-| `unknowns` | `unknownsQ` | `UnknownsData[u]` / `UnknownsData[u, key]` |
-| `mfgSystem` | `mfgSystemQ` | `SystemData[sys]` / `SystemData[sys, key]` |
+| `scenario` | `scenarioQ` | `scenarioData[s]` / `scenarioData[s, key]` |
+| `unknowns` | `unknownsQ` | `unknownsData[u]` / `unknownsData[u, key]` |
+| `mfgSystem` | `mfgSystemQ` | `systemData[sys]` / `systemData[sys, key]` |
 
-`TypeData[obj, key]` returns `Missing["KeyAbsent", key]` for absent keys. Sub-records (`mfgBoundaryData` etc.) follow the same accessor convention.
+`typeData[obj, key]` returns `Missing["KeyAbsent", key]` for absent keys. Sub-records (`mfgBoundaryData` etc.) follow the same accessor convention.
 
 ### Topology construction and caching
 
-`BuildAuxiliaryTopology` creates synthetic auxiliary vertices as string labels (`"auxEntry1"`, `"auxEntry2"`, …) for network boundary points and computes all valid three-vertex transitions (triples `{vIn, vMid, vOut}`) for flow variable generation. Building topology is expensive — it is computed once inside `makeScenario` and cached in `ScenarioData[s, "Topology"]`. Always pass the full scenario object to downstream constructors rather than rebuilding.
+`buildAuxiliaryTopology` creates synthetic auxiliary vertices as string labels (`"auxEntry1"`, `"auxEntry2"`, …) for network boundary points and computes all valid three-vertex transitions (triples `{vIn, vMid, vOut}`) for flow variable generation. Building topology is expensive — it is computed once inside `makeScenario` and cached in `scenarioData[s, "Topology"]`. Always pass the full scenario object to downstream constructors rather than rebuilding.
 
 The graph is always undirected. A non-symmetric AM is symmetrized (`Unitize[AM + Transpose[AM]]`) before topology construction, so `makeScenario` with AM or `AM + Transpose[AM]` produces identical topologies. Edge directionality is imposed exclusively via switching costs = `Infinity` on the blocked triples.
 
@@ -77,31 +89,30 @@ Switching costs may be supplied as a List of 4-tuples or an Association with 3-t
 
 ### Examples registry
 
-`GetExampleScenario[key]` returns a 6-argument `Function[{entries, exits, sc, alpha, V, g}, ...]`. Integer keys 1–23 plus named strings ("Braess split", "Jamaratv9", etc.) are registered in `$ExampleScenarios`. Call with 3 arguments to use canonical defaults: `GetExampleScenario[key, entries, exits]`.
+`getExampleScenario[key]` returns a 6-argument `Function[{entries, exits, sc, alpha, V, g}, ...]`. Integer keys 1–23 plus named strings ("Braess split", "Jamaratv9", etc.) are registered in `$ExampleScenarios`. Call with 3 arguments to use canonical defaults: `getExampleScenario[key, entries, exits]`.
 
 ## Active public API (current phase)
 
-### Scenario kernel
+### Scenario kernel (`scenarioTools``)
 - `scenario`, `scenarioQ`
 - `makeScenario`, `validateScenario`, `completeScenario`
-- `ScenarioData`
+- `scenarioData`
+- `buildAuxiliaryTopology`, `deriveAuxPairs`, `buildAuxTriples`
 
-### Example scenario factories
-- `GetExampleScenario`
-- `GridScenario`, `CycleScenario`, `GraphScenario`, `AMScenario`
+### Example scenario factories (`examples``)
+- `getExampleScenario`
+- `gridScenario`, `cycleScenario`, `graphScenario`, `amScenario`
 
-### Unknowns/system kernels
-- `unknowns`, `unknownsQ`, `UnknownsData`, `makeUnknowns`
-- `mfgSystem`, `mfgSystemQ`, `SystemData`, `SystemDataFlatten`, `makeSystem`
-- **System Builders**: `BuildBoundaryData`, `BuildFlowData`, `BuildComplementarityData`, `BuildHamiltonianData`
+### Unknowns/system kernels (`unknownsTools``, `systemTools``)
+- `unknowns`, `unknownsQ`, `unknownsData`, `makeUnknowns`
+- `mfgSystem`, `mfgSystemQ`, `systemData`, `systemDataFlatten`, `makeSystem`
+- **System Builders**: `buildBoundaryData`, `buildFlowData`, `buildComplementarityData`, `buildHamiltonianData`
 - **System Records**: `mfgBoundaryData`, `mfgFlowData`, `mfgComplementarityData`, `mfgHamiltonianData`
-- **Linear Helpers**: `GetKirchhoffLinearSystem`, `GetKirchhoffMatrix`
+- **Linear Helpers**: `getKirchhoffLinearSystem`, `getKirchhoffMatrix`
 
-### Solver (from `Solver.wl`)
-- `ReduceSystem` — naive `Reduce`-based solver (no switching costs)
-
-### Shared topology helpers (from `Scenario.wl`)
-- `BuildAuxiliaryTopology`, `DeriveAuxPairs`, `BuildAuxTriples`
+### Solver (`solver``)
+- `reduceSystem` — naive `Reduce`-based solver (no switching costs)
+- `isReduceSystemSolution` — solution validator
 
 ### Runtime flags
 - `$MFGraphsVerbose` — set `True` to enable progress/timing prints (default `False`)
@@ -132,11 +143,11 @@ Needs["MFGraphs`"];
 
 s = makeScenario[<|
   "Model" -> <|
-    "Vertices List" -> {1, 2, 3},
-    "Adjacency Matrix" -> {{0,1,0},{0,0,1},{0,0,0}},
-    "Entrance Vertices and Flows" -> {{1, 10}},
-    "Exit Vertices and Terminal Costs" -> {{3, 0}},
-    "Switching Costs" -> {}
+    "Vertices"  -> {1, 2, 3},
+    "Adjacency" -> {{0,1,0},{0,0,1},{0,0,0}},
+    "Entries"   -> {{1, 10}},
+    "Exits"     -> {{3, 0}},
+    "Switching" -> {}
   |>
 |>];
 
@@ -151,14 +162,14 @@ mfgSystemQ[sys]
 Example factory usage:
 
 ```mathematica
-f = GetExampleScenario[12];
+f = getExampleScenario[12];
 s = f[{{1, 100}}, {{4, 0}}, {}, 1, 0, Function[z, -1/z]];
 ```
 
 ## Testing
 
 Active suite (`Scripts/RunTests.wls`):
-- `fast`: `scenario-kernel.mt`, `make-unknowns.mt`
+- `fast`: `scenario-kernel.mt`, `make-unknowns.mt`, `reduce-system.mt`, `scenario-consistency.mt`
 - `slow`, `legacy-fast`, `legacy-slow`: empty in current phase
 
 Run tests from repository root using the current runner workflow:
@@ -189,8 +200,8 @@ modules remain out of scope.
 ## Code style notes
 
 - Avoid single-letter variable names that collide with WL/System symbols.
-- Prefer typed constructors/accessors (`makeScenario`, `ScenarioData`, `makeUnknowns`, `makeSystem`) over ad-hoc association wiring.
-- Keep tests deterministic and context-safe; prefer qualified symbol checks (`MFGraphs` context) for package-surface assertions.
+- Prefer typed constructors/accessors (`makeScenario`, `scenarioData`, `makeUnknowns`, `makeSystem`) over ad-hoc association wiring.
+- Keep tests deterministic and context-safe; prefer qualified symbol checks (e.g. `scenarioTools`scenarioData`) for package-surface assertions.
 
 ## Git workflow
 
