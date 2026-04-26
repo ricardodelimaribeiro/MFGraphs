@@ -7,3 +7,9 @@ This directory contains dormant tests that are intentionally excluded from the a
 - `criticalcongestion.mt` is a legacy `TestSuite[...]` aggregator superseded by explicit suite wiring in `Scripts/RunTests.wls`.
 - `solve-mfg-legacy.mt` contains legacy `SolveMFG` routing coverage for removed NonLinear/Monotone/NormalizeEdgeFunction public surface.
 - `solver-contracts-legacy.mt` contains return-shape contracts for removed NonLinear/Monotone public solvers.
+
+Additional non-archived but unsupported root-level tests are tracked under the `unsupported`
+suite in `Scripts/RunTests.wls`:
+
+- `inconsistent-switching-critical.mt`
+- `symbolic-underdetermined.mt`

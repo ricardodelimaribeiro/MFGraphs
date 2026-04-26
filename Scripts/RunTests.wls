@@ -9,30 +9,49 @@ $MFGraphsVerbose = False;
 
 $TestsDir = FileNameJoin[{Directory[], "MFGraphs", "Tests"}];
 
+(* Active suites organized by stability/support level. *)
+$FastSuite = {
+    "package-loading.mt",
+    "graphics-public-api.mt",
+    "007-critical_congestion.mt",
+    "007-critical_congestion_ok.mt",
+    "012-critical_congestion.mt",
+    "critical-numeric-backend.mt",
+    "exit-pass-through.mt",
+    "exit-pass-through-nonzero.mt",
+    "exact-mode.mt",
+    "infeasible-status.mt",
+    "scenario-kernel.mt",
+    "solve-mfg.mt",
+    "solver-contracts.mt"
+};
+
+$SlowSuite = {
+    "J9F-critical_congestion.mt",
+    "Jm9-critical_congestion.mt"
+};
+
+$MetaSuite = {
+    "run-tests-smoke.mt"
+};
+
+$UnsupportedSuite = {
+    "inconsistent-switching-critical.mt",
+    "symbolic-underdetermined.mt"
+};
+
 $TestSuites = <|
-    (* `fast` is the critical-only public gate.
-       Keep archive files and unsupported legacy surfaces out of this list. *)
-    "fast" -> {
-        "package-loading.mt",
-        "graphics-public-api.mt",
-        "007-critical_congestion.mt",
-        "007-critical_congestion_ok.mt",
-        "012-critical_congestion.mt",
-        "critical-numeric-backend.mt",
-        "exit-pass-through.mt",
-        "exit-pass-through-nonzero.mt",
-        "exact-mode.mt",
-        "infeasible-status.mt",
-        "scenario-kernel.mt",
-        "solve-mfg.mt",
-        "solver-contracts.mt"
-    },
-    "slow" -> {
-        "J9F-critical_congestion.mt",
-        "Jm9-critical_congestion.mt"
-    }
+    (* `fast` is the critical-only public CI gate. *)
+    "fast" -> $FastSuite,
+    (* `slow` adds long-running paper-scale cases. *)
+    "slow" -> $SlowSuite,
+    (* `meta` validates test-runner entrypoints themselves. *)
+    "meta" -> $MetaSuite,
+    (* `unsupported` are legacy/non-critical tests excluded from active CI. *)
+    "unsupported" -> $UnsupportedSuite
 |>;
 $TestSuites["all"] = Join[$TestSuites["fast"], $TestSuites["slow"]];
+$TestSuites["full"] = Join[$TestSuites["all"], $TestSuites["meta"]];
 
 args = Select[
     Rest[$ScriptCommandLine],
