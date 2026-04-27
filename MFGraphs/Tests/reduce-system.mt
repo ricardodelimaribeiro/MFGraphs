@@ -161,3 +161,44 @@ Test[
     True,
     TestID -> "dnfReduceSystem: non-critical congestion systems fail"
 ]
+
+(* --- booleanReduceSystem tests --- *)
+
+Test[
+    NameQ["solversTools`booleanReduceSystem"],
+    True,
+    TestID -> "booleanReduceSystem: public symbol exists"
+]
+
+Test[
+    Module[{s, sys, result},
+        s = gridScenario[{3}, {{1, 120.0}}, {{2, 0.0}, {3, 10.0}}];
+        sys = makeSystem[s];
+        result = booleanReduceSystem[sys];
+        isValidSystemSolution[sys, result]
+    ],
+    True,
+    TestID -> "booleanReduceSystem: chain 2-exits solution is valid"
+]
+
+Test[
+    Module[{s, sys, result},
+        s = getExampleScenario[8, {{1, 80.0}}, {{3, 0.0}, {4, 10.0}}];
+        sys = makeSystem[s];
+        result = booleanReduceSystem[sys];
+        isValidSystemSolution[sys, result]
+    ],
+    True,
+    TestID -> "booleanReduceSystem: y-network solution is valid"
+]
+
+Test[
+    Module[{s, sys, result},
+        s = gridScenario[{2}, {{1, 10}}, {{2, 0}}, {}, 2];
+        sys = makeSystem[s];
+        result = Quiet[booleanReduceSystem[sys], booleanReduceSystem::noncritical];
+        FailureQ[result] && result["Tag"] === "booleanReduceSystem"
+    ],
+    True,
+    TestID -> "booleanReduceSystem: non-critical congestion systems fail"
+]

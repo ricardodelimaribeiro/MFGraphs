@@ -51,6 +51,25 @@ reduceSystem::noncritical =
 dnfReduceSystem::noncritical =
 "dnfReduceSystem supports only critical congestion systems with Alpha == 1 on every edge.";
 
+booleanReduceSystem::usage =
+"booleanReduceSystem[sys] solves the mfgSystem sys by converting the \
+preprocessed constraint system to DNF via BooleanConvert, then calling \
+Reduce independently on each disjunct. Each disjunct is a pure conjunction \
+(no Or), so Reduce avoids case-splitting. Non-False results are collected; \
+if the system has a unique equilibrium all non-False results are equivalent. \
+Returns a list of rules when fully determined, or \
+<|\"Rules\" -> rules, \"Equations\" -> residual|> when underdetermined. \
+Fails for non-critical congestion systems where Alpha != 1 on any edge. \
+Options: \"DisjunctTimeout\" (default 30s per Reduce call), \
+\"ReturnAll\" (default False; True returns all non-False parsed results).";
+
+booleanReduceSystem::noncritical =
+"booleanReduceSystem supports only critical congestion systems with Alpha == 1 on every edge.";
+
+booleanReduceSystem::multisol =
+"booleanReduceSystem found `1` non-False disjuncts with differing rules. \
+Returning first; use \"ReturnAll\" -> True to inspect all results.";
+
 Begin["`Private`"];
 
 trackedVarQ::usage =
@@ -182,6 +201,91 @@ dnfReduceSystem[sys_?mfgSystemQ] :=
 
         With[{reduced = dnfReduce[True, constraints]},
             attachAccumulatedRules[parseReduceResult[reduced, allVars], rulesAcc]
+        ]
+    ];
+
+Options[booleanReduceSystem] = {
+    "DisjunctTimeout" -> 30,
+    "ReturnAll"       -> False
+};
+
+booleanReduceSystem[sys_?mfgSystemQ, opts : OptionsPattern[]] :=
+    Module[{eqEntryIn, eqSplit, eqGather, eqHJ,
+            ineqJs, ineqJts, ineqSwitchingByVertex, altFlows, altTrans, altOptCond,
+            ruleExitVals, baseConstraints, constraints, allVars, rulesAcc,
+            dnf, disjuncts, reducedList, nonFalse, parsed, timeout, returnAll},
+
+        timeout   = OptionValue["DisjunctTimeout"];
+        returnAll = TrueQ[OptionValue["ReturnAll"]];
+
+        If[!criticalCongestionSystemQ[sys],
+            Message[booleanReduceSystem::noncritical];
+            Return[
+                Failure["booleanReduceSystem", <|
+                    "Message" -> "booleanReduceSystem supports only critical congestion systems with Alpha == 1 on every edge."
+                |>],
+                Module
+            ]
+        ];
+
+        eqEntryIn             = systemData[sys, "EqEntryIn"];
+        eqSplit               = systemData[sys, "EqBalanceSplittingFlows"];
+        eqGather              = systemData[sys, "EqBalanceGatheringFlows"];
+        eqHJ                  = systemData[sys, "EqGeneral"];
+        ineqJs                = systemData[sys, "IneqJs"];
+        ineqJts               = systemData[sys, "IneqJts"];
+        ineqSwitchingByVertex = systemData[sys, "IneqSwitchingByVertex"];
+        altFlows              = systemData[sys, "AltFlows"];
+        altTrans              = systemData[sys, "AltTransitionFlows"];
+        altOptCond            = systemData[sys, "AltOptCond"];
+        ruleExitVals          = Normal @ systemData[sys, "RuleExitValues"];
+
+        baseConstraints = And[
+            And @@ eqEntryIn,
+            eqSplit, eqGather, eqHJ,
+            ineqJs, ineqJts,
+            ineqSwitchingByVertex,
+            altFlows, altTrans,
+            altOptCond
+        ];
+
+        allVars = Select[
+            Variables[(baseConstraints /. ruleExitVals) /. {Equal -> List, Or -> List, And -> List}],
+            trackedVarQ
+        ];
+        {constraints, rulesAcc} = accumulateLinearRules[baseConstraints, allVars, ruleExitVals];
+        allVars = Select[
+            Variables[constraints /. {Equal -> List, Or -> List, And -> List}],
+            trackedVarQ
+        ];
+
+        dnf       = BooleanConvert[constraints, "DNF"];
+        disjuncts = If[Head[dnf] === Or, List @@ dnf, {dnf}];
+
+        reducedList = Map[
+            Function[d, TimeConstrained[Reduce[d, allVars, Reals], timeout, $Aborted]],
+            disjuncts
+        ];
+
+        nonFalse = Select[reducedList, # =!= False && # =!= $Aborted &];
+
+        If[nonFalse === {},
+            Return[attachAccumulatedRules[<|"Rules" -> {}, "Equations" -> False|>, rulesAcc], Module]
+        ];
+
+        parsed = parseReduceResult[#, allVars] & /@ nonFalse;
+
+        If[Length[parsed] > 1,
+            With[{ruleSets = (If[ListQ[#], #, Lookup[#, "Rules", {}]] & /@ parsed)},
+                If[!SameQ @@ (Sort /@ ruleSets),
+                    Message[booleanReduceSystem::multisol, Length[parsed]]
+                ]
+            ]
+        ];
+
+        If[returnAll,
+            attachAccumulatedRules[#, rulesAcc] & /@ parsed,
+            attachAccumulatedRules[First[parsed], rulesAcc]
         ]
     ];
 
