@@ -31,6 +31,36 @@ reported as Indeterminate, not False.";
 
 Begin["`Private`"];
 
+trackedVarQ::usage =
+"trackedVarQ[var] returns True for solver variables tracked during Reduce post-processing.";
+
+mergeRules::usage =
+"mergeRules[oldRules, newRules] joins rule lists while keeping the latest rule for each left-hand side.";
+
+normalizeRules::usage =
+"normalizeRules[rules] rewrites right-hand sides through the full rule set.";
+
+topLevelEquations::usage =
+"topLevelEquations[constraints] extracts top-level Equal expressions from an And expression or single constraint.";
+
+extractLinearRules::usage =
+"extractLinearRules[equations, vars, existingRules] solves linear equations for new eliminable rules.";
+
+accumulateLinearRules::usage =
+"accumulateLinearRules[baseConstraints, vars, initRules] repeatedly extracts linear rules from the constraint system.";
+
+attachAccumulatedRules::usage =
+"attachAccumulatedRules[result, rulesAcc] merges accumulated rules into a reduceSystem result.";
+
+branchToRules::usage =
+"branchToRules[branch, allVars] extracts explicit variable rules from one Reduce branch.";
+
+parseReduceResult::usage =
+"parseReduceResult[reduced, allVars] converts a Reduce result to rules or a rules-plus-residual association.";
+
+checkBlock::usage =
+"checkBlock[expr, tol] evaluates a substituted constraint block using tolerance tol for numeric comparisons.";
+
 reduceSystem[sys_?mfgSystemQ] :=
     Module[{eqEntryIn, eqSplit, eqGather, eqHJ,
             ineqJs, ineqJts, ineqSwitchingByVertex, altFlows, altTrans, altOptCond,

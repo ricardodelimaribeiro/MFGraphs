@@ -80,6 +80,42 @@ transitions (triples) in the graph.";
 
 Begin["`Private`"]
 
+scenarioFailure::usage =
+"scenarioFailure[msg] builds a ScenarioValidation Failure. scenarioFailure[msg, keys] includes missing model keys.";
+
+hamiltonianGTermQ::usage =
+"hamiltonianGTermQ[value] returns True when value is a numeric Hamiltonian G term or a pure Function.";
+
+buildAdjacencyFromGraph::usage =
+"buildAdjacencyFromGraph[graph, vertices] returns graph's adjacency matrix ordered by vertices, or $Failed for unknown vertices.";
+
+normalizeScenarioModel::usage =
+"normalizeScenarioModel[model] fills Vertices and Adjacency from Graph when possible and normalizes the stored Graph.";
+
+boundaryValuesNumericQ::usage =
+"boundaryValuesNumericQ[model] returns True when Entries and Exits are vertex-value pairs with numeric values.";
+
+switchingCostsNumericQ::usage =
+"switchingCostsNumericQ[model] returns True when Switching has well-formed triples with numeric costs.";
+
+normalizeSwitchingCosts::usage =
+"normalizeSwitchingCosts[sc] converts list switching-cost rows to an Association and leaves Associations unchanged.";
+
+integerVertexLabelsQ::usage =
+"integerVertexLabelsQ[model] returns True when the model Vertices list contains only integer labels.";
+
+modelDirectedEdgePairs::usage =
+"modelDirectedEdgePairs[model] returns directed edge pairs derived from the model Vertices and Adjacency.";
+
+normalizeHamiltonianSpec::usage =
+"normalizeHamiltonianSpec[spec, model] expands Hamiltonian defaults and validates per-edge Hamiltonian overrides.";
+
+buildAuxTriplesImpl::usage =
+"buildAuxTriplesImpl[directedEdges] builds admissible auxiliary transition triples from directed edge pairs.";
+
+completeSwitchingCosts::usage =
+"completeSwitchingCosts[model, topology] fills absent switching costs with zero on the auxiliary topology.";
+
 (* Required keys that must appear inside the "Model" block. *)
 $RequiredModelKeys = {
     "Vertices",

@@ -89,6 +89,24 @@ roundValues::usage = "roundValues[x] rounds numerical values in x to a standard 
 
 Begin["`Private`"]
 
+exactBoundaryValue::usage =
+"exactBoundaryValue[val] converts a numeric real boundary value to an exact value or returns a buildBoundaryData Failure.";
+
+exactBoundaryValues::usage =
+"exactBoundaryValues[vals] applies exactBoundaryValue to a list and returns the first Failure if conversion fails.";
+
+buildBoundaryData::usage =
+"buildBoundaryData[s, topology] builds typed boundary equations, boundary value rules, and entry/exit metadata.";
+
+buildFlowData::usage =
+"buildFlowData[s, topology, unk] builds typed flow-balance equations and non-negativity constraints.";
+
+buildComplementarityData::usage =
+"buildComplementarityData[s, topology, unk] builds typed complementarity alternatives and switching inequalities.";
+
+buildHamiltonianData::usage =
+"buildHamiltonianData[s, topology, flowData] builds typed Hamiltonian residual equations for the system.";
+
 (* --- Structural Helpers Implementation --- *)
 
 roundValues[x_?NumberQ] :=
