@@ -111,8 +111,13 @@ Switching costs may be supplied as a List of 4-tuples or an Association with 3-t
 - **Linear Helpers**: `getKirchhoffLinearSystem`, `getKirchhoffMatrix`
 
 ### Solver (`solversTools`)
-- `reduceSystem` — naive `Reduce`-based solver for critical congestion (`Alpha == 1`) systems
-- `isValidSystemSolution` — solution validator
+All three solvers share a common preprocessing pipeline (`buildSolverInputs`) and only support critical congestion systems (`Alpha == 1` on every edge).
+
+- `reduceSystem` — calls `Reduce[constraints, allVars, Reals]` directly
+- `dnfReduceSystem` — equality-substitution + disjunction-distribution via `dnfReduce` (avoids `Reduce` timeouts)
+- `booleanReduceSystem` — converts to DNF via `BooleanConvert`, then calls `Reduce` independently per disjunct; options: `"DisjunctTimeout"` (default 30s), `"ReturnAll"` (default `False`)
+- `dnfReduce` — internal simplifier used by `dnfReduceSystem`; eliminates equalities and distributes over disjunctions
+- `isValidSystemSolution` — solution validator; option `"ReturnReport" -> True` gives per-block breakdown
 
 ### Graphics (`graphics`)
 - `scenarioTopologyPlot` — entry/exit/internal vertex coloring
@@ -184,7 +189,11 @@ Active suite (`Scripts/RunTests.wls`):
 Run tests from repository root using the current runner workflow:
 
 ```bash
+# Run the active fast suite
 wolframscript -file Scripts/RunTests.wls fast
+
+# Run a single test file
+wolframscript -file Scripts/RunSingleTest.wls MFGraphs/Tests/reduce-system.mt
 ```
 
 `all` currently resolves to the active core-phase set:
@@ -195,6 +204,31 @@ wolframscript -file Scripts/RunTests.wls all
 
 Solver-oriented suites are intentionally excluded in this phase while solver
 modules remain out of scope.
+
+## Benchmarking
+
+```bash
+# Benchmark reduceSystem across representative cases (results → Results/)
+wolframscript -file Scripts/BenchmarkReduceSystem.wls
+
+# With options: tag appends an entry to BENCHMARKS.md; timeout sets per-case limit
+wolframscript -file Scripts/BenchmarkReduceSystem.wls --tag "after my change" --timeout 60
+
+# Run a single bench case
+wolframscript -file Scripts/BenchmarkReduceSystem.wls --case chain-3v-1exit
+```
+
+Available bench cases: `chain-2v`, `chain-3v-1exit`, `chain-3v-2exit`, `example-7`, `chain-5v-1exit`, `example-12`.
+
+Results land in `Results/` as timestamped CSV + WL solution files and as `reduce_system_latest.*` symlinks. Solutions store the full symbolic output per case alongside timing.
+
+## Docs generation
+
+`API_REFERENCE.md` is auto-generated from `::usage` strings — do not edit it directly:
+
+```bash
+wolframscript -file Scripts/GenerateDocs.wls
+```
 
 ## Development notebook
 
