@@ -273,6 +273,11 @@ sol1Ex = reduceSystem[sys1Ex];
 
 Column[{
     DescribeOutput[
+        "Solution validation",
+        "isValidSystemSolution confirms that the solved rules satisfy all system constraints.",
+        isValidSystemSolution[sys1Ex, sol1Ex]
+    ],
+    DescribeOutput[
         "Combined solution plot \[LongDash] chain 1\[Rule]2\[Rule]3, single exit",
         "Directed edges show j-flow direction/magnitude; labels show both j and u. Auxiliary edges are included.",
         mfgSolutionPlot[chain1Ex, sys1Ex, sol1Ex,
