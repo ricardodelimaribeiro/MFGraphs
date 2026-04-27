@@ -47,7 +47,8 @@ extractConstraints[sys_] :=
         ];
         <|"Base" -> base, "ExitRules" -> ruleExit, "AllVars" -> allVars,
           "IneqsBefore"     -> countIneqs[base /. ruleExit],
-          "DisjunctsBefore" -> countDisjuncts[base /. ruleExit]|>
+          "DisjunctsBefore" -> countDisjuncts[base /. ruleExit],
+          "OrSummaryBefore" -> orBranchSummary[base /. ruleExit]|>
     ];
 
 residualVarCount[constraints_, vars_List] :=
@@ -60,6 +61,18 @@ countIneqs[constraints_] :=
     Length @ Cases[
         Switch[Head[constraints], And, List @@ constraints, _, {constraints}],
         _LessEqual | _GreaterEqual | _Less | _Greater | _Inequality
+    ];
+
+(* Or-branch analysis: count top-level Or conjuncts and their branch sizes *)
+orBranchSummary[constraints_] :=
+    Module[{orExprs, branchCounts},
+        orExprs     = Cases[Switch[Head[constraints], And, List @@ constraints, _, {constraints}], _Or];
+        branchCounts = Length /@ orExprs;
+        <|
+            "OrConjunctCount" -> Length[orExprs],
+            "BranchCountTally" -> Sort @ Tally[branchCounts],
+            "DNFExpansionSize" -> If[orExprs === {}, 1, Times @@ branchCounts]
+        |>
     ];
 
 runAccumulateLinear[data_Association] :=
@@ -77,7 +90,8 @@ runAccumulateLinear[data_Association] :=
             "VarsBefore"      -> Length[data["AllVars"]],
             "VarsAfter"       -> varsAfter,
             "IneqsAfter"      -> countIneqs[constraints],
-            "DisjunctsAfter"  -> countDisjuncts[constraints]
+            "DisjunctsAfter"  -> countDisjuncts[constraints],
+            "OrSummaryAfter"  -> orBranchSummary[constraints]
         |>
     ];
 
@@ -99,7 +113,8 @@ runTripleClean[data_Association] :=
             "VarsBefore"      -> Length[data["AllVars"]],
             "VarsAfter"       -> varsAfter,
             "IneqsAfter"      -> countIneqs[residual],
-            "DisjunctsAfter"  -> countDisjuncts[residual]
+            "DisjunctsAfter"  -> countDisjuncts[residual],
+            "OrSummaryAfter"  -> orBranchSummary[residual]
         |>
     ];
 
@@ -135,11 +150,11 @@ Print[];
 Print["=== Summary ==="];
 Print[col["Case", 15], col["Method", 24],
       col["Time(s)", 9], col["Rules+", 7],
-      col["Vars", 14], col["Ineqs", 14], col["Disjuncts", 10]];
+      col["Vars", 14], col["Ineqs", 14], col["Or-conjuncts", 14], "DNF expansion"];
 Print[col["", 15], col["", 24],
       col["", 9], col["", 7],
-      col["bef->aft", 14], col["bef->aft", 14], col["bef->aft", 10]];
-Print[StringRepeat["-", 93]];
+      col["bef->aft", 14], col["bef->aft", 14], col["bef->aft", 14], "bef->aft"];
+Print[StringRepeat["-", 110]];
 Do[
     With[{al = r["accumulateLinearRules"], tc = r["TripleClean"], d = r["Data"]},
         Print[col[r["Case"], 15], col["accumulateLinearRules", 24],
@@ -147,13 +162,15 @@ Do[
               col[al["RulesExtracted"], 7],
               col[ToString[al["VarsBefore"]] <> "->" <> ToString[al["VarsAfter"]], 14],
               col[ToString[d["IneqsBefore"]] <> "->" <> ToString[al["IneqsAfter"]], 14],
-              ToString[d["DisjunctsBefore"]] <> "->" <> ToString[al["DisjunctsAfter"]]];
+              col[ToString[d["OrSummaryBefore"]["OrConjunctCount"]] <> "->" <> ToString[al["OrSummaryAfter"]["OrConjunctCount"]], 14],
+              ToString[d["OrSummaryBefore"]["DNFExpansionSize"]] <> "->" <> ToString[al["OrSummaryAfter"]["DNFExpansionSize"]]];
         Print[col["", 15], col["TripleClean", 24],
               col[NumberForm[tc["TimeSeconds"], {4,3}], 9],
               col[tc["RulesExtracted"], 7],
               col[ToString[tc["VarsBefore"]] <> "->" <> ToString[tc["VarsAfter"]], 14],
               col[ToString[d["IneqsBefore"]] <> "->" <> ToString[tc["IneqsAfter"]], 14],
-              ToString[d["DisjunctsBefore"]] <> "->" <> ToString[tc["DisjunctsAfter"]]];
+              col[ToString[d["OrSummaryBefore"]["OrConjunctCount"]] <> "->" <> ToString[tc["OrSummaryAfter"]["OrConjunctCount"]], 14],
+              ToString[d["OrSummaryBefore"]["DNFExpansionSize"]] <> "->" <> ToString[tc["OrSummaryAfter"]["DNFExpansionSize"]]];
         Print[]
     ],
     {r, results}
