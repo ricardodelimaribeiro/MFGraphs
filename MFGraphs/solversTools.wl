@@ -5,9 +5,10 @@
    Three solvers share a common preprocessing pipeline (buildSolverInputs):
    collect structural equations, apply exit-value rules, eliminate linear
    equations via accumulateLinearRules. They differ only in the final step:
-     reduceSystem        -- Reduce[constraints, allVars, Reals]
-     dnfReduceSystem     -- dnfReduce[True, constraints]
-     booleanReduceSystem -- BooleanConvert to DNF, Reduce per disjunct
+     reduceSystem         -- Reduce[constraints, allVars, Reals]
+     dnfReduceSystem      -- dnfReduce[True, constraints]
+     booleanReduceSystem  -- BooleanConvert to DNF, Reduce per disjunct
+     findInstanceSystem   -- FindInstance[constraints, allVars, Reals]
 *)
 
 BeginPackage["solversTools`", {"primitives`", "systemTools`"}];
@@ -71,6 +72,18 @@ booleanReduceSystem::multisol =
 "booleanReduceSystem found `1` non-False disjuncts with differing rules. \
 Returning first; use \"ReturnAll\" -> True to inspect all results.";
 
+findInstanceSystem::usage =
+"findInstanceSystem[sys] solves the mfgSystem sys by collecting and \
+linearly preprocessing constraints, then calling FindInstance over the \
+remaining variables. Returns one feasible list of rules. If no instance is \
+found or the final solve times out, returns \
+<|\"Rules\" -> accumulatedRules, \"Equations\" -> False|>. \
+Fails for non-critical congestion systems where Alpha != 1 on any edge. \
+Options: \"Timeout\" (default Infinity).";
+
+findInstanceSystem::noncritical =
+"findInstanceSystem supports only critical congestion systems with Alpha == 1 on every edge.";
+
 Begin["`Private`"];
 
 trackedVarQ::usage =
@@ -100,6 +113,16 @@ branchToRules::usage =
 parseReduceResult::usage =
 "parseReduceResult[reduced, allVars] converts a Reduce result to rules or a rules-plus-residual association.";
 
+parseDNFReduceResult::usage =
+"parseDNFReduceResult[reduced, allVars] converts dnfReduce output to rules \
+or a rules-plus-residual association, harvesting equality solutions from \
+surviving DNF branches.";
+
+harvestDNFBranch::usage =
+"harvestDNFBranch[branch, allVars] solves explicit branch equalities, \
+substitutes them into residual constraints, and returns a branch association \
+or False when the branch is contradictory.";
+
 buildSolverInputs::usage =
 "buildSolverInputs[sys] collects all constraint blocks from sys, applies \
 exit-value rules, and runs accumulateLinearRules. Returns \
@@ -128,7 +151,7 @@ dnfReduceSystem[sys_?mfgSystemQ] :=
         ];
         {constraints, allVars, rulesAcc} = buildSolverInputs[sys];
         With[{reduced = dnfReduce[True, constraints]},
-            attachAccumulatedRules[parseReduceResult[reduced, allVars], rulesAcc]
+            attachAccumulatedRules[parseDNFReduceResult[reduced, allVars], rulesAcc]
         ]
     ];
 
@@ -161,6 +184,38 @@ booleanReduceSystem[sys_?mfgSystemQ, opts : OptionsPattern[]] :=
             ]
         ];
         If[returnAll, attachAccumulatedRules[#, rulesAcc] & /@ parsed, attachAccumulatedRules[First[parsed], rulesAcc]]
+    ];
+
+Options[findInstanceSystem] = {
+    "Timeout" -> Infinity
+};
+
+findInstanceSystem[sys_?mfgSystemQ, opts : OptionsPattern[]] :=
+    Module[{constraints, allVars, rulesAcc, timeout, instance},
+        timeout = OptionValue["Timeout"];
+        If[!criticalCongestionSystemQ[sys],
+            Message[findInstanceSystem::noncritical];
+            Return[Failure["findInstanceSystem", <|"Message" -> "findInstanceSystem supports only critical congestion systems with Alpha == 1 on every edge."|>], Module]
+        ];
+        {constraints, allVars, rulesAcc} = buildSolverInputs[sys];
+        If[allVars === {},
+            Return[
+                If[TrueQ[Simplify[constraints]],
+                    normalizeRules[rulesAcc],
+                    attachAccumulatedRules[<|"Rules" -> {}, "Equations" -> False|>, rulesAcc]
+                ],
+                Module
+            ]
+        ];
+        instance = TimeConstrained[
+            FindInstance[constraints, allVars, Reals],
+            timeout,
+            $Aborted
+        ];
+        If[MatchQ[instance, {{___Rule}, ___}],
+            attachAccumulatedRules[First[instance], rulesAcc],
+            attachAccumulatedRules[<|"Rules" -> {}, "Equations" -> False|>, rulesAcc]
+        ]
     ];
 
 trackedVarQ[var_] :=
@@ -396,6 +451,81 @@ parseReduceResult[reduced_, allVars_] :=
         ]
     ];
 
+harvestDNFBranch[False, _] := False;
+
+harvestDNFBranch[branch_, allVars_List] :=
+    Module[{conjuncts, eqs, sol, rules, reducedConjuncts, residual,
+            residualVars},
+        conjuncts = flattenConjuncts[branch];
+        eqs = Select[conjuncts, MatchQ[#, _Equal] &];
+        sol = If[eqs === {} || allVars === {},
+            {{}},
+            Quiet[Solve[eqs, allVars], Solve::svars]
+        ];
+        If[!ListQ[sol] || sol === {}, Return[False, Module]];
+        rules = Cases[First[sol],
+            r : Rule[v_, rhs_] /;
+                MemberQ[allVars, v] &&
+                FreeQ[rhs, Alternatives @@ allVars] :> r
+        ];
+        reducedConjuncts = Simplify /@ (conjuncts /. rules);
+        reducedConjuncts = DeleteCases[reducedConjuncts, True];
+        residual = If[reducedConjuncts === {}, True, And @@ reducedConjuncts];
+        residual = Simplify[residual];
+        If[residual === False, Return[False, Module]];
+        residualVars = Select[
+            Variables[residual /. {Equal -> List, Or -> List, And -> List}],
+            MemberQ[allVars, #] &
+        ];
+        If[residualVars === {},
+            If[TrueQ[Simplify[residual]],
+                <|"Rules" -> rules, "Equations" -> True|>,
+                False
+            ],
+            <|"Rules" -> rules, "Equations" -> residual|>
+        ]
+    ];
+
+parseDNFReduceResult[reduced_, allVars_List] :=
+    Module[{branches, harvested, ruleSets, common, branchExprs},
+        If[reduced === False, Return[<|"Rules" -> {}, "Equations" -> False|>, Module]];
+        branches = If[Head[reduced] === Or, List @@ reduced, {reduced}];
+        harvested = DeleteCases[harvestDNFBranch[#, allVars] & /@ branches, False];
+        If[harvested === {},
+            Return[<|"Rules" -> {}, "Equations" -> False|>, Module]
+        ];
+        If[Length[harvested] === 1,
+            With[{rules = Lookup[First[harvested], "Rules", {}],
+                  residual = Lookup[First[harvested], "Equations", True]},
+                Return[
+                    If[residual === True,
+                        rules,
+                        <|"Rules" -> rules, "Equations" -> residual|>
+                    ],
+                    Module
+                ]
+            ]
+        ];
+        ruleSets = Lookup[#, "Rules", {}] & /@ harvested;
+        common = If[ruleSets === {}, {}, Fold[Intersection, First[ruleSets], Rest[ruleSets]]];
+        branchExprs = Simplify /@ Map[
+            With[{branchRules = Complement[Lookup[#, "Rules", {}], common],
+                  residual = Lookup[#, "Equations", True]},
+                And[
+                    And @@ (Equal @@@ branchRules),
+                    residual
+                ] /. common
+            ] &,
+            harvested
+        ];
+        branchExprs = DeleteDuplicates @ DeleteCases[DeleteCases[branchExprs, False], True];
+        If[branchExprs === {},
+            common,
+            <|"Rules" -> common,
+              "Equations" -> Simplify @ If[Length[branchExprs] === 1, First[branchExprs], Or @@ branchExprs]|>
+        ]
+    ];
+
 (* --- Solution validation --- *)
 
 Options[isValidSystemSolution] = {
@@ -425,10 +555,10 @@ isValidSystemSolution[sys_?mfgSystemQ, sol_, OptionsPattern[]] :=
         rules        = If[kind === "Determined", sol, Lookup[sol, "Rules", {}]];
         ruleExitVals = Normal @ systemData[sys, "RuleExitValues"];
 
-        (* For underdetermined: fail fast if residual equations are False *)
+        (* For underdetermined: fail fast if residual equations are inconsistent. *)
         If[kind === "Underdetermined",
             With[{eqs = Lookup[sol, "Equations", True]},
-                If[eqs === False,
+                If[eqs === False || TrueQ[Quiet @ Check[Simplify[eqs] === False, False]],
                     Return[If[returnReportQ,
                         <|"Valid" -> False, "Kind" -> kind,
                           "Reason" -> "InconsistentResidual", "BlockChecks" -> <||>|>,
@@ -494,41 +624,70 @@ checkBlock[expr_Or, tol_] :=
     ];
 
 checkBlock[lhs_ == rhs_, tol_] :=
-    With[{d = Quiet @ Check[N[lhs - rhs], $Failed]},
+    With[{s = Quiet @ Check[Simplify[lhs == rhs], $Failed]},
         Which[
-            d === $Failed,     Indeterminate,
-            NumericQ[d],       Abs[d] <= tol,
-            True,              With[{s = Quiet @ Check[Simplify[lhs == rhs], $Failed]},
-                                   Which[s === True, True, s === False, False, True, Indeterminate]]
+            s === True,  True,
+            s === False, False,
+            True,        With[{d = Quiet @ Check[N[lhs - rhs], $Failed]},
+                             Which[
+                                 d === $Failed, Indeterminate,
+                                 NumericQ[d],   Abs[d] <= tol,
+                                 True,          Indeterminate
+                             ]]
         ]
     ];
 
 checkBlock[lhs_ >= rhs_, tol_] :=
-    With[{d = Quiet @ Check[N[lhs - rhs], $Failed]},
-        Which[d === $Failed, Indeterminate, NumericQ[d], d >= -tol, True, Indeterminate]
+    With[{s = Quiet @ Check[Simplify[lhs >= rhs], $Failed]},
+        Which[
+            s === True,  True,
+            s === False, False,
+            True,        With[{d = Quiet @ Check[N[lhs - rhs], $Failed]},
+                             Which[d === $Failed, Indeterminate, NumericQ[d], d >= -tol, True, Indeterminate]]
+        ]
     ];
 
 checkBlock[lhs_ <= rhs_, tol_] :=
-    With[{d = Quiet @ Check[N[rhs - lhs], $Failed]},
-        Which[d === $Failed, Indeterminate, NumericQ[d], d >= -tol, True, Indeterminate]
+    With[{s = Quiet @ Check[Simplify[lhs <= rhs], $Failed]},
+        Which[
+            s === True,  True,
+            s === False, False,
+            True,        With[{d = Quiet @ Check[N[rhs - lhs], $Failed]},
+                             Which[d === $Failed, Indeterminate, NumericQ[d], d >= -tol, True, Indeterminate]]
+        ]
     ];
 
 checkBlock[lhs_ > rhs_, tol_] :=
-    With[{d = Quiet @ Check[N[lhs - rhs], $Failed]},
-        Which[d === $Failed, Indeterminate, NumericQ[d], d > tol, True, Indeterminate]
+    With[{s = Quiet @ Check[Simplify[lhs > rhs], $Failed]},
+        Which[
+            s === True,  True,
+            s === False, False,
+            True,        With[{d = Quiet @ Check[N[lhs - rhs], $Failed]},
+                             Which[d === $Failed, Indeterminate, NumericQ[d], d > tol, True, Indeterminate]]
+        ]
     ];
 
 checkBlock[lhs_ < rhs_, tol_] :=
-    With[{d = Quiet @ Check[N[rhs - lhs], $Failed]},
-        Which[d === $Failed, Indeterminate, NumericQ[d], d > tol, True, Indeterminate]
+    With[{s = Quiet @ Check[Simplify[lhs < rhs], $Failed]},
+        Which[
+            s === True,  True,
+            s === False, False,
+            True,        With[{d = Quiet @ Check[N[rhs - lhs], $Failed]},
+                             Which[d === $Failed, Indeterminate, NumericQ[d], d > tol, True, Indeterminate]]
+        ]
     ];
 
 checkBlock[Inequality[a_, Less, b_, Less, c_], tol_] :=
-    With[{d1 = Quiet @ Check[N[b - a], $Failed], d2 = Quiet @ Check[N[c - b], $Failed]},
+    With[{s = Quiet @ Check[Simplify[a < b < c], $Failed]},
         Which[
-            d1 === $Failed || d2 === $Failed, Indeterminate,
-            NumericQ[d1] && NumericQ[d2],     d1 > tol && d2 > tol,
-            True,                             Indeterminate
+            s === True,  True,
+            s === False, False,
+            True,        With[{d1 = Quiet @ Check[N[b - a], $Failed], d2 = Quiet @ Check[N[c - b], $Failed]},
+                             Which[
+                                 d1 === $Failed || d2 === $Failed, Indeterminate,
+                                 NumericQ[d1] && NumericQ[d2],     d1 > tol && d2 > tol,
+                                 True,                             Indeterminate
+                             ]]
         ]
     ];
 

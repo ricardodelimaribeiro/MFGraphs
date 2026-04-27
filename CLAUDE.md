@@ -116,6 +116,7 @@ All three solvers share a common preprocessing pipeline (`buildSolverInputs`) an
 - `reduceSystem` — calls `Reduce[constraints, allVars, Reals]` directly
 - `dnfReduceSystem` — equality-substitution + disjunction-distribution via `dnfReduce` (avoids `Reduce` timeouts)
 - `booleanReduceSystem` — converts to DNF via `BooleanConvert`, then calls `Reduce` independently per disjunct; options: `"DisjunctTimeout"` (default 30s), `"ReturnAll"` (default `False`)
+- `findInstanceSystem` — calls `FindInstance[constraints, allVars, Reals]` after accumulated linear preprocessing; option: `"Timeout"` (default `Infinity`)
 - `dnfReduce` — internal simplifier used by `dnfReduceSystem`; eliminates equalities and distributes over disjunctions
 - `isValidSystemSolution` — solution validator; option `"ReturnReport" -> True` gives per-block breakdown
 
