@@ -37,8 +37,19 @@ Returns a DNF expression with all equalities eliminated where possible. \
 dnfReduce[xp, sys, elem] is the 3-argument form used internally to process \
 one conjunct elem from sys.";
 
+dnfReduceSystem::usage =
+"dnfReduceSystem[sys] solves the mfgSystem sys using linear preprocessing \
+followed by dnfReduce instead of Reduce. Handles cases where Reduce times \
+out by using equality-substitution and disjunction-distribution. Returns a \
+list of rules when fully determined, or \
+<|\"Rules\" -> rules, \"Equations\" -> residual|> when underdetermined. \
+Fails for non-critical congestion systems where Alpha != 1 on any edge.";
+
 reduceSystem::noncritical =
 "reduceSystem supports only critical congestion systems with Alpha == 1 on every edge.";
+
+dnfReduceSystem::noncritical =
+"dnfReduceSystem supports only critical congestion systems with Alpha == 1 on every edge.";
 
 Begin["`Private`"];
 
@@ -119,6 +130,57 @@ reduceSystem[sys_?mfgSystemQ] :=
         ];
 
         With[{reduced = Reduce[constraints, allVars, Reals]},
+            attachAccumulatedRules[parseReduceResult[reduced, allVars], rulesAcc]
+        ]
+    ];
+
+dnfReduceSystem[sys_?mfgSystemQ] :=
+    Module[{eqEntryIn, eqSplit, eqGather, eqHJ,
+            ineqJs, ineqJts, ineqSwitchingByVertex, altFlows, altTrans, altOptCond,
+            ruleExitVals, baseConstraints, constraints, allVars, rulesAcc},
+
+        If[!criticalCongestionSystemQ[sys],
+            Message[dnfReduceSystem::noncritical];
+            Return[
+                Failure["dnfReduceSystem", <|
+                    "Message" -> "dnfReduceSystem supports only critical congestion systems with Alpha == 1 on every edge."
+                |>],
+                Module
+            ]
+        ];
+
+        eqEntryIn    = systemData[sys, "EqEntryIn"];
+        eqSplit      = systemData[sys, "EqBalanceSplittingFlows"];
+        eqGather     = systemData[sys, "EqBalanceGatheringFlows"];
+        eqHJ         = systemData[sys, "EqGeneral"];
+        ineqJs       = systemData[sys, "IneqJs"];
+        ineqJts      = systemData[sys, "IneqJts"];
+        ineqSwitchingByVertex = systemData[sys, "IneqSwitchingByVertex"];
+        altFlows     = systemData[sys, "AltFlows"];
+        altTrans     = systemData[sys, "AltTransitionFlows"];
+        altOptCond   = systemData[sys, "AltOptCond"];
+        ruleExitVals = Normal @ systemData[sys, "RuleExitValues"];
+
+        baseConstraints = And[
+            And @@ eqEntryIn,
+            eqSplit, eqGather, eqHJ,
+            ineqJs, ineqJts,
+            ineqSwitchingByVertex,
+            altFlows, altTrans,
+            altOptCond
+        ];
+
+        allVars = Select[
+            Variables[(baseConstraints /. ruleExitVals) /. {Equal -> List, Or -> List, And -> List}],
+            trackedVarQ
+        ];
+        {constraints, rulesAcc} = accumulateLinearRules[baseConstraints, allVars, ruleExitVals];
+        allVars = Select[
+            Variables[constraints /. {Equal -> List, Or -> List, And -> List}],
+            trackedVarQ
+        ];
+
+        With[{reduced = dnfReduce[True, constraints]},
             attachAccumulatedRules[parseReduceResult[reduced, allVars], rulesAcc]
         ]
     ];

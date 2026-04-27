@@ -108,3 +108,56 @@ Test[
     True,
     TestID -> "reduceSystem: non-critical congestion systems fail"
 ]
+
+(* --- dnfReduceSystem tests --- *)
+
+Test[
+    NameQ["solversTools`dnfReduceSystem"],
+    True,
+    TestID -> "dnfReduceSystem: public symbol exists"
+]
+
+Test[
+    Module[{s, sys, result},
+        s = gridScenario[{3}, {{1, 120.0}}, {{2, 0.0}, {3, 10.0}}];
+        sys = makeSystem[s];
+        result = dnfReduceSystem[sys];
+        (ListQ[result] && MatchQ[result, {__Rule}]) ||
+        (AssociationQ[result] && KeyExistsQ[result, "Rules"])
+    ],
+    True,
+    TestID -> "dnfReduceSystem: chain 2-exits returns rules or rules+equations"
+]
+
+Test[
+    Module[{s, sys, result},
+        s = gridScenario[{3}, {{1, 120.0}}, {{2, 0.0}, {3, 10.0}}];
+        sys = makeSystem[s];
+        result = dnfReduceSystem[sys];
+        isValidSystemSolution[sys, result]
+    ],
+    True,
+    TestID -> "dnfReduceSystem: chain 2-exits solution is valid"
+]
+
+Test[
+    Module[{s, sys, result},
+        s = getExampleScenario[8, {{1, 80.0}}, {{3, 0.0}, {4, 10.0}}];
+        sys = makeSystem[s];
+        result = dnfReduceSystem[sys];
+        isValidSystemSolution[sys, result]
+    ],
+    True,
+    TestID -> "dnfReduceSystem: y-network solution is valid"
+]
+
+Test[
+    Module[{s, sys, result},
+        s = gridScenario[{2}, {{1, 10}}, {{2, 0}}, {}, 2];
+        sys = makeSystem[s];
+        result = Quiet[dnfReduceSystem[sys], dnfReduceSystem::noncritical];
+        FailureQ[result] && result["Tag"] === "dnfReduceSystem"
+    ],
+    True,
+    TestID -> "dnfReduceSystem: non-critical congestion systems fail"
+]
