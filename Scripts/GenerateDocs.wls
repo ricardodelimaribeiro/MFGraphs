@@ -4,14 +4,27 @@
 (* :!CodeAnalysis::BeginBlock:: *)
 (* :!CodeAnalysis::Disable::SuspiciousSessionSymbol:: *)
 
-$RepoRoot = "/Users/ribeirrd/Documents/GitHub/MFGraphs";
+$RepoRoot = DirectoryName[DirectoryName[$InputFileName]];
 PrependTo[$Path, $RepoRoot];
 Needs["MFGraphs`"];
 
 Print["Generating API Reference..."];
 
-symbols = Names["MFGraphs`*"];
-publicSymbols = Select[symbols, (!StringContainsQ[#, "Private`"]) &];
+$PublicContexts = {
+  "primitives`",
+  "scenarioTools`",
+  "examples`",
+  "unknownsTools`",
+  "systemTools`",
+  "solversTools`",
+  "graphics`"
+};
+
+symbols = DeleteDuplicates @ Flatten[Names[# <> "*"] & /@ $PublicContexts];
+publicSymbols = Select[
+  symbols,
+  !StringContainsQ[#, "Private`"] && !StringEndsQ[#, "$"] &
+];
 
 mdContent = {
   "# MFGraphs API Reference",
@@ -21,9 +34,9 @@ mdContent = {
 };
 
 Do[
-  symName = StringReplace[s, "MFGraphs`" -> ""];
+  symName = Last @ StringSplit[s, "`"];
   usage = Information[Symbol[s], "Usage"];
-  If[StringQ[usage],
+  If[StringQ[usage] && !StringStartsQ[usage, "False is the symbol for"],
     AppendTo[mdContent, "## " <> symName];
     AppendTo[mdContent, ""];
     AppendTo[mdContent, usage];

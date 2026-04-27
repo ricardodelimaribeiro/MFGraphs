@@ -97,3 +97,14 @@ Test[
     True,
     TestID -> "reduceSystem: non-integer decimal boundaries solve after exactification"
 ]
+
+Test[
+    Module[{s, sys, result},
+        s = gridScenario[{2}, {{1, 10}}, {{2, 0}}, {}, 2];
+        sys = makeSystem[s];
+        result = Quiet[reduceSystem[sys], reduceSystem::noncritical];
+        FailureQ[result] && result["Tag"] === "reduceSystem"
+    ],
+    True,
+    TestID -> "reduceSystem: non-critical congestion systems fail"
+]

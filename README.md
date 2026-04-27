@@ -7,16 +7,19 @@ The repository is currently in a **core scenario-kernel phase**. The active pack
 - example scenario factories
 - unknown-variable bundle construction
 - structural system construction
-
-Solver modules are intentionally not loaded by the current package bootstrap.
+- critical-congestion symbolic solving
+- visualization helpers
 
 ## Current status
 
 Loaded by `Needs["MFGraphs`"]`:
-- `MFGraphs/Scenario.wl`
-- `MFGraphs/Examples/ExampleScenarios.wl`
-- `MFGraphs/Unknowns.wl`
-- `MFGraphs/System.wl`
+- `MFGraphs/primitives.wl`
+- `MFGraphs/scenarioTools.wl`
+- `MFGraphs/examples.wl`
+- `MFGraphs/unknownsTools.wl`
+- `MFGraphs/systemTools.wl`
+- `MFGraphs/solversTools.wl`
+- `MFGraphs/graphics.wl`
 
 Archived/inactive modules:
 - `MFGraphs/Examples/archive/ExamplesData.wl`
@@ -24,7 +27,7 @@ Archived/inactive modules:
 
 ## Solver Status
 
-The symbolic solver (`MFGraphs/solver.wl`) is currently designed for **critical congestion only** (`alpha = 1`). It does not yet support non-linear Hamiltonian cost currents or general `alpha != 1` cases.
+The symbolic solver (`MFGraphs/solversTools.wl`) is designed for **critical congestion only** (`Alpha = 1` on every edge). Non-critical systems (`Alpha != 1` or edge-specific non-1 `EdgeAlpha`) fail explicitly.
 
 ## Installation
 
@@ -43,11 +46,11 @@ Needs["MFGraphs`"];
 
 s = makeScenario[<|
   "Model" -> <|
-    "Vertices List" -> {1, 2, 3},
-    "Adjacency Matrix" -> {{0, 1, 0}, {0, 0, 1}, {0, 0, 0}},
-    "Entrance Vertices and Flows" -> {{1, 10}},
-    "Exit Vertices and Terminal Costs" -> {{3, 0}},
-    "Switching Costs" -> {}
+    "Vertices" -> {1, 2, 3},
+    "Adjacency" -> {{0, 1, 0}, {0, 0, 1}, {0, 0, 0}},
+    "Entries" -> {{1, 10}},
+    "Exits" -> {{3, 0}},
+    "Switching" -> {}
   |>
 |>];
 
@@ -62,7 +65,7 @@ mfgSystemQ[sys]
 Example factory workflow:
 
 ```mathematica
-f = GetExampleScenario[12];
+f = getExampleScenario[12];
 s = f[{{1, 100}}, {{4, 0}}, {}, 1, 0, Function[z, -1/z]];
 ```
 
@@ -71,15 +74,16 @@ s = f[{{1, 100}}, {{4, 0}}, {}, 1, 0, Function[z, -1/z]];
 Scenario kernel:
 - `scenario`, `scenarioQ`
 - `makeScenario`, `validateScenario`, `completeScenario`
-- `ScenarioData`
+- `scenarioData`
 
 Example scenario factories:
-- `GetExampleScenario`
-- `GridScenario`, `CycleScenario`, `GraphScenario`, `AMScenario`
+- `getExampleScenario`
+- `gridScenario`, `cycleScenario`, `graphScenario`, `amScenario`
 
 Unknowns/system kernels:
-- `unknowns`, `unknownsQ`, `UnknownsData`, `makeUnknowns`
-- `mfgSystem`, `mfgSystemQ`, `SystemData`, `makeSystem`
+- `unknowns`, `unknownsQ`, `unknownsData`, `makeUnknowns`
+- `mfgSystem`, `mfgSystemQ`, `systemData`, `makeSystem`
+- `reduceSystem`, `isValidSystemSolution`
 
 Core symbolic primitives:
 - `j`, `u`, `z`, `alpha`, `Cost`
@@ -112,11 +116,14 @@ Current active runner suites (`Scripts/RunTests.wls`):
 ```text
 MFGraphs/
   MFGraphs.wl
-  Scenario.wl
-  Unknowns.wl
-  System.wl
+  primitives.wl
+  scenarioTools.wl
+  examples.wl
+  unknownsTools.wl
+  systemTools.wl
+  solversTools.wl
+  graphics.wl
   Examples/
-    ExampleScenarios.wl
     archive/
       ExamplesData.wl
   archive/

@@ -9,6 +9,12 @@ scenarioTopologyPlot::usage =
 mfgSolutionPlot::usage =
 "mfgSolutionPlot[s, sys, sol] plots a combined solution graph with real and auxiliary edges. Edge labels include both j and u values, and real-edge directions follow solved net flow orientation. An optional fourth argument sets the title.";
 
+mfgTransitionPlot::usage =
+"mfgTransitionPlot[s, sys, sol] plots the transition graph of the solution. Nodes represent network edges (or entry/exit), and directed edges represent transition flows (j[a, b, c]). Nodes are labeled with their internal values (u).";
+
+mfgAugmentedPlot::usage =
+"mfgAugmentedPlot[s, sys, sol] plots the augmented infrastructure graph (Paper scheme). Nodes represent edge-vertex pairs (e, v), and edges represent both flows within edges and transitions at vertices. Value functions (u) are vertex labels, and transition flows (j) are edge labels.";
+
 Begin["`Private`"];
 
 extractRules[sol_List] := Select[sol, MatchQ[#, _Rule | _RuleDelayed] &];
@@ -121,18 +127,185 @@ mfgSolutionPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, title_: Automatic] :=
         ];
 
         plotTitle = Replace[title, Automatic -> "Solution graph: flows and values"];
+        auxEntryV = systemData[sys, "AuxEntryVertices"];
+        auxExitV  = systemData[sys, "AuxExitVertices"];
+
         Graph[Join[realV, auxV], dispEdges,
             VertexLabels -> Placed["Name", Center],
             VertexStyle  -> Normal @ Join[
                 AssociationThread[entryV,    RGBColor[0.22, 0.6, 0.3]],
                 AssociationThread[exitV,     RGBColor[0.82, 0.27, 0.2]],
                 AssociationThread[internalV, GrayLevel[0.72]],
-                AssociationThread[Select[auxV, StringStartsQ[TextString[#], "auxEntry"] &], RGBColor[0.38, 0.74, 0.9]],
-                AssociationThread[Select[auxV, StringStartsQ[TextString[#], "auxExit"] &],  RGBColor[0.95, 0.7, 0.4]]
+                AssociationThread[Intersection[auxV, auxEntryV], RGBColor[0.38, 0.74, 0.9]],
+                AssociationThread[Intersection[auxV, auxExitV],  RGBColor[0.95, 0.7, 0.4]]
             ],
             VertexSize   -> Normal @ Join[
                 AssociationThread[realV, 0.38],
                 AssociationThread[auxV, 0.28]
+            ],
+            EdgeStyle    -> Normal[edgeStyles],
+            EdgeLabels   -> Normal[edgeLabels],
+            GraphLayout  -> "LayeredDigraphEmbedding",
+            PlotLabel    -> Style[plotTitle, 14, Bold],
+            ImageSize    -> Large
+        ]
+    ];
+
+mfgTransitionPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, title_: Automatic] :=
+    Module[{triples, rules, transitionEdges, nodeLabels, edgeStyles, edgeLabels,
+            numericJ, maxJ, plotTitle, auxPairs},
+        triples  = systemData[sys, "AuxTriples"];
+        auxPairs = systemData[sys, "AuxPairs"];
+        rules    = extractRules[sol];
+
+        transitionEdges = DirectedEdge[#[[1 ;; 2]], #[[2 ;; 3]]] & /@ triples;
+
+        numericJ = Cases[(j @@ # /. rules) & /@ triples, _?NumericQ, Infinity];
+        maxJ = Max[Append[Abs @ numericJ, 1]];
+
+        edgeStyles = Association @ Map[
+            With[{trip = {#[[1, 1]], #[[1, 2]], #[[2, 2]]}, jv = (j @@ {#[[1, 1]], #[[1, 2]], #[[2, 2]]}) /. rules},
+                # -> Directive[
+                    Which[
+                        NumericQ[jv] && jv > 0, RGBColor[0.12, 0.45, 0.78],
+                        NumericQ[jv] && jv < 0, RGBColor[0.82, 0.39, 0.2],
+                        True, GrayLevel[0.45]
+                    ],
+                    AbsoluteThickness[
+                        If[NumericQ[jv], Rescale[Abs[jv], {0, maxJ}, {1.5, 7}], 2.0]
+                    ],
+                    Opacity[0.9]
+                ]
+            ] &,
+            transitionEdges
+        ];
+
+        edgeLabels = Association @ Map[
+            With[{trip = {#[[1, 1]], #[[1, 2]], #[[2, 2]]}, jv = (j @@ {#[[1, 1]], #[[1, 2]], #[[2, 2]]}) /. rules},
+                # -> Placed[
+                    Style[
+                        If[NumericQ[jv], NumberForm[N[jv], {5, 1}], "?"],
+                        9, Black, Background -> White
+                    ],
+                    Center
+                ]
+            ] &,
+            transitionEdges
+        ];
+
+        nodeLabels = Association @ Map[
+            With[{uv = edgeUValue[#[[1]], #[[2]], rules]},
+                # -> Placed[
+                    Style[
+                        Row[{
+                            ToString[#],
+                            " (u=", If[NumericQ[uv], NumberForm[N[uv], {5, 1}], "?"], ")"
+                        }],
+                        10, Black, Background -> RGBColor[0.95, 0.95, 0.95]
+                    ],
+                    Center
+                ]
+            ] &,
+            auxPairs
+        ];
+
+        plotTitle = Replace[title, Automatic -> "Transition graph: flows and values"];
+        Graph[auxPairs, transitionEdges,
+            VertexShapeFunction -> "RoundRectangle",
+            VertexLabels -> Normal[nodeLabels],
+            VertexSize   -> {"Scaled", 0.15},
+            EdgeStyle    -> Normal[edgeStyles],
+            EdgeLabels   -> Normal[edgeLabels],
+            GraphLayout  -> "LayeredDigraphEmbedding",
+            PlotLabel    -> Style[plotTitle, 14, Bold],
+            ImageSize    -> Large
+        ]
+    ];
+
+mfgAugmentedPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, title_: Automatic] :=
+    Module[{auxPairs, triples, rules, flowEdges, transitionEdges, allAugEdges,
+            edgeStyles, edgeLabels, nodeLabels, plotTitle, numericJ, maxJ,
+            getJ, getU, auxEntryV, auxExitV},
+
+        auxPairs = systemData[sys, "AuxPairs"];
+        triples  = systemData[sys, "AuxTriples"];
+        rules    = extractRules[sol];
+        auxEntryV = systemData[sys, "AuxEntryVertices"];
+        auxExitV  = systemData[sys, "AuxExitVertices"];
+
+        (* 1. Flow edges: {u, v} -> {v, u} (magnitude j[v, u]) *)
+        flowEdges = Map[DirectedEdge[#, Reverse[#]] &, auxPairs];
+
+        (* 2. Transition edges: {i, r} -> {i, w} (magnitude j[i, r, w]) *)
+        transitionEdges = DirectedEdge[{#[[2]], #[[1]]}, {#[[2]], #[[3]]}] & /@ triples;
+
+        allAugEdges = Join[flowEdges, transitionEdges];
+
+        getJ[DirectedEdge[p1_, p2_]] :=
+            If[p1 === Reverse[p2],
+                j @@ p2, (* Flow within edge: magnitude j[target, source] *)
+                j[p1[[1]], p1[[2]], p2[[2]]] (* Transition at vertex: magnitude j[v, e1, e2] *)
+            ];
+
+        getU[p_] := (u @@ p) /. rules;
+
+        numericJ = Cases[getJ /@ allAugEdges /. rules, _?NumericQ, Infinity];
+        maxJ = Max[Append[Abs @ numericJ, 1]];
+
+        edgeStyles = Association @ Map[
+            With[{jv = getJ[#] /. rules},
+                # -> Directive[
+                    Which[
+                        NumericQ[jv] && jv > 0, RGBColor[0.12, 0.45, 0.78],
+                        NumericQ[jv] && jv < 0, RGBColor[0.82, 0.39, 0.2],
+                        True, GrayLevel[0.45]
+                    ],
+                    AbsoluteThickness[
+                        If[NumericQ[jv], Rescale[Abs[jv], {0, maxJ}, {1.5, 7}], 2.0]
+                    ],
+                    Opacity[0.8]
+                ]
+            ] &,
+            allAugEdges
+        ];
+
+        edgeLabels = Association @ Map[
+            With[{jv = getJ[#] /. rules},
+                # -> Placed[
+                    Style[
+                        If[NumericQ[jv] && Abs[jv] > 10^-5, NumberForm[N[jv], {5, 1}], ""],
+                        8, Black, Background -> White
+                    ],
+                    Center
+                ]
+            ] &,
+            allAugEdges
+        ];
+
+        nodeLabels = Association @ Map[
+            With[{uv = getU[#]},
+                # -> Placed[
+                    Style[
+                        Row[{
+                            ToString[#],
+                            "\n",
+                            If[NumericQ[uv], NumberForm[N[uv], {5, 2}], "?"]
+                        }],
+                        9, Black
+                    ],
+                    Center
+                ]
+            ] &,
+            auxPairs
+        ];
+
+        plotTitle = Replace[title, Automatic -> "Augmented infrastructure graph (Paper scheme)"];
+        Graph[auxPairs, allAugEdges,
+            VertexLabels -> Normal[nodeLabels],
+            VertexSize   -> 0.4,
+            VertexStyle  -> Normal @ Join[
+                AssociationThread[Select[auxPairs, MemberQ[auxEntryV, #[[1]]] &], RGBColor[0.38, 0.74, 0.9]],
+                AssociationThread[Select[auxPairs, MemberQ[auxExitV,  #[[1]]] &], RGBColor[0.95, 0.7, 0.4]]
             ],
             EdgeStyle    -> Normal[edgeStyles],
             EdgeLabels   -> Normal[edgeLabels],

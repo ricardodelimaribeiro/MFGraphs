@@ -17,6 +17,7 @@ non-negativity constraints, and complementarity conditions of the \
 mfgSystem sys using Reduce over the Reals. Includes AltOptCond \
 (switching-cost optimality complementarity) and \
 IneqSwitchingByVertex (switching-cost optimality inequalities). \
+Fails for non-critical congestion systems where Alpha != 1 on any edge. \
 Returns a list of rules when the system is fully determined, or \
 <|\"Rules\" -> rules, \"Equations\" -> residual|> when underdetermined.";
 
@@ -29,12 +30,25 @@ with per-block results. Tolerance for numeric checks is set via \
 rules are checked; blocks that remain symbolic after substitution are \
 reported as Indeterminate, not False.";
 
+reduceSystem::noncritical =
+"reduceSystem supports only critical congestion systems with Alpha == 1 on every edge.";
+
 Begin["`Private`"];
 
 reduceSystem[sys_?mfgSystemQ] :=
     Module[{eqEntryIn, eqSplit, eqGather, eqHJ,
             ineqJs, ineqJts, ineqSwitchingByVertex, altFlows, altTrans, altOptCond,
             ruleExitVals, baseConstraints, constraints, allVars, rulesAcc},
+
+        If[!criticalCongestionSystemQ[sys],
+            Message[reduceSystem::noncritical];
+            Return[
+                Failure["reduceSystem", <|
+                    "Message" -> "reduceSystem supports only critical congestion systems with Alpha == 1 on every edge."
+                |>],
+                Module
+            ]
+        ];
 
         eqEntryIn    = systemData[sys, "EqEntryIn"];
         eqSplit      = systemData[sys, "EqBalanceSplittingFlows"];
@@ -74,6 +88,27 @@ reduceSystem[sys_?mfgSystemQ] :=
 
 trackedVarQ[var_] :=
     MatchQ[var, j[__] | u[__]];
+
+(* reduceSystem only handles the critical-congestion structural system. The
+   system object carries the scenario Hamiltonian so this check can reject any
+   non-1 default Alpha or per-edge EdgeAlpha before Reduce sees nonlinear
+   placeholder equations. *)
+criticalCongestionSystemQ[sys_?mfgSystemQ] :=
+    Module[{halfPairs, hamiltonian, alphaDefault, edgeAlpha, alphaAtEdge},
+        halfPairs   = systemData[sys, "HalfPairs"];
+        hamiltonian = systemData[sys, "Hamiltonian"];
+        If[MissingQ[hamiltonian] || !AssociationQ[hamiltonian], hamiltonian = <||>];
+        alphaDefault = Lookup[hamiltonian, "Alpha", 1];
+        edgeAlpha    = Lookup[hamiltonian, "EdgeAlpha", <||>];
+        If[!ListQ[halfPairs] || !AssociationQ[edgeAlpha], Return[False, Module]];
+        alphaAtEdge[edge_List] :=
+            Lookup[
+                edgeAlpha,
+                Key[edge],
+                Lookup[edgeAlpha, Key[Reverse[edge]], alphaDefault]
+            ];
+        alphaDefault === 1 && AllTrue[halfPairs, alphaAtEdge[#] === 1 &]
+    ];
 
 mergeRules[oldRules_List, newRules_List] :=
     Reverse @ DeleteDuplicatesBy[Reverse @ Join[oldRules, newRules], First];

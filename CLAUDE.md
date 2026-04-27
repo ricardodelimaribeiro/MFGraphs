@@ -85,7 +85,7 @@ The graph is always undirected. A non-symmetric AM is symmetrized (`Unitize[AM +
 
 ### Switching costs
 
-Switching costs may be supplied as a List of 4-tuples or an Association with 3-tuple keys. `completeScenario` normalizes all representations and fills every missing triple with cost `0`. A triangle-inequality check runs at validation time; violations emit a message but do **not** abort scenario construction.
+Switching costs may be supplied as a List of 4-tuples or an Association with 3-tuple keys. Values may be numeric or `Infinity` for blocked transitions. `completeScenario` normalizes all representations and fills every missing triple with cost `0`; if called without cached topology, it warns and rebuilds topology from the model before completing.
 
 ### Examples registry
 
@@ -110,11 +110,18 @@ Switching costs may be supplied as a List of 4-tuples or an Association with 3-t
 - **System Records**: `mfgBoundaryData`, `mfgFlowData`, `mfgComplementarityData`, `mfgHamiltonianData`
 - **Linear Helpers**: `getKirchhoffLinearSystem`, `getKirchhoffMatrix`
 
-### Solver (`solversTools``)
-- `reduceSystem` — naive `Reduce`-based solver (no switching costs)
+### Solver (`solversTools`)
+- `reduceSystem` — naive `Reduce`-based solver for critical congestion (`Alpha == 1`) systems
 - `isValidSystemSolution` — solution validator
 
+### Graphics (`graphics`)
+- `scenarioTopologyPlot` — entry/exit/internal vertex coloring
+- `mfgSolutionPlot` — network-centric plot (j and u labels)
+- `mfgTransitionPlot` — transition graph (nodes = edges, edges = j[a,b,c])
+- `mfgAugmentedPlot` — paper infrastructure graph (nodes = (e,v) pairs)
+
 ### Runtime flags
+
 - `$MFGraphsVerbose` — set `True` to enable progress/timing prints (default `False`)
 - `$MFGraphsParallelThreshold` — minimum list length for `ParallelMap`/`ParallelTable` (default `6`; set `Infinity` to disable)
 
@@ -130,7 +137,7 @@ The following are currently not loaded from `MFGraphs.wl`:
 - solver-phase backend helpers (archived in `MFGraphs/archive/SolverBackendHelpers.wl`)
 
 **V, G, EdgeV, EdgeG Hamiltonian parameters** are validated and stored in the scenario
-schema but are **not applied** in `BuildHamiltonianData` — only `Alpha`/`EdgeAlpha` are
+schema but are **not applied** in `buildHamiltonianData` — only `Alpha`/`EdgeAlpha` are
 used in system construction. Implementing V and G requires extending the HJ-equation
 builder. Treat these fields as schema-only for now.
 

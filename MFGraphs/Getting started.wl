@@ -1,25 +1,31 @@
 (* ::Package:: *)
 
 (* Notebook-friendly MFGraphs workbook covering the typed scenario kernels
-   and the reduceSystem solver. *)
+   and the solversTools solver. *)
 
 (* Evaluate cells one at a time or section by section \[LongDash] do not evaluate the entire file at once. *)
 
-(* This file lives alongside MFGraphs.wl in the same directory. *)
-mfgDir = If[$InputFileName === "", NotebookDirectory[], DirectoryName[$InputFileName]];
-
 (* Force clean reload \[LongDash] safe to re-evaluate without restarting the kernel. *)
 Quiet[
-    Unprotect /@ Names["MFGraphs`*"];
-    Remove /@ Names["MFGraphs`*"];
-    Unprotect[$Packages];
-    $Packages = DeleteCases[$Packages, "MFGraphs`"];
-    Protect[$Packages]
+    (* Clear notebook variables to avoid shadowing/collisions *)
+    ClearAll["Global`*"];
+    Remove["MFGraphs`*", "primitives`*", "scenarioTools`*", "examples`*", "unknownsTools`*", "systemTools`*", "solversTools`*", "graphics`*"];
+    $Packages = DeleteCases[$Packages, Alternatives @@ {"MFGraphs`", "primitives`", "scenarioTools`", "examples`", "unknownsTools`", "systemTools`", "solversTools`", "graphics`"}];
 ];
+
+(* This file lives alongside MFGraphs.wl in the same directory. *)
+mfgDir = If[$InputFileName === "", 
+    NotebookDirectory[], 
+    DirectoryName[$InputFileName]
+];
+
+(* Robustness: ensure mfgDir is a string for ParentDirectory *)
+If[!StringQ[mfgDir] || mfgDir === "", 
+    mfgDir = ExpandFileName["."];
+];
+
 PrependTo[$Path, ParentDirectory[mfgDir]];
-Get[FileNameJoin[{mfgDir, "MFGraphs.wl"}]];
-
-
+Needs["MFGraphs`"];
 
 ClearAll[DescribeOutput];
 
@@ -34,17 +40,18 @@ DescribeOutput[title_String, description_String, expr_] :=
         Spacings -> {0.2, 0.7}
     ];
 
-MFGraphs`$MFGraphsVerbose = False;
+(* Use the global flag from primitives context *)
+$MFGraphsVerbose = False;
 
 (* --- 1. Build scenarios with ExampleScenarios constructors --- *)
 
-gridScenario = gridScenario[
+sGrid = gridScenario[
     {3},
     {{1, 120.0}},
     {{3, 0.0}}
 ];
 
-cycleScenario = cycleScenario[
+sCycle = cycleScenario[
     3,
     {{1, 50.0}},
     {{2, 0.0}, {3, 10.0}},
@@ -54,7 +61,7 @@ cycleScenario = cycleScenario[
     }
 ];
 
-amScenario = amScenario[
+sAm = amScenario[
     {1, 2, 3, 4},
     {
         {0, 1, 1, 0},
@@ -70,30 +77,30 @@ Column[{
     DescribeOutput[
         "gridScenario output",
         "A typed scenario object with completed defaults and derived topology.",
-        gridScenario
+        sGrid
     ],
     DescribeOutput[
         "cycleScenario output",
         "Cycle topology with explicit switching costs.",
-        cycleScenario
+        sCycle
     ],
     DescribeOutput[
         "amScenario output",
         "Adjacency-matrix constructor for explicit benchmark topologies.",
-        amScenario
+        sAm
     ]
 }]
 
 
 (* --- 2. Use named factory examples from ExampleScenarios.wl --- *)
 
-exampleY = getExampleScenario[
+exY = getExampleScenario[
     7,
     {{1, 100.0}},
     {{3, 0.0}, {4, 10.0}}
 ];
 
-exampleGrid = getExampleScenario[
+exGrid = getExampleScenario[
     "Grid0303",
     {{1, 30.0}},
     {{9, 0.0}}
@@ -103,12 +110,12 @@ Column[{
     DescribeOutput[
         "Named example (7)",
         "Factory-backed scenario with canonical topology and defaults.",
-        exampleY
+        exY
     ],
     DescribeOutput[
         "Named example (Grid0303)",
         "Grid example from the scenario registry.",
-        exampleGrid
+        exGrid
     ]
 }]
 
@@ -116,12 +123,12 @@ Column[{
 (* --- 3. Inspect scenario structure from Scenario.wl --- *)
 
 scenarioChecks = <|
-    "scenarioQ[exampleY]" -> scenarioQ[exampleY],
-    "Identity" -> scenarioData[exampleY, "Identity"],
-    "Benchmark" -> scenarioData[exampleY, "Benchmark"],
-    "Hamiltonian" -> scenarioData[exampleY, "Hamiltonian"],
-    "Model keys" -> Keys @ scenarioData[exampleY, "Model"],
-    "Topology keys" -> Keys @ scenarioData[exampleY, "Topology"]
+    "scenarioQ[exY]" -> scenarioQ[exY],
+    "Identity" -> scenarioData[exY, "Identity"],
+    "Benchmark" -> scenarioData[exY, "Benchmark"],
+    "Hamiltonian" -> scenarioData[exY, "Hamiltonian"],
+    "Model keys" -> Keys @ scenarioData[exY, "Model"],
+    "Topology keys" -> Keys @ scenarioData[exY, "Topology"]
 |>;
 
 DescribeOutput[
@@ -133,7 +140,7 @@ DescribeOutput[
 
 (* --- 4. Build unknown bundles from Unknowns.wl --- *)
 
-exampleUnknowns = makeUnknowns[exampleY];
+exampleUnknowns = makeUnknowns[exY];
 
 unknownSummary = <|
     "unknownsQ" -> unknownsQ[exampleUnknowns],
@@ -154,7 +161,7 @@ DescribeOutput[
 
 (* --- 5. Build structural systems from System.wl --- *)
 
-exampleSystem = makeSystem[exampleY, exampleUnknowns];
+exampleSystem = makeSystem[exY, exampleUnknowns];
 
 systemSummary = <|
     "mfgSystemQ" -> mfgSystemQ[exampleSystem],
@@ -166,7 +173,7 @@ systemSummary = <|
     "# js" -> Length @ systemData[exampleSystem, "Js"],
     "# jts" -> Length @ systemData[exampleSystem, "Jts"],
     "# us" -> Length @ systemData[exampleSystem, "Us"],
-    "Switching-cost consistency" -> IsSwitchingCostConsistent[
+    "Switching-cost consistency" -> isSwitchingCostConsistent[
         Normal @ systemData[exampleSystem, "SwitchingCosts"]
     ]
 |>;
@@ -273,6 +280,11 @@ sol1Ex = reduceSystem[sys1Ex];
 
 Column[{
     DescribeOutput[
+        "Solution validation",
+        "isValidSystemSolution confirms that the solved rules satisfy all system constraints.",
+        isValidSystemSolution[sys1Ex, sol1Ex]
+    ],
+    DescribeOutput[
         "Combined solution plot \[LongDash] chain 1\[Rule]2\[Rule]3, single exit",
         "Directed edges show j-flow direction/magnitude; labels show both j and u. Auxiliary edges are included.",
         mfgSolutionPlot[chain1Ex, sys1Ex, sol1Ex,
@@ -291,5 +303,23 @@ Column[{
         "Edge {1,2} is directed 1\[Rule]2 (j[1,2]>0). Labels show j and u on real + auxiliary edges.",
         mfgSolutionPlot[chain2ExNoSC, sysNoSC, solNoSC,
             "Chain 1\[Rule]2\[Rule]3: combined solution (exits at 2 and 3)"]
+    ]
+}]
+
+
+(* --- 10. Advanced Solution Visualization (Paper Scheme) --- *)
+
+Column[{
+    DescribeOutput[
+        "Transition graph plot",
+        "Nodes represent network edges (pairs); edges represent transition flows (j[a,b,c]).",
+        mfgTransitionPlot[chain1Ex, sys1Ex, sol1Ex,
+            "Chain 1\[Rule]2\[Rule]3: transition graph"]
+    ],
+    DescribeOutput[
+        "Augmented infrastructure graph (Paper scheme)",
+        "Nodes are (e, v) pairs. Value functions (u) are vertex labels; all flows (j) are edge labels.",
+        mfgAugmentedPlot[chain1Ex, sys1Ex, sol1Ex,
+            "Chain 1\[Rule]2\[Rule]3: augmented infrastructure"]
     ]
 }]
