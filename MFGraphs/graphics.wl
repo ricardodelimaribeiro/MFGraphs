@@ -17,6 +17,21 @@ mfgAugmentedPlot::usage =
 
 Begin["`Private`"];
 
+extractRules::usage =
+"extractRules[sol] extracts replacement rules from a solution list or solution association.";
+
+netEdgeFlow::usage =
+"netEdgeFlow[a, b, rules] returns the solved net flow j[a,b]-j[b,a], defaulting absent flow variables to zero.";
+
+edgeJValue::usage =
+"edgeJValue[a, b, rules] returns the solved flow j[a,b], defaulting absent flow variables to zero.";
+
+edgeUValue::usage =
+"edgeUValue[a, b, rules] returns the solved value variable for edge endpoints, or Missing[] when absent.";
+
+directedDisplayEdges::usage =
+"directedDisplayEdges[edges, rules] orients display edges using solved net flow values.";
+
 extractRules[sol_List] := Select[sol, MatchQ[#, _Rule | _RuleDelayed] &];
 extractRules[sol_Association] := extractRules[Lookup[sol, "Rules", {}]];
 extractRules[_] := {};

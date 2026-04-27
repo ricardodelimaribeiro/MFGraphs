@@ -52,6 +52,18 @@ Returns $Failed for unknown keys.";
 
 Begin["`Private`"];
 
+scenarioFromGraph::usage =
+"scenarioFromGraph[graph, entries, exits, sc, alpha, V, g] builds a scenario from a Graph and Hamiltonian parameters.";
+
+makeGridFactory::usage =
+"makeGridFactory[dims] returns a built-in example factory backed by gridScenario[dims, ...].";
+
+makeCycleFactory::usage =
+"makeCycleFactory[n] returns a built-in example factory backed by cycleScenario[n, ...].";
+
+makeAmFactory::usage =
+"makeAmFactory[vl, am] returns a built-in example factory backed by amScenario[vl, am, ...].";
+
 (* --- Shared topology constants --- *)
 
 $Y1In2OutAM    = {{0,1,0,0},{0,0,1,1},{0,0,0,0},{0,0,0,0}};

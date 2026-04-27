@@ -13,6 +13,12 @@ makeUnknowns::usage = "makeUnknowns[s] returns unknowns[<|\"Js\" -> ..., \"Jts\"
 
 Begin["`Private`"]
 
+canonicalUPair::usage =
+"canonicalUPair[{a,b}] returns the canonical pair used for value-function unknowns, orienting auxiliary entry/exit pairs consistently.";
+
+makeUnknownsFromPairsTriples::usage =
+"makeUnknownsFromPairsTriples[auxPairs, auxTriples] builds the typed unknowns object from auxiliary pairs and triples.";
+
 canonicalUPair[pair : {a_, b_}] :=
     If[StringQ[b] && (StringStartsQ[b, "auxEntry"] || StringStartsQ[b, "auxExit"]),
         {b, a},
