@@ -435,7 +435,10 @@ buildHamiltonianData[s_?scenarioQ, topology_Association, flowData_mfgFlowData] :
 
         costCurrents = Table[Symbol["systemTools`Private`cpc" <> ToString[k]], {k, 1, EdgeCount[topology["Graph"]]}];
         eqGeneral = And @@ MapThread[
-            Equal[#1, If[alphaAtEdge[halfPairs[[#3]]] === 1, 0, #2]] &,
+            With[{edge = halfPairs[[#3]],
+                  eq = Equal[#1, If[alphaAtEdge[halfPairs[[#3]]] === 1, 0, #2]]},
+                (j @@ edge + j @@ Reverse[edge] == 0) || eq
+            ] &,
             {nlhs, costCurrents, Range[Length[halfPairs]]}
         ];
         costCurrents = AssociationThread[costCurrents, nrhs];
