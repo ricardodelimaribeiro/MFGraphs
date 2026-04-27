@@ -30,6 +30,13 @@ with per-block results. Tolerance for numeric checks is set via \
 rules are checked; blocks that remain symbolic after substitution are \
 reported as Indeterminate, not False.";
 
+dnfReduce::usage =
+"dnfReduce[xp, sys] simplifies xp && sys by solving equalities, substituting \
+their solutions throughout the system, and distributing over disjunctions. \
+Returns a DNF expression with all equalities eliminated where possible. \
+dnfReduce[xp, sys, elem] is the 3-argument form used internally to process \
+one conjunct elem from sys.";
+
 reduceSystem::noncritical =
 "reduceSystem supports only critical congestion systems with Alpha == 1 on every edge.";
 
@@ -119,6 +126,100 @@ reduceSystem[sys_?mfgSystemQ] :=
 trackedVarQ[var_] :=
     MatchQ[var, j[__] | u[__]];
 
+flattenConjuncts::usage = "flattenConjuncts[expr] unpacks expr into a conjunct list for iterative processing.";
+substituteSolution::usage = "substituteSolution[rst, sol] substitutes solution rules sol into rst.";
+
+flattenConjuncts[True]  := {}
+flattenConjuncts[False] := {False}
+flattenConjuncts[x_And] := List @@ x
+flattenConjuncts[x_]    := {x}
+
+substituteSolution[rst_?BooleanQ, _] := rst
+substituteSolution[rst_, sol_]       := rst /. sol
+
+dnfReduce[_,    False] := False
+dnfReduce[False, _]    := False
+dnfReduce[xp_,  True]  := xp
+
+dnfReduce[xp_, eq_Equal] := dnfReduce[xp, True, eq]
+
+dnfReduce[xp_, sys_And] :=
+    Module[{conjuncts = List @@ sys, xpAcc = xp, i = 1, elem,
+            sol, fsol, newxp, rest, newRest},
+        While[i <= Length[conjuncts],
+            If[xpAcc === False, Return[False, Module]];
+            elem = conjuncts[[i]];
+            Which[
+                elem === True,
+                    i++,
+                elem === False,
+                    Return[False, Module],
+                Head[elem] === Or,
+                    rest = If[i >= Length[conjuncts], True, And @@ conjuncts[[i + 1 ;;]]];
+                    Return[
+                        Module[{results = {}, r},
+                            Do[
+                                r = dnfReduce[xpAcc, rest, b];
+                                If[r =!= False, AppendTo[results, r]],
+                                {b, List @@ elem}
+                            ];
+                            Which[
+                                results === {}, False,
+                                Length[results] === 1, First[results],
+                                True, Or @@ results
+                            ]
+                        ],
+                        Module
+                    ],
+                Head[elem] === Equal,
+                    sol  = Quiet[Solve[elem], Solve::svars];
+                    fsol = If[MatchQ[sol, {{__Rule}, ___}], First[sol], {}];
+                    newxp = substituteSolution[xpAcc, fsol];
+                    If[newxp === False, Return[False, Module]];
+                    xpAcc = newxp && elem;
+                    If[i < Length[conjuncts],
+                        newRest = substituteSolution[And @@ conjuncts[[i + 1 ;;]], fsol];
+                        conjuncts = Join[conjuncts[[;; i]], flattenConjuncts[newRest]]
+                    ];
+                    i++,
+                True,
+                    xpAcc = xpAcc && elem;
+                    i++
+            ]
+        ];
+        xpAcc
+    ]
+
+dnfReduce[xp_, sys_Or] :=
+    Module[{results = {}, r},
+        Do[
+            r = dnfReduce[xp, b];
+            If[r =!= False, AppendTo[results, r]],
+            {b, List @@ sys}
+        ];
+        Which[
+            results === {}, False,
+            Length[results] === 1, First[results],
+            True, Or @@ results
+        ]
+    ]
+
+dnfReduce[xp_, leq_] := xp && leq
+
+dnfReduce[xp_, rst_, fst_Equal] :=
+    Module[{sol, fsol, newxp, newrst},
+        sol  = Quiet[Solve[fst], Solve::svars];
+        fsol = If[MatchQ[sol, {{__Rule}, ___}], First[sol], {}];
+        newxp = substituteSolution[xp, fsol];
+        If[newxp === False,
+            False,
+            newrst = substituteSolution[rst, fsol];
+            dnfReduce[newxp && fst, newrst]
+        ]
+    ]
+
+dnfReduce[xp_, rst_, fst_] := dnfReduce[xp && fst, rst]
+
 (* reduceSystem only handles the critical-congestion structural system. The
    system object carries the scenario Hamiltonian so this check can reject any
    non-1 default Alpha or per-edge EdgeAlpha before Reduce sees nonlinear
@@ -155,8 +256,8 @@ topLevelEquations[constraints_] :=
 extractLinearRules[equations_List, vars_List, existingRules_List] :=
     Module[{sol, solRules},
         If[equations === {}, Return[{}, Module]];
-        sol = Quiet[Check[Solve[equations, vars, Reals], $Failed], Solve::svars];
-        If[sol === $Failed || !ListQ[sol] || Length[sol] === 0, Return[{}, Module]];
+        sol = Quiet[Solve[equations, vars], Solve::svars];
+        If[!ListQ[sol] || Length[sol] === 0, Return[{}, Module]];
         
         solRules = Cases[First[sol],
             r : Rule[v_, rhs_] /; MemberQ[vars, v] && FreeQ[rhs, v] && FreeQ[rhs, C] :> r
