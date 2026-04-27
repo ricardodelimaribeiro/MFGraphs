@@ -37,7 +37,7 @@ CATEGORY_OVERRIDES = {
     'makeScenario': ('core', 'keep'),
     'validateScenario': ('core', 'keep'),
     'completeScenario': ('core', 'keep'),
-    'ScenarioData': ('advanced', 'keep'),
+    'scenarioData': ('advanced', 'keep'),
     'scenario': ('advanced', 'review'),
     'scenarioQ': ('advanced', 'keep'),
     'Data2Equations': ('compatibility', 'keep-with-deprecation'),
@@ -181,7 +181,7 @@ def write_inventory(rows: list[dict], priv: dict[str, list[str]]) -> Path:
         '',
         '## Phase 1 observations',
         '',
-        'The exported surface is broader than the currently documented user narrative. It mixes core workflow functions, advanced solver helpers, runtime globals, symbolic heads, compatibility aliases, and several example-parameter symbols. It also contains suspicious exports such as `alpha$` and `j$`, which appear to be packaging artefacts rather than intentional API symbols.',
+        'The exported surface is broader than the currently documented user narrative. It mixes core workflow functions, advanced solver helpers, runtime globals, symbolic heads, compatibility aliases, and several example-parameter symbols. Generated user docs filter internal packaging artefacts, but this audit still flags them so package export hygiene can be reviewed explicitly.',
     ]
     out.write_text('\n'.join(lines) + '\n', encoding='utf-8')
     return out
@@ -216,7 +216,7 @@ def write_gap_report(rows: list[dict]) -> Path:
         '',
         '| Gap | Why it matters | Recommended Phase 2 action |',
         '|---|---|---|',
-        '| Accidental exports such as `alpha$` and `j$` | These weaken confidence in the API boundary and pollute generated docs | Fix package export hygiene before broadening the public surface |',
+        '| Accidental/internal exports | These weaken confidence in the API boundary and require filtering in generated docs | Fix package export hygiene before broadening the public surface |',
         '| Broad advanced-helper surface with sparse direct tests | Publicization without verification would reduce trust instead of increasing it | Add a symbol-to-test coverage matrix and targeted low-level unit tests |',
         '| Runtime globals exposed without explicit stability policy | Users cannot tell whether these are supported controls or incidental internals | Decide which globals remain public and document the rest as internal controls |',
         '| Example-parameter symbols exported beside functional API symbols | These clutter the generated reference and blur the distinction between examples and supported functions | Decide whether parameters stay exported, move to examples-only docs, or get grouped specially |',

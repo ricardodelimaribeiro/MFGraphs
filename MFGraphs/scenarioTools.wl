@@ -46,8 +46,9 @@ Optional keys: \
 \"EdgeG\" -> <|{u,v} -> g_uv, ...|>|>), \
 \"Identity\" (name, version), \"Benchmark\" (tier, timeout), \"Visualization\", \
 \"Inheritance\". Default Hamiltonian is Alpha=1 and V=0 on all edges, with \
-G[z]=-1/z (overridable globally and per edge). Boundary and switching-cost values \
-must be numeric. Returns a scenario[...] object on success or Failure[...] on error.";
+G[z]=-1/z (overridable globally and per edge). Boundary values must be numeric; \
+switching-cost values must be numeric or Infinity. Returns a scenario[...] object \
+on success or Failure[...] on error.";
 
 validateScenario::usage =
 "validateScenario[s] checks that the scenario s has all required Model keys and that \
@@ -57,7 +58,9 @@ on failure.";
 
 completeScenario::usage =
 "completeScenario[s] fills in derived fields and supplies default Benchmark values \
-(\"Tier\" -> \"core\", \"Timeout\" -> 300) when missing. Returns a new scenario object.";
+(\"Tier\" -> \"core\", \"Timeout\" -> 300) when missing. If cached topology is \
+absent, it warns and rebuilds topology from the Model before completing. Returns \
+a new scenario object.";
 
 scenarioData::usage =
 "scenarioData[s, key] returns the value associated with key in the scenario s, or \
@@ -162,17 +165,35 @@ boundaryValuesNumericQ[model_Association] :=
         AllTrue[Last /@ Join[entry, exit], NumericQ]
     ];
 
+(* Boundary vertex membership is checked after integerVertexLabelsQ, so a separate
+   IntegerQ test here would be redundant: every valid member of "Vertices" is
+   already known to be an integer label. *)
+boundaryVerticesPresentQ[model_Association] :=
+    Module[{vertices, entryVertices, exitVertices},
+        vertices = Lookup[model, "Vertices", Missing[]];
+        If[!ListQ[vertices], Return[False, Module]];
+        entryVertices = First /@ Lookup[model, "Entries", {}];
+        exitVertices  = First /@ Lookup[model, "Exits", {}];
+        AllTrue[Join[entryVertices, exitVertices], MemberQ[vertices, #] &]
+    ];
+
+(* Infinity is the explicit sentinel for blocked transitions. In WL this is the
+   canonical positive infinity value; other directed infinities are intentionally
+   not accepted as switching costs. *)
+switchingCostValueQ[value_] :=
+    NumericQ[value] || value === Infinity;
+
 switchingCostsNumericQ[model_Association] :=
     Module[{switching},
         switching = Lookup[model, "Switching", Missing[]];
         Which[
             AssociationQ[switching],
                 AllTrue[Keys[switching], ListQ[#] && Length[#] === 3 && AllTrue[#, IntegerQ] &] &&
-                AllTrue[Values[switching], NumericQ],
+                AllTrue[Values[switching], switchingCostValueQ],
             ListQ[switching],
                 switching === {} ||
                 (AllTrue[switching, ListQ[#] && Length[#] === 4 && AllTrue[Take[#, 3], IntegerQ] &] &&
-                 AllTrue[Last /@ switching, NumericQ]),
+                 AllTrue[Last /@ switching, switchingCostValueQ]),
             True,
                 False
         ]
@@ -397,6 +418,8 @@ completeSwitchingCosts[model_Association, topology_Association] :=
 
 completeScenario::notscenario =
     "completeScenario expected a scenario object; got `1`. Returning input unchanged.";
+completeScenario::notopology =
+    "completeScenario was called without cached topology; rebuilding topology from the Model before completing derived fields.";
 
 completeScenario[s_scenario] :=
     Module[{assoc, identity, benchmark, model, hamiltonian, topology, completedSC},
@@ -407,7 +430,13 @@ completeScenario[s_scenario] :=
         benchmark   = Lookup[assoc, "Benchmark",   <||>];
         topology    = Lookup[assoc, "Topology",    Missing["KeyAbsent", "Topology"]];
 
-        If[!MissingQ[topology],
+        If[MissingQ[topology] && AssociationQ[model],
+            Message[completeScenario::notopology];
+            model = Join[model, <|"Switching" -> normalizeSwitchingCosts[Lookup[model, "Switching", <||>]]|>];
+            topology = buildAuxiliaryTopology[model]
+        ];
+
+        If[AssociationQ[topology],
             completedSC = completeSwitchingCosts[model, topology];
             model = Join[model, <|"Switching" -> completedSC|>]
         ];
@@ -455,6 +484,8 @@ makeScenario[rawAssoc_Association] :=
             Return[scenarioFailure["\"Vertices\" must contain only integers."], Module]];
         If[!boundaryValuesNumericQ[model],
             Return[scenarioFailure["Boundary values must be numeric."], Module]];
+        If[!boundaryVerticesPresentQ[model],
+            Return[scenarioFailure["Entry and exit vertices must belong to \"Vertices\"."], Module]];
         If[!switchingCostsNumericQ[model],
             Return[scenarioFailure["Switching cost values must be numeric."], Module]];
 

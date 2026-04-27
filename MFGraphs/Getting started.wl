@@ -166,7 +166,7 @@ systemSummary = <|
     "# js" -> Length @ systemData[exampleSystem, "Js"],
     "# jts" -> Length @ systemData[exampleSystem, "Jts"],
     "# us" -> Length @ systemData[exampleSystem, "Us"],
-    "Switching-cost consistency" -> IsSwitchingCostConsistent[
+    "Switching-cost consistency" -> isSwitchingCostConsistent[
         Normal @ systemData[exampleSystem, "SwitchingCosts"]
     ]
 |>;
@@ -291,5 +291,23 @@ Column[{
         "Edge {1,2} is directed 1\[Rule]2 (j[1,2]>0). Labels show j and u on real + auxiliary edges.",
         mfgSolutionPlot[chain2ExNoSC, sysNoSC, solNoSC,
             "Chain 1\[Rule]2\[Rule]3: combined solution (exits at 2 and 3)"]
+    ]
+}]
+
+
+(* --- 10. Advanced Solution Visualization (Paper Scheme) --- *)
+
+Column[{
+    DescribeOutput[
+        "Transition graph plot",
+        "Nodes represent network edges (pairs); edges represent transition flows (j[a,b,c]).",
+        mfgTransitionPlot[chain1Ex, sys1Ex, sol1Ex,
+            "Chain 1\[Rule]2\[Rule]3: transition graph"]
+    ],
+    DescribeOutput[
+        "Augmented infrastructure graph (Paper scheme)",
+        "Nodes are (e, v) pairs. Value functions (u) are vertex labels; all flows (j) are edge labels.",
+        mfgAugmentedPlot[chain1Ex, sys1Ex, sol1Ex,
+            "Chain 1\[Rule]2\[Rule]3: augmented infrastructure"]
     ]
 }]

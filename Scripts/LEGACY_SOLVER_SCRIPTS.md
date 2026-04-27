@@ -4,7 +4,7 @@ The scripts listed here still depend on solver-era symbols such as
 `DataToEquations`, `CriticalCongestionSolver`, and/or `GetExampleData`.
 
 They are **not part of the active core-only workflow** while `MFGraphs.wl`
-loads only Scenario/ExampleScenarios/Unknowns/System.
+loads the active core stack through scenarioTools/examples/unknownsTools/systemTools.
 
 ## Typical affected scripts
 

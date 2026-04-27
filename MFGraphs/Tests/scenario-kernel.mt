@@ -361,7 +361,29 @@ Test[
     ,
     True
     ,
+    {completeScenario::notopology}
+    ,
     TestID -> "Scenario kernel: completeScenario callable directly on validated scenario"
+]
+
+(* Test: completeScenario direct call warns and completes switching costs when topology is absent *)
+Test[
+    Module[{raw, validated, completed, sc},
+        raw = scenario[<|"Model" -> <|
+            "Vertices" -> {1, 2},
+            "Adjacency" -> {{0, 1}, {1, 0}},
+            "Entries" -> {{1, 10}},
+            "Exits" -> {{2, 0}},
+            "Switching" -> {{1, 1, 2, 3}}
+        |>|>];
+        validated = validateScenario[raw];
+        completed = completeScenario[validated];
+        sc = scenarioData[completed, "Model"]["Switching"];
+        scenarioQ[completed] && AssociationQ[sc]
+    ],
+    True,
+    {completeScenario::notopology},
+    TestID -> "Scenario kernel: completeScenario rebuilds missing topology with warning"
 ]
 
 (* Test: makeScenario rejects legacy Data substitutions *)
@@ -407,6 +429,44 @@ Test[
     TestID -> "Scenario kernel: symbolic boundary values are rejected"
 ]
 
+(* Test: makeScenario fails when an entry vertex is outside Vertices *)
+Test[
+    Module[{raw, result},
+        raw = <|
+            "Model" -> <|
+                "Vertices" -> {1, 2},
+                "Adjacency" -> {{0, 1}, {1, 0}},
+                "Entries" -> {{99, 10}},
+                "Exits" -> {{2, 0}},
+                "Switching" -> {}
+            |>
+        |>;
+        result = makeScenario[raw];
+        FailureQ[result] && result["Tag"] === "ScenarioValidation"
+    ],
+    True,
+    TestID -> "Scenario kernel: unknown entry vertex is rejected"
+]
+
+(* Test: makeScenario fails when an exit vertex is outside Vertices *)
+Test[
+    Module[{raw, result},
+        raw = <|
+            "Model" -> <|
+                "Vertices" -> {1, 2},
+                "Adjacency" -> {{0, 1}, {1, 0}},
+                "Entries" -> {{1, 10}},
+                "Exits" -> {{99, 0}},
+                "Switching" -> {}
+            |>
+        |>;
+        result = makeScenario[raw];
+        FailureQ[result] && result["Tag"] === "ScenarioValidation"
+    ],
+    True,
+    TestID -> "Scenario kernel: unknown exit vertex is rejected"
+]
+
 (* Test: makeScenario fails when switching cost values are symbolic *)
 Test[
     Module[{raw, result},
@@ -426,6 +486,25 @@ Test[
     True
     ,
     TestID -> "Scenario kernel: non-numeric switching costs are rejected"
+]
+
+(* Test: Infinity switching costs are accepted for blocked transitions *)
+Test[
+    Module[{s, sc},
+        s = makeScenario[<|
+            "Model" -> <|
+                "Vertices" -> {1, 2, 3},
+                "Adjacency" -> {{0, 1, 0}, {1, 0, 1}, {0, 1, 0}},
+                "Entries" -> {{1, 10}},
+                "Exits" -> {{3, 0}},
+                "Switching" -> {{1, 2, 3, Infinity}}
+            |>
+        |>];
+        sc = scenarioData[s, "Model"]["Switching"];
+        scenarioQ[s] && sc[{1, 2, 3}] === Infinity
+    ],
+    True,
+    TestID -> "Scenario kernel: Infinity switching costs are accepted"
 ]
 
 (* Test: Graph-only model derives Vertices List and Adjacency Matrix *)

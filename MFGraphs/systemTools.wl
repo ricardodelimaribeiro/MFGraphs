@@ -541,6 +541,8 @@ makeSystem[s_?scenarioQ, unk_?unknownsQ] :=
                 "Js"          -> unknownsData[unk, "Js"],
                 "Us"          -> unknownsData[unk, "Us"],
                 "Jts"         -> unknownsData[unk, "Jts"],
+                (* Keep modeling metadata available to solver-layer eligibility checks. *)
+                "Hamiltonian" -> scenarioData[s, "Hamiltonian"],
                 "Edges"       -> edges,
                 "AuxEdges"    -> auxEdges,
                 "AuxVertices" -> auxVertices,

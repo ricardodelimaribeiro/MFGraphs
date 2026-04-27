@@ -152,11 +152,11 @@
 **Verify network data format:**
 ```mathematica
 Data = <|
-  "Vertices List" -> {1, 2, 3, 4},
-  "Adjacency Matrix" -> {{0,1,0,0}, {0,0,1,0}, {0,0,0,1}, {0,0,0,0}},
-  "Entrance Vertices and Flows" -> {{1, 200}},
-  "Exit Vertices and Terminal Costs" -> {{4, 0}},
-  "Switching Costs" -> {{1,2,3, 5}, {3,2,1, 5}}
+  "Vertices" -> {1, 2, 3, 4},
+  "Adjacency" -> {{0,1,0,0}, {0,0,1,0}, {0,0,0,1}, {0,0,0,0}},
+  "Entries" -> {{1, 200}},
+  "Exits" -> {{4, 0}},
+  "Switching" -> {{1,2,3, 5}, {3,2,1, 5}}
 |>
 ```
 
