@@ -117,7 +117,9 @@ Switching costs may be supplied as a List of 4-tuples or an Association with 3-t
 ### Graphics (`graphics`)
 - `scenarioTopologyPlot` — entry/exit/internal vertex coloring
 - `mfgSolutionPlot` — network-centric plot (j and u labels)
+- `mfgFlowPlot` — flow-only network plot with directed real and auxiliary edges
 - `mfgTransitionPlot` — transition graph (nodes = edges, edges = j[a,b,c])
+- `augmentAuxiliaryGraph` — road-traffic graph derived from AuxPairs/AuxTriples
 - `mfgAugmentedPlot` — paper infrastructure graph (nodes = (e,v) pairs)
 
 ### Runtime flags
