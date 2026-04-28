@@ -15,4 +15,4 @@ Additional tests archived on April 23, 2026:
   `inconsistent-switching-critical.mt`, `infeasible-status.mt`, `run-tests-smoke.mt`,
   `solve-mfg.mt`, `solver-contracts.mt`, `symbolic-underdetermined.mt`,
   `package-loading.mt`.
-- Reason: these suites are not focused on `Scenario.wl`, `System.wl`, or `Unknowns.wl`.
+- Reason: these suites are not focused on `scenarioTools.wl`, `systemTools.wl`, or `unknownsTools.wl`.

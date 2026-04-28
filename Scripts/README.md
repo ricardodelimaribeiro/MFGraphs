@@ -9,7 +9,7 @@ This directory contains active maintenance scripts and an `archive/` folder with
 - `GenerateDocs.wls`: regenerate API documentation artifacts.
 - `AuditPublicAPI.py`: API surface inventory/audit helper.
 - `CheckCriticalSurfaceTests.wls`: gate checks for critical-surface test policy.
-- `BenchmarkReduceSystem.wls`: focused benchmark for `ReduceSystem`.
+- `BenchmarkReduceSystem.wls`: focused benchmark for `reduceSystem`.
 
 ## Analysis/report helpers
 

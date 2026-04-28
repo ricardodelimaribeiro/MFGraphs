@@ -22,11 +22,14 @@ This project uses Wolfram Language for Mean Field Games on networks. We follow s
 Run the test suite locally before opening a PR:
 
 ```bash
-# Fast regression suite (9 files, ~27 min) — run before PR
+# Active scenario-kernel regression suite
 wolframscript -file Scripts/RunTests.wls fast
 
-# Full test suite (slower, more comprehensive)
+# Alias for the same active suite
 wolframscript -file Scripts/RunTests.wls all
+
+# Legacy compatibility suites; opt in explicitly
+wolframscript -file Scripts/RunTests.wls full
 ```
 
 ### Commit message format
@@ -51,31 +54,33 @@ When opening a PR:
 ## Benchmarking and Performance Tracking
 
 ### Running benchmarks
-Before and after solver/optimization changes, benchmark to measure impact:
+Before and after structural solver changes, benchmark to measure impact:
 
 ```bash
-# Establish baseline before your changes
-wolframscript -file Scripts/BenchmarkSuite.wls small --tag "baseline"
+# Establish or compare a reduceSystem benchmark
+wolframscript -file Scripts/BenchmarkReduceSystem.wls --tag "baseline"
 
-# Make your changes, then test
-wolframscript -file Scripts/BenchmarkSuite.wls small --tag "my optimization"
+# Limit a run to one case if needed
+wolframscript -file Scripts/BenchmarkReduceSystem.wls --case chain-3v-2exit --timeout 120
 
-# Results automatically appended to history files
+# Tagged runs append a benchmark-history entry to BENCHMARKS.md
 ```
 
 ### Interpreting results
-- Performance history files: `DNF_PERFORMANCE_HISTORY.md`, `PARALLEL_PERFORMANCE_HISTORY.md`
+- Active benchmark history: `BENCHMARKS.md`
+- Historical performance files: `docs/history/DNF_PERFORMANCE_HISTORY.md`, `docs/history/PARALLEL_PERFORMANCE_HISTORY.md`
 - Speedup > 1 means improvement; < 1 means regression
-- Always benchmark at least `core` tier for solver changes
-- `stress` tier helps validate on edge cases but may timeout (see `BENCHMARKS.md`)
+- Always run the active test suite before interpreting benchmark output
+- Legacy tiered solver benchmarks live in `Scripts/archive/` and require solver-era symbols that are not loaded in the current core phase
 
 ### Profiling bottlenecks
-After changes, use the profiling script to identify where time is spent:
+For the active workflow, start with `BenchmarkReduceSystem.wls`. Older bottleneck-profiling scripts are archived:
 
 ```bash
-wolframscript -file Scripts/BottleneckReport.wls
-# Generates Results/bottleneck_report.md with timing breakdowns
+wolframscript -file Scripts/archive/BottleneckReport.wls
 ```
+
+Those archived scripts depend on legacy solver-era symbols such as `DataToEquations` and `CriticalCongestionSolver`.
 
 ## Documentation
 

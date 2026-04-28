@@ -62,5 +62,5 @@
          j["auxEntry1", 1, 2] -> 10}, "Equations" -> 
         u[2, 1] == 10 + u[1, 2] && u[3, 2] == 10 + u[2, 3] && 
          u[4, 3] == 10 + u[3, 4] && u[5, 4] == 10 + u[4, 5]|>|>, 
-   "example-12" -> <|"Status" -> "TIMEOUT", "Kind" -> "\[AHat]\200\224", 
+   "example-12" -> <|"Status" -> "TIMEOUT", "Kind" -> "-",
      "Solution" -> $TimedOut|>|>|>

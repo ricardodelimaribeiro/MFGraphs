@@ -83,5 +83,5 @@
          u[4, 3] == 10 + u[3, 4] && u[4, 5] == -10 + u[3, 4] && 
          u[5, 4] == 10 + u[4, 5] && u["auxEntry1", 1] == u[2, 1] && 
          u["auxExit5", 5] == u[4, 5]|>|>, "example-12" -> 
-    <|"Status" -> "TIMEOUT", "Kind" -> "\[AHat]\200\224", 
+    <|"Status" -> "TIMEOUT", "Kind" -> "-",
      "Solution" -> $TimedOut|>|>|>
