@@ -7,10 +7,33 @@
 
 (* Force clean reload \[LongDash] safe to re-evaluate without restarting the kernel. *)
 Quiet[
-    (* Clear notebook variables to avoid shadowing/collisions *)
-    ClearAll["Global`*"];
-    Remove["MFGraphs`*", "primitives`*", "scenarioTools`*", "examples`*", "unknownsTools`*", "systemTools`*", "solversTools`*", "graphics`*"];
-    $Packages = DeleteCases[$Packages, Alternatives @@ {"MFGraphs`", "primitives`", "scenarioTools`", "examples`", "unknownsTools`", "systemTools`", "solversTools`", "graphics`"}];
+    With[
+        {
+            reloadContexts = {
+                "MFGraphs`",
+                "primitives`",
+                "scenarioTools`",
+                "examples`",
+                "unknownsTools`",
+                "systemTools`",
+                "solversTools`",
+                "graphics`"
+            }
+        },
+        Remove["Global`*"];
+        Scan[
+            Remove[# <> "*", # <> "Private`*"]&,
+            reloadContexts
+        ];
+        $Packages = DeleteCases[
+            $Packages,
+            Alternatives @@ Join[reloadContexts, (# <> "Private`") /@ reloadContexts]
+        ];
+        $ContextPath = DeleteCases[
+            $ContextPath,
+            Alternatives @@ Join[reloadContexts, (# <> "Private`") /@ reloadContexts]
+        ];
+    ];
 ];
 
 (* This file lives alongside MFGraphs.wl in the same directory. *)
@@ -24,7 +47,10 @@ If[!StringQ[mfgDir] || mfgDir === "",
     mfgDir = ExpandFileName["."];
 ];
 
-PrependTo[$Path, ParentDirectory[mfgDir]];
+mfgParentDir = ParentDirectory[mfgDir];
+If[!MemberQ[$Path, mfgParentDir],
+    PrependTo[$Path, mfgParentDir]
+];
 Needs["MFGraphs`"];
 
 ClearAll[DescribeOutput];
@@ -239,12 +265,14 @@ Column[{
     DescribeOutput[
         "Chain topology \[LongDash] no switching costs",
         "Green = entry, red = exits, gray = internal.",
-        scenarioTopologyPlot[chain2ExNoSC, sysNoSC, "Chain 1\[Rule]2\[Rule]3 (no SC)"]
+        scenarioTopologyPlot[chain2ExNoSC, sysNoSC,
+            PlotLabel -> "Chain 1\[Rule]2\[Rule]3 (no SC)"]
     ],
     DescribeOutput[
         "Chain topology \[LongDash] with switching cost {1,2,3}=2.0",
         "Same topology; SC at vertex 2 penalises continuing from edge 1\[Rule]2 to 2\[Rule]3.",
-        scenarioTopologyPlot[chain2ExWithSC, sysWithSC, "Chain 1\[Rule]2\[Rule]3 (SC at 2)"]
+        scenarioTopologyPlot[chain2ExWithSC, sysWithSC,
+            PlotLabel -> "Chain 1\[Rule]2\[Rule]3 (SC at 2)"]
     ]
 }]
 
@@ -288,7 +316,13 @@ Column[{
         "Combined solution plot \[LongDash] chain 1\[Rule]2\[Rule]3, single exit",
         "Directed edges show j-flow direction/magnitude; labels show both j and u. Auxiliary edges are included.",
         mfgSolutionPlot[chain1Ex, sys1Ex, sol1Ex,
-            "Chain 1\[Rule]2\[Rule]3: combined solution (exit at 3, cost=0)"]
+            PlotLabel -> "Chain 1\[Rule]2\[Rule]3: combined solution (exit at 3, cost=0)"]
+    ],
+    DescribeOutput[
+        "Flow-only plot \[LongDash] chain 1\[Rule]2\[Rule]3, single exit",
+        "Original vertices use one color. Edges have fixed width, and nearby labels show only j-flow values.",
+        mfgFlowPlot[chain1Ex, sys1Ex, sol1Ex,
+            PlotLabel -> "Chain 1\[Rule]2\[Rule]3: flow values only"]
     ]
 }]
 
@@ -302,24 +336,92 @@ Column[{
         "Combined solution plot \[LongDash] chain with two exits (no SC)",
         "Edge {1,2} is directed 1\[Rule]2 (j[1,2]>0). Labels show j and u on real + auxiliary edges.",
         mfgSolutionPlot[chain2ExNoSC, sysNoSC, solNoSC,
-            "Chain 1\[Rule]2\[Rule]3: combined solution (exits at 2 and 3)"]
+            PlotLabel -> "Chain 1\[Rule]2\[Rule]3: combined solution (exits at 2 and 3)"]
+    ],
+    DescribeOutput[
+        "Flow-only plot \[LongDash] chain with two exits (no SC)",
+        "Auxiliary entry/exit edges are included. Edges have fixed width, and nearby labels show only j-flow values.",
+        mfgFlowPlot[chain2ExNoSC, sysNoSC, solNoSC,
+            PlotLabel -> "Chain 1\[Rule]2\[Rule]3: flow values only (exits at 2 and 3)"]
     ]
 }]
 
 
 (* --- 10. Advanced Solution Visualization (Paper Scheme) --- *)
 
+augChain1 = augmentAuxiliaryGraph[sys1Ex];
+
 Column[{
     DescribeOutput[
         "Transition graph plot",
         "Nodes represent network edges (pairs); edges represent transition flows (j[a,b,c]).",
         mfgTransitionPlot[chain1Ex, sys1Ex, sol1Ex,
-            "Chain 1\[Rule]2\[Rule]3: transition graph"]
+            PlotLabel -> "Chain 1\[Rule]2\[Rule]3: transition graph"]
+    ],
+    DescribeOutput[
+        "Augmented infrastructure helper",
+        "augmentAuxiliaryGraph builds the road-traffic graph from AuxPairs and AuxTriples, with explicit j variables for every edge.",
+        <|
+            "Vertices" -> augChain1["Vertices"],
+            "FlowEdges" -> augChain1["FlowEdges"],
+            "TransitionEdges" -> augChain1["TransitionEdges"],
+            "EdgeVariables" -> augChain1["EdgeVariables"]
+        |>
     ],
     DescribeOutput[
         "Augmented infrastructure graph (Paper scheme)",
-        "Nodes are (e, v) pairs. Value functions (u) are vertex labels; all flows (j) are edge labels.",
+        "Nodes are road-traffic edge-vertex states. Blue edges are j[a,b] flows; red edges are j[r,i,w] transitions.",
         mfgAugmentedPlot[chain1Ex, sys1Ex, sol1Ex,
-            "Chain 1\[Rule]2\[Rule]3: augmented infrastructure"]
+            PlotLabel -> "Chain 1\[Rule]2\[Rule]3: augmented infrastructure"]
+    ]
+}]
+
+
+(* --- 11. Paper-style network: Figure 3 \[Rule] Figure 4 transformation --- *)
+
+paperFig3Scenario = graphScenario[
+    Graph[{1 \[UndirectedEdge] 2, 2 \[UndirectedEdge] 3, 3 \[UndirectedEdge] 4}],
+    {{1, 10}, {3, 5}},
+    {{2, 0}, {4, 0}}
+];
+
+paperFig3System = makeSystem[paperFig3Scenario];
+paperFig3Augmented = augmentAuxiliaryGraph[paperFig3System];
+
+paperFig3AuxGraph = Graph[
+    VertexList @ systemData[paperFig3System, "AuxiliaryGraph"],
+    EdgeList @ systemData[paperFig3System, "AuxiliaryGraph"],
+    VertexLabels -> Placed["Name", Center],
+    VertexStyle -> Normal @ Join[
+        AssociationThread[scenarioData[paperFig3Scenario, "Model"]["Vertices"], GrayLevel[0.72]],
+        AssociationThread[systemData[paperFig3System, "AuxEntryVertices"], RGBColor[0.38, 0.74, 0.9]],
+        AssociationThread[systemData[paperFig3System, "AuxExitVertices"], RGBColor[0.95, 0.7, 0.4]]
+    ],
+    EdgeStyle -> Directive[GrayLevel[0.45], AbsoluteThickness[2]],
+    (*GraphLayout -> "LayeredDigraphEmbedding",*)
+    PlotLabel -> Style["Figure 3-style MFG network with entrance and exit edges", 14, Bold],
+    ImageSize -> Large
+];
+
+Column[{
+    DescribeOutput[
+        "Figure 3-style auxiliary MFG network",
+        "Original vertices are gray. Auxiliary entry vertices are blue, and auxiliary exit vertices are orange.",
+        paperFig3AuxGraph
+    ],
+    DescribeOutput[
+        "Figure 4-style augmented road-traffic graph",
+        "Blue edges are flow variables j[a,b]. Red edges are transition variables j[r,i,w].",
+        mfgAugmentedPlot[paperFig3Scenario, paperFig3System, <||>,
+            PlotLabel -> "Paper-style augmented road-traffic graph"]
+    ],
+    DescribeOutput[
+        "Augmented graph metadata",
+        "The helper exposes the graph and the exact j variable attached to each road-traffic edge.",
+        <|
+            "FlowEdges" -> paperFig3Augmented["FlowEdges"],
+            "TransitionEdges" -> paperFig3Augmented["TransitionEdges"],
+            "EdgeVariables" -> paperFig3Augmented["EdgeVariables"]
+        |>
     ]
 }]

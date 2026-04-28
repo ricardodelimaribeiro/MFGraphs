@@ -204,6 +204,18 @@ systemData[sys, key] returns the value associated with key in the system sys, or
 
 systemDataFlatten[sys] returns a single flat Association containing all keys from all nested typed sub-records within the system. Useful for backward compatibility with legacy solvers.
 
+## booleanReduceSystem
+
+booleanReduceSystem[sys] solves the mfgSystem sys by converting the preprocessed constraint system to DNF via BooleanConvert, then calling Reduce independently on each disjunct. Each disjunct is a pure conjunction (no Or), so Reduce avoids case-splitting. Non-False results are collected; if the system has a unique equilibrium all non-False results are equivalent. Returns a list of rules when fully determined, or <|"Rules" -> rules, "Equations" -> residual|> when underdetermined. Fails for non-critical congestion systems where Alpha != 1 on any edge. Options: "DisjunctTimeout" (default 30s per Reduce call), "ReturnAll" (default False; True returns all non-False parsed results).
+
+## dnfReduce
+
+dnfReduce[xp, sys] simplifies xp && sys by solving equalities, substituting their solutions throughout the system, and distributing over disjunctions. Returns a DNF expression with all equalities eliminated where possible. dnfReduce[xp, sys, elem] is the 3-argument form used internally to process one conjunct elem from sys.
+
+## dnfReduceSystem
+
+dnfReduceSystem[sys] solves the mfgSystem sys using linear preprocessing followed by dnfReduce instead of Reduce. Handles cases where Reduce times out by using equality-substitution and disjunction-distribution. Returns a list of rules when fully determined, or <|"Rules" -> rules, "Equations" -> residual|> when underdetermined. Fails for non-critical congestion systems where Alpha != 1 on any edge.
+
 ## isValidSystemSolution
 
 isValidSystemSolution[sys, sol] checks whether sol (the output of reduceSystem[sys]) satisfies the constraint blocks of sys. Returns True or False. With option "ReturnReport" -> True, returns a detailed association with per-block results. Tolerance for numeric checks is set via "Tolerance" (default 10^-6). For underdetermined solutions the partial rules are checked; blocks that remain symbolic after substitution are reported as Indeterminate, not False.
@@ -212,10 +224,26 @@ isValidSystemSolution[sys, sol] checks whether sol (the output of reduceSystem[s
 
 reduceSystem[sys] reduces the structural equations, flow balance, non-negativity constraints, and complementarity conditions of the mfgSystem sys using Reduce over the Reals. Includes AltOptCond (switching-cost optimality complementarity) and IneqSwitchingByVertex (switching-cost optimality inequalities). Fails for non-critical congestion systems where Alpha != 1 on any edge. Returns a list of rules when the system is fully determined, or <|"Rules" -> rules, "Equations" -> residual|> when underdetermined.
 
+## augmentAuxiliaryGraph
+
+augmentAuxiliaryGraph[sys] constructs the road-traffic augmented infrastructure graph from a system's AuxPairs and AuxTriples. Flow edges correspond to j[a,b] and run from {b,a} to {a,b}; transition edges correspond to j[r,i,w] and run from {r,i} to {w,i}. Returns an Association with Graph, Vertices, FlowEdges, TransitionEdges, EdgeVariables, and EdgeKinds.
+
+## mfgAugmentedPlot
+
+mfgAugmentedPlot[s, sys, sol, opts] plots the augmented infrastructure graph (Paper scheme) built by augmentAuxiliaryGraph. Nodes represent road-traffic edge-vertex states, flow edges correspond to j[a,b], and transition edges correspond to j[r,i,w]. Value functions (u) are vertex labels where available, and flow/transition values (j) are edge labels. Supports PlotLabel, GraphLayout, and ImageSize options; the legacy fourth positional title is still accepted.
+
+## mfgFlowPlot
+
+mfgFlowPlot[s, sys, sol, opts] plots a flow-only solution graph with real and auxiliary edges. Edges are displayed as directed, and edge labels show only j flow values. Supports PlotLabel, GraphLayout, and ImageSize options; the legacy fourth positional title is still accepted.
+
 ## mfgSolutionPlot
 
-mfgSolutionPlot[s, sys, sol] plots a combined solution graph with real and auxiliary edges. Edge labels include both j and u values, and real-edge directions follow solved net flow orientation. An optional fourth argument sets the title.
+mfgSolutionPlot[s, sys, sol, opts] plots a combined solution graph with real and auxiliary edges. Edge labels include both j and u values, and real-edge directions follow solved net flow orientation. Supports PlotLabel, GraphLayout, and ImageSize options; the legacy fourth positional title is still accepted.
+
+## mfgTransitionPlot
+
+mfgTransitionPlot[s, sys, sol, opts] plots the transition graph of the solution. Nodes are AuxPair states, and directed edges represent transition flows j[r,i,w] from {r,i} to {i,w}. Nodes are labeled with internal values u where available. Supports PlotLabel, GraphLayout, and ImageSize options; the legacy fourth positional title is still accepted.
 
 ## scenarioTopologyPlot
 
-scenarioTopologyPlot[s, sys] plots the scenario topology using vertex coloring for entry, exit, and internal vertices. An optional third argument sets the title.
+scenarioTopologyPlot[s, sys, opts] plots the scenario topology using vertex coloring for entry, exit, and internal vertices. Supports PlotLabel, GraphLayout, and ImageSize options; the legacy third positional title is still accepted.
