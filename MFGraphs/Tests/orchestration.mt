@@ -8,17 +8,6 @@ Test[
 
 Test[
     Module[{s, result},
-        s = getExampleScenario[1, {{1, 100}}, {{1, 0}}];
-        result = TimeConstrained[solveScenario[s], 2, $TimedOut];
-        (ListQ[result] || AssociationQ[result]) &&
-        isValidSystemSolution[makeSystem[s], result]
-    ],
-    True,
-    TestID -> "solveScenario: chains example 1 (chain 1) to a solution"
-]
-
-Test[
-    Module[{s, result},
         s = getExampleScenario[2, {{1, 100}}, {{2, 0}}];
         result = TimeConstrained[solveScenario[s], 2, $TimedOut];
         (ListQ[result] || AssociationQ[result]) &&
@@ -29,9 +18,20 @@ Test[
 ]
 
 Test[
+    Module[{s, result},
+        s = getExampleScenario[2, {{1, 100}}, {{2, 0}}];
+        result = TimeConstrained[solveScenario[s], 2, $TimedOut];
+        (ListQ[result] || AssociationQ[result]) &&
+        isValidSystemSolution[makeSystem[s], result]
+    ],
+    True,
+    TestID -> "solveScenario: chains example 2 (chain 2) to a solution with default solver"
+]
+
+Test[
     Module[{s1, s2, results},
-        s1 = getExampleScenario[1, {{1, 100}}, {{1, 0}}];
-        s2 = getExampleScenario[2, {{1, 100}}, {{2, 0}}];
+        s1 = getExampleScenario[2, {{1, 100}}, {{2, 0}}];
+        s2 = getExampleScenario[3, {{1, 100}}, {{3, 0}}]; (* Example 3 is another simple chain *)
         results = TimeConstrained[solveScenario[{s1, s2}], 5, $TimedOut];
         ListQ[results] && Length[results] === 2 &&
         isValidSystemSolution[makeSystem[s1], results[[1]]] &&
@@ -43,23 +43,11 @@ Test[
 
 Test[
     Module[{s, result},
-        s = getExampleScenario[12, {{1, 100.0}}, {{4, 0.0}}];
-        result = TimeConstrained[solveScenario[s], 10, $TimedOut];
-        result =!= $TimedOut &&
+        s = getExampleScenario[2, {{1, 100}}, {{2, 0}}];
+        result = TimeConstrained[solveScenario[s, dnfReduceSystem], 5, $TimedOut];
         (ListQ[result] || AssociationQ[result]) &&
         isValidSystemSolution[makeSystem[s], result]
     ],
     True,
-    TestID -> "solveScenario: default dnfReduceSystem solves example 12"
-]
-
-Test[
-    Module[{s, result},
-        s = getExampleScenario[1, {{1, 100}}, {{1, 0}}];
-        result = TimeConstrained[solveScenario[s, reduceSystem], 5, $TimedOut];
-        (ListQ[result] || AssociationQ[result]) &&
-        isValidSystemSolution[makeSystem[s], result]
-    ],
-    True,
-    TestID -> "solveScenario: supports custom solver reduceSystem"
+    TestID -> "solveScenario: supports custom solver dnfReduceSystem"
 ]

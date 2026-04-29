@@ -235,6 +235,13 @@ switchingCostsNumericQ[model_Association] :=
         ]
     ];
 
+disjointBoundaryVerticesQ[model_Association] :=
+    Module[{entryVertices, exitVertices},
+        entryVertices = First /@ Lookup[model, "Entries", {}];
+        exitVertices  = First /@ Lookup[model, "Exits", {}];
+        Intersection[entryVertices, exitVertices] === {}
+    ];
+
 normalizeSwitchingCosts[sc_Association] := sc;
 normalizeSwitchingCosts[sc_List] :=
     If[sc === {}, <||>, AssociationThread[Most /@ sc, Last /@ sc]];
@@ -524,6 +531,8 @@ makeScenario[rawAssoc_Association] :=
             Return[scenarioFailure["Entry and exit vertices must belong to \"Vertices\"."], Module]];
         If[!switchingCostsNumericQ[model],
             Return[scenarioFailure["Switching cost values must be numeric."], Module]];
+        If[!disjointBoundaryVerticesQ[model],
+            Return[scenarioFailure["Entry and exit vertices must be disjoint."], Module]];
 
         model = Join[model, <|"Switching" -> normalizeSwitchingCosts[model["Switching"]]|>];
 
