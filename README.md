@@ -21,9 +21,7 @@ Loaded by `Needs["MFGraphs`"]`:
 - `MFGraphs/solversTools.wl`
 - `MFGraphs/graphicsTools.wl`
 
-Archived/inactive modules:
-- `MFGraphs/Examples/archive/ExamplesData.wl`
-- `MFGraphs/archive/DataToEquations.wl`
+Archived/inactive modules live under `MFGraphs/archive/`.
 
 ## Solver Status
 
@@ -123,11 +121,7 @@ MFGraphs/
   systemTools.wl
   solversTools.wl
   graphicsTools.wl
-  Examples/
-    archive/
-      ExamplesData.wl
   archive/
-    DataToEquations.wl
   Tests/
     scenario-kernel.mt
     make-unknowns.mt

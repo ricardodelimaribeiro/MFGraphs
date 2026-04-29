@@ -47,9 +47,7 @@ primitives`  →  scenarioTools`  →  examples`
                                                                    →  graphicsTools`
 ```
 
-Archived/inactive modules include:
-- `MFGraphs/Examples/archive/ExamplesData.wl`
-- `MFGraphs/archive/DataToEquations.wl`
+Archived/inactive modules live under `MFGraphs/archive/`.
 
 ## Core architecture
 

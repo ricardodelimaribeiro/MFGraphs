@@ -4,7 +4,7 @@ This directory contains modules intentionally removed from the active core-only 
 
 ## Archived modules
 
-- `DataToEquations.wl` — solver-era network-to-equation compiler and related symbolic pipeline helpers.
+- Solver-era modules and backend helpers that are not loaded by the active package.
 
 ## Notes
 

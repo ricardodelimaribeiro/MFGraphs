@@ -9,6 +9,7 @@ loads the active core stack through scenarioTools/examples/unknownsTools/systemT
 ## Typical affected scripts
 
 - `BenchmarkSuite.wls`
+- `BenchmarkPreprocessing.wls`
 - `BottleneckReport.wls`
 - `CompareDNF.wls`
 - `Profile*.wls`
