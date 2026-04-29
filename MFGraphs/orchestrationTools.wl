@@ -11,10 +11,10 @@ BeginPackage["orchestrationTools`", {
 
 solveScenario::usage =
 "solveScenario[s] automatically constructs unknowns, builds the structural \
-system, and calls reduceSystem. \
+system, and calls dnfReduceSystem. \
 solveScenario[{s1, s2, ...}] solves multiple populations (scenarios) and \
 returns a list of solutions. \
-solveScenario[..., solver] uses the specified solver function (e.g., dnfReduceSystem).";
+solveScenario[..., solver] uses the specified solver function (e.g., reduceSystem).";
 
 SolveMFG::usage =
 "SolveMFG[assoc] provides backward compatibility for legacy raw-association \
@@ -23,7 +23,7 @@ solving. It constructs a scenario and delegates to solveScenario.";
 Begin["`Private`"];
 
 (* Single scenario orchestration *)
-solveScenario[s_?scenarioQ, solver_:reduceSystem] :=
+solveScenario[s_?scenarioQ, solver_:dnfReduceSystem] :=
     Module[{unk, sys},
         unk = makeUnknowns[s];
         sys = makeSystem[s, unk];
@@ -31,7 +31,7 @@ solveScenario[s_?scenarioQ, solver_:reduceSystem] :=
     ];
 
 (* Multi-population orchestration *)
-solveScenario[scenarios_List, solver_:reduceSystem] :=
+solveScenario[scenarios_List, solver_:dnfReduceSystem] :=
     solveScenario[#, solver] & /@ scenarios;
 
 SolveMFG[assoc_Association] :=

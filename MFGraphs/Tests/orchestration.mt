@@ -43,11 +43,23 @@ Test[
 
 Test[
     Module[{s, result},
-        s = getExampleScenario[1, {{1, 100}}, {{1, 0}}];
-        result = TimeConstrained[solveScenario[s, dnfReduceSystem], 5, $TimedOut];
+        s = getExampleScenario[12, {{1, 100.0}}, {{4, 0.0}}];
+        result = TimeConstrained[solveScenario[s], 10, $TimedOut];
+        result =!= $TimedOut &&
         (ListQ[result] || AssociationQ[result]) &&
         isValidSystemSolution[makeSystem[s], result]
     ],
     True,
-    TestID -> "solveScenario: supports custom solver dnfReduceSystem"
+    TestID -> "solveScenario: default dnfReduceSystem solves example 12"
+]
+
+Test[
+    Module[{s, result},
+        s = getExampleScenario[1, {{1, 100}}, {{1, 0}}];
+        result = TimeConstrained[solveScenario[s, reduceSystem], 5, $TimedOut];
+        (ListQ[result] || AssociationQ[result]) &&
+        isValidSystemSolution[makeSystem[s], result]
+    ],
+    True,
+    TestID -> "solveScenario: supports custom solver reduceSystem"
 ]

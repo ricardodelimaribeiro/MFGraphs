@@ -198,6 +198,10 @@ mfgSystemQ[x] returns True if x is a typed mfgSystem[assoc_Association] object, 
 
 roundValues[x] rounds numerical values in x to a standard precision (10^-10).
 
+## switchingCostLookup
+
+switchingCostLookup[sc] returns a function f such that f[r, i, w] gives the switching cost for the transition from e_{r,i} to e_{i,w}, defaulting to 0 if absent.
+
 ## systemData
 
 systemData[sys, key] returns the value associated with key in the system sys, or Missing["KeyAbsent", key] if absent. systemData[sys] returns the underlying Association.
@@ -236,7 +240,7 @@ SolveMFG[assoc] provides backward compatibility for legacy raw-association solvi
 
 ## solveScenario
 
-solveScenario[s] automatically constructs unknowns, builds the structural system, and calls dnfReduceSystem. solveScenario[s, solver] uses the specified solver function (e.g., reduceSystem).
+solveScenario[s] automatically constructs unknowns, builds the structural system, and calls dnfReduceSystem. solveScenario[{s1, s2, ...}] solves multiple populations (scenarios) and returns a list of solutions. solveScenario[..., solver] uses the specified solver function (e.g., reduceSystem).
 
 ## augmentAuxiliaryGraph
 
