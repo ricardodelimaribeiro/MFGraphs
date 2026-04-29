@@ -11,7 +11,7 @@ This directory contains active maintenance scripts and an `archive/` folder with
 - `CheckCriticalSurfaceTests.wls`: gate checks for critical-surface test policy.
 - `BenchmarkSystemSolver.wls`: DNF-first scenario-kernel solver benchmark; use `--solver` to compare alternatives.
 - `BenchmarkReduceSystem.wls`: historical focused benchmark for raw `reduceSystem`.
-- `ProfileScenarioKernel.wls`: non-mutating staged profiler for scenario construction, unknowns, system construction, and solver time.
+- `ProfileScenarioKernel.wls`: non-mutating staged profiler for scenario construction, symbolic unknown construction, system construction, and solver time.
 
 ## Analysis/report helpers
 

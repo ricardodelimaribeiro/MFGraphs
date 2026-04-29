@@ -1,15 +1,24 @@
-(* Tests for makeUnknowns helper *)
+(* Tests for makeSymbolicUnknowns helper *)
 
 Test[
-    NameQ["unknownsTools`makeUnknowns"],
+    NameQ["unknownsTools`makeSymbolicUnknowns"],
     True,
-    TestID -> "makeUnknowns: public symbol exists"
+    TestID -> "makeSymbolicUnknowns: public symbol exists"
 ]
 
 Test[
-    NameQ["unknownsTools`unknowns"] && NameQ["unknownsTools`unknownsQ"] && NameQ["unknownsTools`unknownsData"],
+    NameQ["unknownsTools`symbolicUnknowns"] && NameQ["unknownsTools`symbolicUnknownsQ"] && NameQ["unknownsTools`symbolicUnknownsData"],
     True,
-    TestID -> "makeUnknowns: typed unknowns symbols exist"
+    TestID -> "makeSymbolicUnknowns: typed symbolicUnknowns symbols exist"
+]
+
+Test[
+    NameQ["unknownsTools`unknown"] && NameQ["unknownsTools`unknowns"] &&
+        !NameQ["unknownsTools`makeUnknowns"] &&
+        !NameQ["unknownsTools`unknownsQ"] &&
+        !NameQ["unknownsTools`unknownsData"],
+    True,
+    TestID -> "symbolicUnknowns: legacy helper names are not public aliases"
 ]
 
 Test[
@@ -26,20 +35,49 @@ Test[
             "Switching" -> {}
         |>;
         s = makeScenario[<|"Model" -> data|>];
-        unk = makeUnknowns[s];
-        unknownsQ[unk] &&
-        ListQ[unknownsData[unk, "Js"]] &&
-        ListQ[unknownsData[unk, "Jts"]] &&
-        ListQ[unknownsData[unk, "Us"]] &&
-        Length[unknownsData[unk, "Js"]] > 0 &&
-        Length[unknownsData[unk, "Jts"]] > 0 &&
-        Length[unknownsData[unk, "Us"]] === Length[unknownsData[unk, "Js"]] &&
-        MatchQ[First[unknownsData[unk, "Js"]], _j] &&
-        MatchQ[First[unknownsData[unk, "Jts"]], _j] &&
-        MatchQ[First[unknownsData[unk, "Us"]], _u]
+        unk = makeSymbolicUnknowns[s];
+        symbolicUnknownsQ[unk] &&
+        ListQ[symbolicUnknownsData[unk, "Js"]] &&
+        ListQ[symbolicUnknownsData[unk, "Jts"]] &&
+        ListQ[symbolicUnknownsData[unk, "Us"]] &&
+        Length[symbolicUnknownsData[unk, "Js"]] > 0 &&
+        Length[symbolicUnknownsData[unk, "Jts"]] > 0 &&
+        Length[symbolicUnknownsData[unk, "Us"]] === Length[symbolicUnknownsData[unk, "Js"]] &&
+        MatchQ[First[symbolicUnknownsData[unk, "Js"]], _j] &&
+        MatchQ[First[symbolicUnknownsData[unk, "Jts"]], _j] &&
+        MatchQ[First[symbolicUnknownsData[unk, "Us"]], _u]
     ],
     True,
-    TestID -> "makeUnknowns: builds flow, transition-flow, and value unknowns from scenario"
+    TestID -> "makeSymbolicUnknowns: builds flow, transition-flow, and value variables from scenario"
+]
+
+Test[
+    Module[{data, s, unk, js, us, jts},
+        data = <|
+            "Vertices" -> {1, 2, 3},
+            "Adjacency" -> {
+                {0, 1, 0},
+                {1, 0, 1},
+                {0, 1, 0}
+            },
+            "Entries" -> {{1, 10}},
+            "Exits" -> {{3, 0}},
+            "Switching" -> {}
+        |>;
+        s = makeScenario[<|"Model" -> data|>];
+        unk = makeSymbolicUnknowns[s];
+        js = symbolicUnknownsData[unk, "Js"];
+        us = symbolicUnknownsData[unk, "Us"];
+        jts = symbolicUnknownsData[unk, "Jts"];
+        MemberQ[js, j["auxEntry1", 1]] &&
+        MemberQ[js, j[1, 2]] &&
+        MemberQ[us, u["auxEntry1", 1]] &&
+        MemberQ[us, u[1, 2]] &&
+        MemberQ[jts, j["auxEntry1", 1, 2]] &&
+        MemberQ[jts, j[1, 2, 3]]
+    ],
+    True,
+    TestID -> "makeSymbolicUnknowns: preserves exact j and u variable forms"
 ]
 
 Test[
@@ -56,24 +94,24 @@ Test[
             "Switching" -> {}
         |>;
         s = makeScenario[<|"Model" -> data|>];
-        unk = makeUnknowns[s];
-        us = unknownsData[unk, "Us"];
+        unk = makeSymbolicUnknowns[s];
+        us = symbolicUnknownsData[unk, "Us"];
         !AnyTrue[
             us,
             MatchQ[#, HoldPattern[u[_, b_]] /; StringQ[b] && StringStartsQ[b, "aux"]] &
         ]
     ],
     True,
-    TestID -> "makeUnknowns: boundary value unknowns use u[aux*, v] orientation only"
+    TestID -> "makeSymbolicUnknowns: boundary value variables use u[aux*, v] orientation only"
 ]
 
 Test[
     Module[{result},
-        result = makeUnknowns[<|"Model" -> <||>|>];
+        result = makeSymbolicUnknowns[<|"Model" -> <||>|>];
         FailureQ[result]
     ],
     True,
-    TestID -> "makeUnknowns: rejects non-scenario input"
+    TestID -> "makeSymbolicUnknowns: rejects non-scenario input"
 ]
 
 Test[
@@ -89,14 +127,14 @@ Test[
             "Exits" -> {{3, 0}},
             "Switching" -> {}
         |>;
-        unk = makeUnknowns[scenario[<|"Model" -> data|>]];
-        unknownsQ[unk] &&
-        Length[unknownsData[unk, "Js"]] > 0 &&
-        Length[unknownsData[unk, "Jts"]] > 0 &&
-        Length[unknownsData[unk, "Us"]] > 0
+        unk = makeSymbolicUnknowns[scenario[<|"Model" -> data|>]];
+        symbolicUnknownsQ[unk] &&
+        Length[symbolicUnknownsData[unk, "Js"]] > 0 &&
+        Length[symbolicUnknownsData[unk, "Jts"]] > 0 &&
+        Length[symbolicUnknownsData[unk, "Us"]] > 0
     ],
     True,
-    TestID -> "makeUnknowns: accepts raw typed scenario head"
+    TestID -> "makeSymbolicUnknowns: accepts raw typed scenario head"
 ]
 
 Test[
@@ -113,17 +151,17 @@ Test[
             "Switching" -> {}
         |>;
         customScenarioHead = Symbol["TmpCtx`scenario"];
-        unk = makeUnknowns[customScenarioHead[<|
+        unk = makeSymbolicUnknowns[customScenarioHead[<|
             "Identity" -> <|"Name" -> "custom-context scenario"|>,
             "Model" -> data
         |>]];
-        unknownsQ[unk] &&
-        Length[unknownsData[unk, "Js"]] > 0 &&
-        Length[unknownsData[unk, "Jts"]] > 0 &&
-        Length[unknownsData[unk, "Us"]] > 0
+        symbolicUnknownsQ[unk] &&
+        Length[symbolicUnknownsData[unk, "Js"]] > 0 &&
+        Length[symbolicUnknownsData[unk, "Jts"]] > 0 &&
+        Length[symbolicUnknownsData[unk, "Us"]] > 0
     ],
     True,
-    TestID -> "makeUnknowns: accepts scenario head from custom context"
+    TestID -> "makeSymbolicUnknowns: accepts scenario head from custom context"
 ]
 
 Test[
@@ -140,13 +178,13 @@ Test[
             "Switching" -> {}
         |>;
         s = makeScenario[<|"Model" -> data|>];
-        unk = makeUnknowns[s];
+        unk = makeSymbolicUnknowns[s];
         scenarioTriples = scenarioData[s, "Topology"]["AuxTriples"];
-        unknownTriples = unknownsData[unk, "AuxTriples"];
+        unknownTriples = symbolicUnknownsData[unk, "AuxTriples"];
         ListQ[scenarioTriples] && ListQ[unknownTriples] && unknownTriples === scenarioTriples
     ],
     True,
-    TestID -> "makeUnknowns: auxTriples preserve scenario topology order"
+    TestID -> "makeSymbolicUnknowns: auxTriples preserve scenario topology order"
 ]
 
 Test[
@@ -163,15 +201,15 @@ Test[
             "Switching" -> {}
         |>;
         s = makeScenario[<|"Model" -> data|>];
-        unk = makeUnknowns[s];
-        raw = unknownsData[unk];
+        unk = makeSymbolicUnknowns[s];
+        raw = symbolicUnknownsData[unk];
         If[!AssociationQ[raw], Return[False, Module]];
         badTriples = If[
             Length[raw["AuxTriples"]] > 1,
             RotateLeft[raw["AuxTriples"], 1],
             Join[raw["AuxTriples"], {{Symbol["vIn"], Symbol["vMid"], Symbol["vOut"]}}]
         ];
-        badUnk = unknowns[Join[raw, <|"AuxTriples" -> badTriples|>]];
+        badUnk = symbolicUnknowns[Join[raw, <|"AuxTriples" -> badTriples|>]];
         sys = makeSystem[s, badUnk];
         FailureQ[sys] && sys["Tag"] === "makeSystem"
     ],
@@ -193,7 +231,7 @@ Test[
             "Switching" -> {}
         |>;
         s = makeScenario[<|"Model" -> data|>];
-        unk = makeUnknowns[s];
+        unk = makeSymbolicUnknowns[s];
         sys = makeSystem[s, unk];
         scenarioTriples = scenarioData[s, "Topology"]["AuxTriples"];
         systemTriples = systemData[sys, "AuxTriples"];
@@ -201,6 +239,29 @@ Test[
     ],
     True,
     TestID -> "makeSystem: canonical auxTriples from scenario are propagated downstream"
+]
+
+Test[
+    Module[{data, s, sys},
+        data = <|
+            "Vertices" -> {1, 2, 3},
+            "Adjacency" -> {
+                {0, 1, 0},
+                {1, 0, 1},
+                {0, 1, 0}
+            },
+            "Entries" -> {{1, 10}},
+            "Exits" -> {{3, 0}},
+            "Switching" -> {}
+        |>;
+        s = makeScenario[<|"Model" -> data|>];
+        sys = makeSystem[s];
+        mfgSystemQ[sys] &&
+        MemberQ[systemData[sys, "Js"], j["auxEntry1", 1]] &&
+        MemberQ[systemData[sys, "Us"], u["auxEntry1", 1]]
+    ],
+    True,
+    TestID -> "makeSystem: automatically builds symbolic unknowns"
 ]
 
 Test[
@@ -218,7 +279,7 @@ Test[
             "Switching" -> {}
         |>;
         s = makeScenario[<|"Model" -> data|>];
-        unk = makeUnknowns[s];
+        unk = makeSymbolicUnknowns[s];
         sys = makeSystem[s, unk];
         entryEq = systemData[sys, "EqEntryIn"];
         entryRules = systemData[sys, "RuleEntryIn"];

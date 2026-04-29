@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 The active package surface focuses on:
 - typed scenario construction (`scenarioTools.wl`)
 - example scenario factories (`examples.wl`)
-- unknown bundle construction (`unknownsTools.wl`)
+- exact symbolic unknown bundle construction (`unknownsTools.wl`)
 - structural system construction (`systemTools.wl`)
 - symbolic solver (`solversTools.wl`)
 - shared primitives (`primitives.wl`)
@@ -56,11 +56,11 @@ Archived/inactive modules live under `MFGraphs/archive/`.
 Every workflow follows the same three-step chain:
 
 ```
-makeScenario[input]  →  makeUnknowns[s]  →  makeSystem[s, unk]
+makeScenario[input]  →  makeSymbolicUnknowns[s]  →  makeSystem[s, unk]
 ```
 
 - **`makeScenario`** normalizes input (Graph objects → adjacency matrix), validates, fills defaults, then builds and caches `buildAuxiliaryTopology` output inside the returned `scenario[<|...|>]` wrapper.
-- **`makeUnknowns`** reads the cached topology and generates symbolic variable families (`j`, `u`, `z`).
+- **`makeSymbolicUnknowns`** reads the cached topology and generates symbolic variable families (`j`, `u`, `z`).
 - **`makeSystem`** orchestrates four typed builders — `buildBoundaryData`, `buildFlowData`, `buildComplementarityData`, `buildHamiltonianData` — each returning its own typed record (`mfgBoundaryData`, etc.), merged into the final `mfgSystem`.
 
 ### Typed wrapper pattern
@@ -70,7 +70,7 @@ All kernel objects follow one pattern: `TypeHead[Association]` with a predicate 
 | Head | Predicate | Accessor |
 |---|---|---|
 | `scenario` | `scenarioQ` | `scenarioData[s]` / `scenarioData[s, key]` |
-| `unknowns` | `unknownsQ` | `unknownsData[u]` / `unknownsData[u, key]` |
+| `symbolicUnknowns` | `symbolicUnknownsQ` | `symbolicUnknownsData[u]` / `symbolicUnknownsData[u, key]` |
 | `mfgSystem` | `mfgSystemQ` | `systemData[sys]` / `systemData[sys, key]` |
 
 `typeData[obj, key]` returns `Missing["KeyAbsent", key]` for absent keys. Sub-records (`mfgBoundaryData` etc.) follow the same accessor convention.
@@ -101,8 +101,8 @@ Switching costs may be supplied as a List of 4-tuples or an Association with 3-t
 - `getExampleScenario`
 - `gridScenario`, `cycleScenario`, `graphScenario`, `amScenario`
 
-### Unknowns/system kernels (`unknownsTools``, `systemTools``)
-- `unknowns`, `unknownsQ`, `unknownsData`, `makeUnknowns`
+### Symbolic unknown/system kernels (`unknownsTools``, `systemTools``)
+- `symbolicUnknowns`, `symbolicUnknownsQ`, `symbolicUnknownsData`, `makeSymbolicUnknowns`
 - `mfgSystem`, `mfgSystemQ`, `systemData`, `systemDataFlatten`, `makeSystem`
 - **System Builders**: `buildBoundaryData`, `buildFlowData`, `buildComplementarityData`, `buildHamiltonianData`
 - **System Records**: `mfgBoundaryData`, `mfgFlowData`, `mfgComplementarityData`, `mfgHamiltonianData`
@@ -120,7 +120,7 @@ All public solver entrypoints share a common preprocessing pipeline (`buildSolve
 - `isValidSystemSolution` — solution validator; option `"ReturnReport" -> True` gives per-block breakdown
 
 ### Orchestration (`orchestrationTools`)
-- `solveScenario` — builds unknowns and system, then solves with `dnfReduceSystem` by default
+- `solveScenario` — builds symbolic unknowns and system, then solves with `dnfReduceSystem` by default
 - `SolveMFG` — compatibility wrapper for raw association input, delegated through `solveScenario`
 
 ### Graphics (`graphicsTools`)
@@ -169,12 +169,12 @@ s = makeScenario[<|
   |>
 |>];
 
-unk = makeUnknowns[s];
+unk = makeSymbolicUnknowns[s];
 sys = makeSystem[s, unk];
 sol = solveScenario[s];
 
 scenarioQ[s]
-unknownsQ[unk]
+symbolicUnknownsQ[unk]
 mfgSystemQ[sys]
 isValidSystemSolution[sys, sol]
 ```
@@ -189,7 +189,7 @@ s = f[{{1, 100}}, {{4, 0}}, {}, 1, 0, Function[z, -1/z]];
 ## Testing
 
 Active suite (`Scripts/RunTests.wls`):
-- `fast`: `scenario-kernel.mt`, `make-unknowns.mt`, `reduce-system.mt`, `scenario-consistency.mt`, `graphicsTools.mt`, `orchestration.mt`
+- `fast`: `scenario-kernel.mt`, `symbolic-unknowns.mt`, `reduce-system.mt`, `scenario-consistency.mt`, `graphicsTools.mt`, `orchestration.mt`
 - `all`: alias for `fast`
 - `archive`: archived compatibility/legacy suites (explicit use only)
 - `full`: `fast + archive`
@@ -257,7 +257,7 @@ wolframscript -file Scripts/GenerateDocs.wls
 ## Code style notes
 
 - Avoid single-letter variable names that collide with WL/System symbols.
-- Prefer typed constructors/accessors (`makeScenario`, `scenarioData`, `makeUnknowns`, `makeSystem`) over ad-hoc association wiring.
+- Prefer typed constructors/accessors (`makeScenario`, `scenarioData`, `makeSymbolicUnknowns`, `makeSystem`) over ad-hoc association wiring.
 - Keep tests deterministic and context-safe; prefer qualified symbol checks (e.g. `scenarioTools`scenarioData`) for package-surface assertions.
 
 ## Git workflow

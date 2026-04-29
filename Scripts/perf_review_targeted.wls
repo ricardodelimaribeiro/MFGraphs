@@ -37,7 +37,7 @@ runCase[spec_Association] := Module[
   name = spec["Name"];
   sM = measure["scenario", spec["Build"][]];
   If[FailureQ[sM["Result"]], Return[<|"Case" -> name, "ScenarioFailure" -> ToString[sM["Result"], InputForm]|>]];
-  uM = measure["unknowns", makeUnknowns[sM["Result"]]];
+  uM = measure["symbolicUnknowns", makeSymbolicUnknowns[sM["Result"]]];
   If[FailureQ[uM["Result"]], Return[<|"Case" -> name, "UnknownsFailure" -> ToString[uM["Result"], InputForm]|>]];
   sysM = measure["system", makeSystem[sM["Result"], uM["Result"]]];
   If[FailureQ[sysM["Result"]], Return[<|"Case" -> name, "SystemFailure" -> ToString[sysM["Result"], InputForm]|>]];
@@ -61,8 +61,8 @@ runCase[spec_Association] := Module[
     "HalfPairs" -> Length[Lookup[topology, "HalfPairs", {}]],
     "AuxPairs" -> Length[Lookup[topology, "AuxPairs", {}]],
     "AuxTriples" -> Length[Lookup[topology, "AuxTriples", {}]],
-    "Js" -> Length[unknownsData[uM["Result"], "Js"]],
-    "Jts" -> Length[unknownsData[uM["Result"], "Jts"]],
+    "Js" -> Length[symbolicUnknownsData[uM["Result"], "Js"]],
+    "Jts" -> Length[symbolicUnknownsData[uM["Result"], "Jts"]],
     "ReduceResultKind" -> Which[
       result === $Aborted, "TimedOut",
       result === False, "False",

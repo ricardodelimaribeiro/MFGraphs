@@ -15,7 +15,7 @@ $TestSuites = <|
     (* Active suite for the scenario-kernel phase. *)
     "fast" -> {
         "scenario-kernel.mt",
-        "make-unknowns.mt",
+        "symbolic-unknowns.mt",
         "reduce-system.mt",
         "scenario-consistency.mt",
         "graphicsTools.mt",

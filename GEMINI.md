@@ -17,8 +17,8 @@ Needs["MFGraphs`"]
 (* Build a scenario using a factory or makeScenario *)
 s = getExampleScenario[12, {{1, 100}}, {{4, 0}}];
 
-(* Generate symbolic unknowns and structural equations *)
-unk = makeUnknowns[s];
+(* Generate exact symbolic unknowns and structural equations *)
+unk = makeSymbolicUnknowns[s];
 sys = makeSystem[s, unk];
 
 (* Solve through the default DNF-first orchestration path *)

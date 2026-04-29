@@ -35,7 +35,7 @@ The overriding goal is to move MFGraphs from a research-grade codebase with an a
 |---|---|
 | `MFGraphs/MFGraphs.wl` | Bootstrap: ::usage declarations, single Get block, shared private helpers |
 | `MFGraphs/scenarioTools.wl` | Typed scenario kernel (`makeScenario`, `validateScenario`, `scenarioQ`) |
-| `MFGraphs/unknownsTools.wl` | Symbolic unknown bundle construction (`makeUnknowns`) |
+| `MFGraphs/unknownsTools.wl` | Symbolic unknown bundle construction (`makeSymbolicUnknowns`) |
 | `MFGraphs/systemTools.wl` | Structural equation system kernel (`makeSystem`) |
 | `MFGraphs/solversTools.wl` | Core solvers (`reduceSystem`, `dnfReduceSystem`, `booleanReduceSystem`) |
 | `MFGraphs/graphicsTools.wl` | Public visualization helpers |
@@ -129,7 +129,7 @@ Deliverables:
 **Gate**: A single entrypoint (e.g., `solveScenario[s_scenario]`) chains the modular pipeline.
 
 Deliverables:
-- `solveScenario` (or similar high-level wrapper) that automatically sequences `makeUnknowns`, `makeSystem`, and `reduceSystem`.
+- `solveScenario` (or similar high-level wrapper) that automatically sequences `makeSymbolicUnknowns`, `makeSystem`, and `reduceSystem`.
 - High-level orchestration for multi-population scenarios.
 - Backward compatibility layer for legacy `SolveMFG` calls that routes to the new modular pipeline.
 - MUnit tests verifying the full chain from `makeScenario` to a feasible result.
@@ -138,7 +138,7 @@ Deliverables:
 Acceptance gate:
 ```mathematica
 s = makeScenario[GetExampleData[12] /. {I1 -> 100, U1 -> 0}];
-r = solveScenario[s]; (* chained makeUnknowns -> makeSystem -> reduceSystem *)
+r = solveScenario[s]; (* chained makeSymbolicUnknowns -> makeSystem -> reduceSystem *)
 IsFeasible[r]  (* must return True *)
 ```
 
@@ -162,7 +162,7 @@ Deliverables:
 **Gate**: Modular tools (`unknownsTools.wl`, `systemTools.wl`, `solversTools.wl`) are fully validated against legacy outputs.
 
 Deliverables:
-- Comprehensive test suite for `makeUnknowns` and `makeSystem` across all topology types.
+- Comprehensive test suite for `makeSymbolicUnknowns` and `makeSystem` across all topology types.
 - Performance parity check between archived `DataToEquations` and new modular path.
 - All stages of compilation covered by direct unit tests.
 

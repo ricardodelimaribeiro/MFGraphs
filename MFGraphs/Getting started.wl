@@ -164,23 +164,23 @@ DescribeOutput[
 ]
 
 
-(* --- 4. Build unknown bundles from Unknowns.wl --- *)
+(* --- 4. Build exact symbolic unknown bundles from unknownsTools.wl --- *)
 
-exampleUnknowns = makeUnknowns[exY];
+exampleUnknowns = makeSymbolicUnknowns[exY];
 
 unknownSummary = <|
-    "unknownsQ" -> unknownsQ[exampleUnknowns],
-    "js count" -> Length @ unknownsData[exampleUnknowns, "Js"],
-    "jts count" -> Length @ unknownsData[exampleUnknowns, "Jts"],
-    "us count" -> Length @ unknownsData[exampleUnknowns, "Us"],
-    "first js" -> Take[unknownsData[exampleUnknowns, "Js"], UpTo[6]],
-    "first jts" -> Take[unknownsData[exampleUnknowns, "Jts"], UpTo[6]],
-    "first us" -> Take[unknownsData[exampleUnknowns, "Us"], UpTo[6]]
+    "symbolicUnknownsQ" -> symbolicUnknownsQ[exampleUnknowns],
+    "js count" -> Length @ symbolicUnknownsData[exampleUnknowns, "Js"],
+    "jts count" -> Length @ symbolicUnknownsData[exampleUnknowns, "Jts"],
+    "us count" -> Length @ symbolicUnknownsData[exampleUnknowns, "Us"],
+    "first js" -> Take[symbolicUnknownsData[exampleUnknowns, "Js"], UpTo[6]],
+    "first jts" -> Take[symbolicUnknownsData[exampleUnknowns, "Jts"], UpTo[6]],
+    "first us" -> Take[symbolicUnknownsData[exampleUnknowns, "Us"], UpTo[6]]
 |>;
 
 DescribeOutput[
-    "Unknown bundle",
-    "makeUnknowns derives flow, transition-flow, and value-function symbolic variables from scenario topology.",
+    "Symbolic unknown bundle",
+    "makeSymbolicUnknowns derives flow, transition-flow, and value-function symbolic variables from scenario topology.",
     unknownSummary
 ]
 
@@ -225,9 +225,9 @@ chain2ExWithSC = gridScenario[
     {{1, 2, 3, 2}}
 ];
 
-unkNoSC   = makeUnknowns[chain2ExNoSC];
+unkNoSC   = makeSymbolicUnknowns[chain2ExNoSC];
 sysNoSC   = makeSystem[chain2ExNoSC, unkNoSC];
-unkWithSC = makeUnknowns[chain2ExWithSC];
+unkWithSC = makeSymbolicUnknowns[chain2ExWithSC];
 sysWithSC = makeSystem[chain2ExWithSC, unkWithSC];
 
 Column[{

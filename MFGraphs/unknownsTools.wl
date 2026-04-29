@@ -3,21 +3,41 @@
 
 BeginPackage["unknownsTools`", {"primitives`", "scenarioTools`"}]
 
-unknowns::usage = "unknowns[assoc] is the typed head for MFGraphs unknown-variable bundles.";
+symbolicUnknowns::usage =
+"symbolicUnknowns[assoc] is the typed head for topology-derived exact symbolic \
+variable bundles used by MFGraphs structural graph systems.";
 
-unknownsQ::usage = "unknownsQ[x] returns True iff x is an unknowns[assoc_Association] object.";
+symbolicUnknownsQ::usage =
+"symbolicUnknownsQ[x] returns True iff x is a symbolicUnknowns[assoc_Association] object.";
 
-unknownsData::usage = "unknownsData[u, key] returns key from unknowns object u; unknownsData[u] returns the underlying association.";
+symbolicUnknownsData::usage =
+"symbolicUnknownsData[u, key] returns key from symbolicUnknowns object u; \
+symbolicUnknownsData[u] returns the underlying association.";
 
-makeUnknowns::usage = "makeUnknowns[s] returns unknowns[<|\"Js\" -> ..., \"Jts\" -> ..., \"Us\" -> ...|>] for scenario s. \"Js\" are flow unknowns j[a,b], \"Jts\" are transition-flow unknowns j[r,i,w], and \"Us\" are value-function unknowns u[a,b].";
+makeSymbolicUnknowns::usage =
+"makeSymbolicUnknowns[s] returns symbolicUnknowns[<|\"Js\" -> ..., \"Jts\" -> ..., \
+\"Us\" -> ...|>] for scenario s. \"Js\" are exact flow variables j[a,b], \
+\"Jts\" are exact transition-flow variables j[r,i,w], and \"Us\" are exact \
+value-function variables u[a,b].";
+
+unknown::usage =
+"unknown is reserved for future numeric MFGraphs solver fields over grids or \
+layouts; it is not used by the exact symbolic graph-system constructors.";
+
+unknowns::usage =
+"unknowns is reserved for future numeric collections of unknown fields over \
+grids or layouts, following the Maydan-style numeric solver boundary. Use \
+symbolicUnknowns for current exact symbolic graph systems.";
 
 Begin["`Private`"]
 
 canonicalUPair::usage =
-"canonicalUPair[{a,b}] returns the canonical pair used for value-function unknowns, orienting auxiliary entry/exit pairs consistently.";
+"canonicalUPair[{a,b}] returns the canonical pair used for value-function \
+variables, orienting auxiliary entry/exit pairs consistently.";
 
-makeUnknownsFromPairsTriples::usage =
-"makeUnknownsFromPairsTriples[auxPairs, auxTriples] builds the typed unknowns object from auxiliary pairs and triples.";
+makeSymbolicUnknownsFromPairsTriples::usage =
+"makeSymbolicUnknownsFromPairsTriples[auxPairs, auxTriples] builds the typed \
+symbolicUnknowns object from auxiliary pairs and triples.";
 
 canonicalUPair[pair : {a_, b_}] :=
     If[StringQ[b] && (StringStartsQ[b, "auxEntry"] || StringStartsQ[b, "auxExit"]),
@@ -25,8 +45,8 @@ canonicalUPair[pair : {a_, b_}] :=
         pair
     ];
 
-makeUnknownsFromPairsTriples[auxPairs_List, auxTriples_List] :=
-    unknowns[
+makeSymbolicUnknownsFromPairsTriples[auxPairs_List, auxTriples_List] :=
+    symbolicUnknowns[
         <|
             "Js"        -> (j[Sequence @@ #] & /@ auxPairs),
             "Jts"       -> (j[Sequence @@ #] & /@ auxTriples),
@@ -36,13 +56,13 @@ makeUnknownsFromPairsTriples[auxPairs_List, auxTriples_List] :=
         |>
     ];
 
-unknownsQ[unknowns[_Association]] := True;
-unknownsQ[_] := False;
+symbolicUnknownsQ[symbolicUnknowns[_Association]] := True;
+symbolicUnknownsQ[_] := False;
 
-unknownsData[unknowns[assoc_Association]] := assoc;
-unknownsData[unknowns[assoc_Association], key_] := Lookup[assoc, key, Missing["KeyAbsent", key]];
+symbolicUnknownsData[symbolicUnknowns[assoc_Association]] := assoc;
+symbolicUnknownsData[symbolicUnknowns[assoc_Association], key_] := Lookup[assoc, key, Missing["KeyAbsent", key]];
 
-makeUnknowns[s_] :=
+makeSymbolicUnknowns[s_] :=
     Module[{model, topology, rawAssoc, auxPairs, auxTriples},
         rawAssoc = Which[
             scenarioQ[s], scenarioData[s],
@@ -52,7 +72,7 @@ makeUnknowns[s_] :=
         ];
 
         If[!AssociationQ[rawAssoc],
-            Return[Failure["makeUnknowns", <|"Message" -> "Input must be a scenario or a model association."|>], Module]
+            Return[Failure["makeSymbolicUnknowns", <|"Message" -> "Input must be a scenario or a model association."|>], Module]
         ];
 
         topology = If[scenarioQ[s],
@@ -63,19 +83,19 @@ makeUnknowns[s_] :=
         If[!AssociationQ[topology],
             model = Lookup[rawAssoc, "Model", rawAssoc];
             If[!AssociationQ[model],
-                Return[Failure["makeUnknowns", <|"Message" -> "Input must be a scenario or a model association."|>], Module]
+                Return[Failure["makeSymbolicUnknowns", <|"Message" -> "Input must be a scenario or a model association."|>], Module]
             ];
             topology = buildAuxiliaryTopology[model];
         ];
 
         If[topology === $Failed,
-            Return[Failure["makeUnknowns", <|"Message" -> "Could not build auxiliary topology."|>], Module]
+            Return[Failure["makeSymbolicUnknowns", <|"Message" -> "Could not build auxiliary topology."|>], Module]
         ];
 
         auxPairs   = Lookup[topology, "AuxPairs",   deriveAuxPairs[topology]];
         auxTriples = Lookup[topology, "AuxTriples",  buildAuxTriples[topology["AuxiliaryGraph"]]];
 
-        makeUnknownsFromPairsTriples[auxPairs, auxTriples]
+        makeSymbolicUnknownsFromPairsTriples[auxPairs, auxTriples]
     ];
 
 End[]
