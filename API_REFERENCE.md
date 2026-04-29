@@ -16,7 +16,7 @@ ensureParallelKernels[] launches parallel subkernels if none are running.
 
 ## j
 
-j[v, e] or j[v, e1, e2] represents a flow variable.
+j[a, b] is the flow on edge {a,b} from a to b. j[r, i, w] is the fraction of the flow j[r,i] that transitions to edge e_{i,w} at junction i.
 
 ## mfgPrint
 
@@ -28,7 +28,7 @@ mfgPrintTemporary[args___] prints a temporary message only when $MFGraphsVerbose
 
 ## u
 
-u[v, e] represents a value-function variable. u[r, i] is the value at vertex v_i on edge e_{r,i}.
+u[a, b] is the value of the value function at vertex b of edge {a,b}.
 
 ## z
 
@@ -92,7 +92,7 @@ gridScenario[dims, entries, exits] creates a scenario on a directed GridGraph[di
 
 ## makeUnknowns
 
-makeUnknowns[s] returns unknowns[<|"Js" -> ..., "Jts" -> ..., "Us" -> ...|>] for scenario s. "Js" are flow unknowns j[v,e], "Jts" are transition-flow unknowns j[v,e1,e2], and "Us" are value-function unknowns u[v,e].
+makeUnknowns[s] returns unknowns[<|"Js" -> ..., "Jts" -> ..., "Us" -> ...|>] for scenario s. "Js" are flow unknowns j[a,b], "Jts" are transition-flow unknowns j[r,i,w], and "Us" are value-function unknowns u[a,b].
 
 ## unknowns
 
@@ -112,8 +112,9 @@ altFlowOp[j][list] returns the alternative: j@@list ==0 || j@@Reverse@list ==0.
 
 ## altSwitch
 
-altSwitch[j, u, switchingCosts][v, e1, e2] returns the complementarity condition:
-(j[v, e1, e2] == 0) || (u[v, e1] == u[e2, e1] + switchingCosts[{v, e1, e2}])
+altSwitch[j, u, switchingCosts][r, i, w] returns the complementarity condition at junction i for the transition from r to w:
+(j[r, i, w] == 0) || (u[w, i] + switchingCosts[r, i, w] - u[r, i] == 0)
+where switchingCosts[r, i, w] is the minimal cost of transitioning from edge e_{r,i} to edge e_{i,w}; minimal because when switching costs are inconsistent the broader alternative-transition-flow conditions (j[j,i,l]==0 || j[l,i,k]==0) for all v_j, v_l, v_k adjacent to v_i are added to the system (this generalizes the condition for j=k already present in the system).
 
 ## consistentSwitchingCosts
 
@@ -141,8 +142,9 @@ getKirchhoffMatrix[sys] returns the entry current vector, Kirchhoff matrix, (cri
 
 ## ineqSwitch
 
-ineqSwitch[u, switchingCosts][v, e1, e2] returns the optimality condition at the vertex v related to switching from e1 to e2. Namely,
-u[v, e1] <= u[e2, e1] + switchingCosts[{v, e1, e2}]
+ineqSwitch[u, switchingCosts][r, i, w] returns the optimality condition at junction i for the transition from r to w. Namely,
+u[w, i] + switchingCosts[r, i, w] - u[r, i] >= 0
+where switchingCosts[r, i, w] is the minimal cost of transitioning from edge e_{r,i} to edge e_{i,w}; minimal because when switching costs are inconsistent the broader alternative-transition-flow conditions (j[j,i,l]==0 || j[l,i,k]==0) for all v_j, v_l, v_k adjacent to v_i are added to the system (this generalizes the condition for j=k already present in the system).
 
 ## isSwitchingCostConsistent
 
@@ -196,6 +198,10 @@ mfgSystemQ[x] returns True if x is a typed mfgSystem[assoc_Association] object, 
 
 roundValues[x] rounds numerical values in x to a standard precision (10^-10).
 
+## switchingCostLookup
+
+switchingCostLookup[sc] returns a function f such that f[r, i, w] gives the switching cost for the transition from e_{r,i} to e_{i,w}, defaulting to 0 if absent.
+
 ## systemData
 
 systemData[sys, key] returns the value associated with key in the system sys, or Missing["KeyAbsent", key] if absent. systemData[sys] returns the underlying Association.
@@ -216,6 +222,10 @@ dnfReduce[xp, sys] simplifies xp && sys by solving equalities, substituting thei
 
 dnfReduceSystem[sys] solves the mfgSystem sys using linear preprocessing followed by dnfReduce instead of Reduce. Handles cases where Reduce times out by using equality-substitution and disjunction-distribution. Returns a list of rules when fully determined, or <|"Rules" -> rules, "Equations" -> residual|> when underdetermined. Fails for non-critical congestion systems where Alpha != 1 on any edge.
 
+## findInstanceSystem
+
+findInstanceSystem[sys] solves the mfgSystem sys by collecting and linearly preprocessing constraints, then calling FindInstance over the remaining variables. Returns one feasible list of rules. If no instance is found or the final solve times out, returns <|"Rules" -> accumulatedRules, "Equations" -> False|>. Fails for non-critical congestion systems where Alpha != 1 on any edge. Options: "Timeout" (default Infinity).
+
 ## isValidSystemSolution
 
 isValidSystemSolution[sys, sol] checks whether sol (the output of reduceSystem[sys]) satisfies the constraint blocks of sys. Returns True or False. With option "ReturnReport" -> True, returns a detailed association with per-block results. Tolerance for numeric checks is set via "Tolerance" (default 10^-6). For underdetermined solutions the partial rules are checked; blocks that remain symbolic after substitution are reported as Indeterminate, not False.
@@ -224,26 +234,34 @@ isValidSystemSolution[sys, sol] checks whether sol (the output of reduceSystem[s
 
 reduceSystem[sys] reduces the structural equations, flow balance, non-negativity constraints, and complementarity conditions of the mfgSystem sys using Reduce over the Reals. Includes AltOptCond (switching-cost optimality complementarity) and IneqSwitchingByVertex (switching-cost optimality inequalities). Fails for non-critical congestion systems where Alpha != 1 on any edge. Returns a list of rules when the system is fully determined, or <|"Rules" -> rules, "Equations" -> residual|> when underdetermined.
 
+## SolveMFG
+
+SolveMFG[assoc] provides backward compatibility for legacy raw-association solving. It constructs a scenario and delegates to solveScenario.
+
+## solveScenario
+
+solveScenario[s] automatically constructs unknowns, builds the structural system, and calls dnfReduceSystem. solveScenario[{s1, s2, ...}] solves multiple populations (scenarios) and returns a list of solutions. solveScenario[..., solver] uses the specified solver function (e.g., reduceSystem).
+
 ## augmentAuxiliaryGraph
 
-augmentAuxiliaryGraph[sys] constructs the road-traffic augmented infrastructure graph from a system's AuxPairs and AuxTriples. Flow edges correspond to j[a,b] and run from {b,a} to {a,b}; transition edges correspond to j[r,i,w] and run from {r,i} to {w,i}. Returns an Association with Graph, Vertices, FlowEdges, TransitionEdges, EdgeVariables, and EdgeKinds.
+augmentAuxiliaryGraph[sys] constructs the road-traffic augmented infrastructure graph from a system's AuxPairs and AuxTriples. Returns an Association containing the Graph, Vertices, FlowEdges, TransitionEdges, EdgeVariables, and EdgeKinds.
 
 ## mfgAugmentedPlot
 
-mfgAugmentedPlot[s, sys, sol, opts] plots the augmented infrastructure graph (Paper scheme) built by augmentAuxiliaryGraph. Nodes represent road-traffic edge-vertex states, flow edges correspond to j[a,b], and transition edges correspond to j[r,i,w]. Value functions (u) are vertex labels where available, and flow/transition values (j) are edge labels. Supports PlotLabel, GraphLayout, and ImageSize options; the legacy fourth positional title is still accepted.
+mfgAugmentedPlot[s, sys, sol, opts] plots the augmented road-traffic infrastructure graph built by augmentAuxiliaryGraph. Blue edges represent flow variables j[a,b]; red edges represent transition variables j[r,i,w]. Use PlotLabel, GraphLayout, and ImageSize options to control display.
 
 ## mfgFlowPlot
 
-mfgFlowPlot[s, sys, sol, opts] plots a flow-only solution graph with real and auxiliary edges. Edges are displayed as directed, and edge labels show only j flow values. Supports PlotLabel, GraphLayout, and ImageSize options; the legacy fourth positional title is still accepted.
+mfgFlowPlot[s, sys, sol, opts] plots a flow-only solution graph with real and auxiliary edges. Edges are displayed as directed, and edge labels show only j flow values. Use PlotLabel, GraphLayout, and ImageSize options to control display.
 
 ## mfgSolutionPlot
 
-mfgSolutionPlot[s, sys, sol, opts] plots a combined solution graph with real and auxiliary edges. Edge labels include both j and u values, and real-edge directions follow solved net flow orientation. Supports PlotLabel, GraphLayout, and ImageSize options; the legacy fourth positional title is still accepted.
+mfgSolutionPlot[s, sys, sol, opts] plots a combined solution graph with real and auxiliary edges. Edge labels include both j and u values, and real-edge directions follow solved net flow orientation. Use PlotLabel, GraphLayout, and ImageSize options to control display.
 
 ## mfgTransitionPlot
 
-mfgTransitionPlot[s, sys, sol, opts] plots the transition graph of the solution. Nodes are AuxPair states, and directed edges represent transition flows j[r,i,w] from {r,i} to {i,w}. Nodes are labeled with internal values u where available. Supports PlotLabel, GraphLayout, and ImageSize options; the legacy fourth positional title is still accepted.
+mfgTransitionPlot[s, sys, sol, opts] plots the transition graph of the solution. Nodes are AuxPair states {r,i}->{i,w}; directed edges represent transition flows j[r,i,w]. Nodes are labeled with internal values u where available. Use PlotLabel, GraphLayout, and ImageSize options to control display.
 
 ## scenarioTopologyPlot
 
-scenarioTopologyPlot[s, sys, opts] plots the scenario topology using vertex coloring for entry, exit, and internal vertices. Supports PlotLabel, GraphLayout, and ImageSize options; the legacy third positional title is still accepted.
+scenarioTopologyPlot[s, sys, opts] plots the scenario topology using vertex coloring for entry, exit, and internal vertices. Use PlotLabel, GraphLayout, and ImageSize options to control display.

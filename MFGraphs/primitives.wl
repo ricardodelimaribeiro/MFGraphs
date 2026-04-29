@@ -12,8 +12,8 @@
 
 BeginPackage["primitives`"]
 
-j::usage = "j[v, e] or j[v, e1, e2] represents a flow variable.";
-u::usage = "u[v, e] represents a value-function variable. u[r, i] is the value at vertex v_i on edge e_{r,i}.";
+j::usage = "j[a, b] is the flow on edge {a,b} from a to b. j[r, i, w] is the fraction of the flow j[r,i] that transitions to edge e_{i,w} at junction i.";
+u::usage = "u[a, b] is the value of the value function at vertex b of edge {a,b}.";
 z::usage = "z[v] represents a vertex potential variable.";
 alpha::usage = "alpha[edge] is the congestion exponent for an edge. Default is 1.";
 Cost::usage = "Cost[m, edge] is the congestion cost function.";

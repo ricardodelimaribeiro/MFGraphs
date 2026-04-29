@@ -9,7 +9,7 @@ unknownsQ::usage = "unknownsQ[x] returns True iff x is an unknowns[assoc_Associa
 
 unknownsData::usage = "unknownsData[u, key] returns key from unknowns object u; unknownsData[u] returns the underlying association.";
 
-makeUnknowns::usage = "makeUnknowns[s] returns unknowns[<|\"Js\" -> ..., \"Jts\" -> ..., \"Us\" -> ...|>] for scenario s. \"Js\" are flow unknowns j[v,e], \"Jts\" are transition-flow unknowns j[v,e1,e2], and \"Us\" are value-function unknowns u[v,e].";
+makeUnknowns::usage = "makeUnknowns[s] returns unknowns[<|\"Js\" -> ..., \"Jts\" -> ..., \"Us\" -> ...|>] for scenario s. \"Js\" are flow unknowns j[a,b], \"Jts\" are transition-flow unknowns j[r,i,w], and \"Us\" are value-function unknowns u[a,b].";
 
 Begin["`Private`"]
 

@@ -18,7 +18,8 @@ $TestSuites = <|
         "make-unknowns.mt",
         "reduce-system.mt",
         "scenario-consistency.mt",
-        "graphics.mt"
+        "graphicsTools.mt",
+        "orchestration.mt"
     },
     (* Archived tests are intentionally excluded from active CI.
        Use this suite only for explicit compatibility checks. *)

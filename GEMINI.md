@@ -15,14 +15,17 @@ Needs["MFGraphs`"]
 ### Quick start (Core Scenario Kernels)
 ```mathematica
 (* Build a scenario using a factory or makeScenario *)
-s = GetExampleScenario[12][{{1, 100}}, {{4, 0}}, {}];
+s = getExampleScenario[12, {{1, 100}}, {{4, 0}}];
 
 (* Generate symbolic unknowns and structural equations *)
 unk = makeUnknowns[s];
 sys = makeSystem[s, unk];
 
+(* Solve through the default DNF-first orchestration path *)
+sol = solveScenario[s];
+
 (* Access structural data *)
-data = SystemDataFlatten[sys];
+data = systemDataFlatten[sys];
 data["AltFlows"]
 ```
 
@@ -43,7 +46,11 @@ data["AltFlows"]
 | File | Purpose |
 |------|---------|
 | `MFGraphs/MFGraphs.wl` | Package loader |
-| `MFGraphs/Scenario.wl` | Typed scenario kernel |
-| `MFGraphs/Unknowns.wl` | Symbolic unknown bundle construction |
-| `MFGraphs/System.wl` | Structural equation system kernel |
+| `MFGraphs/scenarioTools.wl` | Typed scenario kernel |
+| `MFGraphs/examples.wl` | Example scenario factories |
+| `MFGraphs/unknownsTools.wl` | Symbolic unknown bundle construction |
+| `MFGraphs/systemTools.wl` | Structural equation system kernel |
+| `MFGraphs/solversTools.wl` | Critical-congestion structural solver |
+| `MFGraphs/orchestrationTools.wl` | High-level DNF-first solver orchestration |
+| `MFGraphs/graphicsTools.wl` | Scenario and solution plotting helpers |
 | `Scripts/RunTests.wls` | Test suite runner |

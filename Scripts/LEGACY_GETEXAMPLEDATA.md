@@ -5,21 +5,23 @@ They remain available for manual runs during migration.
 
 ## Legacy Inventory
 
-- `Scripts/BenchmarkSuite.wls`
-- `Scripts/BottleneckReport.wls`
-- `Scripts/CompareDNF.wls`
-- `Scripts/GenerateReferenceHashes.wls`
-- `Scripts/InstrumentJamarat.wls`
-- `Scripts/JamaratFeasibilityPhaseDiagram.wls`
-- `Scripts/Phase0_Extract.wls`
-- `Scripts/Profile.wls`
-- `Scripts/ProfileEquivCheck.wls`
-- `Scripts/ProfileMFGSS.wls`
-- `Scripts/ProfilePreprocessing.wls`
-- `Scripts/ProfileReductionStrategies.wls`
-- `Scripts/RunBenchmarkCI.wls` (indirect via `BenchmarkSuite.wls`)
-- `Scripts/SmokeTestExactMode.wls`
+- `Scripts/archive/BenchmarkSuite.wls`
+- `Scripts/archive/BottleneckReport.wls`
+- `Scripts/archive/CompareDNF.wls`
+- `Scripts/archive/GenerateReferenceHashes.wls`
+- `Scripts/archive/InstrumentJamarat.wls`
+- `Scripts/archive/JamaratFeasibilityPhaseDiagram.wls`
+- `Scripts/archive/Phase0_Extract.wls`
+- `Scripts/archive/Profile.wls`
+- `Scripts/archive/ProfileEquivCheck.wls`
+- `Scripts/archive/ProfileMFGSS.wls`
+- `Scripts/archive/ProfilePreprocessing.wls`
+- `Scripts/archive/ProfileReductionStrategies.wls`
+- `Scripts/archive/RunBenchmarkCI.wls` (indirect via `BenchmarkSuite.wls`)
+- `Scripts/archive/SmokeTestExactMode.wls`
 
 ## Migration Note
 
-Target replacement path is scenario-based construction (e.g., `ScenarioByKey[...]`) with input-defined boundaries/switching costs.
+Target replacement path is scenario-based construction (for example,
+`getExampleScenario[...]`, `gridScenario[...]`, or `makeScenario[...]`) with
+input-defined boundaries/switching costs.

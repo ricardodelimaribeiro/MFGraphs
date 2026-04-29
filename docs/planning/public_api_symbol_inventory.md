@@ -14,7 +14,7 @@ The current exported surface contains **104** symbols.
 | `alpha$` | — | accidental | fix-export | broken-export | 0 | appears accidental; no direct test reference found |
 | `AltFlowOp` | `MFGraphs/DataToEquations.wl` | advanced | review | review-needed | 0 | no direct test reference found |
 | `AltSwitch` | `MFGraphs/DataToEquations.wl` | advanced | review | review-needed | 0 | no direct test reference found |
-| `AssociationValue` | `MFGraphs/Graphics.wl` | advanced | review | review-needed | 0 | no direct test reference found |
+| `AssociationValue` | `MFGraphs/graphicsTools.wl` | advanced | review | review-needed | 0 | no direct test reference found |
 | `BuildBoundaryMassData` | `MFGraphs/MFGraphs.wl` | advanced | review | review-needed | 0 | no direct test reference found |
 | `BuildCriticalQuadraticObjective` | `MFGraphs/MFGraphs.wl` | advanced | review | review-needed | 0 | no direct test reference found |
 | `BuildFeasibleFlowSeed` | `MFGraphs/MFGraphs.wl` | advanced | review | review-needed | 0 | no direct test reference found |
@@ -43,12 +43,12 @@ The current exported surface contains **104** symbols.
 | `DNFSolveStep` | `MFGraphs/DataToEquations.wl` | advanced | review | review-needed | 1 | — |
 | `EncodeFlowAssociation` | `MFGraphs/MFGraphs.wl` | advanced | review | review-needed | 0 | no direct test reference found |
 | `EnsureParallelKernels` | `MFGraphs/MFGraphs.wl` | advanced | review | review-needed | 0 | no direct test reference found |
-| `ExitFlowPlot` | `MFGraphs/Graphics.wl` | core | keep | stable-candidate | 1 | — |
+| `ExitFlowPlot` | `MFGraphs/graphicsTools.wl` | core | keep | stable-candidate | 1 | — |
 | `ExtractBellmanPotentials` | `MFGraphs/MFGraphs.wl` | advanced | review | review-needed | 0 | no direct test reference found |
 | `FinalStep` | `MFGraphs/DataToEquations.wl` | compatibility | keep-with-deprecation | compatibility | 1 | — |
 | `FlowGathering` | `MFGraphs/DataToEquations.wl` | advanced | review | review-needed | 0 | no direct test reference found |
 | `FlowSplitting` | `MFGraphs/DataToEquations.wl` | advanced | review | review-needed | 0 | no direct test reference found |
-| `FlowStyleDirective` | `MFGraphs/Graphics.wl` | advanced | review | review-needed | 0 | no direct test reference found |
+| `FlowStyleDirective` | `MFGraphs/graphicsTools.wl` | advanced | review | review-needed | 0 | no direct test reference found |
 | `GetExampleData` | `MFGraphs/Examples/ExamplesData.wl` | advanced | review | review-needed | 15 | — |
 | `GetKirchhoffLinearSystem` | `MFGraphs/DataToEquations.wl` | advanced | review | review-needed | 1 | — |
 | `GetKirchhoffMatrix` | `MFGraphs/DataToEquations.wl` | advanced | review | review-needed | 1 | — |
@@ -69,9 +69,9 @@ The current exported surface contains **104** symbols.
 | `MFGPrintTemporary` | `MFGraphs/MFGraphs.wl` | advanced | review | review-needed | 0 | no direct test reference found |
 | `MFGSystemSolver` | `MFGraphs/DataToEquations.wl`, `MFGraphs/MFGraphs.wl` | advanced | review | review-needed | 3 | duplicate usage declaration |
 | `MonotoneVariableFieldValue` | `MFGraphs/MFGraphs.wl` | advanced | review | review-needed | 0 | no direct test reference found |
-| `NetEdgeFlows` | `MFGraphs/Graphics.wl` | advanced | review | review-needed | 0 | no direct test reference found |
-| `NetworkGraphPlot` | `MFGraphs/Graphics.wl` | core | keep | stable-candidate | 1 | — |
-| `NetworkVisualData` | `MFGraphs/Graphics.wl` | advanced | review | review-needed | 0 | no direct test reference found |
+| `NetEdgeFlows` | `MFGraphs/graphicsTools.wl` | advanced | review | review-needed | 0 | no direct test reference found |
+| `NetworkGraphPlot` | `MFGraphs/graphicsTools.wl` | core | keep | stable-candidate | 1 | — |
+| `NetworkVisualData` | `MFGraphs/graphicsTools.wl` | advanced | review | review-needed | 0 | no direct test reference found |
 | `NumberVectorQ` | `MFGraphs/DataToEquations.wl`, `MFGraphs/MFGraphs.wl` | advanced | review | review-needed | 0 | duplicate usage declaration; no direct test reference found |
 | `ReduceDisjuncts` | `MFGraphs/DNFReduce.wl` | advanced | review | review-needed | 0 | no direct test reference found |
 | `RemoveDuplicates` | `MFGraphs/DNFReduce.wl` | compatibility | keep-with-deprecation | compatibility | 1 | — |
@@ -96,7 +96,7 @@ The current exported surface contains **104** symbols.
 | `ScenarioData` | `MFGraphs/Scenario.wl` | advanced | keep | stable-candidate | 1 | — |
 | `scenarioQ` | `MFGraphs/Scenario.wl` | advanced | keep | stable-candidate | 1 | — |
 | `SelectFlowAssociation` | `MFGraphs/MFGraphs.wl` | advanced | review | review-needed | 0 | no direct test reference found |
-| `SolutionFlowPlot` | `MFGraphs/Graphics.wl` | core | keep | stable-candidate | 1 | — |
+| `SolutionFlowPlot` | `MFGraphs/graphicsTools.wl` | core | keep | stable-candidate | 1 | — |
 | `SolveCriticalFictitiousPlayBackend` | `MFGraphs/MFGraphs.wl` | advanced | review | review-needed | 1 | — |
 | `SolveCriticalJFirstBackend` | `MFGraphs/MFGraphs.wl` | advanced | review | review-needed | 0 | no direct test reference found |
 | `SolveCriticalJFirstUtilities` | `MFGraphs/MFGraphs.wl` | advanced | review | review-needed | 0 | no direct test reference found |
@@ -121,7 +121,7 @@ The list below is intentionally approximate. It highlights representative helper
 |---|---|
 | `MFGraphs/DNFReduce.wl` | `CachedSolve`, `CachedReduce`, `FlattenConjuncts`, `SubsumptionPrune` |
 | `MFGraphs/DataToEquations.wl` | `TransitionsAt`, `ComputeDistanceToExitAssociation`, `BuildSignedEdgeMatrixFromKirchhoff`, `ExtractDirectedEdgePairsFromAdjacencyMatrix`, `BuildCriticalDecouplingPartition`, `BuildNumericState`, `RoundValues`, `UtilityConjunctionTerms`, `CanonicalUtilityOrderKey`, `BuildUtilityReductionData`, `BuildPrunedSystem`, `BuildOraclePrunedSystem` |
-| `MFGraphs/Graphics.wl` | `vertexPropertyMap` |
+| `MFGraphs/graphicsTools.wl` | `vertexPropertyMap` |
 | `MFGraphs/MFGraphs.wl` | `Hess`, `InverseHessian`, `BuildCriticalQuadraticEdgeModel`, `MakeSolverResult`, `SolveMFGCompiledInputQ` |
 | `MFGraphs/Solvers.wl` | `GraphDistanceHeuristicSafeQ`, `ResolveOneOr`, `ResolveOrByGraphDistance`, `DirectCriticalSolver`, `BuildUEquivalenceReduction`, `CriticalNumericBackendRequestedQ`, `CriticalNumericBackendEligibleQ`, `BuildCriticalLinearConstraints`, `BuildLinearSystemFromEqualities`, `LinearSolveCandidate`, `CriticalJFirstFailure`, `CriticalJFirstFailureReason` |
 

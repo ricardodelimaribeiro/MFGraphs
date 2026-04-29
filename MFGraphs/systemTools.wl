@@ -79,11 +79,17 @@ flowSplitting::usage = "flowSplitting[AT][UndirectedEdge[a, b]] returns the spli
 
 flowGathering::usage = "flowGathering[auxTriples_List][x_] returns the triples that end with x.";
 
-ineqSwitch::usage = "ineqSwitch[u, switchingCosts][v, e1, e2] returns the optimality condition at the vertex v related to switching from e1 to e2. Namely,
-u[v, e1] <= u[e2, e1] + switchingCosts[{v, e1, e2}]"
+switchingCostLookup::usage =
+"switchingCostLookup[sc] returns a function f such that f[r, i, w] gives the switching cost \
+for the transition from e_{r,i} to e_{i,w}, defaulting to 0 if absent.";
 
-altSwitch::usage = "altSwitch[j, u, switchingCosts][v, e1, e2] returns the complementarity condition:
-(j[v, e1, e2] == 0) || (u[v, e1] == u[e2, e1] + switchingCosts[{v, e1, e2}])"
+ineqSwitch::usage = "ineqSwitch[u, switchingCosts][r, i, w] returns the optimality condition at junction i for the transition from r to w. Namely,
+u[w, i] + switchingCosts[r, i, w] - u[r, i] >= 0
+where switchingCosts[r, i, w] is the minimal cost of transitioning from edge e_{r,i} to edge e_{i,w}; minimal because when switching costs are inconsistent the broader alternative-transition-flow conditions (j[j,i,l]==0 || j[l,i,k]==0) for all v_j, v_l, v_k adjacent to v_i are added to the system (this generalizes the condition for j=k already present in the system)."
+
+altSwitch::usage = "altSwitch[j, u, switchingCosts][r, i, w] returns the complementarity condition at junction i for the transition from r to w:
+(j[r, i, w] == 0) || (u[w, i] + switchingCosts[r, i, w] - u[r, i] == 0)
+where switchingCosts[r, i, w] is the minimal cost of transitioning from edge e_{r,i} to edge e_{i,w}; minimal because when switching costs are inconsistent the broader alternative-transition-flow conditions (j[j,i,l]==0 || j[l,i,k]==0) for all v_j, v_l, v_k adjacent to v_i are added to the system (this generalizes the condition for j=k already present in the system)."
 
 roundValues::usage = "roundValues[x] rounds numerical values in x to a standard precision (10^-10).";
 
@@ -195,11 +201,13 @@ flowSplitting[auxTriples_List][x_] :=
 flowGathering[auxTriples_List][x_] :=
     Select[auxTriples, MatchQ[#, {__, Sequence @@ x}]&]
 
-ineqSwitch[u_, switching_Association][r_, i_, w_] :=
-    u[r, i] <= u[w, i] + switching[{r, i, w}];
+switchingCostLookup[sc_Association][r_, i_, w_] := Lookup[sc, Key[{r, i, w}], 0]
+
+ineqSwitch[u_, switching_][r_, i_, w_] :=
+    u[w, i] + switching[r, i, w] - u[r, i] >= 0;
 
 altSwitch[j_, u_, switching_][r_, i_, w_] :=
-    (j[r, i, w] == 0) || (u[r, i] == u[w, i] + switching[{r, i, w}]);
+    (j[r, i, w] == 0) || (u[w, i] + switching[r, i, w] - u[r, i] == 0);
 
 (* --- Type predicates --- *)
 
@@ -393,12 +401,14 @@ buildComplementarityData[s_?scenarioQ, topology_Association, unk_?unknownsQ] :=
         activeTriples = auxTriples;
         auxTriplesByMiddle = GroupBy[auxTriples, #[[2]] &];
 
-        ineqSwitchingByVertex =
-            ineqSwitch[u, switchingCosts] @@@
-                Lookup[auxTriplesByMiddle, #, {}] & /@ verticesList;
-        ineqSwitchingByVertex = And @@ Flatten[ineqSwitchingByVertex];
+        With[{scFn = switchingCostLookup[switchingCosts]},
+            ineqSwitchingByVertex =
+                ineqSwitch[u, scFn] @@@
+                    Lookup[auxTriplesByMiddle, #, {}] & /@ verticesList;
+            ineqSwitchingByVertex = And @@ Flatten[ineqSwitchingByVertex];
 
-        altOptCond = And @@ altSwitch[j, u, switchingCosts] @@@ activeTriples;
+            altOptCond = And @@ altSwitch[j, u, scFn] @@@ activeTriples;
+        ];
 
         mfgComplementarityData @ <|
             "SwitchingCosts"         -> switchingCosts,

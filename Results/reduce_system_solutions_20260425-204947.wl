@@ -78,5 +78,5 @@
         10, u[1, 2] -> 30, u[2, 1] -> 40, u[2, 3] -> 20, u[3, 2] -> 30, 
        u[3, 4] -> 10, u[4, 3] -> 20, u[4, 5] -> 0, u[5, 4] -> 10, 
        u["auxEntry1", 1] -> 40, u["auxExit5", 5] -> 0}|>, 
-   "example-12" -> <|"Status" -> "TIMEOUT", "Kind" -> "\[AHat]\200\224", 
+   "example-12" -> <|"Status" -> "TIMEOUT", "Kind" -> "-",
      "Valid" -> Missing["TimedOut"], "Solution" -> $TimedOut|>|>|>

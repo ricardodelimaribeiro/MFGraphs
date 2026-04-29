@@ -1,11 +1,11 @@
 (* Tests for Graphics helpers *)
 
 Test[
-    NameQ["graphics`scenarioTopologyPlot"] && NameQ["graphics`mfgSolutionPlot"] &&
-    NameQ["graphics`mfgFlowPlot"] && NameQ["graphics`mfgTransitionPlot"] &&
-    NameQ["graphics`mfgAugmentedPlot"] && NameQ["graphics`augmentAuxiliaryGraph"],
+    NameQ["graphicsTools`scenarioTopologyPlot"] && NameQ["graphicsTools`mfgSolutionPlot"] &&
+    NameQ["graphicsTools`mfgFlowPlot"] && NameQ["graphicsTools`mfgTransitionPlot"] &&
+    NameQ["graphicsTools`mfgAugmentedPlot"] && NameQ["graphicsTools`augmentAuxiliaryGraph"],
     True,
-    TestID -> "Graphics: public symbols exist"
+    TestID -> "GraphicsTools: public symbols exist"
 ]
 
 Test[
@@ -18,45 +18,45 @@ Test[
         And @@ (NameQ /@ names)
     ],
     True,
-    TestID -> "Graphics: unqualified symbols are available after Needs"
+    TestID -> "GraphicsTools: unqualified symbols are available after Needs"
 ]
 
 Test[
     Module[{s, sys, sol, topoPlot, solPlot, flowPlot},
         s = gridScenario[{3}, {{1, 120}}, {{2, 10}, {3, 0}}];
         sys = makeSystem[s];
-        sol = reduceSystem[sys];
+        sol = solveScenario[s];
         topoPlot = scenarioTopologyPlot[s, sys];
         solPlot = mfgSolutionPlot[s, sys, sol];
         flowPlot = mfgFlowPlot[s, sys, sol];
         MatchQ[topoPlot, _Graph] && MatchQ[solPlot, _Graph] && MatchQ[flowPlot, _Graph]
     ],
     True,
-    TestID -> "Graphics: topology, solution, and flow plots return Graph"
+    TestID -> "GraphicsTools: topology, solution, and flow plots return Graph"
 ]
 
 Test[
     Module[{s, sys, sol, edges},
         s = gridScenario[{3}, {{1, 120}}, {{2, 10}, {3, 0}}];
         sys = makeSystem[s];
-        sol = reduceSystem[sys];
+        sol = solveScenario[s];
         edges = EdgeList[mfgSolutionPlot[s, sys, sol]];
         MemberQ[edges, DirectedEdge[1, 2]]
     ],
     True,
-    TestID -> "Graphics: positive j[1,2] displays as DirectedEdge[1,2]"
+    TestID -> "GraphicsTools: positive j[1,2] displays as DirectedEdge[1,2]"
 ]
 
 Test[
     Module[{s, sys, sol, edges},
         s = gridScenario[{3}, {{1, 120}}, {{2, 10}, {3, 0}}];
         sys = makeSystem[s];
-        sol = reduceSystem[sys];
+        sol = solveScenario[s];
         edges = EdgeList[mfgFlowPlot[s, sys, sol]];
         MemberQ[edges, DirectedEdge[1, 2]]
     ],
     True,
-    TestID -> "Graphics: mfgFlowPlot positive j[1,2] displays as DirectedEdge[1,2]"
+    TestID -> "GraphicsTools: mfgFlowPlot positive j[1,2] displays as DirectedEdge[1,2]"
 ]
 
 Test[
@@ -68,59 +68,59 @@ Test[
         MemberQ[edges, DirectedEdge[2, 1]]
     ],
     True,
-    TestID -> "Graphics: negative net flow flips display direction to DirectedEdge[2,1]"
+    TestID -> "GraphicsTools: negative net flow flips display direction to DirectedEdge[2,1]"
 ]
 
 Test[
     Module[{s, sys, sol, edges},
         s = gridScenario[{3}, {{3, 120.0}}, {{1, 0.0}, {2, 10.0}}];
         sys = makeSystem[s];
-        sol = reduceSystem[sys];
+        sol = {j[1, 2] -> 0, j[2, 1] -> 5};
         edges = EdgeList[mfgFlowPlot[s, sys, sol]];
-        ListQ[sol] && MemberQ[edges, DirectedEdge[2, 1]]
+        MemberQ[edges, DirectedEdge[2, 1]]
     ],
     True,
-    TestID -> "Graphics: mfgFlowPlot negative net flow flips display direction to DirectedEdge[2,1]"
+    TestID -> "GraphicsTools: mfgFlowPlot negative net flow flips display direction to DirectedEdge[2,1]"
 ]
 
 Test[
     Module[{s, sys, sol, graph, edges},
         s = gridScenario[{3}, {{1, 120}}, {{2, 10}, {3, 0}}];
         sys = makeSystem[s];
-        sol = reduceSystem[sys];
+        sol = solveScenario[s];
         graph = mfgFlowPlot[s, sys, sol];
         edges = EdgeList[graph];
         AllTrue[edges, MatchQ[#, _DirectedEdge] &] &&
         Length[edges] == Length[systemData[sys, "AuxEdges"]]
     ],
     True,
-    TestID -> "Graphics: mfgFlowPlot displays every auxiliary edge as directed"
+    TestID -> "GraphicsTools: mfgFlowPlot displays every auxiliary edge as directed"
 ]
 
 Test[
     Module[{s, sys, sol, graph, labelText},
         s = gridScenario[{3}, {{1, 120}}, {{2, 10}, {3, 0}}];
         sys = makeSystem[s];
-        sol = reduceSystem[sys];
+        sol = solveScenario[s];
         graph = mfgFlowPlot[s, sys, sol];
         labelText = ToString[InputForm[AbsoluteOptions[graph, EdgeLabels]]];
         StringContainsQ[labelText, "EdgeLabels"] && !StringContainsQ[labelText, "u="]
     ],
     True,
-    TestID -> "Graphics: mfgFlowPlot edge labels omit value functions"
+    TestID -> "GraphicsTools: mfgFlowPlot edge labels omit value functions"
 ]
 
 Test[
     Module[{s, sys, sol, graph, edgeStyleText},
         s = gridScenario[{3}, {{1, 120}}, {{2, 10}, {3, 0}}];
         sys = makeSystem[s];
-        sol = reduceSystem[sys];
+        sol = solveScenario[s];
         graph = mfgFlowPlot[s, sys, sol];
         edgeStyleText = ToString[InputForm[AbsoluteOptions[graph, EdgeStyle]]];
         StringContainsQ[edgeStyleText, "AbsoluteThickness[2."]
     ],
     True,
-    TestID -> "Graphics: mfgFlowPlot uses fixed edge thickness"
+    TestID -> "GraphicsTools: mfgFlowPlot uses fixed edge thickness"
 ]
 
 Test[
@@ -133,14 +133,14 @@ Test[
         !FreeQ[AbsoluteOptions[solPlot, PlotLabel], "Solution custom title"]
     ],
     True,
-    TestID -> "Graphics: custom titles propagate to PlotLabel"
+    TestID -> "GraphicsTools: custom titles propagate to PlotLabel"
 ]
 
 Test[
     Module[{s, sys, sol, plots},
         s = gridScenario[{3}, {{1, 10}}, {{3, 0}}];
         sys = makeSystem[s];
-        sol = reduceSystem[sys];
+        sol = solveScenario[s];
         plots = {
             scenarioTopologyPlot[s, sys, GraphLayout -> "LayeredDigraphEmbedding",
                 PlotLabel -> "Topology option", ImageSize -> Medium],
@@ -165,7 +165,26 @@ Test[
         ]
     ],
     True,
-    TestID -> "Graphics: graph helpers accept PlotLabel GraphLayout and ImageSize options"
+    TestID -> "GraphicsTools: graph helpers accept PlotLabel GraphLayout and ImageSize options"
+]
+
+Test[
+    Module[{s, sys, sol, plots},
+        s = gridScenario[{3}, {{1, 10}}, {{3, 0}}];
+        sys = makeSystem[s];
+        sol = solveScenario[s];
+        plots = {
+            scenarioTopologyPlot[s, sys, PlotLabel -> None],
+            mfgSolutionPlot[s, sys, sol, PlotLabel -> None],
+            mfgFlowPlot[s, sys, sol, PlotLabel -> None],
+            mfgTransitionPlot[s, sys, sol, PlotLabel -> None],
+            mfgAugmentedPlot[s, sys, sol, PlotLabel -> None]
+        };
+        AllTrue[plots, MatchQ[#, _Graph] &] &&
+        AllTrue[plots, FreeQ[AbsoluteOptions[#, PlotLabel], _Style] &]
+    ],
+    True,
+    TestID -> "GraphicsTools: PlotLabel -> None suppresses styled label for all plot helpers"
 ]
 
 Test[
@@ -173,7 +192,7 @@ Test[
             augmentedFile, transitionDims, augmentedDims},
         s = gridScenario[{3}, {{1, 10}}, {{3, 0}}];
         sys = makeSystem[s];
-        sol = reduceSystem[sys];
+        sol = solveScenario[s];
         transitionPlot = mfgTransitionPlot[s, sys, sol,
             GraphLayout -> "LayeredDigraphEmbedding"];
         augmentedPlot = mfgAugmentedPlot[s, sys, sol,
@@ -190,20 +209,20 @@ Test[
         Min[augmentedDims] > 100
     ],
     True,
-    TestID -> "Graphics: transition and augmented plots render to nontrivial images"
+    TestID -> "GraphicsTools: transition and augmented plots render to nontrivial images"
 ]
 
 Test[
     Module[{s, sys, sol, rules},
         s = gridScenario[{3}, {{1, 120}}, {{2, 10}, {3, 0}}];
         sys = makeSystem[s];
-        sol = reduceSystem[sys];
+        sol = solveScenario[s];
         rules = Replace[sol, a_Association :> Lookup[a, "Rules", {}]];
         MatchQ[mfgSolutionPlot[s, sys, rules], _Graph] &&
         MatchQ[mfgFlowPlot[s, sys, rules], _Graph]
     ],
     True,
-    TestID -> "Graphics: solution and flow plots accept raw rule list solution"
+    TestID -> "GraphicsTools: solution and flow plots accept raw rule list solution"
 ]
 
 Test[
@@ -216,7 +235,7 @@ Test[
         MatchQ[flowGraph, _Graph] && Length[EdgeList[flowGraph]] > 0
     ],
     True,
-    TestID -> "Graphics: solution and flow plots handle missing Rules association without failure"
+    TestID -> "GraphicsTools: solution and flow plots handle missing Rules association without failure"
 ]
 
 Test[
@@ -233,7 +252,7 @@ Test[
         KeyExistsQ[augmented, "EdgeKinds"]
     ],
     True,
-    TestID -> "Graphics: augmentAuxiliaryGraph returns graph metadata"
+    TestID -> "GraphicsTools: augmentAuxiliaryGraph returns graph metadata"
 ]
 
 Test[
@@ -250,7 +269,7 @@ Test[
         !MemberQ[transitionEdges, DirectedEdge[{1, "auxEntry1"}, {1, 2}]]
     ],
     True,
-    TestID -> "Graphics: augmentAuxiliaryGraph uses road-traffic edge directions"
+    TestID -> "GraphicsTools: augmentAuxiliaryGraph uses road-traffic edge directions"
 ]
 
 Test[
@@ -267,7 +286,7 @@ Test[
         edgeVariables[transitionEdge] === j["auxEntry1", 1, 2]
     ],
     True,
-    TestID -> "Graphics: augmentAuxiliaryGraph maps edges to canonical j variables"
+    TestID -> "GraphicsTools: augmentAuxiliaryGraph maps edges to canonical j variables"
 ]
 
 Test[
@@ -282,7 +301,7 @@ Test[
         edgeKinds[transitionEdge] === "Transition"
     ],
     True,
-    TestID -> "Graphics: augmentAuxiliaryGraph records flow and transition edge kinds"
+    TestID -> "GraphicsTools: augmentAuxiliaryGraph records flow and transition edge kinds"
 ]
 
 Test[
@@ -297,5 +316,5 @@ Test[
         !MemberQ[edges, DirectedEdge[{1, "auxEntry1"}, {1, 2}]]
     ],
     True,
-    TestID -> "Graphics: mfgAugmentedPlot uses augmented road-traffic graph"
+    TestID -> "GraphicsTools: mfgAugmentedPlot uses augmented road-traffic graph"
 ]

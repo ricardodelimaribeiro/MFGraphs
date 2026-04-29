@@ -17,7 +17,8 @@ $PublicContexts = {
   "unknownsTools`",
   "systemTools`",
   "solversTools`",
-  "graphics`"
+  "orchestrationTools`",
+  "graphicsTools`"
 };
 
 symbols = DeleteDuplicates @ Flatten[Names[# <> "*"] & /@ $PublicContexts];

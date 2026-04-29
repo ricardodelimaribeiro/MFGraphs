@@ -86,9 +86,9 @@ $LatestCSVFile = FileNameJoin[{$ResultsDir, "reduce_system_latest.csv"}];
 (* --- Benchmark helpers --- *)
 
 FmtMs[t_?NumericQ] := ToString[Round[N[t * 1000], 0.01]] <> " ms";
-FmtMs[_] := "—";
+FmtMs[_] := "-";
 FmtMsCell[t_?NumericQ] := ToString[Round[N[t * 1000], 0.01]];
-FmtMsCell[_] := "—";
+FmtMsCell[_] := "-";
 
 ResultKind[sol_] := Which[
   ListQ[sol] && AllTrue[sol, MatchQ[#, _Rule] &], "Rules",
@@ -105,7 +105,7 @@ RunCase[{name_String, buildFn_}] :=
     timeout = $TimeoutSecs;
     Print["Case: ", name];
 
-    (* Build system (not timed in benchmark — one-time cost) *)
+    (* Build system (not timed in benchmark - one-time cost) *)
     {buildMs, sys} = AbsoluteTiming[makeSystem[buildFn[]]];
     Print["  Build: ", FmtMs[buildMs]];
 
@@ -117,12 +117,12 @@ RunCase[{name_String, buildFn_}] :=
       Print["  Warmup: TIMED OUT after ", FmtMs[warmupTime]];
       Return[<|"Name" -> name, "BuildMs" -> buildMs * 1000,
                "WarmupMs" -> warmupTime * 1000, "RepMs" -> Missing["TimedOut"],
-               "Status" -> "TIMEOUT", "Kind" -> "—", "Valid" -> Missing["TimedOut"],
+               "Status" -> "TIMEOUT", "Kind" -> "-", "Valid" -> Missing["TimedOut"],
                "Solution" -> $TimedOut|>]
     ];
     warmupMs = warmupTime * 1000;
 
-    (* Repeated timing — 3 reps, short timeout per rep *)
+    (* Repeated timing - 3 reps, short timeout per rep *)
     repTime = RepeatedTiming[
       TimeConstrained[reduceSystem[sys], timeout, $TimedOut],
       3
@@ -193,9 +193,9 @@ Do[
   Print["| ", r["Name"], " | ",
         FmtMsCell[r["BuildMs"]/1000], " | ",
         FmtMsCell[r["WarmupMs"]/1000], " | ",
-        Replace[r["RepMs"], {Missing[_] -> "—", v_?NumericQ :> FmtMsCell[v/1000]}], " | ",
+        Replace[r["RepMs"], {Missing[_] -> "-", v_?NumericQ :> FmtMsCell[v/1000]}], " | ",
         r["Status"], " | ", r["Kind"], " | ",
-        Replace[r["Valid"], {Missing[_] -> "—", v_ :> ToString[v]}], " |"],
+        Replace[r["Valid"], {Missing[_] -> "-", v_ :> ToString[v]}], " |"],
   {r, $AllResults}
 ];
 
@@ -215,15 +215,15 @@ If[$HistoryTag =!= None,
         "| " <> r["Name"] <> " | " <>
         FmtMsCell[r["BuildMs"]/1000] <> " | " <>
         FmtMsCell[r["WarmupMs"]/1000] <> " | " <>
-        Replace[r["RepMs"], {Missing[_] -> "—",
+        Replace[r["RepMs"], {Missing[_] -> "-",
                              v_?NumericQ :> FmtMsCell[v/1000]}] <> " | " <>
         r["Status"] <> " | " <> r["Kind"] <> " | " <>
-        Replace[r["Valid"], {Missing[_] -> "—", v_ :> ToString[v]}] <> " |"],
+        Replace[r["Valid"], {Missing[_] -> "-", v_ :> ToString[v]}] <> " |"],
       {r, $AllResults}
     ];
 
     entry = StringRiffle[{
-      "### " <> date <> " \[LongDash] " <> $HistoryTag,
+      "### " <> date <> " - " <> $HistoryTag,
       "",
       "**Commit:** `" <> commitHash <> "`  ",
       "**Environment:** local `wolframscript`, `$MFGraphsVerbose=False`  ",

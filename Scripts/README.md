@@ -9,7 +9,9 @@ This directory contains active maintenance scripts and an `archive/` folder with
 - `GenerateDocs.wls`: regenerate API documentation artifacts.
 - `AuditPublicAPI.py`: API surface inventory/audit helper.
 - `CheckCriticalSurfaceTests.wls`: gate checks for critical-surface test policy.
-- `BenchmarkReduceSystem.wls`: focused benchmark for `ReduceSystem`.
+- `BenchmarkSystemSolver.wls`: DNF-first scenario-kernel solver benchmark; use `--solver` to compare alternatives.
+- `BenchmarkReduceSystem.wls`: historical focused benchmark for raw `reduceSystem`.
+- `ProfileScenarioKernel.wls`: non-mutating staged profiler for scenario construction, unknowns, system construction, and solver time.
 
 ## Analysis/report helpers
 

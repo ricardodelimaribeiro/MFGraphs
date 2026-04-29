@@ -34,7 +34,7 @@ wolframscript -version
 ```wolfram
 PrependTo[$Path, DirectoryName[$InputFileName]];
 BeginPackage["MFGraphs`", {"primitives`", "scenarioTools`", "examples`",
-                            "unknownsTools`", "systemTools`", "solversTools`", "graphics`"}];
+                            "unknownsTools`", "systemTools`", "solversTools`", "graphicsTools`"}];
 EndPackage[]
 ```
 
@@ -44,12 +44,10 @@ Loading DAG (each file is an independent package with its own flat context):
 ```
 primitives`  →  scenarioTools`  →  examples`
                                →  unknownsTools`  →  systemTools`  →  solversTools`
-                                                                   →  graphics`
+                                                                   →  graphicsTools`
 ```
 
-Archived/inactive modules include:
-- `MFGraphs/Examples/archive/ExamplesData.wl`
-- `MFGraphs/archive/DataToEquations.wl`
+Archived/inactive modules live under `MFGraphs/archive/`.
 
 ## Core architecture
 
@@ -111,8 +109,9 @@ Switching costs may be supplied as a List of 4-tuples or an Association with 3-t
 - **Linear Helpers**: `getKirchhoffLinearSystem`, `getKirchhoffMatrix`
 
 ### Solver (`solversTools`)
-All three solvers share a common preprocessing pipeline (`buildSolverInputs`) and only support critical congestion systems (`Alpha == 1` on every edge).
+All public solver entrypoints share a common preprocessing pipeline (`buildSolverInputs`) and only support critical congestion systems (`Alpha == 1` on every edge).
 
+- Default user-facing orchestration uses `solveScenario`, which calls `dnfReduceSystem`.
 - `reduceSystem` — calls `Reduce[constraints, allVars, Reals]` directly
 - `dnfReduceSystem` — equality-substitution + disjunction-distribution via `dnfReduce` (avoids `Reduce` timeouts)
 - `booleanReduceSystem` — converts to DNF via `BooleanConvert`, then calls `Reduce` independently per disjunct; options: `"DisjunctTimeout"` (default 30s), `"ReturnAll"` (default `False`)
@@ -120,7 +119,11 @@ All three solvers share a common preprocessing pipeline (`buildSolverInputs`) an
 - `dnfReduce` — internal simplifier used by `dnfReduceSystem`; eliminates equalities and distributes over disjunctions
 - `isValidSystemSolution` — solution validator; option `"ReturnReport" -> True` gives per-block breakdown
 
-### Graphics (`graphics`)
+### Orchestration (`orchestrationTools`)
+- `solveScenario` — builds unknowns and system, then solves with `dnfReduceSystem` by default
+- `SolveMFG` — compatibility wrapper for raw association input, delegated through `solveScenario`
+
+### Graphics (`graphicsTools`)
 - `scenarioTopologyPlot` — entry/exit/internal vertex coloring
 - `mfgSolutionPlot` — network-centric plot (j and u labels)
 - `mfgFlowPlot` — flow-only network plot with directed real and auxiliary edges
@@ -140,7 +143,7 @@ All three solvers share a common preprocessing pipeline (`buildSolverInputs`) an
 
 The following are currently not loaded from `MFGraphs.wl`:
 - `ScenarioByKey`, `GetExampleData`
-- `DataToEquations`, `CriticalCongestionSolver`, `SolveMFG`
+- `DataToEquations`, `CriticalCongestionSolver`
 - legacy/extended solver modules and solver benchmarking workflows
 - solver-phase backend helpers (archived in `MFGraphs/archive/SolverBackendHelpers.wl`)
 
@@ -168,10 +171,12 @@ s = makeScenario[<|
 
 unk = makeUnknowns[s];
 sys = makeSystem[s, unk];
+sol = solveScenario[s];
 
 scenarioQ[s]
 unknownsQ[unk]
 mfgSystemQ[sys]
+isValidSystemSolution[sys, sol]
 ```
 
 Example factory usage:
@@ -184,7 +189,7 @@ s = f[{{1, 100}}, {{4, 0}}, {}, 1, 0, Function[z, -1/z]];
 ## Testing
 
 Active suite (`Scripts/RunTests.wls`):
-- `fast`: `scenario-kernel.mt`, `make-unknowns.mt`, `reduce-system.mt`, `scenario-consistency.mt`, `graphics.mt`
+- `fast`: `scenario-kernel.mt`, `make-unknowns.mt`, `reduce-system.mt`, `scenario-consistency.mt`, `graphicsTools.mt`, `orchestration.mt`
 - `all`: alias for `fast`
 - `archive`: archived compatibility/legacy suites (explicit use only)
 - `full`: `fast + archive`
@@ -211,19 +216,25 @@ modules remain out of scope.
 ## Benchmarking
 
 ```bash
-# Benchmark reduceSystem across representative cases (results → Results/)
-wolframscript -file Scripts/BenchmarkReduceSystem.wls
+# Benchmark the DNF-first default solver across representative cases (results → Results/)
+wolframscript -file Scripts/BenchmarkSystemSolver.wls
 
 # With options: tag appends an entry to BENCHMARKS.md; timeout sets per-case limit
-wolframscript -file Scripts/BenchmarkReduceSystem.wls --tag "after my change" --timeout 60
+wolframscript -file Scripts/BenchmarkSystemSolver.wls --tag "after my change" --timeout 60
 
 # Run a single bench case
-wolframscript -file Scripts/BenchmarkReduceSystem.wls --case chain-3v-1exit
+wolframscript -file Scripts/BenchmarkSystemSolver.wls --case chain-3v-1exit
+
+# Non-mutating staged profiler
+wolframscript -file Scripts/ProfileScenarioKernel.wls --case example-12 --timeout 10
+
+# Raw Reduce baseline benchmark, retained for comparison
+wolframscript -file Scripts/BenchmarkReduceSystem.wls
 ```
 
 Available bench cases: `chain-2v`, `chain-3v-1exit`, `chain-3v-2exit`, `example-7`, `chain-5v-1exit`, `example-12`.
 
-Results land in `Results/` as timestamped CSV + WL solution files and as `reduce_system_latest.*` symlinks. Solutions store the full symbolic output per case alongside timing.
+Benchmark results land in `Results/` as timestamped CSV + WL solution files and as latest files. Solutions store the full symbolic output per case alongside timing. `ProfileScenarioKernel.wls` prints diagnostics to stdout and does not write results.
 
 ## Docs generation
 
