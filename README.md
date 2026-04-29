@@ -19,13 +19,14 @@ Loaded by `Needs["MFGraphs`"]`:
 - `MFGraphs/unknownsTools.wl`
 - `MFGraphs/systemTools.wl`
 - `MFGraphs/solversTools.wl`
+- `MFGraphs/orchestrationTools.wl`
 - `MFGraphs/graphicsTools.wl`
 
 Archived/inactive modules live under `MFGraphs/archive/`.
 
 ## Solver Status
 
-The symbolic solver (`MFGraphs/solversTools.wl`) is designed for **critical congestion only** (`Alpha = 1` on every edge). Non-critical systems (`Alpha != 1` or edge-specific non-1 `EdgeAlpha`) fail explicitly.
+The symbolic solvers (`MFGraphs/solversTools.wl`) are designed for **critical congestion only** (`Alpha = 1` on every edge). Non-critical systems (`Alpha != 1` or edge-specific non-1 `EdgeAlpha`) fail explicitly. The default user-facing path is `solveScenario`, which uses `dnfReduceSystem`; raw `reduceSystem` remains available as a direct Wolfram `Reduce` baseline.
 
 ## Installation
 
@@ -54,10 +55,12 @@ s = makeScenario[<|
 
 unk = makeUnknowns[s];
 sys = makeSystem[s, unk];
+sol = solveScenario[s];
 
 scenarioQ[s]
 unknownsQ[unk]
 mfgSystemQ[sys]
+isValidSystemSolution[sys, sol]
 ```
 
 Example factory workflow:
@@ -81,7 +84,7 @@ Example scenario factories:
 Unknowns/system kernels:
 - `unknowns`, `unknownsQ`, `unknownsData`, `makeUnknowns`
 - `mfgSystem`, `mfgSystemQ`, `systemData`, `makeSystem`
-- `reduceSystem`, `isValidSystemSolution`
+- `solveScenario`, `dnfReduceSystem`, `reduceSystem`, `isValidSystemSolution`
 
 Core symbolic primitives:
 - `j`, `u`, `z`, `alpha`, `Cost`
@@ -90,7 +93,7 @@ Core symbolic primitives:
 
 Not loaded by current `MFGraphs.wl` bootstrap:
 - `ScenarioByKey`, `GetExampleData`
-- `DataToEquations`, `CriticalCongestionSolver`, `SolveMFG`
+- `DataToEquations`, `CriticalCongestionSolver`
 - legacy/extended solver modules and solver benchmarking paths
 
 ## Running tests
@@ -104,7 +107,7 @@ wolframscript -file MFGraphs/Tests/make-unknowns.mt
 ```
 
 Current active runner suites (`Scripts/RunTests.wls`):
-- `fast`: `scenario-kernel.mt`, `make-unknowns.mt`, `reduce-system.mt`, `scenario-consistency.mt`, `graphicsTools.mt`
+- `fast`: `scenario-kernel.mt`, `make-unknowns.mt`, `reduce-system.mt`, `scenario-consistency.mt`, `graphicsTools.mt`, `orchestration.mt`
 - `all`: alias for `fast`
 - `archive`: archived compatibility/legacy suites (explicit use only)
 - `full`: `fast + archive`
@@ -120,6 +123,7 @@ MFGraphs/
   unknownsTools.wl
   systemTools.wl
   solversTools.wl
+  orchestrationTools.wl
   graphicsTools.wl
   archive/
   Tests/

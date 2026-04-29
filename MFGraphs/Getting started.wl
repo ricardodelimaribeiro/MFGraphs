@@ -277,7 +277,7 @@ Column[{
 }]
 
 
-(* --- 8. Solve with reduceSystem --- *)
+(* --- 8. Solve with solveScenario (DNF-first default) --- *)
 
 (* Chain 1->2->3, single exit at 3 (cost=0), entry flow=10.
    All variables are uniquely determined. *)
@@ -285,26 +285,26 @@ chain1Ex = gridScenario[{3}, {{1, 10}}, {{3, 0}}];
 sys1Ex   = makeSystem[chain1Ex];
 
 DescribeOutput[
-    "reduceSystem \[LongDash] chain with one exit",
+    "solveScenario \[LongDash] chain with one exit",
     "Unique solution: all j and u values pinned by flow balance + HJ + complementarity.",
-    reduceSystem[sys1Ex]
+    solveScenario[chain1Ex]
 ]
 
 
 (* Chain 1->2->3, two exits at {2,0} and {3,10}, entry flow=120.
-   Flow split between exits is under-determined; Reduce returns a parametric solution. *)
+   Flow split between exits is under-determined; the solver returns a parametric solution. *)
 DescribeOutput[
-    "reduceSystem \[LongDash] chain with two exits (no switching costs)",
+    "solveScenario \[LongDash] chain with two exits (no switching costs)",
     "Parametric solution: one free variable governs how flow splits between exits.",
-    reduceSystem[sysNoSC]
+    solveScenario[chain2ExNoSC]
 ]
 
 
-(* --- 9. Visualize reduceSystem solutions (from MFGraphs`graphicsTools`) --- *)
+(* --- 9. Visualize solveScenario solutions (from MFGraphs`graphicsTools`) --- *)
 
 (* --- Apply to chain with one exit --- *)
 
-sol1Ex = reduceSystem[sys1Ex];
+sol1Ex = solveScenario[chain1Ex];
 
 Column[{
     DescribeOutput[
@@ -329,7 +329,7 @@ Column[{
 
 (* --- Apply to chain with two exits (partial rules from underdetermined solution) --- *)
 
-solNoSC = reduceSystem[sysNoSC];
+solNoSC = solveScenario[chain2ExNoSC];
 
 Column[{
     DescribeOutput[

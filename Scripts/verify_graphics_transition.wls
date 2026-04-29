@@ -1,7 +1,7 @@
 #!/usr/bin/env wolframscript
 (* Usage: wolframscript -file Scripts/verify_graphics_transition.wls *)
 
-$RepoRoot = "/Users/ribeirrd/Documents/GitHub/MFGraphs";
+$RepoRoot = FileNameJoin[{DirectoryName[$InputFileName], ".."}];
 PrependTo[$Path, $RepoRoot];
 Needs["MFGraphs`"];
 $MFGraphsVerbose = False;
@@ -16,9 +16,9 @@ s = gridScenario[{3}, {{1, 120.0}}, {{2, 0.0}, {3, 10.0}}];
 sys = makeSystem[s];
 
 Print["Solving known-fast scenario..."];
-sol = TimeConstrained[reduceSystem[sys], 20, $TimedOut];
+sol = TimeConstrained[solveScenario[s], 20, $TimedOut];
 If[sol === $TimedOut, (
-    Print["FAILURE: reduceSystem timed out."];
+    Print["FAILURE: solveScenario timed out."];
     Exit[1]
 )];
 

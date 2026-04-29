@@ -17,6 +17,7 @@ $PublicContexts = {
   "unknownsTools`",
   "systemTools`",
   "solversTools`",
+  "orchestrationTools`",
   "graphicsTools`"
 };
 

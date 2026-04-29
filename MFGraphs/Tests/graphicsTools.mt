@@ -25,7 +25,7 @@ Test[
     Module[{s, sys, sol, topoPlot, solPlot, flowPlot},
         s = gridScenario[{3}, {{1, 120}}, {{2, 10}, {3, 0}}];
         sys = makeSystem[s];
-        sol = reduceSystem[sys];
+        sol = solveScenario[s];
         topoPlot = scenarioTopologyPlot[s, sys];
         solPlot = mfgSolutionPlot[s, sys, sol];
         flowPlot = mfgFlowPlot[s, sys, sol];
@@ -39,7 +39,7 @@ Test[
     Module[{s, sys, sol, edges},
         s = gridScenario[{3}, {{1, 120}}, {{2, 10}, {3, 0}}];
         sys = makeSystem[s];
-        sol = reduceSystem[sys];
+        sol = solveScenario[s];
         edges = EdgeList[mfgSolutionPlot[s, sys, sol]];
         MemberQ[edges, DirectedEdge[1, 2]]
     ],
@@ -51,7 +51,7 @@ Test[
     Module[{s, sys, sol, edges},
         s = gridScenario[{3}, {{1, 120}}, {{2, 10}, {3, 0}}];
         sys = makeSystem[s];
-        sol = reduceSystem[sys];
+        sol = solveScenario[s];
         edges = EdgeList[mfgFlowPlot[s, sys, sol]];
         MemberQ[edges, DirectedEdge[1, 2]]
     ],
@@ -63,9 +63,9 @@ Test[
     Module[{s, sys, sol, edges},
         s = gridScenario[{3}, {{3, 120.0}}, {{1, 0.0}, {2, 10.0}}];
         sys = makeSystem[s];
-        sol = reduceSystem[sys];
+        sol = {j[1, 2] -> 0, j[2, 1] -> 5};
         edges = EdgeList[mfgSolutionPlot[s, sys, sol]];
-        ListQ[sol] && MemberQ[edges, DirectedEdge[2, 1]]
+        MemberQ[edges, DirectedEdge[2, 1]]
     ],
     True,
     TestID -> "GraphicsTools: negative net flow flips display direction to DirectedEdge[2,1]"
@@ -75,9 +75,9 @@ Test[
     Module[{s, sys, sol, edges},
         s = gridScenario[{3}, {{3, 120.0}}, {{1, 0.0}, {2, 10.0}}];
         sys = makeSystem[s];
-        sol = reduceSystem[sys];
+        sol = {j[1, 2] -> 0, j[2, 1] -> 5};
         edges = EdgeList[mfgFlowPlot[s, sys, sol]];
-        ListQ[sol] && MemberQ[edges, DirectedEdge[2, 1]]
+        MemberQ[edges, DirectedEdge[2, 1]]
     ],
     True,
     TestID -> "GraphicsTools: mfgFlowPlot negative net flow flips display direction to DirectedEdge[2,1]"
@@ -87,7 +87,7 @@ Test[
     Module[{s, sys, sol, graph, edges},
         s = gridScenario[{3}, {{1, 120}}, {{2, 10}, {3, 0}}];
         sys = makeSystem[s];
-        sol = reduceSystem[sys];
+        sol = solveScenario[s];
         graph = mfgFlowPlot[s, sys, sol];
         edges = EdgeList[graph];
         AllTrue[edges, MatchQ[#, _DirectedEdge] &] &&
@@ -101,7 +101,7 @@ Test[
     Module[{s, sys, sol, graph, labelText},
         s = gridScenario[{3}, {{1, 120}}, {{2, 10}, {3, 0}}];
         sys = makeSystem[s];
-        sol = reduceSystem[sys];
+        sol = solveScenario[s];
         graph = mfgFlowPlot[s, sys, sol];
         labelText = ToString[InputForm[AbsoluteOptions[graph, EdgeLabels]]];
         StringContainsQ[labelText, "EdgeLabels"] && !StringContainsQ[labelText, "u="]
@@ -114,7 +114,7 @@ Test[
     Module[{s, sys, sol, graph, edgeStyleText},
         s = gridScenario[{3}, {{1, 120}}, {{2, 10}, {3, 0}}];
         sys = makeSystem[s];
-        sol = reduceSystem[sys];
+        sol = solveScenario[s];
         graph = mfgFlowPlot[s, sys, sol];
         edgeStyleText = ToString[InputForm[AbsoluteOptions[graph, EdgeStyle]]];
         StringContainsQ[edgeStyleText, "AbsoluteThickness[2."]
@@ -140,7 +140,7 @@ Test[
     Module[{s, sys, sol, plots},
         s = gridScenario[{3}, {{1, 10}}, {{3, 0}}];
         sys = makeSystem[s];
-        sol = reduceSystem[sys];
+        sol = solveScenario[s];
         plots = {
             scenarioTopologyPlot[s, sys, GraphLayout -> "LayeredDigraphEmbedding",
                 PlotLabel -> "Topology option", ImageSize -> Medium],
@@ -169,11 +169,30 @@ Test[
 ]
 
 Test[
+    Module[{s, sys, sol, plots},
+        s = gridScenario[{3}, {{1, 10}}, {{3, 0}}];
+        sys = makeSystem[s];
+        sol = solveScenario[s];
+        plots = {
+            scenarioTopologyPlot[s, sys, PlotLabel -> None],
+            mfgSolutionPlot[s, sys, sol, PlotLabel -> None],
+            mfgFlowPlot[s, sys, sol, PlotLabel -> None],
+            mfgTransitionPlot[s, sys, sol, PlotLabel -> None],
+            mfgAugmentedPlot[s, sys, sol, PlotLabel -> None]
+        };
+        AllTrue[plots, MatchQ[#, _Graph] &] &&
+        AllTrue[plots, FreeQ[AbsoluteOptions[#, PlotLabel], _Style] &]
+    ],
+    True,
+    TestID -> "GraphicsTools: PlotLabel -> None suppresses styled label for all plot helpers"
+]
+
+Test[
     Module[{s, sys, sol, transitionPlot, augmentedPlot, transitionFile,
             augmentedFile, transitionDims, augmentedDims},
         s = gridScenario[{3}, {{1, 10}}, {{3, 0}}];
         sys = makeSystem[s];
-        sol = reduceSystem[sys];
+        sol = solveScenario[s];
         transitionPlot = mfgTransitionPlot[s, sys, sol,
             GraphLayout -> "LayeredDigraphEmbedding"];
         augmentedPlot = mfgAugmentedPlot[s, sys, sol,
@@ -197,7 +216,7 @@ Test[
     Module[{s, sys, sol, rules},
         s = gridScenario[{3}, {{1, 120}}, {{2, 10}, {3, 0}}];
         sys = makeSystem[s];
-        sol = reduceSystem[sys];
+        sol = solveScenario[s];
         rules = Replace[sol, a_Association :> Lookup[a, "Rules", {}]];
         MatchQ[mfgSolutionPlot[s, sys, rules], _Graph] &&
         MatchQ[mfgFlowPlot[s, sys, rules], _Graph]

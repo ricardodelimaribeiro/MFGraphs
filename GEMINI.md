@@ -21,6 +21,9 @@ s = getExampleScenario[12, {{1, 100}}, {{4, 0}}];
 unk = makeUnknowns[s];
 sys = makeSystem[s, unk];
 
+(* Solve through the default DNF-first orchestration path *)
+sol = solveScenario[s];
+
 (* Access structural data *)
 data = systemDataFlatten[sys];
 data["AltFlows"]
@@ -48,5 +51,6 @@ data["AltFlows"]
 | `MFGraphs/unknownsTools.wl` | Symbolic unknown bundle construction |
 | `MFGraphs/systemTools.wl` | Structural equation system kernel |
 | `MFGraphs/solversTools.wl` | Critical-congestion structural solver |
+| `MFGraphs/orchestrationTools.wl` | High-level DNF-first solver orchestration |
 | `MFGraphs/graphicsTools.wl` | Scenario and solution plotting helpers |
 | `Scripts/RunTests.wls` | Test suite runner |

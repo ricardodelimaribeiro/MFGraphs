@@ -20,6 +20,7 @@
      systemTools    (structural equation system)
        ↓
      solversTools   (ReduceSystem solver)
+     orchestrationTools (High-level orchestration)
      graphicsTools  (visualization helpers)
 *)
 
@@ -32,6 +33,7 @@ BeginPackage["MFGraphs`",
     "unknownsTools`",
     "systemTools`",
     "solversTools`",
+    "orchestrationTools`",
     "graphicsTools`"
   }
 ];

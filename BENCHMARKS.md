@@ -6,7 +6,7 @@ This document describes the active benchmarking flow for the MFGraphs package.
 The active benchmark targets the current scenario-kernel structural solver path:
 
 ```text
-scenario -> makeSystem -> reduceSystem
+scenario -> makeSystem -> dnfReduceSystem
 ```
 
 Legacy tiered benchmarks for `DataToEquations` / `CriticalCongestionSolver`
@@ -20,32 +20,44 @@ workflow while those solver-era symbols remain unloaded.
 - Wolfram Mathematica 12.0+ with `wolframscript` on PATH
 - MFGraphs package (this repository)
 
-### Active reduceSystem benchmark
+### Active system solver benchmark
 
 Run the representative benchmark set:
 
 ```bash
-wolframscript -file Scripts/BenchmarkReduceSystem.wls
+wolframscript -file Scripts/BenchmarkSystemSolver.wls
 ```
 
 Add a tag to append a dated history entry to this file:
 
 ```bash
-wolframscript -file Scripts/BenchmarkReduceSystem.wls --tag "baseline"
+wolframscript -file Scripts/BenchmarkSystemSolver.wls --tag "baseline"
 ```
 
 Run a specific case with a custom timeout:
 
 ```bash
-wolframscript -file Scripts/BenchmarkReduceSystem.wls --case example-12 --timeout 300
+wolframscript -file Scripts/BenchmarkSystemSolver.wls --case example-12 --timeout 60
+```
+
+Compare an alternate solver explicitly:
+
+```bash
+wolframscript -file Scripts/BenchmarkSystemSolver.wls --solver reduce --case example-12 --timeout 60
 ```
 
 Results are exported to:
 
-- `Results/reduce_system_latest.csv`
-- `Results/reduce_system_<timestamp>.csv`
-- `Results/reduce_system_solutions_latest.wl`
-- `Results/reduce_system_solutions_<timestamp>.wl`
+- `Results/system_solver_<solver>_latest.csv`
+- `Results/system_solver_<solver>_<timestamp>.csv`
+- `Results/system_solver_<solver>_solutions_latest.wl`
+- `Results/system_solver_<solver>_solutions_<timestamp>.wl`
+
+For non-mutating staged diagnostics, run:
+
+```bash
+wolframscript -file Scripts/ProfileScenarioKernel.wls --case example-12 --timeout 10
+```
 
 Current cases:
 
@@ -74,7 +86,7 @@ See `Scripts/LEGACY_SOLVER_SCRIPTS.md` and
 ## Legacy test case tiers
 
 These tiers describe `Scripts/archive/BenchmarkSuite.wls`, not the active
-`BenchmarkReduceSystem.wls` workflow.
+`BenchmarkSystemSolver.wls` workflow.
 
 | Tier | Cases | Timeout | Description |
 |------|-------|---------|-------------|
@@ -86,11 +98,16 @@ These tiers describe `Scripts/archive/BenchmarkSuite.wls`, not the active
 
 ## Solver benchmarked
 
-**reduceSystem** is the current symbolic structural-system solver
-(`MFGraphs/solversTools.wl`) over the reals. It supports critical congestion
-systems only (`Alpha == 1` on every edge) and returns either rules for a fully
-determined solution or a rules-plus-residual association for underdetermined
-systems.
+**dnfReduceSystem** is the default symbolic structural-system solver
+(`MFGraphs/solversTools.wl`). It uses the shared linear preprocessing path and
+then applies equality-substitution plus disjunction distribution to avoid raw
+`Reduce` timeouts. Raw **reduceSystem** remains available as a direct Wolfram
+`Reduce` baseline.
+
+## system solver benchmark history
+
+DNF-first benchmark entries from `Scripts/BenchmarkSystemSolver.wls` are appended
+here when the script is run with `--tag`.
 
 ## reduceSystem benchmark history (manual)
 
@@ -131,7 +148,9 @@ Interpretation:
 
 | Script | Purpose |
 |--------|---------|
-| `Scripts/BenchmarkReduceSystem.wls` | Active representative benchmark for `reduceSystem` |
+| `Scripts/BenchmarkSystemSolver.wls` | Active DNF-first benchmark; supports `--solver` for comparisons |
+| `Scripts/ProfileScenarioKernel.wls` | Non-mutating staged profiler for construction, preprocessing, and solver time |
+| `Scripts/BenchmarkReduceSystem.wls` | Historical raw-Reduce baseline benchmark |
 | `Scripts/BenchmarkPreprocessing.wls` | Archived-preprocessing benchmark helper |
 | `Scripts/perf_review_targeted.wls` | Targeted performance review helper |
 | `Scripts/archive/BenchmarkSuite.wls` | Legacy tiered solver benchmark |
@@ -144,15 +163,16 @@ Benchmark results are exported as CSV and JSON with these fields:
 | Field | Description |
 |-------|-------------|
 | Case | Test case identifier |
+| Solver | Solver name (`dnf`, `reduce`, `boolean`, or `findinstance`) when using `BenchmarkSystemSolver.wls` |
 | BuildMs | `makeSystem` construction time in milliseconds |
-| WarmupMs | First `reduceSystem` run in milliseconds |
-| RepMs | Repeated-timing estimate in milliseconds |
+| WarmupMs | First solver run in milliseconds |
+| RepMs | One timed repeat after warmup, in milliseconds |
 | Status | `OK` or `TIMEOUT` |
 | Kind | `Rules`, `Underdetermined`, `NoSolution`, or `Other` |
 | Valid | `isValidSystemSolution` result |
 
 ## Recommendations for future work
 
-1. Broaden `BenchmarkReduceSystem.wls` with additional scenario-kernel cases once they are stable in the active API.
+1. Broaden `BenchmarkSystemSolver.wls` with additional scenario-kernel cases once they are stable in the active API.
 2. Keep legacy benchmark scripts archived until their dependencies are restored to the default package load path.
 3. Track solver regressions through tagged benchmark entries plus active test-suite runs.

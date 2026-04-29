@@ -49,7 +49,7 @@ Test[
     Module[{s, sys, result},
         s = getExampleScenario["Inconsistent Y shortcut", $entriesY, $exitsY, Automatic];
         sys = Quiet[makeSystem[s], {mfgSystem::switchingcosts}];
-        result = reduceSystem[sys];
+        result = Quiet[solveScenario[s], {mfgSystem::switchingcosts}];
         (* Solver should still return a result, even if inconsistent, but this specific case is feasible *)
         AssociationQ[result] && result["Rules"] =!= {}
     ]
@@ -64,7 +64,7 @@ Test[
         (* HRF Scenario 1 (Paper case) *)
         s = getExampleScenario["HRF Scenario 1", {{1, 100}, {9, 100}}, {{8, 0}, {10, 0}}, {}];
         sys = makeSystem[s];
-        result = reduceSystem[sys];
+        result = solveScenario[s];
         AssociationQ[result] && result["Rules"] =!= {}
     ]
     ,
