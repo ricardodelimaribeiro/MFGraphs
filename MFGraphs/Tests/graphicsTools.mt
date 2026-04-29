@@ -1,9 +1,9 @@
 (* Tests for Graphics helpers *)
 
 Test[
-    NameQ["graphics`scenarioTopologyPlot"] && NameQ["graphics`mfgSolutionPlot"] &&
-    NameQ["graphics`mfgFlowPlot"] && NameQ["graphics`mfgTransitionPlot"] &&
-    NameQ["graphics`mfgAugmentedPlot"] && NameQ["graphics`augmentAuxiliaryGraph"],
+    NameQ["graphicsTools`scenarioTopologyPlot"] && NameQ["graphicsTools`mfgSolutionPlot"] &&
+    NameQ["graphicsTools`mfgFlowPlot"] && NameQ["graphicsTools`mfgTransitionPlot"] &&
+    NameQ["graphicsTools`mfgAugmentedPlot"] && NameQ["graphicsTools`augmentAuxiliaryGraph"],
     True,
     TestID -> "Graphics: public symbols exist"
 ]

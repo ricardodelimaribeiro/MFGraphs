@@ -34,7 +34,7 @@ wolframscript -version
 ```wolfram
 PrependTo[$Path, DirectoryName[$InputFileName]];
 BeginPackage["MFGraphs`", {"primitives`", "scenarioTools`", "examples`",
-                            "unknownsTools`", "systemTools`", "solversTools`", "graphics`"}];
+                            "unknownsTools`", "systemTools`", "solversTools`", "graphicsTools`"}];
 EndPackage[]
 ```
 
@@ -44,7 +44,7 @@ Loading DAG (each file is an independent package with its own flat context):
 ```
 primitives`  →  scenarioTools`  →  examples`
                                →  unknownsTools`  →  systemTools`  →  solversTools`
-                                                                   →  graphics`
+                                                                   →  graphicsTools`
 ```
 
 Archived/inactive modules include:
@@ -114,7 +114,7 @@ Switching costs may be supplied as a List of 4-tuples or an Association with 3-t
 - `reduceSystem` — naive `Reduce`-based solver for critical congestion (`Alpha == 1`) systems
 - `isValidSystemSolution` — solution validator
 
-### Graphics (`graphics`)
+### Graphics (`graphicsTools`)
 - `scenarioTopologyPlot` — entry/exit/internal vertex coloring
 - `mfgSolutionPlot` — network-centric plot (j and u labels)
 - `mfgFlowPlot` — flow-only network plot with directed real and auxiliary edges
@@ -178,7 +178,7 @@ s = f[{{1, 100}}, {{4, 0}}, {}, 1, 0, Function[z, -1/z]];
 ## Testing
 
 Active suite (`Scripts/RunTests.wls`):
-- `fast`: `scenario-kernel.mt`, `make-unknowns.mt`, `reduce-system.mt`, `scenario-consistency.mt`, `graphics.mt`
+- `fast`: `scenario-kernel.mt`, `make-unknowns.mt`, `reduce-system.mt`, `scenario-consistency.mt`, `graphicsTools.mt`
 - `all`: alias for `fast`
 - `archive`: archived compatibility/legacy suites (explicit use only)
 - `full`: `fast + archive`

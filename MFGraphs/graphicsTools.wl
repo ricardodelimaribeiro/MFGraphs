@@ -1,7 +1,7 @@
 (* Wolfram Language package *)
 (* Graphics: public visualization helpers for MFGraphs systems and solutions. *)
 
-BeginPackage["graphics`", {"primitives`", "scenarioTools`", "systemTools`"}];
+BeginPackage["graphicsTools`", {"primitives`", "scenarioTools`", "systemTools`"}];
 
 scenarioTopologyPlot::usage =
 "scenarioTopologyPlot[s, sys, opts] plots the scenario topology using vertex coloring for entry, exit, and internal vertices. Use PlotLabel, GraphLayout, and ImageSize options to control display.";

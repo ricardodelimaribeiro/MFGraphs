@@ -15,7 +15,7 @@ Needs["MFGraphs`"];
 
 The active loader brings in `primitives.wl`, `scenarioTools.wl`,
 `examples.wl`, `unknownsTools.wl`, `systemTools.wl`, `solversTools.wl`, and
-`graphics.wl`.
+`graphicsTools.wl`.
 
 ### Scenario validation returns `Failure`
 

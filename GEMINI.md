@@ -48,5 +48,5 @@ data["AltFlows"]
 | `MFGraphs/unknownsTools.wl` | Symbolic unknown bundle construction |
 | `MFGraphs/systemTools.wl` | Structural equation system kernel |
 | `MFGraphs/solversTools.wl` | Critical-congestion structural solver |
-| `MFGraphs/graphics.wl` | Scenario and solution plotting helpers |
+| `MFGraphs/graphicsTools.wl` | Scenario and solution plotting helpers |
 | `Scripts/RunTests.wls` | Test suite runner |

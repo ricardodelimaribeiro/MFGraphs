@@ -20,7 +20,7 @@
      systemTools    (structural equation system)
        ↓
      solversTools   (ReduceSystem solver)
-     graphics       (visualization helpers)
+     graphicsTools  (visualization helpers)
 *)
 
 PrependTo[$Path, DirectoryName[$InputFileName]];
@@ -32,7 +32,7 @@ BeginPackage["MFGraphs`",
     "unknownsTools`",
     "systemTools`",
     "solversTools`",
-    "graphics`"
+    "graphicsTools`"
   }
 ];
 

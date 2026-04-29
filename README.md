@@ -19,7 +19,7 @@ Loaded by `Needs["MFGraphs`"]`:
 - `MFGraphs/unknownsTools.wl`
 - `MFGraphs/systemTools.wl`
 - `MFGraphs/solversTools.wl`
-- `MFGraphs/graphics.wl`
+- `MFGraphs/graphicsTools.wl`
 
 Archived/inactive modules:
 - `MFGraphs/Examples/archive/ExamplesData.wl`
@@ -106,7 +106,7 @@ wolframscript -file MFGraphs/Tests/make-unknowns.mt
 ```
 
 Current active runner suites (`Scripts/RunTests.wls`):
-- `fast`: `scenario-kernel.mt`, `make-unknowns.mt`, `reduce-system.mt`, `scenario-consistency.mt`, `graphics.mt`
+- `fast`: `scenario-kernel.mt`, `make-unknowns.mt`, `reduce-system.mt`, `scenario-consistency.mt`, `graphicsTools.mt`
 - `all`: alias for `fast`
 - `archive`: archived compatibility/legacy suites (explicit use only)
 - `full`: `fast + archive`
@@ -122,7 +122,7 @@ MFGraphs/
   unknownsTools.wl
   systemTools.wl
   solversTools.wl
-  graphics.wl
+  graphicsTools.wl
   Examples/
     archive/
       ExamplesData.wl

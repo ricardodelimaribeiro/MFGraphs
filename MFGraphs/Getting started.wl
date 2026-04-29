@@ -17,7 +17,7 @@ Quiet[
                 "unknownsTools`",
                 "systemTools`",
                 "solversTools`",
-                "graphics`"
+                "graphicsTools`"
             }
         },
         Remove["Global`*"];
@@ -259,7 +259,7 @@ Column[{
 }]
 
 
-(* --- 7. Topology visualization (from MFGraphs`Graphics`) --- *)
+(* --- 7. Topology visualization (from MFGraphs`graphicsTools`) --- *)
 
 Column[{
     DescribeOutput[
@@ -300,7 +300,7 @@ DescribeOutput[
 ]
 
 
-(* --- 9. Visualize reduceSystem solutions (from MFGraphs`Graphics`) --- *)
+(* --- 9. Visualize reduceSystem solutions (from MFGraphs`graphicsTools`) --- *)
 
 (* --- Apply to chain with one exit --- *)
 
