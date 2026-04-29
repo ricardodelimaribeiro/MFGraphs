@@ -122,7 +122,7 @@ isValidSystemSolution[sys, sol, "ReturnReport" -> True]
 
 ```mathematica
 scenarioData[s]
-unknownsData[makeUnknowns[s]]
+symbolicUnknownsData[makeSymbolicUnknowns[s]]
 systemDataFlatten[sys]
 ```
 

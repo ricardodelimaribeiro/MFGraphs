@@ -10,8 +10,8 @@ BeginPackage["orchestrationTools`", {
 }];
 
 solveScenario::usage =
-"solveScenario[s] automatically constructs unknowns, builds the structural \
-system, and calls dnfReduceSystem. \
+"solveScenario[s] automatically constructs exact symbolic unknowns, builds the \
+structural system, and calls dnfReduceSystem. \
 solveScenario[{s1, s2, ...}] solves multiple populations (scenarios) and \
 returns a list of solutions. \
 solveScenario[..., solver] uses the specified solver function (e.g., reduceSystem).";
@@ -25,7 +25,7 @@ Begin["`Private`"];
 (* Single scenario orchestration *)
 solveScenario[s_?scenarioQ, solver_:dnfReduceSystem] :=
     Module[{unk, sys},
-        unk = makeUnknowns[s];
+        unk = makeSymbolicUnknowns[s];
         sys = makeSystem[s, unk];
         solver[sys]
     ];

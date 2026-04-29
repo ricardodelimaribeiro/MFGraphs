@@ -5,7 +5,7 @@
 The repository is currently in a **core scenario-kernel phase**. The active package surface is centered on:
 - typed scenario construction
 - example scenario factories
-- unknown-variable bundle construction
+- exact symbolic unknown bundle construction
 - structural system construction
 - critical-congestion symbolic solving
 - visualization helpers
@@ -53,12 +53,12 @@ s = makeScenario[<|
   |>
 |>];
 
-unk = makeUnknowns[s];
+unk = makeSymbolicUnknowns[s];
 sys = makeSystem[s, unk];
 sol = solveScenario[s];
 
 scenarioQ[s]
-unknownsQ[unk]
+symbolicUnknownsQ[unk]
 mfgSystemQ[sys]
 isValidSystemSolution[sys, sol]
 ```
@@ -81,8 +81,8 @@ Example scenario factories:
 - `getExampleScenario`
 - `gridScenario`, `cycleScenario`, `graphScenario`, `amScenario`
 
-Unknowns/system kernels:
-- `unknowns`, `unknownsQ`, `unknownsData`, `makeUnknowns`
+Symbolic unknown/system kernels:
+- `symbolicUnknowns`, `symbolicUnknownsQ`, `symbolicUnknownsData`, `makeSymbolicUnknowns`
 - `mfgSystem`, `mfgSystemQ`, `systemData`, `makeSystem`
 - `solveScenario`, `dnfReduceSystem`, `reduceSystem`, `isValidSystemSolution`
 
@@ -103,11 +103,11 @@ From repository root:
 ```bash
 wolframscript -file Scripts/RunTests.wls fast
 wolframscript -file MFGraphs/Tests/scenario-kernel.mt
-wolframscript -file MFGraphs/Tests/make-unknowns.mt
+wolframscript -file MFGraphs/Tests/symbolic-unknowns.mt
 ```
 
 Current active runner suites (`Scripts/RunTests.wls`):
-- `fast`: `scenario-kernel.mt`, `make-unknowns.mt`, `reduce-system.mt`, `scenario-consistency.mt`, `graphicsTools.mt`, `orchestration.mt`
+- `fast`: `scenario-kernel.mt`, `symbolic-unknowns.mt`, `reduce-system.mt`, `scenario-consistency.mt`, `graphicsTools.mt`, `orchestration.mt`
 - `all`: alias for `fast`
 - `archive`: archived compatibility/legacy suites (explicit use only)
 - `full`: `fast + archive`
@@ -128,7 +128,7 @@ MFGraphs/
   archive/
   Tests/
     scenario-kernel.mt
-    make-unknowns.mt
+    symbolic-unknowns.mt
     archive/
   Kernel/init.m
 Scripts/

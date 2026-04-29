@@ -1,6 +1,6 @@
 #!/usr/bin/env wolframscript
 (* Usage: wolframscript -file Scripts/ProfileScenarioKernel.wls [--solver dnf|reduce|boolean|findinstance] [--timeout s] [--case name] *)
-(* Non-mutating staged profiler for scenario -> unknowns -> system -> solver. *)
+(* Non-mutating staged profiler for scenario -> symbolic unknowns -> system -> solver. *)
 
 (* :!CodeAnalysis::BeginBlock:: *)
 (* :!CodeAnalysis::Disable::SuspiciousSessionSymbol:: *)
@@ -110,7 +110,7 @@ ProfileCase[{name_String, buildFn_}] :=
     {tScenario, s} = AbsoluteTiming[buildFn[]];
     mem1 = MemoryInUse[];
 
-    {tUnknowns, unk} = AbsoluteTiming[makeUnknowns[s]];
+    {tUnknowns, unk} = AbsoluteTiming[makeSymbolicUnknowns[s]];
     mem2 = MemoryInUse[];
 
     {tSystem, sys} = AbsoluteTiming[makeSystem[s, unk]];
@@ -123,9 +123,9 @@ ProfileCase[{name_String, buildFn_}] :=
     auxPairs = Length[Lookup[topology, "AuxPairs", {}]];
     auxTriples = Length[Lookup[topology, "AuxTriples", {}]];
     halfPairs = Length[Lookup[topology, "HalfPairs", {}]];
-    js = Length[unknownsData[unk, "Js"]];
-    jts = Length[unknownsData[unk, "Jts"]];
-    us = Length[unknownsData[unk, "Us"]];
+    js = Length[symbolicUnknownsData[unk, "Js"]];
+    jts = Length[symbolicUnknownsData[unk, "Jts"]];
+    us = Length[symbolicUnknownsData[unk, "Us"]];
     eqCount = Length[systemData[sys, "EqEntryIn"]] +
       AndLen[systemData[sys, "EqBalanceSplittingFlows"]] +
       AndLen[systemData[sys, "EqBalanceGatheringFlows"]] +

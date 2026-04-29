@@ -7,7 +7,7 @@
 
    Lifecycle:
      makeSystem[s, unk]  →  builds system association + wraps in mfgSystem[...]
-     makeSystem[s]       →  calls makeUnknowns[s] and delegates
+     makeSystem[s]       →  calls makeSymbolicUnknowns[s] and delegates
      mfgSystemQ[x]       →  True iff x is a well-formed typed mfgSystem
      systemData[sys]     →  returns the underlying equation association
 *)
@@ -44,10 +44,10 @@ mfgComplementarityDataQ::usage = "mfgComplementarityDataQ[x] returns True if x i
 mfgHamiltonianDataQ::usage = "mfgHamiltonianDataQ[x] returns True if x is a typed mfgHamiltonianData object.";
 
 makeSystem::usage =
-"makeSystem[s_scenario, unk_unknowns] constructs an mfgSystem by building the \
+"makeSystem[s_scenario, unk_symbolicUnknowns] constructs an mfgSystem by building the \
 structural equations (SignedFlows, Balance equations, HJ conditions, etc.) from \
-the provided scenario and symbolic unknowns. makeSystem[s_scenario] automatically \
-derives unknowns using makeUnknowns[s].";
+the provided scenario and exact symbolic unknown bundle. makeSystem[s_scenario] \
+automatically derives symbolicUnknowns using makeSymbolicUnknowns[s].";
 
 systemData::usage =
 "systemData[sys, key] returns the value associated with key in the system sys, or \
@@ -293,7 +293,7 @@ buildBoundaryData[s_?scenarioQ, topology_Association] :=
         |>
     ];
 
-buildFlowData[s_?scenarioQ, topology_Association, unk_?unknownsQ] :=
+buildFlowData[s_?scenarioQ, topology_Association, unk_?symbolicUnknownsQ] :=
     Module[{inAuxEntryPairs, outAuxExitPairs, halfPairs, js, jts, pairs, auxTriples,
          signedFlows, ineqJs, ineqJts, splittingPairs, balanceSplittingFlows,
          eqBalanceSplittingFlows, noDeadStarts, ruleBalanceGatheringFlows,
@@ -308,8 +308,8 @@ buildFlowData[s_?scenarioQ, topology_Association, unk_?unknownsQ] :=
         splittingMaps = GroupBy[auxTriples, #[[{1, 2}]] &];
         gatheringMaps = GroupBy[auxTriples, #[[{2, 3}]] &];
 
-        js = unknownsData[unk, "Js"];
-        jts = unknownsData[unk, "Jts"];
+        js = symbolicUnknownsData[unk, "Js"];
+        jts = symbolicUnknownsData[unk, "Jts"];
         boundaryPairs = Join[inAuxEntryPairs, outAuxExitPairs];
 
         signedFlows = AssociationMap[
@@ -346,7 +346,7 @@ buildFlowData[s_?scenarioQ, topology_Association, unk_?unknownsQ] :=
         |>
     ];
 
-buildComplementarityData[s_?scenarioQ, topology_Association, unk_?unknownsQ] :=
+buildComplementarityData[s_?scenarioQ, topology_Association, unk_?symbolicUnknownsQ] :=
     Module[{model, verticesList, switchingCosts, inAuxEntryPairs, outAuxExitPairs,
          halfPairs, auxTriples, consistCosts, altFlows, altTransitionFlows,
          activeTriples, auxTriplesByMiddle, ineqSwitchingByVertex, altOptCond,
@@ -513,9 +513,9 @@ getKirchhoffMatrix[sys_] :=
 (* When Alpha == 1, the generated system consists of linear equations,
    alternatives between linear equations, and linear inequalities; nothing is
    non-linear. *)
-makeSystem[s_?scenarioQ] := makeSystem[s, makeUnknowns[s]];
+makeSystem[s_?scenarioQ] := makeSystem[s, makeSymbolicUnknowns[s]];
 
-makeSystem[s_?scenarioQ, unk_?unknownsQ] :=
+makeSystem[s_?scenarioQ, unk_?symbolicUnknownsQ] :=
     Module[{model, topology, graph, auxiliaryGraph, auxEdges, edges,
          auxVertices, auxTriples, unknownAuxTriples, boundaryData, flowData, compData, hamData,
          finalAssoc},
@@ -536,7 +536,7 @@ makeSystem[s_?scenarioQ, unk_?unknownsQ] :=
         auxTriples     = topology["AuxTriples"];
 
         (* Preserve canonical AuxTriples ordering from scenario topology *)
-        unknownAuxTriples = unknownsData[unk, "AuxTriples"];
+        unknownAuxTriples = symbolicUnknownsData[unk, "AuxTriples"];
         If[ListQ[unknownAuxTriples] && unknownAuxTriples =!= auxTriples,
             Return[
                 Failure[
@@ -569,9 +569,9 @@ makeSystem[s_?scenarioQ, unk_?unknownsQ] :=
             model,
             topology,
             <|
-                "Js"          -> unknownsData[unk, "Js"],
-                "Us"          -> unknownsData[unk, "Us"],
-                "Jts"         -> unknownsData[unk, "Jts"],
+                "Js"          -> symbolicUnknownsData[unk, "Js"],
+                "Us"          -> symbolicUnknownsData[unk, "Us"],
+                "Jts"         -> symbolicUnknownsData[unk, "Jts"],
                 (* Keep modeling metadata available to solver-layer eligibility checks. *)
                 "Hamiltonian" -> scenarioData[s, "Hamiltonian"],
                 "Edges"       -> edges,

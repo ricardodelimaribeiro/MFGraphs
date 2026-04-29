@@ -90,21 +90,29 @@ graphScenario[graph, entries, exits] creates a scenario from any WL directed Gra
 
 gridScenario[dims, entries, exits] creates a scenario on a directed GridGraph[dims]. {n} gives a chain with vertices 1..n; {r,c} gives an r×c grid with vertices 1..r*c (row-major). Optional: sc (switching costs, default {}), alpha, V, g (Hamiltonian defaults from $DefaultHamiltonian).
 
-## makeUnknowns
+## makeSymbolicUnknowns
 
-makeUnknowns[s] returns unknowns[<|"Js" -> ..., "Jts" -> ..., "Us" -> ...|>] for scenario s. "Js" are flow unknowns j[a,b], "Jts" are transition-flow unknowns j[r,i,w], and "Us" are value-function unknowns u[a,b].
+makeSymbolicUnknowns[s] returns symbolicUnknowns[<|"Js" -> ..., "Jts" -> ..., "Us" -> ...|>] for scenario s. "Js" are exact flow variables j[a,b], "Jts" are exact transition-flow variables j[r,i,w], and "Us" are exact value-function variables u[a,b].
+
+## symbolicUnknowns
+
+symbolicUnknowns[assoc] is the typed head for topology-derived exact symbolic variable bundles used by MFGraphs structural graph systems.
+
+## symbolicUnknownsData
+
+symbolicUnknownsData[u, key] returns key from symbolicUnknowns object u; symbolicUnknownsData[u] returns the underlying association.
+
+## symbolicUnknownsQ
+
+symbolicUnknownsQ[x] returns True iff x is a symbolicUnknowns[assoc_Association] object.
+
+## unknown
+
+unknown is reserved for future numeric MFGraphs solver fields over grids or layouts; it is not used by the exact symbolic graph-system constructors.
 
 ## unknowns
 
-unknowns[assoc] is the typed head for MFGraphs unknown-variable bundles.
-
-## unknownsData
-
-unknownsData[u, key] returns key from unknowns object u; unknownsData[u] returns the underlying association.
-
-## unknownsQ
-
-unknownsQ[x] returns True iff x is an unknowns[assoc_Association] object.
+unknowns is reserved for future numeric collections of unknown fields over grids or layouts, following the Maydan-style numeric solver boundary. Use symbolicUnknowns for current exact symbolic graph systems.
 
 ## altFlowOp
 
@@ -152,7 +160,7 @@ isSwitchingCostConsistent[List of switching costs] is True if all switching cost
 
 ## makeSystem
 
-makeSystem[s_scenario, unk_unknowns] constructs an mfgSystem by building the structural equations (SignedFlows, Balance equations, HJ conditions, etc.) from the provided scenario and symbolic unknowns. makeSystem[s_scenario] automatically derives unknowns using makeUnknowns[s].
+makeSystem[s_scenario, unk_symbolicUnknowns] constructs an mfgSystem by building the structural equations (SignedFlows, Balance equations, HJ conditions, etc.) from the provided scenario and exact symbolic unknown bundle. makeSystem[s_scenario] automatically derives symbolicUnknowns using makeSymbolicUnknowns[s].
 
 ## mfgBoundaryData
 
@@ -240,7 +248,7 @@ SolveMFG[assoc] provides backward compatibility for legacy raw-association solvi
 
 ## solveScenario
 
-solveScenario[s] automatically constructs unknowns, builds the structural system, and calls dnfReduceSystem. solveScenario[{s1, s2, ...}] solves multiple populations (scenarios) and returns a list of solutions. solveScenario[..., solver] uses the specified solver function (e.g., reduceSystem).
+solveScenario[s] automatically constructs exact symbolic unknowns, builds the structural system, and calls dnfReduceSystem. solveScenario[{s1, s2, ...}] solves multiple populations (scenarios) and returns a list of solutions. solveScenario[..., solver] uses the specified solver function (e.g., reduceSystem).
 
 ## augmentAuxiliaryGraph
 
