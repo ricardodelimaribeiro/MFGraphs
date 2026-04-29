@@ -215,7 +215,7 @@ DescribeOutput[
 
 chain2ExNoSC = gridScenario[
     {3},
-    {{1, 120}},
+    {{1, 6}},
     {{2, 10}, {3, 0}}
 ];
 chain2ExWithSC = gridScenario[
