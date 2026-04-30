@@ -121,6 +121,20 @@ All public solver entrypoints share a common preprocessing pipeline (`buildSolve
 - `dnfReduce` — internal simplifier used by `dnfReduceSystem`; eliminates equalities and distributes over disjunctions
 - `isValidSystemSolution` — solution validator; option `"ReturnReport" -> True` gives per-block breakdown
 
+### Solver design notes
+
+- **Common preprocessing pipeline** (`buildSolverInputs`): all solvers call this first. It collects structural equations, applies exit-value rules, and runs `accumulateLinearRules` to eliminate linear equalities symbolically. `activeSetReduceSystem` bypasses `buildSolverInputs` and instead splits constraints manually into deterministic (balance, boundary, inequalities) and active (complementarity) groups, accumulating linear rules on the deterministic block only before processing the complementarity structure.
+
+- **Branch-state variable threshold**: `optimizedDNFReduceSystem` and `activeSetReduceSystem` choose their branch-state path only when `Length[allVars] <= 8`. Above this threshold both fall back to the standard `dnfReduce` path. This threshold is a fixed internal constant, not an option.
+
+- **`branchStateReduce` vs `dnfReduce`**: `dnfReduce` is a recursive, expression-level simplifier that eliminates equalities and distributes over disjunctions on the fly, building up a DNF accumulator. `branchStateReduce` is a fold-based branch state machine — it maintains an explicit list of `<|"Rules" -> ..., "Residuals" -> ...|>` associations, one per surviving branch, and adds each conjunct to every live branch, pruning branches that become `False`. The two approaches can produce different residual shapes and branch orderings.
+
+- **`dnfReduceDiagnosticReport` global state**: the instrumented reducer writes into `$dnfCurrentMonitor` via mutable `=` assignments during evaluation. This is intentionally non-reentrant — only one diagnostic report should run at a time. Interrupted calls leave the global dirty; this is acceptable for script/test use but would be unsafe in a concurrent or nested context.
+
+- **`solutionResultKind` taxonomy**: classifies solver output into `"Rules"` (fully determined list of rules, or association with `Equations -> True`), `"NoSolution"` (empty list or `Equations -> False`), `"Branched"` (residual containing `Or`), `"Parametric"` (tracked `j`/`u` variables remain free but no disjunction), `"Residual"` (other symbolic residual), `"TIMEOUT"`, or `"Unknown"`. Used by benchmark scripts and profilers for result reporting.
+
+- **Topology sensitivity**: grid cases with the same vertex/edge count can differ significantly in solver time depending on layout orientation. The 2×3 and 3×2 grids both have 6 vertices and 7 edges, but `dnfReduceSystem` takes ~4.4× longer on grid-2x3 than grid-3x2 (see BENCHMARKS.md). This reflects the number of complementarity alternatives the DNF path must enumerate.
+
 ### Orchestration (`orchestrationTools`)
 - `solveScenario` — builds symbolic unknowns and system, then solves with `dnfReduceSystem` by default
 - `SolveMFG` — compatibility wrapper for raw association input, delegated through `solveScenario`
@@ -233,9 +247,13 @@ wolframscript -file Scripts/BenchmarkSystemSolver.wls --solver activeset
 # Run a single bench case
 wolframscript -file Scripts/BenchmarkSystemSolver.wls --case chain-3v-1exit
 
-# Non-mutating staged profiler
+# Non-mutating staged profiler (construction + solver timing per stage)
 wolframscript -file Scripts/ProfileScenarioKernel.wls --case example-12 --timeout 10
 wolframscript -file Scripts/ProfileScenarioKernel.wls --case example-12 --solver optimizeddnf --timeout 10
+
+# DNF reducer diagnostic profiler (branch/ordering analysis, does not write results)
+wolframscript -file Scripts/ProfileDNFReduce.wls --case grid-3x2 --order original
+wolframscript -file Scripts/ProfileDNFReduce.wls --case all --order all --timeout 60
 
 # Raw Reduce baseline benchmark, retained for comparison
 wolframscript -file Scripts/BenchmarkReduceSystem.wls

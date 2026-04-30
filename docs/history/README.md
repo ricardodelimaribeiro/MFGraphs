@@ -1,8 +1,9 @@
 # docs/history/
 
-Auto-appended performance history files. Do not edit manually.
+This directory contains the project development history and performance logs.
 
-| File | Written by |
+| File | Content |
 |---|---|
-| `DNF_PERFORMANCE_HISTORY.md` | `Scripts/CompareDNF.wls --tag "..."` |
-| `PARALLEL_PERFORMANCE_HISTORY.md` | `Scripts/BenchmarkSuite.wls --tag "..."` |
+| `DEVELOPMENT_HISTORY.md` | Long-form chronicle of the project's evolution since 2020 |
+| `DNF_PERFORMANCE_HISTORY.md` | Auto-appended logs for DNF reduction optimizations |
+| `PARALLEL_PERFORMANCE_HISTORY.md` | Auto-appended logs for parallel solver benchmarks |

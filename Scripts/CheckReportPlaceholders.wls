@@ -4,7 +4,7 @@
 targets = {
   "docs/history/DNF_PERFORMANCE_HISTORY.md",
   "docs/history/PARALLEL_PERFORMANCE_HISTORY.md",
-  "History/DEVELOPMENT_HISTORY.md",
+  "docs/history/DEVELOPMENT_HISTORY.md",
   "Results/compare_dnf.md",
   "Results/preprocessing_profile_report.md",
   "Results/reduction_strategies_profile.md"
