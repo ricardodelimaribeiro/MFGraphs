@@ -118,6 +118,30 @@ Test[
 ]
 
 Test[
+    solversTools`Private`branchStateReduceResult[x == 1 && x == 2, {x}],
+    <|"Rules" -> {}, "Equations" -> False|>,
+    TestID -> "branchStateReduceResult: rejects direct conflicting equalities"
+]
+
+Test[
+    solversTools`Private`branchStateReduceResult[(x == 1 || x == 2) && x == 3, {x}],
+    <|"Rules" -> {}, "Equations" -> False|>,
+    TestID -> "branchStateReduceResult: rejects disjuncts conflicting with later equality"
+]
+
+Test[
+    solversTools`Private`branchStateReduceResult[(x == 1 || x == 2) && x == 2, {x}],
+    {x -> 2},
+    TestID -> "branchStateReduceResult: keeps compatible disjunct matching later equality"
+]
+
+Test[
+    solversTools`Private`mergeRules[{x -> 1}, {x -> 2}],
+    {x -> 2},
+    TestID -> "mergeRules: duplicate lhs keeps latest rule"
+]
+
+Test[
     Module[{s, sys, result},
         s = gridScenario[{3}, {{1, 120.0}}, {{2, 0.0}, {3, 10.0}}];
         sys = makeSystem[s];
