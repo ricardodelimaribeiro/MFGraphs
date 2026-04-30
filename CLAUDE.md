@@ -114,6 +114,8 @@ All public solver entrypoints share a common preprocessing pipeline (`buildSolve
 - Default user-facing orchestration uses `solveScenario`, which calls `dnfReduceSystem`.
 - `reduceSystem` — calls `Reduce[constraints, allVars, Reals]` directly
 - `dnfReduceSystem` — equality-substitution + disjunction-distribution via `dnfReduce` (avoids `Reduce` timeouts)
+- `optimizedDNFReduceSystem` — opt-in exact branch-state DNF reducer for small branch families, with exact DNF fallback for larger residual variable sets
+- `activeSetReduceSystem` — opt-in exact active-set branch reducer for the critical-congestion complementarity structure, with exact DNF fallback for larger residual variable sets
 - `booleanReduceSystem` — converts to DNF via `BooleanConvert`, then calls `Reduce` independently per disjunct; options: `"DisjunctTimeout"` (default 30s), `"ReturnAll"` (default `False`)
 - `findInstanceSystem` — calls `FindInstance[constraints, allVars, Reals]` after accumulated linear preprocessing; option: `"Timeout"` (default `Infinity`)
 - `dnfReduce` — internal simplifier used by `dnfReduceSystem`; eliminates equalities and distributes over disjunctions
@@ -172,6 +174,8 @@ s = makeScenario[<|
 unk = makeSymbolicUnknowns[s];
 sys = makeSystem[s, unk];
 sol = solveScenario[s];
+optSol = solveScenario[s, optimizedDNFReduceSystem];
+activeSol = solveScenario[s, activeSetReduceSystem];
 
 scenarioQ[s]
 symbolicUnknownsQ[unk]
@@ -222,17 +226,22 @@ wolframscript -file Scripts/BenchmarkSystemSolver.wls
 # With options: tag appends an entry to BENCHMARKS.md; timeout sets per-case limit
 wolframscript -file Scripts/BenchmarkSystemSolver.wls --tag "after my change" --timeout 60
 
+# Compare opt-in exact solvers
+wolframscript -file Scripts/BenchmarkSystemSolver.wls --solver optimizeddnf
+wolframscript -file Scripts/BenchmarkSystemSolver.wls --solver activeset
+
 # Run a single bench case
 wolframscript -file Scripts/BenchmarkSystemSolver.wls --case chain-3v-1exit
 
 # Non-mutating staged profiler
 wolframscript -file Scripts/ProfileScenarioKernel.wls --case example-12 --timeout 10
+wolframscript -file Scripts/ProfileScenarioKernel.wls --case example-12 --solver optimizeddnf --timeout 10
 
 # Raw Reduce baseline benchmark, retained for comparison
 wolframscript -file Scripts/BenchmarkReduceSystem.wls
 ```
 
-Available bench cases: `chain-2v`, `chain-3v-1exit`, `chain-3v-2exit`, `example-7`, `chain-5v-1exit`, `example-12`.
+Available bench cases: `chain-2v`, `chain-3v-1exit`, `chain-3v-2exit`, `example-7`, `chain-5v-1exit`, `grid-2x3`, `grid-3x2`, `example-12`.
 
 Benchmark results land in `Results/` as timestamped CSV + WL solution files and as latest files. Solutions store the full symbolic output per case alongside timing. `ProfileScenarioKernel.wls` prints diagnostics to stdout and does not write results.
 

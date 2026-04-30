@@ -24,6 +24,10 @@ sys = makeSystem[s, unk];
 (* Solve through the default DNF-first orchestration path *)
 sol = solveScenario[s];
 
+(* Opt in to exact branch-state solvers when comparing solver performance *)
+optSol = solveScenario[s, optimizedDNFReduceSystem];
+activeSol = solveScenario[s, activeSetReduceSystem];
+
 (* Access structural data *)
 data = systemDataFlatten[sys];
 data["AltFlows"]
@@ -54,3 +58,6 @@ data["AltFlows"]
 | `MFGraphs/orchestrationTools.wl` | High-level DNF-first solver orchestration |
 | `MFGraphs/graphicsTools.wl` | Scenario and solution plotting helpers |
 | `Scripts/RunTests.wls` | Test suite runner |
+
+Benchmark selector names include `dnf` (default), `optimizeddnf`, `activeset`,
+`reduce`, `boolean`, and `findinstance`.

@@ -60,6 +60,10 @@ $BenchCases = {
     Function[getExampleScenario[7, {{1, 100.0}}, {{3, 0.0}, {4, 10.0}}]] },
   {"chain-5v-1exit",
     Function[gridScenario[{5}, {{1, 10}}, {{5, 0}}]] },
+  {"grid-2x3",
+    Function[gridScenario[{2, 3}, {{1, 100}}, {{6, 0}}]] },
+  {"grid-3x2",
+    Function[gridScenario[{3, 2}, {{1, 100}}, {{6, 0}}]] },
   {"example-12",
     Function[getExampleScenario[12, {{1, 100.0}}, {{4, 0.0}}]] }
 };
@@ -90,12 +94,7 @@ FmtMs[_] := "-";
 FmtMsCell[t_?NumericQ] := ToString[Round[N[t * 1000], 0.01]];
 FmtMsCell[_] := "-";
 
-ResultKind[sol_] := Which[
-  ListQ[sol] && AllTrue[sol, MatchQ[#, _Rule] &], "Rules",
-  AssociationQ[sol] && KeyExistsQ[sol, "Rules"], "Underdetermined",
-  sol === {}, "NoSolution",
-  True, "Other"
-];
+ResultKind[sol_] := solversTools`Private`solutionResultKind[sol] /. "Unknown" -> "Other";
 
 (* --- Run one case --- *)
 

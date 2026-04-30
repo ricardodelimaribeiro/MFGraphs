@@ -136,9 +136,104 @@ Test[
 ]
 
 Test[
+    Module[{result},
+        result = solversTools`Private`branchStateReduceResult[x + y == 1, {x, y}];
+        AssociationQ[result] &&
+        Lookup[result, "Rules", Missing["Rules"]] === {} &&
+        !FreeQ[Lookup[result, "Equations", True], x + y == 1]
+    ],
+    True,
+    TestID -> "branchStateReduceResult: symbolic RHS remains residual"
+]
+
+Test[
+    solversTools`Private`solutionResultKind[
+        solversTools`Private`branchStateReduceResult[x + y == 1, {x, y}]
+    ],
+    "Residual",
+    TestID -> "solutionResultKind: symbolic RHS branch-state result is residual"
+]
+
+Test[
+    solversTools`Private`branchStateReduceResult[x == y && y == 3, {x, y}],
+    {x -> 3, y -> 3},
+    TestID -> "branchStateReduceResult: chained equalities become ground rules"
+]
+
+Test[
     solversTools`Private`mergeRules[{x -> 1}, {x -> 2}],
     {x -> 2},
     TestID -> "mergeRules: duplicate lhs keeps latest rule"
+]
+
+Test[
+    solversTools`Private`solutionResultKind[{j[1, 2] -> 10}],
+    "Rules",
+    TestID -> "solutionResultKind: rule list is Rules"
+]
+
+Test[
+    solversTools`Private`solutionResultKind[<|"Rules" -> {j[1, 2] -> 10}, "Equations" -> True|>],
+    "Rules",
+    TestID -> "solutionResultKind: true residual association is Rules"
+]
+
+Test[
+    solversTools`Private`solutionResultKind[<|"Rules" -> {}, "Equations" -> False|>],
+    "NoSolution",
+    TestID -> "solutionResultKind: false residual association is NoSolution"
+]
+
+Test[
+    solversTools`Private`solutionResultKind[<|"Rules" -> {}, "Equations" -> (j[1, 2] == 0 || j[1, 2] == 1)|>],
+    "Branched",
+    TestID -> "solutionResultKind: residual with Or is Branched"
+]
+
+Test[
+    solversTools`Private`solutionResultKind[<|"Rules" -> {}, "Equations" -> (j[1, 2] >= 0 && u[1, 2] <= 1)|>],
+    "Parametric",
+    TestID -> "solutionResultKind: tracked residual without Or is Parametric"
+]
+
+Test[
+    Module[{diag},
+        diag = solversTools`Private`dnfResidualDiagnostics[
+            <|"Rules" -> {}, "Equations" -> ((j[1, 2] == 0 && (u[1, 2] == 0 || u[1, 2] == 1)) || j[1, 2] == 1)|>
+        ];
+        diag["TopLevelBranchCount"] === 2 &&
+        diag["NestedOrQ"] === True &&
+        diag["TrackedVariablesQ"] === True
+    ],
+    True,
+    TestID -> "dnfResidualDiagnostics: reports branches nested Or and tracked variables"
+]
+
+Test[
+    Module[{expr, ordered},
+        expr = (u[1, 2] >= 0) && ((j[1, 2] == 0) || (u[1, 2] == 0)) && (j[1, 2] == 3);
+        ordered = solversTools`Private`dnfOrderConjuncts[expr, "original"];
+        ordered === List @@ expr
+    ],
+    True,
+    TestID -> "dnf ordering: original preserves current top-level order"
+]
+
+Test[
+    Module[{expr, original, ordered},
+        expr = (u[1, 2] >= 0) && ((j[1, 2] == 0) || (u[1, 2] == 0)) && (j[1, 2] == 3);
+        original = ToString[#, InputForm] & /@ solversTools`Private`dnfTopLevelConjuncts[expr];
+        ordered = ToString[#, InputForm] & /@ solversTools`Private`dnfOrderConjuncts[expr, "nonor-stable"];
+        Sort[original] === Sort[ordered] && First[ordered] === ToString[j[1, 2] == 3, InputForm]
+    ],
+    True,
+    TestID -> "dnf ordering: nonor-stable preserves conjunct multiset"
+]
+
+Test[
+    solversTools`Private`dnfVarVertices /@ {j[1, 2], j[1, 2, 3], u[2, 3]},
+    {{1, 2}, {1, 2, 3}, {2, 3}},
+    TestID -> "dnf ordering: tracked variable vertex extraction"
 ]
 
 Test[
@@ -151,6 +246,79 @@ Test[
     ],
     True,
     TestID -> "dnfReduceSystem: chain 2-exits returns rules or rules+equations"
+]
+
+Test[
+    Module[{s, sys, expected, report},
+        s = gridScenario[{2}, {{1, 10}}, {{2, 0}}];
+        sys = makeSystem[s];
+        expected = dnfReduceSystem[sys];
+        report = solversTools`Private`dnfReduceDiagnosticReport[sys, "Order" -> "original", "Timeout" -> 30];
+        report["Status"] === "OK" &&
+        report["Result"] === expected &&
+        AssociationQ[report["Summary"]] &&
+        AssociationQ[report["OrderingSummary"]]
+    ],
+    True,
+    TestID -> "dnfReduceDiagnosticReport: matches dnfReduceSystem on small case"
+]
+
+Test[
+    Module[{s, sys, report},
+        s = gridScenario[{2}, {{1, 10}}, {{2, 0}}];
+        sys = makeSystem[s];
+        report = solversTools`Private`dnfReduceDiagnosticReport[sys, "Timeout" -> 0];
+        report["Status"] === "Timeout" &&
+        report["Result"] === $TimedOut &&
+        AssociationQ[report["TimeoutLocation"]]
+    ],
+    True,
+    TestID -> "dnfReduceDiagnosticReport: timeout returns diagnostic report"
+]
+
+Test[
+    Module[{s, sys, result},
+        s = gridScenario[{2}, {{1, 10}}, {{2, 0}}];
+        sys = makeSystem[s];
+        result = dnfReduceSystem[sys];
+        solversTools`Private`solutionResultKind[result]
+    ],
+    "Rules",
+    TestID -> "solutionResultKind: chain-2v dnf result is Rules"
+]
+
+Test[
+    Module[{s, sys, result},
+        s = gridScenario[{3}, {{1, 120.0}}, {{2, 0.0}, {3, 10.0}}];
+        sys = makeSystem[s];
+        result = dnfReduceSystem[sys];
+        solversTools`Private`solutionResultKind[result]
+    ],
+    "Branched",
+    TestID -> "solutionResultKind: chain-3v-2exit dnf result is Branched"
+]
+
+Test[
+    Module[{s, sys, result},
+        s = getExampleScenario[7, {{1, 100.0}}, {{3, 0.0}, {4, 10.0}}];
+        sys = makeSystem[s];
+        result = dnfReduceSystem[sys];
+        solversTools`Private`solutionResultKind[result]
+    ],
+    "Branched",
+    TestID -> "solutionResultKind: example-7 dnf result is Branched"
+]
+
+Test[
+    Module[{s, sys, result, kind},
+        s = getExampleScenario[12, {{1, 100.0}}, {{4, 0.0}}];
+        sys = makeSystem[s];
+        result = dnfReduceSystem[sys];
+        kind = solversTools`Private`solutionResultKind[result];
+        MemberQ[{"Branched", "Parametric"}, kind]
+    ],
+    True,
+    TestID -> "solutionResultKind: example-12 dnf result is specific residual kind"
 ]
 
 Test[
@@ -260,6 +428,151 @@ Test[
     ],
     True,
     TestID -> "dnfReduceSystem: non-critical congestion systems fail"
+]
+
+(* --- optimizedDNFReduceSystem tests --- *)
+
+Test[
+    NameQ["solversTools`optimizedDNFReduceSystem"],
+    True,
+    TestID -> "optimizedDNFReduceSystem: public symbol exists"
+]
+
+Test[
+    Module[{s, sys, result},
+        s = gridScenario[{3}, {{1, 120.0}}, {{2, 0.0}, {3, 10.0}}];
+        sys = makeSystem[s];
+        result = optimizedDNFReduceSystem[sys];
+        isValidSystemSolution[sys, result]
+    ],
+    True,
+    TestID -> "optimizedDNFReduceSystem: chain 2-exits solution is valid"
+]
+
+Test[
+    Module[{s, sys, result},
+        s = getExampleScenario[8, {{1, 80.0}}, {{3, 0.0}, {4, 10.0}}];
+        sys = makeSystem[s];
+        result = optimizedDNFReduceSystem[sys];
+        isValidSystemSolution[sys, result]
+    ],
+    True,
+    TestID -> "optimizedDNFReduceSystem: y-network solution is valid"
+]
+
+Test[
+    Module[{s, sys, result},
+        s = getExampleScenario[7, {{1, 100.0}}, {{3, 0.0}, {4, 10.0}}];
+        sys = makeSystem[s];
+        result = optimizedDNFReduceSystem[sys];
+        AssociationQ[result] && isValidSystemSolution[sys, result]
+    ],
+    True,
+    TestID -> "optimizedDNFReduceSystem: example-7 returns valid exact residual family"
+]
+
+Test[
+    Module[{s, sys, result, rules, residual},
+        s = getExampleScenario[12, {{1, 100.0}}, {{4, 0.0}}];
+        sys = makeSystem[s];
+        result = optimizedDNFReduceSystem[sys];
+        rules = If[ListQ[result], result, Lookup[result, "Rules", {}]];
+        residual = If[AssociationQ[result], Lookup[result, "Equations", True], True];
+        AssociationQ[result] &&
+        FreeQ[rules, _Real] &&
+        FreeQ[residual, _Real] &&
+        isValidSystemSolution[sys, result]
+    ],
+    True,
+    TestID -> "optimizedDNFReduceSystem: example-12 remains valid and exact"
+]
+
+Test[
+    Module[{s, sys, result},
+        s = gridScenario[{2}, {{1, 10}}, {{2, 0}}, {}, 2];
+        sys = makeSystem[s];
+        result = Quiet[optimizedDNFReduceSystem[sys], optimizedDNFReduceSystem::noncritical];
+        FailureQ[result] && result["Tag"] === "optimizedDNFReduceSystem"
+    ],
+    True,
+    TestID -> "optimizedDNFReduceSystem: non-critical congestion systems fail"
+]
+
+(* --- activeSetReduceSystem tests --- *)
+
+Test[
+    NameQ["solversTools`activeSetReduceSystem"],
+    True,
+    TestID -> "activeSetReduceSystem: public symbol exists"
+]
+
+Test[
+    StringContainsQ[
+        ToString[DownValues[solversTools`activeSetReduceSystem], InputForm],
+        "branchStateReduceFromBranches"
+    ],
+    True,
+    TestID -> "activeSetReduceSystem: uses distinct active-set branch path"
+]
+
+Test[
+    Module[{s, sys, result},
+        s = gridScenario[{3}, {{1, 120.0}}, {{2, 0.0}, {3, 10.0}}];
+        sys = makeSystem[s];
+        result = activeSetReduceSystem[sys];
+        isValidSystemSolution[sys, result]
+    ],
+    True,
+    TestID -> "activeSetReduceSystem: chain 2-exits solution is valid"
+]
+
+Test[
+    Module[{s, sys, result},
+        s = getExampleScenario[8, {{1, 80.0}}, {{3, 0.0}, {4, 10.0}}];
+        sys = makeSystem[s];
+        result = activeSetReduceSystem[sys];
+        isValidSystemSolution[sys, result]
+    ],
+    True,
+    TestID -> "activeSetReduceSystem: y-network solution is valid"
+]
+
+Test[
+    Module[{s, sys, result, rules, residual},
+        s = getExampleScenario[7, {{1, 100.0}}, {{3, 0.0}, {4, 10.0}}];
+        sys = makeSystem[s];
+        result = activeSetReduceSystem[sys];
+        rules = If[ListQ[result], result, Lookup[result, "Rules", {}]];
+        residual = If[AssociationQ[result], Lookup[result, "Equations", True], True];
+        AssociationQ[result] &&
+        FreeQ[rules, _Real] &&
+        FreeQ[residual, _Real] &&
+        isValidSystemSolution[sys, result]
+    ],
+    True,
+    TestID -> "activeSetReduceSystem: example-7 returns valid exact residual family"
+]
+
+Test[
+    Module[{s, sys, result},
+        s = getExampleScenario[12, {{1, 100.0}}, {{4, 0.0}}];
+        sys = makeSystem[s];
+        result = activeSetReduceSystem[sys];
+        AssociationQ[result] && isValidSystemSolution[sys, result]
+    ],
+    True,
+    TestID -> "activeSetReduceSystem: example-12 remains valid"
+]
+
+Test[
+    Module[{s, sys, result},
+        s = gridScenario[{2}, {{1, 10}}, {{2, 0}}, {}, 2];
+        sys = makeSystem[s];
+        result = Quiet[activeSetReduceSystem[sys], activeSetReduceSystem::noncritical];
+        FailureQ[result] && result["Tag"] === "activeSetReduceSystem"
+    ],
+    True,
+    TestID -> "activeSetReduceSystem: non-critical congestion systems fail"
 ]
 
 Test[

@@ -1,5 +1,5 @@
 #!/usr/bin/env wolframscript
-(* Usage: wolframscript -file Scripts/BenchmarkSystemSolver.wls [--solver dnf|reduce|boolean|findinstance] [--tag label] [--timeout s] [--case name] *)
+(* Usage: wolframscript -file Scripts/BenchmarkSystemSolver.wls [--solver dnf|optimizeddnf|activeset|reduce|boolean|findinstance] [--tag label] [--timeout s] [--case name] *)
 (* Benchmarks the active scenario-kernel solver path and stores solutions to Results/. *)
 
 (* :!CodeAnalysis::BeginBlock:: *)
@@ -43,7 +43,7 @@ Module[{args = Rest[$ScriptCommandLine], i = 1, arg},
   ]
 ];
 
-$SolverNames = {"dnf", "reduce", "boolean", "findinstance"};
+$SolverNames = {"dnf", "optimizeddnf", "activeset", "reduce", "boolean", "findinstance"};
 
 If[!MemberQ[$SolverNames, $SolverName],
   Print["Unknown solver: ", $SolverName];
@@ -54,6 +54,8 @@ If[!MemberQ[$SolverNames, $SolverName],
 RunSelectedSolver[sys_] :=
   Switch[$SolverName,
     "dnf", solversTools`dnfReduceSystem[sys],
+    "optimizeddnf", solversTools`optimizedDNFReduceSystem[sys],
+    "activeset", solversTools`activeSetReduceSystem[sys],
     "reduce", solversTools`reduceSystem[sys],
     "boolean", solversTools`booleanReduceSystem[sys],
     "findinstance", solversTools`findInstanceSystem[sys]
@@ -71,6 +73,8 @@ $BenchCases = {
   {"chain-3v-2exit", Function[gridScenario[{3}, {{1, 120.0}}, {{2, 0.0}, {3, 10.0}}]]},
   {"example-7", Function[getExampleScenario[7, {{1, 100.0}}, {{3, 0.0}, {4, 10.0}}]]},
   {"chain-5v-1exit", Function[gridScenario[{5}, {{1, 10}}, {{5, 0}}]]},
+  {"grid-2x3", Function[gridScenario[{2, 3}, {{1, 100}}, {{6, 0}}]]},
+  {"grid-3x2", Function[gridScenario[{3, 2}, {{1, 100}}, {{6, 0}}]]},
   {"example-12", Function[getExampleScenario[12, {{1, 100.0}}, {{4, 0.0}}]]}
 };
 $CaseNames = $BenchCases[[All, 1]];
@@ -99,13 +103,7 @@ FmtMs[_] := "-";
 FmtMsCell[t_?NumericQ] := ToString[Round[N[t * 1000], 0.01]];
 FmtMsCell[_] := "-";
 
-ResultKind[sol_] := Which[
-  sol === $TimedOut, "TIMEOUT",
-  ListQ[sol] && AllTrue[sol, MatchQ[#, _Rule] &], "Rules",
-  AssociationQ[sol] && KeyExistsQ[sol, "Rules"], "Underdetermined",
-  sol === {}, "NoSolution",
-  True, "Other"
-];
+ResultKind[sol_] := solversTools`Private`solutionResultKind[sol] /. "Unknown" -> "Other";
 
 RunCase[{name_String, buildFn_}] :=
   Module[{sys, warmupTime, repTime, solWarmup, repSol, sol, buildMs,
