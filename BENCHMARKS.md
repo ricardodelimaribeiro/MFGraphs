@@ -123,6 +123,26 @@ as `dnfReduceSystem`.
 DNF-first benchmark entries from `Scripts/BenchmarkSystemSolver.wls` are appended
 here when the script is run with `--tag`.
 
+### 2026-04-30 — post-PR-168 baseline (dnf, 60s timeout)
+
+**Commit:** `0edaaa6` (Merge PR #168)
+**Environment:** `wolframscript`, Mathematica 14.3.0 ARM (Mac), `$MFGraphsVerbose=False`
+
+| Case | Build (ms) | Warmup (ms) | Repeat (ms) | Kind | Valid |
+|------|-----------|------------|------------|------|-------|
+| chain-2v | 9.3 | 25.8 | 0.95 | Rules | True |
+| chain-3v-1exit | 2.81 | 1.19 | 1.09 | Rules | True |
+| chain-3v-2exit | 2.32 | 31.79 | 3.11 | Branched | True |
+| example-7 | 3.87 | 13.23 | 7.02 | Branched | True |
+| chain-5v-1exit | 3.42 | 2.02 | 1.76 | Rules | True |
+| grid-2x3 | 10.95 | 12846 | **11417** | Branched | True |
+| grid-3x2 | 10.82 | 3096 | **2577** | Branched | True |
+| example-12 | 5.23 | 1797 | **1543** | Branched | True |
+
+Notes:
+- `grid-2x3` and `grid-3x2` have identical vertex/edge counts but the DNF solve time differs by ~4.4×, reflecting topology sensitivity in the disjunction ordering. The column-major layout (2×3) produces significantly more branch combinations than the row-major layout (3×2).
+- `example-12` settles at ~1.5s repeat; `reduceSystem` times out at 160s on this case (see history below).
+
 ## reduceSystem benchmark history (manual)
 
 ### 2026-04-25 — core notebook solver sanity + timeout sweep
@@ -164,6 +184,7 @@ Interpretation:
 |--------|---------|
 | `Scripts/BenchmarkSystemSolver.wls` | Active DNF-first benchmark; supports `--solver` for comparisons |
 | `Scripts/ProfileScenarioKernel.wls` | Non-mutating staged profiler for construction, preprocessing, and solver time |
+| `Scripts/ProfileDNFReduce.wls` | DNF reducer diagnostic profiler; sweeps ordering strategies and reports branch/substitution metrics |
 | `Scripts/BenchmarkReduceSystem.wls` | Historical raw-Reduce baseline benchmark |
 | `Scripts/BenchmarkPreprocessing.wls` | Archived-preprocessing benchmark helper |
 | `Scripts/perf_review_targeted.wls` | Targeted performance review helper |
@@ -177,12 +198,12 @@ Benchmark results are exported as CSV and JSON with these fields:
 | Field | Description |
 |-------|-------------|
 | Case | Test case identifier |
-| Solver | Solver name (`dnf`, `reduce`, `boolean`, or `findinstance`) when using `BenchmarkSystemSolver.wls` |
+| Solver | Solver name (`dnf`, `optimizeddnf`, `activeset`, `reduce`, `boolean`, or `findinstance`) when using `BenchmarkSystemSolver.wls` |
 | BuildMs | `makeSystem` construction time in milliseconds |
 | WarmupMs | First solver run in milliseconds |
 | RepMs | One timed repeat after warmup, in milliseconds |
 | Status | `OK` or `TIMEOUT` |
-| Kind | `Rules`, `Underdetermined`, `NoSolution`, or `Other` |
+| Kind | `Rules` (fully determined), `Branched` (residual with top-level disjunctions), `Parametric` (tracked residual without branching), `NoSolution`, or `Unknown` — as classified by `solutionResultKind` |
 | Valid | `isValidSystemSolution` result |
 
 ## Recommendations for future work

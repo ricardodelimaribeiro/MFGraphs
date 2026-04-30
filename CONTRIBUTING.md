@@ -68,7 +68,7 @@ wolframscript -file Scripts/BenchmarkReduceSystem.wls --case chain-3v-2exit --ti
 
 ### Interpreting results
 - Active benchmark history: `BENCHMARKS.md`
-- Historical performance files: `docs/history/DNF_PERFORMANCE_HISTORY.md`, `docs/history/PARALLEL_PERFORMANCE_HISTORY.md`
+- Historical performance files: `docs/history/DNF_PERFORMANCE_HISTORY.md`, `docs/history/PARALLEL_PERFORMANCE_HISTORY.md`, `docs/history/DEVELOPMENT_HISTORY.md`
 - Speedup > 1 means improvement; < 1 means regression
 - Always run the active test suite before interpreting benchmark output
 - Legacy tiered solver benchmarks live in `Scripts/archive/` and require solver-era symbols that are not loaded in the current core phase
@@ -108,7 +108,7 @@ wolframscript -file Scripts/GenerateDocs.wls
 - `Scripts/`: Test runners, benchmarking, documentation generation
 - `MFGraphs/Tests/`: MUnit test files (`.mt`)
 - `Results/`: Benchmark outputs (CSV, JSON, markdown reports)
-- `History/`: Development history and decision records
+- `docs/`: Internal documentation, research papers, and development history
 - `CLAUDE.md`: Canonical AI/developer workflow guidance
 - `GEMINI.md`: Companion AI guidance synchronized with CLAUDE.md
 - `AGENTS.md`: Pointer file that redirects to canonical guidance

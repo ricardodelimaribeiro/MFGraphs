@@ -6,8 +6,8 @@ Internal documentation that supports development and research but is not part of
 |---|---|
 | `planning/` | Paper-generation plans, integration checklists, completion records |
 | `validation/` | Validation logs, session summaries, raw benchmark output text |
-| `history/` | Auto-appended performance history files (`DNF_PERFORMANCE_HISTORY.md`, `PARALLEL_PERFORMANCE_HISTORY.md`) — do not edit manually |
+| `history/` | Development history and auto-appended performance logs |
+| `research/` | Reference papers and author notes |
 
-The root-level `History/` directory contains longer-form development history that predates this layout and has not yet been migrated.
 
 For user-facing documentation, see the root-level files: `README.md`, `API_REFERENCE.md`, `CONTRIBUTING.md`, `TROUBLESHOOTING.md`, `BENCHMARKS.md`.

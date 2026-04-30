@@ -1,4 +1,4 @@
-# research/
+# docs/research/
 
 Reference materials that inform but are not part of the MFGraphs package.
 
