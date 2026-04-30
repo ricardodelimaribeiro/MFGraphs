@@ -1,5 +1,5 @@
 #!/usr/bin/env wolframscript
-(* Usage: wolframscript -file Scripts/ProfileScenarioKernel.wls [--solver dnf|reduce|boolean|findinstance] [--timeout s] [--case name] *)
+(* Usage: wolframscript -file Scripts/ProfileScenarioKernel.wls [--solver dnf|optimizeddnf|activeset|reduce|boolean|findinstance] [--timeout s] [--case name] *)
 (* Non-mutating staged profiler for scenario -> symbolic unknowns -> system -> solver. *)
 
 (* :!CodeAnalysis::BeginBlock:: *)
@@ -33,7 +33,7 @@ Module[{args = Rest[$ScriptCommandLine], i = 1, arg},
   ]
 ];
 
-$SolverNames = {"dnf", "reduce", "boolean", "findinstance"};
+$SolverNames = {"dnf", "optimizeddnf", "activeset", "reduce", "boolean", "findinstance"};
 
 If[!MemberQ[$SolverNames, $SolverName],
   Print["Unknown solver: ", $SolverName];
@@ -44,6 +44,8 @@ If[!MemberQ[$SolverNames, $SolverName],
 RunSelectedSolver[sys_, constraints_, allVars_, rulesAcc_] :=
   Switch[$SolverName,
     "dnf", solversTools`dnfReduceSystem[sys],
+    "optimizeddnf", solversTools`optimizedDNFReduceSystem[sys],
+    "activeset", solversTools`activeSetReduceSystem[sys],
     "reduce",
       With[{reduced = Reduce[constraints, allVars, Reals]},
         solversTools`Private`attachAccumulatedRules[
@@ -60,13 +62,10 @@ Fmt[x_] := ToString[x, InputForm];
 Ms[t_?NumericQ] := N[1000 t];
 AndLen[expr_] := If[Head[expr] === And, Length[List @@ expr], If[TrueQ[expr], 0, 1]];
 
-ResultKind[sol_] := Which[
-  sol === $TimedOut, "TIMEOUT",
-  ListQ[sol] && AllTrue[sol, MatchQ[#, _Rule] &], "Rules",
-  AssociationQ[sol] && KeyExistsQ[sol, "Rules"], "Underdetermined",
-  sol === {}, "NoSolution",
-  True, ToString[Head[sol]]
-];
+ResultKind[sol_] :=
+  With[{kind = solversTools`Private`solutionResultKind[sol]},
+    If[kind =!= "Unknown", kind, ToString[Head[sol]]]
+  ];
 
 ModelEdgeCount[model_Association] :=
   Module[{graph = Lookup[model, "Graph", Missing["KeyAbsent", "Graph"]],
@@ -84,6 +83,8 @@ $Cases = {
   {"chain-3v-2exit", Function[gridScenario[{3}, {{1, 120.0}}, {{2, 0.0}, {3, 10.0}}]]},
   {"example-7", Function[getExampleScenario[7, {{1, 100.0}}, {{3, 0.0}, {4, 10.0}}]]},
   {"chain-5v-1exit", Function[gridScenario[{5}, {{1, 10}}, {{5, 0}}]]},
+  {"grid-2x3", Function[gridScenario[{2, 3}, {{1, 100}}, {{6, 0}}]]},
+  {"grid-3x2", Function[gridScenario[{3, 2}, {{1, 100}}, {{6, 0}}]]},
   {"example-12", Function[getExampleScenario[12, {{1, 100.0}}, {{4, 0.0}}]]}
 };
 $CaseNames = $Cases[[All, 1]];

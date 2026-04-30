@@ -9,6 +9,9 @@ The active benchmark targets the current scenario-kernel structural solver path:
 scenario -> makeSystem -> dnfReduceSystem
 ```
 
+Opt-in exact solver comparisons are available with `--solver optimizeddnf`
+and `--solver activeset`; the default benchmark path remains `dnfReduceSystem`.
+
 Legacy tiered benchmarks for `DataToEquations` / `CriticalCongestionSolver`
 are archived under `Scripts/archive/` and are not part of the default package
 workflow while those solver-era symbols remain unloaded.
@@ -44,6 +47,8 @@ Compare an alternate solver explicitly:
 
 ```bash
 wolframscript -file Scripts/BenchmarkSystemSolver.wls --solver reduce --case example-12 --timeout 60
+wolframscript -file Scripts/BenchmarkSystemSolver.wls --solver optimizeddnf --case example-12 --timeout 60
+wolframscript -file Scripts/BenchmarkSystemSolver.wls --solver activeset --case example-12 --timeout 60
 ```
 
 Results are exported to:
@@ -57,6 +62,7 @@ For non-mutating staged diagnostics, run:
 
 ```bash
 wolframscript -file Scripts/ProfileScenarioKernel.wls --case example-12 --timeout 10
+wolframscript -file Scripts/ProfileScenarioKernel.wls --solver optimizeddnf --case example-12 --timeout 10
 ```
 
 Current cases:
@@ -68,6 +74,8 @@ Current cases:
 | `chain-3v-2exit` | three-vertex chain, two exits |
 | `example-7` | built-in example 7 |
 | `chain-5v-1exit` | five-vertex chain, one exit |
+| `grid-2x3` | 2 by 3 grid, entry `{1, 100}`, exit `{6, 0}` |
+| `grid-3x2` | 3 by 2 grid, entry `{1, 100}`, exit `{6, 0}` |
 | `example-12` | built-in example 12 |
 
 ### Archived solver-era benchmarks
@@ -103,6 +111,12 @@ These tiers describe `Scripts/archive/BenchmarkSuite.wls`, not the active
 then applies equality-substitution plus disjunction distribution to avoid raw
 `Reduce` timeouts. Raw **reduceSystem** remains available as a direct Wolfram
 `Reduce` baseline.
+
+**optimizedDNFReduceSystem** and **activeSetReduceSystem** are opt-in exact
+solvers for critical-congestion systems. They carry small branch families
+directly as rules plus residual constraints, fall back to the proven exact DNF
+path for larger residual variable sets, and return the same rule/residual shape
+as `dnfReduceSystem`.
 
 ## system solver benchmark history
 
