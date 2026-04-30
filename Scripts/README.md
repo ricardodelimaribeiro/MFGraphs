@@ -26,3 +26,4 @@ This directory contains active maintenance scripts and an `archive/` folder with
 ## Archive
 
 - `Scripts/archive/` holds older benchmark/profiling/CI scripts not used in the active scenario-kernel workflow.
+- `Scripts/repro/` holds preserved debugging and reproduction scripts from active investigation sessions.
