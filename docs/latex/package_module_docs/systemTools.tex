@@ -1,0 +1,162 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{hyperref}
+\title{systemTools.wl Module Documentation}
+\author{Manus AI}
+\date{}
+\begin{document}
+\maketitle
+
+\section{High-level explanation}
+
+\texttt{systemTools.wl} is the structural equation-system kernel of MFGraphs. It takes a typed scenario and a typed symbolic unknown bundle and builds a typed \texttt{mfgSystem} object containing the equations, inequalities, rules, and typed subrecords that represent a stationary mean field game on the network.
+
+Architecturally, this module is where scenario semantics become algebra. It collects boundary conditions, flow balance, complementarity constraints, switching inequalities, and Hamiltonian relations into a consistent system object. The design is modular: four builders produce typed records for boundary, flow, complementarity, and Hamiltonian data, and those records are then merged into the final system association.
+
+\section{Low-level explanation of functions and functionality}
+
+\subsection*{\texttt{mfgSystem}}
+
+\texttt{mfgSystem[assoc]} is the typed wrapper for a structural system. It indicates that the wrapped association should be interpreted as a fully assembled equation-system object rather than a generic association.
+
+\subsection*{\texttt{mfgBoundaryData}}
+
+\texttt{mfgBoundaryData[assoc]} wraps boundary-condition data such as entry equations, entry rules, and exit-value rules. It is the typed boundary subrecord stored inside a system.
+
+\subsection*{\texttt{mfgFlowData}}
+
+\texttt{mfgFlowData[assoc]} wraps flow-balance and non-negativity data, including signed-flow expressions and balance equations derived from the auxiliary topology.
+
+\subsection*{\texttt{mfgComplementarityData}}
+
+\texttt{mfgComplementarityData[assoc]} wraps switching-cost consistency results, complementarity alternatives, and optimality inequalities.
+
+\subsection*{\texttt{mfgHamiltonianData}}
+
+\texttt{mfgHamiltonianData[assoc]} wraps the Hamiltonian residual structure, including left-hand and right-hand sides, placeholder cost-current variables, and the general Hamiltonian equation block.
+
+\subsection*{\texttt{mfgSystemQ}, \texttt{mfgBoundaryDataQ}, \texttt{mfgFlowDataQ}, \texttt{mfgComplementarityDataQ}, \texttt{mfgHamiltonianDataQ}}
+
+These predicates recognize the corresponding typed wrappers. Their main role is defensive dispatch. They are used to keep constructors, accessors, and downstream logic attached to the right data shape.
+
+\subsection*{\texttt{makeSystem}}
+
+\texttt{makeSystem[s]} is the main public constructor. In one-argument form it automatically builds the symbolic unknown bundle, then delegates to the two-argument form. In two-argument form, \texttt{makeSystem[s, unk]} builds all four typed subrecords and returns a complete \texttt{mfgSystem}.
+
+This function is the canonical bridge from scenario semantics to symbolic constraints. Typical usage is:
+
+\begin{verbatim}
+sys = makeSystem[s];
+\end{verbatim}
+
+\subsection*{\texttt{systemData}}
+
+\texttt{systemData[sys]} returns the underlying association. \texttt{systemData[sys,key]} first checks top-level keys and, if necessary, searches inside the typed subrecords before returning \texttt{Missing["KeyAbsent", key]}.
+
+This makes it the standard read interface for every solver and plotting function that consumes system content.
+
+\subsection*{\texttt{systemDataFlatten}}
+
+\texttt{systemDataFlatten[sys]} merges all top-level and typed-subrecord keys into a single flat association. It is primarily a compatibility and inspection helper.
+
+Its low-level importance is that it preserves a bridge to older flat-system access patterns without abandoning the newer typed-record design.
+
+\subsection*{\texttt{getKirchhoffLinearSystem}}
+
+\texttt{getKirchhoffLinearSystem[sys]} extracts the entry-current vector, Kirchhoff matrix, and corresponding variable order. It is a specialized linear-algebra helper for the structural system.
+
+Users working directly on system analysis or certain solver extensions may use this function to access the linear core of the flow-balance structure.
+
+\subsection*{\texttt{getKirchhoffMatrix}}
+
+\texttt{getKirchhoffMatrix[sys]} returns a similar data package but includes a third placeholder slot retained for backward compatibility. It is a compatibility-preserving interface over the same structural idea.
+
+\subsection*{\texttt{consistentSwitchingCosts}}
+
+\texttt{consistentSwitchingCosts[sc][trip]} evaluates whether a particular switching-cost entry obeys a triangle-inequality-style consistency condition relative to alternative intermediate transitions.
+
+This is a diagnostic or analytical helper rather than a standard end-user call. Its main importance is explanatory: it formalizes what the system means by switching-cost consistency.
+
+\subsection*{\texttt{isSwitchingCostConsistent}}
+
+\texttt{isSwitchingCostConsistent[switchingCosts]} checks consistency over the whole switching-cost structure. It accepts both associations and list representations and returns either \texttt{True}, \texttt{False}, or symbolic consistency conditions.
+
+This function directly influences how complementarity alternatives are constructed downstream.
+
+\subsection*{\texttt{altFlowOp}}
+
+\texttt{altFlowOp[j][list]} builds the alternative \texttt{j@@list == 0 || j@@Reverse@list == 0}. It encodes the idea that, on an undirected underlying edge, at least one orientation of the flow must vanish in the critical complementarity formulation.
+
+\subsection*{\texttt{flowSplitting}}
+
+\texttt{flowSplitting[auxTriples][x]} selects triples that begin with the directed pair \texttt{x}. It is used in splitting-balance construction.
+
+\subsection*{\texttt{flowGathering}}
+
+\texttt{flowGathering[auxTriples][x]} selects triples that end with the directed pair \texttt{x}. It is used in gathering-balance construction.
+
+\subsection*{\texttt{switchingCostLookup}}
+
+\texttt{switchingCostLookup[sc]} returns a callable lookup function \texttt{f[r,i,w]} that retrieves the switching cost for a transition, defaulting to zero when absent. This isolates switching-cost representation details from the rest of the system builders.
+
+\subsection*{\texttt{ineqSwitch}}
+
+\texttt{ineqSwitch[u, switching][r,i,w]} builds the switching optimality inequality \texttt{u[w,i] + switching[r,i,w] - u[r,i] >= 0}. It represents the local inequality half of the switching optimality logic.
+
+\subsection*{\texttt{altSwitch}}
+
+\texttt{altSwitch[j, u, switching][r,i,w]} builds the complementarity alternative \texttt{j[r,i,w] == 0 || u[w,i] + switching[r,i,w] - u[r,i] == 0}. It couples transition activity and switching optimality.
+
+\subsection*{\texttt{roundValues}}
+
+\texttt{roundValues[x]} rounds numeric content to a standard precision. The file provides overloads for numbers, rules, lists, and associations. This is a small cleanup utility for making output more stable and readable.
+
+\subsection*{\texttt{exactBoundaryValue} and \texttt{exactBoundaryValues}}
+
+These private helpers convert numeric boundary data into exact values, typically through \texttt{Rationalize[val, 0]}. They reject nonreal or nonnumeric boundary values by returning \texttt{Failure} objects. This exactification step matters because the active symbolic solver pipeline depends on exact structural equations wherever possible.
+
+\subsection*{\texttt{buildBoundaryData}}
+
+\texttt{buildBoundaryData[s, topology]} constructs entry equations, entry rules, exit-value rules, and boundary metadata. It turns raw entry and exit values into exact symbolic constraints and substitutions suitable for the later system and solver pipeline.
+
+\subsection*{\texttt{buildFlowData}}
+
+\texttt{buildFlowData[s, topology, unk]} constructs signed-flow expressions, non-negativity constraints for both \texttt{Js} and \texttt{Jts}, splitting-balance equations, gathering-balance equations, and associated rule forms.
+
+This is one of the most structurally important builders because it transforms topology plus variable families into the conservation laws that define admissible flow behavior.
+
+\subsection*{\texttt{buildComplementarityData}}
+
+\texttt{buildComplementarityData[s, topology, unk]} builds the switching-cost and complementarity layer. It checks switching-cost consistency, constructs alternative zero-flow constraints on undirected edges, builds transition-flow alternatives, assembles switching inequalities by vertex, and forms the optimality complementarity block.
+
+This is the main source of logical disjunction in the final system.
+
+\subsection*{\texttt{buildHamiltonianData}}
+
+\texttt{buildHamiltonianData[s, topology, flowData]} builds the Hamiltonian residual structure. It uses the signed flows and edge exponents to form left-hand and right-hand sides, introduces placeholder cost-current symbols, and assembles the general Hamiltonian equation block.
+
+At a low level, this builder currently emphasizes the \texttt{Alpha}/\texttt{EdgeAlpha} part of the Hamiltonian specification. Other Hamiltonian schema fields may be stored in the scenario but are not all fully activated here.
+
+\section{Usage guidance}
+
+End users should normally interact with this module through \texttt{makeSystem} and \texttt{systemData}. More specialized helpers such as \texttt{getKirchhoffMatrix} or switching-consistency functions are most relevant when extending solvers, profiling structural growth, or debugging particular system blocks.
+
+The canonical workflow is:
+
+\begin{verbatim}
+unk = makeSymbolicUnknowns[s];
+sys = makeSystem[s, unk];
+flowBlock = systemData[sys, "FlowData"];
+\end{verbatim}
+
+\section*{References}
+
+\begin{enumerate}
+\item Source file: \texttt{MFGraphs/systemTools.wl}
+\item Upstream dependencies: \texttt{scenarioTools.wl}, \texttt{unknownsTools.wl}
+\item Downstream consumer: \texttt{solversTools.wl}
+\end{enumerate}
+
+\end{document}

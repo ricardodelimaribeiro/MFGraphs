@@ -1,521 +1,212 @@
-# MFGraphs: A Development History
+# MFGraphs Development History
 
-*A chronicle of 572 commits across six years — from a research prototype to a production-grade Mean Field Games solver.*
-
----
-
-## 1. What This Package Does
-
-MFGraphs is a Wolfram Language package for solving **Mean Field Games on networks** with congestion and switching costs. Given a network topology — vertices, directed edges, entry/exit flows, and optional switching costs — it constructs a system of equations encoding equilibrium conditions, then solves for the flow distributions and value functions that describe how rational agents distribute themselves across the network.
-
-The mathematical pipeline is deceptively simple in concept:
-
-```
-Network data → Equations → Solver → Equilibrium flows
-```
-
-Getting this right took six years, three solver implementations, one breakthrough algorithm, and more than a few "heart attacks."
+*A chronicle of **864 commits** across almost six years — from a research prototype to a scenario-first, benchmarked Mean Field Games toolkit.* [1]
 
 ---
 
-## 2. The Research Phase (May – November 2020)
+## 1. What this repository became
 
-### The first week
+MFGraphs began on **2020-05-06** as a small Wolfram Language research repository and, by **2026-04-30**, had accumulated **864 commits**. The most striking fact in the current history is not only the project’s age, but its acceleration: **409 commits landed in 2026 alone, including 105 in March and 304 in April**.[1] The repository’s development history is therefore not a smooth six-year line. It is a long research incubation followed by a very sharp engineering transition.
 
-The repository was born on **May 6, 2020** with a `First commit` — 12 files laying the groundwork for a Wolfram Language package. Two days later, eight commits landed in a single day, all with the same message: **"Association"**. This was the foundational data model being worked out in real-time: how should a network be represented?
+At a high level, the repository moved through four recognizable phases. The first phase built the mathematical model and the earliest solver ideas. The second expanded the example set and solver experiments but left much of the repository in research-code form. The third, in March 2026, professionalized the project through pull requests, benchmarking, test infrastructure, and aggressive cleanup. The fourth, in April 2026, reorganized the active package surface around typed scenarios, modular system builders, orchestration helpers, and a narrower, more explicit public workflow.[1] [2]
 
-The answer — a Mathematica `Association` with keys like `"Vertices List"`, `"Adjacency Matrix"`, `"Entrance Vertices and Flows"` — proved to be a durable choice. It survived all six years essentially unchanged.
-
-### The emotional commits
-
-The commit messages from this period read like a research diary:
-
-- *"Having heart attacks and recovering quickly!"* (May 17)
-- *"DONE"* (May 12)
-- *"problem with jays"* (May 18) — the flow variables `j[...]` were misbehaving
-- *"what is this?"* (June 22)
-- *"getting to the final idea. found a way to reduce the equations more efficiently."* (July 15)
-
-This was clearly a solo researcher working through hard mathematics, committing progress as it happened, sometimes multiple times per day, sometimes disappearing for weeks.
-
-### The solver comes alive
-
-**August 31, 2020** marked the first major milestone:
-
-> *"Non-linear solver is working! Maybe we need to look carefully into the NonNegative equations so that we avoid Reduce."*
-
-The qualifying remark — "maybe we need to look carefully" — was prophetic. The interaction between non-negative constraints and the `Reduce` function would remain a central tension in the codebase for years to come.
-
-### ZAnd is born
-
-**November 10, 2020** brought a pivotal commit:
-
-> *"New ZAnd, ReplaceSolution, and NewReduce functions. The final associations are now simplified (just elementary numeric computations)"*
-
-`ZAnd` — a function that recursively processes conjunctions and disjunctions of equations — would become the package's critical bottleneck and, eventually, its most optimized component. The name was cryptic (a portmanteau of "Z" for the zero-flow case and "And" for logical conjunction), and it would carry that name for almost six years before being renamed to `DNFReduce`.
-
-### Switching costs enter the picture
-
-The period from **November 16–26** saw the introduction of switching costs — the mechanism that models the price agents pay when transitioning between edges at a vertex. This was mathematically elegant but computationally devastating: switching costs generate `Or` expressions over all feasible switching patterns, and a network with N switching costs can produce up to 2^N branches.
-
-> *"Still trying to understand the switching costs problem"* (November 25)
-
-This combinatorial explosion would remain unaddressed for years.
-
-### Assessment of the early phase
-
-**Good decisions:**
-- **The Association data model.** Choosing an Association with descriptive string keys (`"Vertices List"`, `"Adjacency Matrix"`, etc.) made the data self-documenting and extensible. Six years later, the format is unchanged — new keys were added, but existing ones never needed modification.
-- **Symbolic parameters.** Using symbolic placeholders (`I1`, `U1`, `S1`) that get substituted with `/.` rules was a natural fit for Mathematica and allowed the same network definition to serve both symbolic analysis and numerical solving.
-- **Pipeline thinking.** Even in the earliest code, there was a clear separation between "construct the equations" and "solve the equations." This would eventually crystallize into the three-stage pipeline.
-
-**Bad decisions:**
-- **Notebook-driven development.** All experimentation happened in `.nb` notebook files that mixed code, output, and commentary. These were committed to the repo, creating a growing collection of files that were impossible to diff, review, or maintain.
-- **No tests.** The first unit test wouldn't appear until September 2021 — 16 months after the first commit. Correctness was verified by running notebooks and checking output visually.
-- **Direct commits to master.** Every change went straight to the main branch. No branches, no pull requests, no code review.
-- **Meaningless commit messages.** Eight commits titled "Association." Twenty-plus commits titled "Update D2E2.m." The git history became a timeline of activity rather than a record of decisions.
+| Phase | Time window | Character |
+|---|---|---|
+| Research prototype | 2020 | Rapid mathematical experimentation, minimal process |
+| Expansion and drift | 2021–2024 | New applications and solvers, but uneven software discipline |
+| Professionalization sprint | March 2026 | PR workflow, benchmarks, CI, cleanup, context hygiene |
+| Architecture reset | April 2026 | Scenario-first core, modular typed kernels, orchestration, diagnostics |
 
 ---
 
-## 3. The Long Middle (2021 – 2024)
+## 2. The research phase (2020)
 
-### Broadening the scope (January 2021)
+The repository was born with the aptly literal commit message **`First commit`** on 2020-05-06.[1] Two days later came a burst of commits all titled **`Association`**, which in retrospect captured one of the project’s best early decisions: representing network data as a Wolfram `Association`. That choice gave the package a flexible, self-describing modeling format early enough that many later refactors could preserve the underlying conceptual model even while the surrounding solver architecture changed.
 
-January 2021 was an active month that expanded the package's ambitions:
+The 2020 history reads like a direct research notebook translated into git. Commit messages from the period included remarks such as *“Having heart attacks and recovering quickly!”*, *“problem with jays”*, and *“getting to the final idea. found a way to reduce the equations more efficiently.”* The value of those commits is historical rather than procedural: they show the repository learning what its hard problems actually were. Those hard problems were not generic Wolfram coding issues. They were the algebraic shape of equilibrium constraints, the behavior of flow variables `j[...]`, and the combinatorial impact of switching-cost logic.[1]
 
-- **Braess paradox networks** were implemented — a classic game theory example where adding a road to a network can make everyone worse off. Multiple commits over January 19–27 worked through the mathematics:
-  > *"Now we can see the paradox!"* (January 19)
-  > *"tried to solve for the braess paradox directly!"* (January 27)
+Two milestones from late 2020 remained important for years. First, the non-linear solver became viable in August 2020, establishing that the repository could move from model construction into genuine equilibrium computation. Second, November 2020 introduced the `ZAnd` family of Boolean-reduction ideas that later evolved into `DNFReduce`. That moment matters because it identified the central computational bottleneck correctly: once switching costs generate nested `Or` structure, symbolic simplification and branch control dominate performance.
 
-- **Jamarat pilgrimage networks** appeared — a real-world application modeling crowd flow at the Jamarat Bridge in Mecca. This was clearly driven by collaboration:
-  > *"running examples with Fatimah"* (January 5)
+| 2020 milestone | Why it mattered later |
+|---|---|
+| Association-based network model | Became the durable conceptual representation for scenarios and solver inputs |
+| First workable non-linear solver path | Proved the package could do more than symbolic derivation |
+| Early `ZAnd` / logical reduction experiments | Foreshadowed the later `DNFReduce` optimization story |
+| Switching-cost support | Made the package mathematically richer and computationally harder at the same time |
 
-- **Plotting functions** were added for mass densities and value functions on edges.
-
-### The solver odyssey (2021)
-
-The non-linear solver went through multiple iterations throughout 2021:
-
-- *"FixedStepX does not halt. But it is not reaching a good solution."* (October 25, 2020)
-- *"Developed a new version of Eq(ualities)Eliminator."* (September 1, 2020)
-- *"working on non-linear solver"* (October 25–26, 2021)
-- *"running faster"* (November 1, 2021)
-
-The pattern was clear: get a solver working on simple cases, discover it fails on complex ones, rewrite, repeat. The commits show a researcher systematically pushing the boundary of what the solver could handle, from 1-edge networks to Y-networks to 9-vertex grids.
-
-### First tests (September 2021)
-
-**September 16, 2021** marked a quiet milestone:
-
-> *"developed the first test!"*
-
-Followed three days later by:
-
-> *"new unit tests"*
-> *"include two functioning tests in the suit"*
-
-The tests used Mathematica's `.mt` format and focused on critical congestion solutions. This was a step in the right direction, but the test infrastructure remained minimal — no test runner, no automation, no CI.
-
-### The quiet years (2022 – 2023)
-
-Activity slowed considerably. Commits became sparse, often just "Update D2E2.m" or "Update NonLinearSolver.m" with weeks or months between them. The package was being used for research but not actively developed as software.
-
-Notable events:
-- **April 2022**: D2E2 (Data-to-Equations v2) was being actively improved: *"habemus critical solver!"*
-- **May 2022**: A new investigation into ZAnd: *"thinking about a different implementation of ZAnd"* — but nothing came of it yet.
-- **June 2022**: *"ZAnd is 'close' to optimal."* — This assessment would prove overly optimistic.
-
-### The Monotone solver (June 2024)
-
-After a 16-month gap (the longest in the project's history), **June 4, 2024** brought a significant addition: `Monotone.m`, an entirely new solver based on ODE gradient flow on the Kirchhoff matrix.
-
-This represented a fundamentally different mathematical approach — instead of fixed-point iteration, the Monotone solver formulated the problem as an ODE and used `NDSolve` to follow the gradient flow to equilibrium. It was also the beginning of the D2E2 consolidation: duplicate code from `D2E2-currents.m` was merged into the main `D2E2.m`.
-
-Then silence again — 9 months — until March 2026.
-
-### Assessment of the middle phase
-
-**Good decisions:**
-- **Multiple solver strategies.** Having both a fixed-point iterative solver (NonLinearSolver) and an ODE-based solver (Monotone) gave the package resilience — different problem types could favor different approaches.
-- **Real-world applications.** The Jamarat and Braess examples grounded the mathematics in practical problems, which helped identify edge cases and drove solver improvements.
-- **Starting to write tests.** Even minimal tests created a foundation that could be built upon.
-
-**Bad decisions:**
-- **Code duplication across files.** `ZAnd` and `ReZAnd` were implemented in multiple files (`ZAnd.m`, `D2E2.m`, `D2E2-currents.m`) with subtle differences. When one was improved, the others might not be.
-- **No performance measurement.** For a package whose primary bottleneck (ZAnd/DNFReduce) could vary from milliseconds to minutes depending on the problem, there was no systematic way to measure or track performance.
-- **Growing notebook debt.** By the end of this period, the repository contained 49+ example notebooks. Many were outdated, referenced old function names, or duplicated each other. They were effectively dead code but took up space and created confusion about what was current.
-- **No package hygiene.** Symbol contexts (`Public` vs `Private`), variable scoping, and naming conventions were inconsistent. Variables leaked between modules. These would become serious bugs later.
+The early phase also established several liabilities that would remain with the repository for years. Development was notebook-heavy, tests were absent, and every change landed directly on `master`. In other words, the mathematics was advancing faster than the software process. That is normal for research code, but it set up the large cleanup bill that would arrive later.
 
 ---
 
-## 4. The Great Professionalization (March 2026)
+## 3. Expansion, applications, and drift (2021–2024)
 
-### The transformation
+The years 2021 through 2024 broadened the package’s ambitions but did not yet fully professionalize it. The git counts show that activity remained substantial in 2021 and 2022, then dropped sharply in 2023 before reviving in 2024.[1] This was the repository’s long middle: there was real intellectual progress, but process maturity lagged behind.
 
-On **March 1, 2026**, the repository underwent a transformation so dramatic that it deserves its own chapter. What began as a 16-day burst of 18 pull requests did not stop there: by **March 31, 2026**, 34 pull requests had been merged that month, turning an emergency professionalization sprint into a full-month engineering campaign.
+In 2021 the repository grew through concrete applications, especially **Braess paradox** examples and **Jamarat** crowd-routing scenarios. Those examples mattered because they forced the solver to confront network structures that were more realistic than minimal chains and Y-graphs. The first `.mt` tests also appeared in September 2021. Even though the test surface remained small, that shift from visual notebook checking to explicit assertions was an important change in what counted as “done.”
 
-This wasn't gradual improvement. It was a deliberate, intensive effort to convert a research codebase into a properly engineered package.
+The quieter 2022–2024 period was less dramatic in commit volume, but it still produced substantive solver work. `D2E2` continued to evolve, `ZAnd` remained an object of performance concern, and June 2024 introduced the **Monotone** solver path, a mathematically distinct alternative based on gradient-flow ideas. That move is historically important because it showed the repository was no longer trying to express the entire project through one solver philosophy alone. It was becoming a family of approaches around the same modeling domain.
 
-### PR #1–2: Structure and documentation (March 1)
+| Year | Commits | Historical reading |
+|---|---:|---|
+| 2021 | 187 | Broadest early expansion: examples, solver experiments, and first tests |
+| 2022 | 89 | Continued refinement, especially around `D2E2` and reduction concerns |
+| 2023 | 1 | Near-hibernation of active development |
+| 2024 | 18 | Selective revival, including Monotone-solver work |
 
-The first pull request refactored the package structure, fixed bugs across all modules, introduced `$MFGraphsVerbose` for output control, and cleaned up global variable leaks. The second added a comprehensive README.
-
-These set the tone: the codebase was being treated as software, not just a collection of scripts.
-
-### PR #4: The benchmarking suite (March 3)
-
-This was the infrastructure that made everything else possible. A full benchmarking suite with:
-
-- **Four test tiers** by complexity: small (60s timeout), medium (300s), large (900s), vlarge (1800s)
-- **31+ test cases** covering the full range of network types
-- **SafeExecute wrappers** with timeout handling
-- **Profiling instrumentation** that could wrap any function non-invasively
-
-With this in place, every subsequent change could be measured against a baseline. This is the commit that turned "I think this is faster" into "this is 47x faster."
-
-The same commit also introduced the first performance optimization: **Solve memoization** via `CachedSolve` with SHA-256 hashing. Identical equalities — common when processing Or-branches with switching costs — would now be solved only once.
-
-### PR #7: The DNFReduce breakthrough (March 4)
-
-This was the single most impactful change in the project's history. The cryptic `ZAnd` was renamed to `DNFReduce` (Disjunctive Normal Form Reduce), making its purpose self-documenting. But the rename was the least important part.
-
-Two algorithmic optimizations delivered dramatic speedups:
-
-1. **Reduce memoization** (`CachedReduce`): The `Reduce[fst, Reals]` call in the Or case was cached by SHA-256 hash. The same sub-expression across different Or-branches would be reduced only once.
-
-2. **Short-circuit Or evaluation**: Before evaluating the second Or-branch, check if the first result already equals `xp` (the accumulated expression). If so, the second branch cannot contribute anything new — skip it entirely.
-
-The results, measured by the newly-created `CompareDNF.wls` script:
-
-| Case | Problem | Speedup | Output compression |
-|------|---------|---------|-------------------|
-| 12 | Attraction, 5 free vars | **47.8x** | 65,536 disjuncts → 1 |
-| 11 | Attraction, 16 switching costs | **10.8x** | 3,359,232 → 2,977 |
-| Braess | Braess congestion | 0.86x (slower) | 147,456 → 179 (823x smaller) |
-
-The key insight: for Case 12, the short-circuit fires on the very first Or-branch. One solve is enough; all 65,535 remaining branches are skipped. `BooleanConvert` enumerates all 65,536.
-
-For smaller networks where DNFReduce was actually slower on wall-clock time, the output was dramatically more compact — 3 to 1,024 times fewer disjuncts — which made downstream solver steps (TripleClean, MFGSystemSolver) correspondingly faster.
-
-### PR #8–9: Performance tracking and more optimizations (March 4–10)
-
-`DNF_PERFORMANCE_HISTORY.md` was created — a document that records every optimization milestone with measured data, code diffs, and interpretation. This is one of the project's best engineering practices: a living record of *why* changes were made and *what effect they had*.
-
-PR #9 added two more optimizations:
-- **And-Or early exit**: When distributing over Or-branches in the And case, stop immediately if any branch fully resolves the problem.
-- **TripleStep caching**: The `TripleStep` function in DataToEquations now used `CachedSolve` instead of bare `Solve`.
-
-All 31 valid benchmark cases continued to pass with no regressions.
-
-### PR #10–12: The great cleanup (March 15)
-
-Three pull requests on a single day:
-
-- **PR #10**: Deleted 49 legacy notebooks and obsolete code — 574 KB removed. The example notebooks that had accumulated since 2020 were replaced by `GetExampleData[key]`, which loaded the same networks programmatically.
-- **PR #11**: Standardized function naming to PascalCase (`DataToEquations`, `CriticalCongestionSolver`, `GetExampleData`). The old name `D2E2` was gone.
-- **PR #12**: Renamed all package files from `.m` to `.wl` — the modern Wolfram Language extension.
-
-### PR #13–17: The context hygiene crisis (March 15–16)
-
-This was the most instructive episode in the project's history.
-
-**PR #13** (March 15) discovered that `Begin["`Private`"]` statements in several modules were placed *after* symbols had already been used. This meant internal symbols leaked into the public `MFGraphs`` context, while other symbols ended up in `MFGraphs`Private`` where user substitution rules couldn't reach them.
-
-The fix seemed comprehensive. It wasn't.
-
-**PR #15** (March 16, next morning) found that MonotoneSolver had a cache part-assignment bug: `cache[[1]] = ...` doesn't work on function arguments in Mathematica. The cache was silently failing.
-
-**PR #17** (March 16, afternoon) uncovered a deeper issue: `Clear[H, Cost]` in NonLinearSolver had created a `MFGraphs`Cost` symbol, but DataToEquations used `MFGraphs`Private`Cost`. When the NonLinearSolver evaluated `Cost[50, {2,3}]`, it stayed unevaluated — the wrong symbol — and crashed `TripleStep`.
-
-**Three commits in 24 hours** to fix context issues that had been latent for years. The bugs were always there; they just hadn't been triggered because no one had run the full solver chain with the right combination of test cases.
-
-This episode illustrates a fundamental truth about Wolfram Language development: **symbol context management is the language's most treacherous feature**, and getting it wrong produces failures that are silent, delayed, and cascading.
-
-### PR #16: Hessian Riemannian Flow (March 16)
-
-Amid the bug fixes, a genuine mathematical advance: the MonotoneSolver was upgraded from simple gradient projection to **Hessian Riemannian Flow**, incorporating full Hessian information for more robust convergence. This came with proper monotonicity regression tests.
-
-### PR #18: Solver contracts and test runner (March 16)
-
-The final PR of this period normalized the return format across all three solvers via a `"ReturnShape" -> "Standard"` option, created a comprehensive test runner (`RunTests.wls` with fast/slow/all tiers), and added solver contract tests verifying return format compliance.
-
-### PR #26–41: The second wave (March 16–31)
-
-The original history of March 2026 stopped a little too early. After the first professionalization push, a second wave landed during the second half of the month, and it changed the character of the repository again.
-
-The emphasis shifted from "make the package sane" to "make the package measurable, automatable, and comparable":
-
-- **PR #26** expanded this development history itself and cleaned up nearby solver/documentation surfaces. That sounds cosmetic, but it mattered: the repository had started to treat institutional memory as a maintained artifact rather than a one-off note.
-- **PR #27–28** parallelized independent operations in the solver pipeline and benchmarking helpers. The significance was not raw speed alone; it forced the codebase to confront the difference between theoretical parallelism and the practical overhead of launching Wolfram subkernels.
-- **PR #29–32** simplified shared helpers, added DNF profiling scripts, repaired benchmark output formatting, and introduced `ReduceDisjuncts` to eliminate redundant DNF branches earlier in the symbolic pipeline.
-- **PR #33** fixed a fast-suite stall by short-circuiting infeasible reduced systems before later inequality bucketing tried to operate on `False`. This was a classic "small guard, large payoff" software-engineering fix: correctness and test reliability improved at once.
-- **PR #34–38** consolidated solver documentation, automation scripts, reference papers, and GitHub Actions setup. In particular, the Wolfram CI workflow was corrected and then hardened around a dedicated environment, moving the project from "tests can be run locally" to "tests can be trusted in GitHub."
-- **PR #39** delivered another concrete performance win: `MFGSystemSolver` preprocessing became **4.3x faster** on representative switching-cost cases by merging redundant `TripleClean` passes, replacing an `O(n*m)` inequality-grouping step with a reverse index, and adding a parallel-launch threshold so small jobs no longer paid kernel startup cost.
-- **PR #40–41** returned to the Monotone solver with a more subtle goal: making its outputs genuinely comparable to `CriticalCongestionSolver` and `NonLinearSolver`. Shared flow-level result fields, reduced Kirchhoff-state metadata, and benchmark/status reporting changes meant Monotone could finally be assessed on the same external surface as the other stationary solvers.
-
-This second wave is notable because it closed the loop. Early March 2026 built measurement infrastructure. Late March 2026 used that infrastructure to refine preprocessing, stabilize CI, and expose where the Monotone solver still differs mathematically from the paper-aligned ideal.
-
-### Assessment of the professionalization phase
-
-**Good decisions:**
-- **Benchmark-first approach.** Building the measurement infrastructure before optimizing meant every change had quantified impact. This prevented both premature optimization and the "I think it's faster" trap.
-- **DNF_PERFORMANCE_HISTORY.md.** A document that records optimization rationale, code changes, and measured results is rare and valuable. It serves as both documentation and institutional memory.
-- **Backward-compatible aliases.** `ZAnd = DNFReduce` and `DataG := GetExampleData` meant existing notebooks didn't break during the rename.
-- **Tiered test cases.** Separating tests into small/medium/large/vlarge tiers with different timeouts acknowledged that solver performance varies by orders of magnitude across problem sizes.
-- **Standardized solver contracts.** Having all three solvers return results in a consistent format (with opt-in normalization) made them interchangeable downstream.
-
-**Bad decisions (or: lessons from this phase):**
-- **Context hygiene was left too late.** The `Begin["`Private`"]` ordering issue affected every module and had been present since the earliest code. Fixing it required three emergency PRs because each fix revealed the next layer of context confusion.
-- **No integration tests before the cleanup.** The context bugs only surfaced because the professionalization phase involved running the full solver chain on all test cases — something that apparently hadn't been done systematically before.
-- **Part-assignment on function arguments.** The MonotoneSolver cache tried `cache[[1]] = result` where `cache` was a function parameter. This is a Mathematica-specific pitfall: `Part` assignment doesn't work on function arguments the way it works on module-local variables. The fix required inlining the cache variable.
+What this middle phase lacked was not intelligence or technical depth. It lacked a disciplined repository contract. There was still too much duplication, too little benchmark evidence, and too little separation between exploratory code and maintained public surface. Those omissions are exactly what made March 2026 so consequential.
 
 ---
 
-## 5. The Architecture That Emerged
+## 4. The professionalization sprint (March 2026)
 
-After six years of evolution, the package settled on a clean three-stage pipeline:
+March 2026 was the repository’s turning point. The history records **105 commits** and **28 merged pull requests** in that month alone.[1] The shift was not cosmetic. It changed how the project was developed, measured, and explained.
 
-```
-DataToEquations[data]
-  → CriticalCongestionSolver[d2e]
-    → NonLinearSolver[critical]   or   MonotoneSolverFromData[data]
+This was the month in which MFGraphs became a repository with a repeatable engineering process. Benchmark suites were introduced and performance history began to be written down systematically rather than inferred from memory.[3] [4] The old logical-reduction machinery was renamed and reframed around `DNFReduce`, cleanup removed stale notebooks and renamed modules to modern `.wl` conventions, and a wave of fixes addressed Wolfram-specific context hygiene bugs that had likely been latent for years.
+
+One of the most important historical lessons from this month is that **measurement came before most of the high-confidence optimization claims**. That sequencing mattered. Once benchmarking existed, speedups and regressions could be discussed concretely rather than rhetorically. The repository started preserving not just code, but evidence.
+
+| March 2026 theme | Historical effect |
+|---|---|
+| Pull-request workflow becomes normal | Replaced direct-to-`master` habits with reviewable increments |
+| Benchmark and profiling scripts land | Turned solver work into a measurable engineering activity |
+| `DNFReduce` performance work | Made symbolic-branch handling a first-class optimization topic |
+| Cleanup and file modernization | Reduced notebook debt and clarified module boundaries |
+| Context-hygiene fixes | Exposed how much Wolfram package correctness depends on symbol discipline |
+| Test runner and CI hardening | Made regression detection sustainable rather than ad hoc |
+
+By the end of March 2026, the repository had stopped being merely “a codebase that can solve some cases.” It had become a codebase that could explain itself, test itself, and benchmark itself.
+
+---
+
+## 5. The architecture reset (April 2026)
+
+If March 2026 professionalized the repository, **April 2026 redefined its active center of gravity**. The git history shows **304 commits** and **93 merged pull requests** in April alone, making it the single most intense month in the repository’s life.[1]
+
+The dominant pattern in April was not a single optimization or one solver breakthrough. It was **architectural narrowing and modularization**. The history records typed scenario-kernel work, scenario-topology refactors, typed unknown bundles, extraction of the system kernel, public constructor additions such as `GridScenario`, `CycleScenario`, `GraphScenario`, and `AMScenario`, archiving of legacy components, and later the addition of orchestration helpers, graphics improvements, diagnostics, and benchmark-history documentation.[1]
+
+In practical terms, April 2026 changed the answer to the question “What is MFGraphs right now?” Before April, that answer was still heavily framed by the older `DataToEquations` / critical-solver / nonlinear-solver lineage. After April, the active answer became much more explicit: MFGraphs is a **scenario-first toolkit with typed kernels and a narrower active public workflow**, while older components remain part of the project’s historical record and archived capability surface.[1] [2]
+
+| April 2026 cluster | Representative history entries |
+|---|---|
+| Typed scenario core | `typed scenario kernel and modular load order`; `extend Hamiltonian defaults and edge params` [1] |
+| Topology and unknown refactor | `Refactor scenario topology lifecycle`; `Add typed unknowns head`; `Rename symbolic unknown bundle API` [1] |
+| System modularization | `Extract system kernel`; `modularize mfgSystem builders` [1] |
+| Public constructor expansion | `Add GridScenario`; `Add CycleScenario, GraphScenario, AMScenario` [1] |
+| Active-surface narrowing | `Archive DataToEquations`; `Reduce MFGraphs loader to scenario core`; `archive legacy components` [1] |
+| Workflow layer growth | `implement orchestration layer`; graphics and diagnostics improvements [1] |
+| Institutional memory | `docs: solver design notes, benchmark history, repo restructure` [1] |
+
+This phase is historically significant because it did not simply add features. It clarified **which parts of the old package should remain active, which should become archived, and which should be re-expressed through typed scenario objects and orchestration helpers**. That kind of narrowing is a sign of maturity. It means the repository is no longer trying to expose every layer of its own past as if all of it were equally current.
+
+---
+
+## 6. The architecture that exists today
+
+The current repository surface, as reflected in the active module tree and workflow guidance, is organized around a staged scenario-first pipeline.[1] [2] The active modules now center on `scenarioTools.wl`, `examples.wl`, `unknownsTools.wl`, `systemTools.wl`, `solversTools.wl`, `graphicsTools.wl`, and `orchestrationTools.wl`, with the fast suite correspondingly focused on scenario, unknown, system, solver, graphics, and orchestration tests.[1] [2]
+
+The key historical point is not merely that these file names changed. It is that the **repository’s public story changed**. The current package no longer presents itself primarily as a loose collection of solver scripts. It presents itself as a structured progression from typed scenario definition through unknown generation and system construction to solving, visualization, and orchestration.
+
+```text
+Scenario
+  → Unknown bundle
+    → Structural system
+      → System solver / orchestration layer
+        → Visualization and diagnostics
 ```
 
-Each stage has a well-defined input and output:
+| Active layer | Current role |
+|---|---|
+| Scenario tools | Typed scenario construction, validation, topology derivation |
+| Examples | Public scenario constructors and reusable example factories |
+| Unknowns | Typed symbolic unknown bundles built from scenario topology |
+| System | Modular structural-equation assembly from typed inputs |
+| Solvers | Active symbolic-reduction and system-solving entrypoints |
+| Graphics | Plotting and result-display helpers |
+| Orchestration | Higher-level solve flows, validation, and workflow glue |
 
-1. **DataToEquations** takes a network Association and produces a system decomposed into equalities (EE), inequalities (NN), and disjunctions (OR).
-2. **CriticalCongestionSolver** solves the zero-flow equilibrium using `DNFReduce` for the Boolean algebra. It returns the solution under `"AssoCritical"`.
-3. **NonLinearSolver** or **MonotoneSolver** takes the critical solution as a starting point and solves the full non-linear problem iteratively.
-
-The inner solver pipeline within `DataToEquations.wl` is where most of the computational work happens:
-
-```
-CriticalCongestionSolver
-  → MFGPreprocessing → TripleClean (fixed-point: solve equalities, substitute, repeat)
-  → MFGSystemSolver → TripleClean → DNFSolveStep (DNFReduce on Or-branches)
-```
-
-This architecture wasn't designed up front — it emerged through iteration. The early code had everything in one file; the middle period saw functions migrate between files; the final phase consolidated everything into clean, single-responsibility modules.
+Historically, this architecture is the repository’s strongest synthesis so far. It preserves the long investment in symbolic modeling while making the active package surface smaller, more explicit, and easier to test.
 
 ---
 
-## 6. Good Decisions: A Retrospective
+## 7. Durable lessons from the history
 
-### 1. The Association data model (Day 1)
+Several lessons recur across the entire repository history.
 
-Using a Mathematica Association with human-readable string keys was the right call from the start. It made the data self-documenting, extensible (new keys could be added without breaking old code), and natural for Mathematica's functional style. The same format serves symbolic analysis, numerical solving, and visualization.
+First, the **Association-based modeling instinct was correct very early**. Even though names and wrappers changed, the repository consistently benefited from treating model inputs as structured, inspectable data rather than positional argument soup. That early decision made later typed wrappers feel natural rather than forced.
 
-### 2. Symbolic parameters with late binding
+Second, **Wolfram Language context hygiene is not a cosmetic concern**. The March 2026 fixes demonstrated that context mistakes can remain latent for years and then break solver chains in non-obvious ways. In this repository, context discipline was not just style; it was correctness.
 
-Defining networks with symbolic placeholders (`I1`, `U1`, `S1`) that get substituted before solving was a natural fit for Mathematica and enabled parametric analysis. The same network definition could be solved for different parameter values without reconstruction.
+Third, **benchmarking changed the development culture**. Once performance history documents and benchmark scripts existed, solver work became legible as engineering. That is one of the clearest positive discontinuities in the repository timeline.[3] [4]
 
-### 3. The pipeline architecture
+Fourth, **narrowing the active surface was a strength, not a retreat**. April 2026 succeeded in part because it accepted that not every historical module should remain equally public. Archiving and reducing the loader made the maintained package easier to reason about.
 
-Separating "construct equations" from "solve equations" from "iterate non-linearly" allowed each stage to be optimized independently. When `DNFReduce` got its 47x speedup, nothing downstream needed to change.
-
-### 4. Multiple solver approaches
-
-Having three independent solvers (Critical, NonLinear, Monotone) gave the package resilience. The Monotone solver uses a completely different mathematical framework (ODE gradient flow) than the NonLinear solver (fixed-point iteration), so problems that are pathological for one may be tractable for the other.
-
-### 5. SHA-256 memoization
-
-Using cryptographic hashing to detect duplicate Solve/Reduce inputs was elegant and effective. It avoided the memory bloat of storing the full expression as a key while providing reliable cache hits. The decision to clear the cache between problem instances (`ClearSolveCache[]`) prevented stale results.
-
-### 6. Measuring before optimizing
-
-The benchmarking suite (March 2026) was built *before* the major optimizations. This meant every change had a measured baseline and a measured result. The `CompareDNF.wls` script automated this, and `DNF_PERFORMANCE_HISTORY.md` preserved the context.
-
-### 7. Backward-compatible aliases
-
-When `ZAnd` was renamed to `DNFReduce`, a single line — `ZAnd = DNFReduce` — preserved compatibility with existing notebooks. Similarly for `DataG := GetExampleData`. This is the right way to rename: deprecate gracefully rather than break everything.
+| Lesson | Evidence in the history |
+|---|---|
+| Good data models survive refactors | The project kept returning to structured scenario-style representations |
+| Performance claims need records | Benchmark-history documents became a core institutional-memory tool [3] [4] |
+| Process matters after the research phase | PRs, tests, and CI sharply improved repository clarity in 2026 [1] |
+| Narrower public APIs are healthier | April 2026 deliberately reduced and clarified the active surface [1] [2] |
 
 ---
 
-## 7. Bad Decisions: Lessons Learned
+## 8. By the numbers
 
-### 1. Six years without branches or pull requests
+The current history is now large enough that approximate counts from older versions of this document are no longer sufficient. The exact snapshot on 2026-04-30 is as follows.[1]
 
-From May 2020 to February 2026, every commit went directly to `master`. No branches, no pull requests, no code review. This meant:
-- No opportunity for review before changes landed
-- No way to experiment without risking the main branch
-- No separation between "work in progress" and "known good"
-- The git history became a stream of consciousness rather than a record of deliberate changes
+### Commits by year
 
-The switch to branch-and-PR workflow in March 2026 immediately improved code quality — not because the code was different, but because the process enforced deliberation.
+| Year | Commits |
+|---|---:|
+| 2020 | 160 |
+| 2021 | 187 |
+| 2022 | 89 |
+| 2023 | 1 |
+| 2024 | 18 |
+| 2026 | 409 |
+| **Total** | **864** |
 
-### 2. Notebook-driven development
+### 2026 acceleration
 
-Mathematica notebooks (`.nb` files) are wonderful for exploration but terrible for version control. They contain binary formatting data, they can't be meaningfully diffed, and they mix code, output, and commentary in ways that make it impossible to tell what's "current."
+| Period | Commits | Merged pull requests |
+|---|---:|---:|
+| March 2026 | 105 | 28 |
+| April 2026 | 304 | 93 |
 
-By 2026, the repository contained 49 example notebooks, many of which were outdated or duplicated each other. Deleting them (PR #10) removed 574 KB of dead weight. The replacement — `GetExampleData[key]` — was cleaner, more maintainable, and testable.
+### Boundary commits
 
-**The lesson:** Use notebooks for exploration, but extract production code into `.wl` files and test cases into `.mt` files. Commit notebooks only when they serve as documentation, not as the source of truth.
+| Position | Commit |
+|---|---|
+| First | `09cc195` — `First commit` |
+| Latest in this snapshot | `c594e8d` — `Merge pull request #175 from ricardodelimaribeiro/chore/ship-20260430-182409` |
 
-### 3. No caching for six years
-
-The `Solve` and `Reduce` calls in `ZAnd` were the dominant bottleneck from day one. The switching cost combinatorics (up to 2^16 branches) meant identical sub-expressions were being solved over and over. Yet caching wasn't added until March 2026.
-
-The original ZAnd code:
-```mathematica
-With[{fsol = First@Solve@newfst},    (* Solve uncached — called thousands of times *)
-    ZAnd[ReplaceSolution[xp, fsol] && fst, ReplaceSolution[rst, fsol]]
-]
-```
-
-This is a common research-code pattern: correctness first, performance later. But "later" was six years, and the performance impact was 10–47x.
-
-**The lesson:** For symbolic computation, memoization should be a reflex, not an optimization. If a pure function (same input → same output) is called repeatedly, cache it.
-
-### 4. Ignoring symbol context hygiene
-
-Wolfram Language's context system (`MFGraphs``, `MFGraphs`Private``, `Global``) determines which symbols are visible where. Getting this wrong is one of the most common sources of bugs in Mathematica packages, and MFGraphs got it wrong in every module.
-
-The specific pattern:
-```mathematica
-Begin["`Private`"]
-(* ... many lines of code ... *)
-somePublicFunction[args_] := ...  (* Oops: this is now Private *)
-```
-
-When `Begin["`Private`"]` appears before symbol declarations, those symbols end up in the wrong context. User rules like `/.{I1 -> 100}` target `Global`I1` but the package expects `MFGraphs`I1`. The substitution silently fails, and the solver produces wrong results or crashes downstream.
-
-It took three emergency PRs in 24 hours to fix this across all five modules. The bugs had been latent for years — they only manifested when the full solver chain was run systematically for the first time.
-
-**The lesson:** In Wolfram Language packages, always declare public symbols (with `::usage` messages) *before* `Begin["`Private`"]`. Test symbol visibility explicitly. And test the full pipeline, not just individual functions.
-
-### 5. Code duplication across files
-
-`ZAnd`, `ReZAnd`, and `ReplaceSolution` were implemented in at least three different files (`ZAnd.m`, `D2E2.m`, `D2E2-currents.m`) with subtle differences. When one was improved, the others weren't necessarily updated.
-
-This is a natural consequence of research-style development: you copy a function to a new file, modify it, and forget to reconcile. The fix was simple but came late — consolidating everything into `DNFReduce.wl` in March 2026.
-
-### 6. Vague commit messages
-
-The git log contains at least 20 instances of "Update D2E2.m", 8 instances of "Association", and numerous others like "running examples", "running notebooks!", "minor changes", and "running." These tell you *when* something changed but not *what* or *why*.
-
-Compare with the March 2026 messages: *"Performance: sequential And-Or early exit, NonLinear tolerance, TripleStep caching"* or *"Fix package context hygiene, solver bugs, and add infeasibility status."* The later messages are self-contained summaries that make the git history useful as documentation.
-
-### 7. Global variable leaks
-
-Variables like `style`, `A`, and `bool` in NonLinearSolver.m were defined at the top level rather than inside `Module` or `Block` scopes. This meant:
-- Loading the package could silently overwrite user variables
-- Multiple solver invocations could interfere with each other
-- The behavior depended on evaluation order rather than explicit inputs
-
-This is Mathematica's version of the global variable problem, and it's especially insidious because Mathematica's dynamic scoping means a global `A` can affect expressions evaluated inside unrelated functions.
+These numbers matter because they quantify the scale of the repository’s recent transformation. The old story of MFGraphs as a slowly evolving research codebase is now incomplete. A very large share of its current identity was forged in 2026, and especially in April 2026.[1]
 
 ---
 
-## 8. By the Numbers
+## 9. Where the history points next
 
-### Timeline
+The current history suggests a coherent forward direction. The active package surface is now organized enough that future work can focus less on rescuing old structure and more on extending the scenario-first workflow deliberately. The most likely next stage is not a return to sprawling solver sprawl. It is deeper consolidation around orchestration, diagnostics, and scenario-driven public entrypoints.[1] [2]
 
-| Period | Commits | Key milestone |
-|--------|---------|--------------|
-| May–Nov 2020 | ~120 | First solver, ZAnd, switching costs |
-| 2021 | ~150 | Braess paradox, Jamarat, first tests |
-| 2022 | ~50 | D2E2 refinement, ZAnd investigation |
-| 2023 | ~5 | Minimal activity |
-| 2024 | ~15 | Monotone solver, D2E2 consolidation |
-| Mar 2026 | ~106 | 34 PRs, professionalization + CI hardening + solver comparability |
-| **Total** | **~572** | |
+That direction would be consistent with the recent history. April 2026 invested heavily in typed scenario objects, modular builders, graphics helpers, benchmark history, and solver workflow cleanup. The next logical gains are therefore likely to come from making those layers more complete and more consistent with each other, rather than from reopening every archived branch of older architecture at once.
 
-### File evolution
-
-| File (current name) | Born | Original name | Major rewrites |
-|---------------------|------|---------------|----------------|
-| DNFReduce.wl | Nov 2020 | ZAnd.m | Mar 2026 (memoization, rename) |
-| DataToEquations.wl | May 2020 | DataToEquations.m → D2E2.m | Jun 2024 (consolidation), Mar 2026 (cleanup, preprocessing, comparability hooks) |
-| NonLinearSolver.wl | Aug 2020 | IterationFunction.m → NonLinearSolver.m | Mar 2026 (tolerance, caching) |
-| Monotone.wl | Jun 2024 | Monotone.m | Mar 2026 (Hessian flow, context fixes, comparison contract) |
-| ExamplesData.wl | May 2020 | ExamplesParameters.m → ExamplesData.m | Mar 2026 (34 cases) |
-
-### Pull requests (March 2026)
-
-| PR | Focus | Impact |
-|----|-------|--------|
-| #1–2 | Structure + README | Foundation |
-| #4 | Benchmarking suite | Measurement infrastructure |
-| #7 | DNFReduce + memoization | 47x speedup |
-| #8–9 | Performance tracking + optimizations | And-Or early exit, TripleStep caching |
-| #10–12 | Cleanup + naming + .wl extension | 574 KB removed, modern conventions |
-| #13–17 | Context hygiene + solver fixes | 3 emergency fixes in 24 hours |
-| #18 | Solver contracts + test runner | Standardized interfaces |
-| #19 | Time-dependent solver + Hamiltonian hooks | Dynamic extension, public modeling hooks |
-| #20 | Development history document | Institutional memory, project narrative |
-| #26 | Development history expansion + solver cleanup | Narrative refresh, cleanup follow-through |
-| #27–28 | Parallelization pass | Faster independent operations, surfaced kernel-launch overhead tradeoffs |
-| #29–32 | Shared helpers + profiling + ReduceDisjuncts | Cleaner codebase, benchmark repair, earlier DNF simplification |
-| #33–38 | Infeasibility guard + docs + CI hardening | Fast-suite stability, safer Wolfram Actions automation, reference material |
-| #39 | Preprocessing optimization | 4.3x speedup on switching-cost preprocessing |
-| #40–41 | Monotone comparison contract + benchmark reporting | Cross-solver comparability, monotone timing/status visibility |
+| Plausible next direction | Why the history supports it |
+|---|---|
+| Scenario-first public workflows | April 2026 concentrated effort on typed scenario construction and example factories [1] |
+| Stronger orchestration and validation | Late-April history added orchestration and solver-diagnostics work [1] |
+| Better benchmark continuity | The repository now preserves benchmark history as maintained documentation [3] [4] |
+| Cleaner active/archive boundary | Recent history repeatedly archived or narrowed superseded surfaces [1] [2] |
 
 ---
 
-## 9. Further Development: A Sense of Direction
+## 10. Epilogue: the shape of this repository
 
-The package is now much stronger than it was in early 2026, but its most interesting work is still ahead. The current architecture suggests a clear set of next steps:
+MFGraphs still fits the classic pattern of research software: first prototype the mathematics, then stabilize just enough to produce results, and only later discover that software-engineering debt has accumulated everywhere at once. What makes this repository distinctive is how visible that transition is in the git history. The period from March through April 2026 did not merely “clean things up.” It changed the repository’s self-understanding.
 
-### 1. Complete the time-dependent solver
+The package today is best understood as a **benchmarked, scenario-first Wolfram toolkit with typed kernels, modular system construction, solver orchestration, and a documented performance memory**. That is a different repository from the one that began in May 2020, even though it descends directly from it.[1] [2] [3] [4]
 
-PR #19 added a real time-dependent module, but the forward pass is still a phase-1 approximation: it reuses flow data as a proxy for mass rather than solving the full transport update. The most important mathematical development task is to evolve this into a genuine backward-forward scheme with a proper mass propagation step and validation against cases with known qualitative behavior.
+## References
 
-### 2. Turn calibration into a first-class workflow
-
-MFGraphs now exposes the modeling ingredients (`V`, `alpha`, `g`, switching costs, exit costs, entry currents), but calibration is still mostly manual. A natural next milestone is a reproducible calibration pipeline:
-- fit parameters from observed edge flows, turn counts, or destination shares,
-- compare scenarios against held-out data,
-- make Jamarat-style or transport-terminal case studies easy to reproduce.
-
-This would move the package from "solver library" toward "applied modeling tool."
-
-### 3. Promote visualization into the public API
-
-The getting-started workbook now contains useful solution graphics, density plots, and flow summaries. These should eventually become package functions rather than notebook-local helpers. A public visualization layer would make the package much easier to use in exploratory and operational settings.
-
-### 4. Push scalability further
-
-The DNFReduce memoization work was transformative, but symbolic branching remains the core computational risk for large networks with many switching costs. The next performance frontier is likely:
-- more sparse linear-algebra structure in preprocessing,
-- stronger reuse across repeated scenario solves,
-- better decomposition of large routing problems into subproblems.
-
-### 5. Tighten the public modeling interface
-
-The package has moved away from hidden global state and toward explicit options, but the transition is not complete. A useful cleanup direction is to make the core modeling inputs fully declarative: one consistent way to specify Hamiltonians, terminal costs, switching penalties, solver tolerances, and return shapes across all solver families.
-
-### 6. Build scenario-oriented examples
-
-The most compelling applications are no longer toy graphs but operational case studies: Jamarat crowd routing, Braess-style traffic paradoxes, and controlled branching networks. The next documentation leap would be a set of scenario notebooks or scripts that show:
-- how to define a realistic network,
-- how to calibrate inputs,
-- how to compare policies,
-- how to visualize the resulting equilibria.
-
-### 7. Expand continuous regression infrastructure
-
-The package now has meaningful tests, a test runner, and a working GitHub Actions path for the fast suite. The next engineering step is to broaden that automation:
-- run richer trusted-branch suites beyond the current fast checks,
-- add benchmark smoke checks that are safe for CI,
-- track regressions over time on shared metrics like solver residuals and comparable flows,
-- keep the performance history updated with measured data rather than one-off runs.
-
-This would protect the gains from March 2026 and the late-March follow-up instead of relying on memory and discipline.
-
-Taken together, these tasks point in a coherent direction: MFGraphs is no longer just a repository of symbolic experiments. The interesting future is to turn it into a calibrated, scenario-driven, performant MFG toolkit for network routing problems.
-
----
-
-## 10. Epilogue: The Shape of Research Software
-
-MFGraphs follows a pattern common to academic software projects:
-
-1. **Rapid prototyping** — correctness is the only goal; code quality is irrelevant
-2. **Long stabilization** — the code works well enough for papers; maintenance is minimal
-3. **Professionalization crisis** — the code needs to be shared, tested, or extended; years of technical debt surface simultaneously
-
-The transition from phase 2 to phase 3 is always painful. In MFGraphs' case, it began as a 16-day burst of intensive work and then extended into a late-March consolidation wave. The context hygiene bugs that took three emergency PRs to fix had been present since 2020. The missing memoization that delivered 47x speedup had been *discussed* in commit messages since 2022 ("ZAnd is 'close' to optimal").
-
-The lesson isn't "write perfect code from the start." Research code *should* prioritize mathematical correctness over engineering practices. The lesson is: **when you decide to professionalize, invest in measurement first.** The benchmarking suite (PR #4) made everything that followed possible — without it, the DNFReduce optimization would have been guesswork, the context fixes would have had no regression detection, and the cleanup would have been a leap of faith.
-
-The package today is in a strong position: three solver implementations, 34 built-in test cases across multiple benchmark tiers, comprehensive benchmarking infrastructure, performance history tracking, standardized interfaces, and a functioning CI path for the fast suite. It took six years of mathematical research and one concentrated month of engineering to get there.
+[1]: ./REPO_HISTORY_SNAPSHOT.md "Repository History Snapshot"
+[2]: ../../CLAUDE.md "Canonical repository workflow and active package surface"
+[3]: ./DNF_PERFORMANCE_HISTORY.md "DNF performance history"
+[4]: ./PARALLEL_PERFORMANCE_HISTORY.md "Parallel performance history"

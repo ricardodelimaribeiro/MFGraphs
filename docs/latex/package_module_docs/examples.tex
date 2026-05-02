@@ -1,0 +1,94 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{hyperref}
+\title{examples.wl Module Documentation}
+\author{Manus AI}
+\date{}
+\begin{document}
+\maketitle
+
+\section{High-level explanation}
+
+\texttt{examples.wl} is the scenario-constructor and built-in example registry for the active MFGraphs package. It serves two related roles. First, it provides direct user-facing constructors such as \texttt{gridScenario}, \texttt{cycleScenario}, \texttt{graphScenario}, and \texttt{amScenario}. Second, it maintains a curated registry of named and numbered example factories accessed through \texttt{getExampleScenario}.
+
+This module is therefore the most convenient bridge between the abstract scenario kernel and concrete test or benchmark workloads. It lets users create scenarios either from transparent topology arguments or from a standard benchmark catalog.
+
+\section{Low-level explanation of functions and functionality}
+
+\subsection*{\texttt{gridScenario}}
+
+\texttt{gridScenario[dims, entries, exits, sc, alpha, V, g]} constructs a scenario from a directed \texttt{GridGraph}. When \texttt{dims} is \texttt{\{n\}}, it creates a chain on vertices \texttt{1..n}; when \texttt{dims} is \texttt{\{r,c\}}, it creates an \texttt{r \times c} grid with row-major integer labels.
+
+Its implementation delegates to \texttt{scenarioFromGraph} and therefore inherits all validation and completion behavior from \texttt{makeScenario}. The main usage pattern is for synthetic benchmark or tutorial cases where the topology should be obvious from the constructor arguments.
+
+\subsection*{\texttt{cycleScenario}}
+
+\texttt{cycleScenario[n, entries, exits, sc, alpha, V, g]} constructs a directed cycle \texttt{1 \to 2 \to \cdots \to n \to 1}. It is the simplest way to obtain cyclic benchmark scenarios without spelling out adjacency matrices manually.
+
+Because it also routes through \texttt{scenarioFromGraph}, users get a normal typed scenario object immediately.
+
+\subsection*{\texttt{graphScenario}}
+
+\texttt{graphScenario[graph, entries, exits, sc, alpha, V, g]} converts an arbitrary Wolfram directed \texttt{Graph} into a typed MFGraphs scenario. The key precondition is that the graph's vertex labels must remain compatible with the scenario kernel's integer-label policy.
+
+This constructor is useful when topology is already represented as a Wolfram graph and the user wants to stay in that idiom.
+
+\subsection*{\texttt{amScenario}}
+
+\texttt{amScenario[vl, am, entries, exits, sc, alpha, V, g]} constructs a scenario directly from a vertex list and adjacency matrix. It is the most explicit constructor in the file and is especially useful when benchmark cases are easier to define numerically than graphically.
+
+This is also the constructor most often used by the internal example registry for fixed canonical cases.
+
+\subsection*{\texttt{getExampleScenario}}
+
+\texttt{getExampleScenario} has two public forms. The one-argument form \texttt{getExampleScenario[n]} returns a six-argument factory \texttt{Function[\{entries, exits, sc, alpha, V, g\}, \ldots]}. The multi-argument convenience form resolves canonical switching costs when \texttt{sc = Automatic}, applies default Hamiltonian parameters, and immediately builds a scenario.
+
+This design separates topology from boundary-condition choice. The registry stores topology-specific factories, while callers provide scenario-specific entries, exits, and optional overrides.
+
+\subsection*{\texttt{scenarioFromGraph}}
+
+\texttt{scenarioFromGraph[graph, entries, exits, sc, alpha, V, g]} is the private helper that packages graph-based inputs into the raw association form expected by \texttt{makeScenario}. It is the shared implementation core for \texttt{gridScenario}, \texttt{cycleScenario}, and \texttt{graphScenario}.
+
+\subsection*{\texttt{makeGridFactory}}
+
+\texttt{makeGridFactory[dims]} returns a closure that behaves like \texttt{gridScenario[dims, \#\#, \ldots]\&}. It exists so the built-in registry can store lightweight topology-specific factories rather than duplicating constructor code.
+
+\subsection*{\texttt{makeCycleFactory}}
+
+\texttt{makeCycleFactory[n]} is the analogous closure constructor for cycle examples. It lets the registry represent a cycle topology as a reusable factory.
+
+\subsection*{\texttt{makeAmFactory}}
+
+\texttt{makeAmFactory[vl, am]} is the adjacency-matrix version of the same idea. Most numbered benchmark cases rely on this helper because their topology is most clearly encoded as explicit matrices.
+
+\section{Registry data and constants}
+
+The file also defines several important constants. \texttt{\$Y1In2OutAM}, \texttt{\$Y2In1OutAM}, and \texttt{\$Attraction4AM} are reusable adjacency patterns for benchmark families. \texttt{\$CaseDefaultSC} stores canonical switching-cost sets keyed by example number or example name. \texttt{\$ExamplesDefaultAlpha}, \texttt{\$ExamplesDefaultV}, and \texttt{\$ExamplesDefaultG} define the default Hamiltonian parameters used when example calls omit overrides.
+
+The large \texttt{\$ExampleScenarios} association is not itself a function, but it is central to the file's behavior. It maps numeric and string identifiers to factories for chains, Y-cases, attraction cases, Braess variants, Jamarat-style examples, paper examples, inconsistent-switching validation cases, and larger grids.
+
+\section{Usage guidance}
+
+Direct constructors are preferable when topology should be obvious from the call site. The example registry is preferable when reproducibility matters and the scenario should align with named benchmark cases already used elsewhere in the repository.
+
+Representative usage patterns are:
+
+\begin{verbatim}
+s1 = gridScenario[{3}, {{1,10}}, {{3,0}}];
+f  = getExampleScenario[12];
+s2 = f[{{1,100}}, {{4,0}}, {}, 1, 0, Function[z, -1/z]];
+s3 = getExampleScenario[8, {{1,80}}, {{3,0},{4,10}}];
+\end{verbatim}
+
+\section*{References}
+
+\begin{enumerate}
+\item Source file: \texttt{MFGraphs/examples.wl}
+\item Scenario kernel dependency: \texttt{MFGraphs/scenarioTools.wl}
+\end{enumerate}
+
+\end{document}

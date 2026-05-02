@@ -1,0 +1,105 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{hyperref}
+\title{primitives.wl Module Documentation}
+\author{Manus AI}
+\date{}
+\begin{document}
+\maketitle
+
+\section{High-level explanation}
+
+\texttt{primitives.wl} is the base layer of the active MFGraphs stack. It defines the symbolic atoms and runtime switches that all higher modules rely on. In architectural terms, this file separates the package's foundational vocabulary from all later scenario, system, solver, and graphics logic.
+
+The file has two kinds of responsibility. First, it establishes the core symbolic heads \texttt{j}, \texttt{u}, \texttt{z}, \texttt{alpha}, and \texttt{Cost}. These are the building blocks from which unknown bundles, systems, and plotted labels are assembled. Second, it defines package-wide runtime flags and lightweight utilities for verbosity and kernel availability. That makes it the natural place for low-level conventions that must be shared uniformly across the rest of MFGraphs.
+
+\section{Low-level explanation of functions and functionality}
+
+\subsection*{\texttt{j}}
+
+\texttt{j} is the package's symbolic flow head. In two-argument form, \texttt{j[a,b]} denotes flow on the directed edge from \texttt{a} to \texttt{b}. In three-argument form, \texttt{j[r,i,w]} denotes the transition-flow quantity associated with arriving along edge \texttt{(r,i)} and continuing along edge \texttt{(i,w)}.
+
+Functionally, \texttt{j} is not evaluated in this file; it is a symbolic container. Its main usage is downstream, where \texttt{unknownsTools.wl} constructs families of \texttt{j} variables and \texttt{systemTools.wl} places them into equations, inequalities, and complementarity alternatives.
+
+\subsection*{\texttt{u}}
+
+\texttt{u[a,b]} represents the value-function variable associated with the endpoint \texttt{b} of the directed edge \texttt{(a,b)}. Like \texttt{j}, it is a symbolic head rather than a numerically evaluated function.
+
+Its usage is primarily in Hamilton--Jacobi and switching optimality expressions. Users normally encounter \texttt{u} through systems, solver results, and plotting functions rather than by constructing it manually.
+
+\subsection*{\texttt{z}}
+
+\texttt{z[v]} is a vertex-potential symbol. In the current active surface it plays the role of a shared primitive rather than a frequently exposed workflow object.
+
+A practical usage note is that \texttt{z} exists to keep the symbolic vocabulary complete and consistent with broader MFGraphs modeling ideas, even if the current scenario-first workflow emphasizes \texttt{j} and \texttt{u} more heavily.
+
+\subsection*{\texttt{alpha}}
+
+\texttt{alpha[edge]} is the congestion exponent associated with an edge. This module gives it the default rule \texttt{alpha[\_] := 1}, which means the package assumes critical congestion unless edge-specific information overrides that default elsewhere.
+
+In usage terms, this default is extremely important because several active solvers only support systems with \texttt{Alpha == 1} on every edge. The primitive definition here therefore anchors the solver regime expected by the current active package phase.
+
+\subsection*{\texttt{Cost}}
+
+\texttt{Cost[m, edge]} is the congestion cost function. The implementation in this module is \texttt{m\^{}alpha[edge]}, so the edge-specific exponent can alter how congestion cost scales with flow magnitude.
+
+Users normally do not call \texttt{Cost} directly unless they are extending solver or system logic. Instead, it serves as the canonical primitive that higher-level files reference when turning symbolic flow state into cost expressions.
+
+\subsection*{\texttt{\$MFGraphsVerbose}}
+
+\texttt{\$MFGraphsVerbose} is the global verbosity flag. Its default value is \texttt{False}. When it is set to \texttt{True}, progress and timing messages become visible through the package's print helpers.
+
+The intended usage pattern is operational rather than mathematical:
+
+\begin{verbatim}
+$MFGraphsVerbose = True;
+\end{verbatim}
+
+This is useful when profiling, debugging, or running scripts that benefit from progress visibility.
+
+\subsection*{\texttt{\$MFGraphsParallelThreshold}}
+
+\texttt{\$MFGraphsParallelThreshold} determines how large a list must be before the package considers using parallel iteration. Its default value is \texttt{6}.
+
+In practice, this variable exposes a performance policy. Small jobs should avoid subkernel startup overhead; larger ones may benefit from parallelism. Setting the threshold to \texttt{Infinity} disables all such parallel switching.
+
+\subsection*{\texttt{\$MFGraphsParallelReady}}
+
+\texttt{\$MFGraphsParallelReady} records whether package initialization has been propagated to subkernels. The file initializes it to \texttt{False}.
+
+This variable is primarily for workflow control in advanced or scripted environments. Typical users can ignore it unless they are explicitly managing Wolfram subkernels.
+
+\subsection*{\texttt{mfgPrint}}
+
+\texttt{mfgPrint[args\_\_\_]} conditionally calls \texttt{Print} when \texttt{\$MFGraphsVerbose} is \texttt{True}. Its purpose is to centralize debugging and progress output without scattering conditionals across the codebase.
+
+Usage is straightforward: internal code can emit a message through \texttt{mfgPrint} and know that the runtime flag controls visibility.
+
+\subsection*{\texttt{mfgPrintTemporary}}
+
+\texttt{mfgPrintTemporary[args\_\_\_]} behaves like \texttt{mfgPrint}, but uses \texttt{PrintTemporary} instead. This is suited to transient progress display rather than persistent logging.
+
+From a low-level standpoint, it is useful in notebooks and interactive scripts where temporary status output is preferable to permanent lines in the output stream.
+
+\subsection*{\texttt{ensureParallelKernels}}
+
+\texttt{ensureParallelKernels[]} launches Wolfram subkernels when none are running. The implementation is deliberately minimal: it checks \texttt{\$KernelCount} and calls \texttt{LaunchKernels[]} only if needed.
+
+Usage is operational. This helper is appropriate when code is about to enter a potentially parallel phase and wants a safe one-line way to ensure subkernels exist first.
+
+\section{Usage guidance}
+
+This module is rarely the place where an end user starts working. Instead, it provides the symbolic and runtime substrate that higher-level workflows assume is present. Advanced users extending MFGraphs should understand it well because it defines the vocabulary that recurs everywhere else in the system.
+
+\section*{References}
+
+\begin{enumerate}
+\item Source file: \texttt{MFGraphs/primitives.wl}
+\item Loader context: \texttt{MFGraphs/MFGraphs.wl}
+\end{enumerate}
+
+\end{document}

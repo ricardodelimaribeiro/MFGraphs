@@ -1,0 +1,411 @@
+
+===== MFGraphs/MFGraphs.wl =====
+27:PrependTo[$Path, DirectoryName[$InputFileName]];
+29:BeginPackage["MFGraphs`",
+41:EndPackage[]
+
+===== MFGraphs/primitives.wl =====
+13:BeginPackage["primitives`"]
+15:j::usage = "j[a, b] is the flow on edge {a,b} from a to b. j[r, i, w] is the fraction of the flow j[r,i] that transitions to edge e_{i,w} at junction i.";
+16:u::usage = "u[a, b] is the value of the value function at vertex b of edge {a,b}.";
+17:z::usage = "z[v] represents a vertex potential variable.";
+18:alpha::usage = "alpha[edge] is the congestion exponent for an edge. Default is 1.";
+19:Cost::usage = "Cost[m, edge] is the congestion cost function.";
+21:$MFGraphsVerbose::usage =
+25:$MFGraphsParallelThreshold::usage =
+30:$MFGraphsParallelReady::usage =
+34:mfgPrint::usage = "mfgPrint[args___] prints args only when $MFGraphsVerbose is True.";
+36:mfgPrintTemporary::usage = "mfgPrintTemporary[args___] prints a temporary message only when $MFGraphsVerbose is True.";
+38:ensureParallelKernels::usage = "ensureParallelKernels[] launches parallel subkernels if none are running.";
+40:Begin["`Private`"]
+48:mfgPrint[args___] := If[$MFGraphsVerbose, Print[args]];
+49:mfgPrintTemporary[args___] := If[$MFGraphsVerbose, PrintTemporary[args], Null];
+52:ensureParallelKernels[] := If[$KernelCount === 0, LaunchKernels[]];
+54:alpha[_] := 1;
+55:Cost[m_, edge_] := m^alpha[edge];
+57:End[]
+59:EndPackage[]
+
+===== MFGraphs/scenarioTools.wl =====
+25:BeginPackage["scenarioTools`", {"primitives`"}]
+29:scenario::usage =
+33:scenarioQ::usage =
+37:makeScenario::usage =
+49:G[z]=-1/z (overridable globally and per edge). Boundary values must be numeric; \
+53:validateScenario::usage =
+56:Failure[\"ScenarioValidation\", <|\"Message\" -> msg, \"MissingKeys\" -> {...}|>] \
+59:completeScenario::usage =
+65:scenarioData::usage =
+67:Missing[\"KeyAbsent\", key] if absent. scenarioData[s] returns the underlying \
+72:buildAuxiliaryTopology::usage =
+76:deriveAuxPairs::usage =
+80:buildAuxTriples::usage =
+84:Begin["`Private`"]
+86:scenarioFailure::usage =
+89:hamiltonianGTermQ::usage =
+92:buildAdjacencyFromGraph::usage =
+95:normalizeScenarioModel::usage =
+98:boundaryValuesNumericQ::usage =
+101:switchingCostsNumericQ::usage =
+104:normalizeSwitchingCosts::usage =
+107:integerVertexLabelsQ::usage =
+110:modelDirectedEdgePairs::usage =
+113:normalizeHamiltonianSpec::usage =
+116:buildAuxTriplesImpl::usage =
+119:completeSwitchingCosts::usage =
+145:scenarioFailure[msg_String] :=
+147:scenarioFailure[msg_String, missingKeys_List] :=
+150:hamiltonianGTermQ[value_] :=
+153:buildAdjacencyFromGraph[graph_Graph, vertices_List] :=
+168:normalizeScenarioModel[model_Association] :=
+193:normalizeScenarioModel[other_] := other;
+195:boundaryValuesNumericQ[model_Association] :=
+207:boundaryVerticesPresentQ[model_Association] :=
+219:switchingCostValueQ[value_] :=
+222:switchingCostsNumericQ[model_Association] :=
+238:disjointBoundaryVerticesQ[model_Association] :=
+245:normalizeSwitchingCosts[sc_Association] := sc;
+246:normalizeSwitchingCosts[sc_List] :=
+249:integerVertexLabelsQ[model_Association] :=
+254:modelDirectedEdgePairs[model_Association] :=
+264:normalizeHamiltonianSpec[spec_, model_Association] :=
+320:buildAuxTriplesImpl[directedEdges_List] :=
+340:buildAuxTriples[auxGraph_Graph] :=
+346:deriveAuxPairs[topology_Association] :=
+358:buildAuxiliaryTopology[model_Association] :=
+420:scenarioQ[scenario[_Association]] := True;
+421:scenarioQ[_]                       := False;
+425:scenarioData[scenario[assoc_Association]]       := assoc;
+426:scenarioData[scenario[assoc_Association], key_] := Lookup[assoc, key, Missing["KeyAbsent", key]];
+430:validateScenario[s_scenario] :=
+450:validateScenario[x_] :=
+455:completeSwitchingCosts[model_Association, topology_Association] :=
+467:completeScenario[s_scenario] :=
+500:completeScenario[x_] := (Message[completeScenario::notscenario, x]; x);
+504:makeScenario[rawAssoc_Association] :=
+552:makeScenario[_] :=
+555:End[]
+557:EndPackage[]
+
+===== MFGraphs/examples.wl =====
+19:BeginPackage["examples`", {"primitives`", "scenarioTools`"}];
+23:gridScenario::usage =
+28:cycleScenario::usage =
+32:graphScenario::usage =
+37:amScenario::usage =
+42:getExampleScenario::usage =
+45:getExampleScenario[n, entries, exits] calls the factory using the canonical switching costs \
+53:Begin["`Private`"];
+55:scenarioFromGraph::usage =
+58:makeGridFactory::usage =
+61:makeCycleFactory::usage =
+64:makeAmFactory::usage =
+105:scenarioFromGraph[graph_, entries_, exits_, sc_, alpha_, V_, g_] :=
+116:gridScenario[dims_List, entries_, exits_,
+123:cycleScenario[n_Integer, entries_, exits_,
+130:graphScenario[graph_, entries_, exits_,
+137:amScenario[vl_, am_, entries_, exits_,
+155:makeGridFactory[dims_List]  := gridScenario[dims, ##]&;
+156:makeCycleFactory[n_Integer] := cycleScenario[n, ##]&;
+157:makeAmFactory[vl_, am_]     := amScenario[vl, am, ##]&;
+336:getExampleScenario[n_] := Lookup[$ExampleScenarios, n, $Failed];
+339:getExampleScenario[n_, entries_, exits_,
+351:End[];
+353:EndPackage[];
+
+===== MFGraphs/unknownsTools.wl =====
+4:BeginPackage["unknownsTools`", {"primitives`", "scenarioTools`"}]
+6:symbolicUnknowns::usage =
+10:symbolicUnknownsQ::usage =
+13:symbolicUnknownsData::usage =
+15:symbolicUnknownsData[u] returns the underlying association.";
+17:makeSymbolicUnknowns::usage =
+23:unknown::usage =
+27:unknowns::usage =
+32:Begin["`Private`"]
+34:canonicalUPair::usage =
+38:makeSymbolicUnknownsFromPairsTriples::usage =
+42:canonicalUPair[pair : {a_, b_}] :=
+48:makeSymbolicUnknownsFromPairsTriples[auxPairs_List, auxTriples_List] :=
+59:symbolicUnknownsQ[symbolicUnknowns[_Association]] := True;
+60:symbolicUnknownsQ[_] := False;
+62:symbolicUnknownsData[symbolicUnknowns[assoc_Association]] := assoc;
+63:symbolicUnknownsData[symbolicUnknowns[assoc_Association], key_] := Lookup[assoc, key, Missing["KeyAbsent", key]];
+65:makeSymbolicUnknowns[s_] :=
+101:End[]
+103:EndPackage[]
+
+===== MFGraphs/systemTools.wl =====
+15:BeginPackage["systemTools`", {"primitives`", "scenarioTools`", "unknownsTools`"}]
+19:mfgSystem::usage =
+23:mfgBoundaryData::usage =
+26:mfgFlowData::usage =
+29:mfgComplementarityData::usage =
+32:mfgHamiltonianData::usage =
+37:mfgSystemQ::usage =
+41:mfgBoundaryDataQ::usage = "mfgBoundaryDataQ[x] returns True if x is a typed mfgBoundaryData object.";
+42:mfgFlowDataQ::usage = "mfgFlowDataQ[x] returns True if x is a typed mfgFlowData object.";
+43:mfgComplementarityDataQ::usage = "mfgComplementarityDataQ[x] returns True if x is a typed mfgComplementarityData object.";
+44:mfgHamiltonianDataQ::usage = "mfgHamiltonianDataQ[x] returns True if x is a typed mfgHamiltonianData object.";
+46:makeSystem::usage =
+52:systemData::usage =
+54:Missing[\"KeyAbsent\", key] if absent. systemData[sys] returns the underlying \
+57:systemDataFlatten::usage =
+64:getKirchhoffLinearSystem::usage = "getKirchhoffLinearSystem[sys] returns the entry current vector, Kirchhoff matrix, and the variables in the order corresponding to the Kirchhoff matrix.";
+66:getKirchhoffMatrix::usage = "getKirchhoffMatrix[sys] returns the entry current vector, Kirchhoff matrix, (critical congestion) cost function placeholder, and the variables in the order corresponding to the Kirchhoff matrix. The third slot is retained for backward compatibility.";
+68:consistentSwitchingCosts::usage = "consistentSwitchingCosts[switchingcosts][{a,b,c}->S]
+74:isSwitchingCostConsistent::usage = "isSwitchingCostConsistent[List of switching costs] is True if all switching costs satisfy the triangle inequality. If some switching costs are symbolic, then it returns the consistency conditions."
+76:altFlowOp::usage = "altFlowOp[j][list] returns the alternative: j@@list ==0 || j@@Reverse@list ==0.";
+78:flowSplitting::usage = "flowSplitting[AT][UndirectedEdge[a, b]] returns the splitting that start with {a,b}.";
+80:flowGathering::usage = "flowGathering[auxTriples_List][x_] returns the triples that end with x.";
+82:switchingCostLookup::usage =
+86:ineqSwitch::usage = "ineqSwitch[u, switchingCosts][r, i, w] returns the optimality condition at junction i for the transition from r to w. Namely,
+87:u[w, i] + switchingCosts[r, i, w] - u[r, i] >= 0
+90:altSwitch::usage = "altSwitch[j, u, switchingCosts][r, i, w] returns the complementarity condition at junction i for the transition from r to w:
+94:roundValues::usage = "roundValues[x] rounds numerical values in x to a standard precision (10^-10).";
+96:Begin["`Private`"]
+98:exactBoundaryValue::usage =
+101:exactBoundaryValues::usage =
+104:buildBoundaryData::usage =
+107:buildFlowData::usage =
+110:buildComplementarityData::usage =
+113:buildHamiltonianData::usage =
+118:roundValues[x_?NumberQ] :=
+121:roundValues[Rule[a_, b_]] :=
+124:roundValues[x_List] :=
+127:roundValues[x_Association] :=
+130:exactBoundaryValue[val_] /; ExactNumberQ[val] := val;
+132:exactBoundaryValue[val_?NumericQ] :=
+143:exactBoundaryValue[val_] :=
+149:exactBoundaryValues[vals_List] :=
+155:consistentSwitchingCosts[sc_Association][trip:{a_, b_, c_}] :=
+168:consistentSwitchingCosts[sc_List][{a_, b_, c_} -> S_] :=
+171:isSwitchingCostConsistent[switchingCosts_Association] :=
+192:isSwitchingCostConsistent[switchingCosts_List] :=
+195:altFlowOp[j_][list_] :=
+198:flowSplitting[auxTriples_List][x_] :=
+201:flowGathering[auxTriples_List][x_] :=
+204:switchingCostLookup[sc_Association][r_, i_, w_] := Lookup[sc, Key[{r, i, w}], 0]
+206:ineqSwitch[u_, switching_][r_, i_, w_] :=
+209:altSwitch[j_, u_, switching_][r_, i_, w_] :=
+214:mfgSystemQ[mfgSystem[_Association]] := True;
+215:mfgSystemQ[_]                         := False;
+217:mfgBoundaryDataQ[mfgBoundaryData[_Association]] := True;
+218:mfgBoundaryDataQ[_]                             := False;
+220:mfgFlowDataQ[mfgFlowData[_Association]] := True;
+221:mfgFlowDataQ[_]                         := False;
+223:mfgComplementarityDataQ[mfgComplementarityData[_Association]] := True;
+224:mfgComplementarityDataQ[_]                                     := False;
+226:mfgHamiltonianDataQ[mfgHamiltonianData[_Association]] := True;
+227:mfgHamiltonianDataQ[_]                                 := False;
+231:systemData[mfgSystem[assoc_Association]]           := assoc;
+232:systemData[mfgSystem[assoc_Association], key_] :=
+249:systemDataFlatten[mfgSystem[assoc_Association]] :=
+258:buildBoundaryData[s_?scenarioQ, topology_Association] :=
+296:buildFlowData[s_?scenarioQ, topology_Association, unk_?symbolicUnknownsQ] :=
+349:buildComplementarityData[s_?scenarioQ, topology_Association, unk_?symbolicUnknownsQ] :=
+424:buildHamiltonianData[s_?scenarioQ, topology_Association, flowData_mfgFlowData] :=
+466:getKirchhoffLinearSystem[sys_] :=
+500:getKirchhoffMatrix[sys_] :=
+516:makeSystem[s_?scenarioQ] := makeSystem[s, makeSymbolicUnknowns[s]];
+518:makeSystem[s_?scenarioQ, unk_?symbolicUnknownsQ] :=
+591:makeSystem[_] :=
+594:End[]
+596:EndPackage[]
+
+===== MFGraphs/solversTools.wl =====
+18:BeginPackage["solversTools`", {"primitives`", "systemTools`"}];
+20:reduceSystem::usage =
+30:isValidSystemSolution::usage =
+32:reduceSystem[sys]) satisfies the constraint blocks of sys. Returns True or \
+39:dnfReduce::usage =
+43:dnfReduce[xp, sys, elem] is the 3-argument form used internally to process \
+46:dnfReduceSystem::usage =
+54:optimizedDNFReduceSystem::usage =
+64:activeSetReduceSystem::usage =
+84:booleanReduceSystem::usage =
+103:findInstanceSystem::usage =
+115:Begin["`Private`"];
+117:trackedVarQ::usage =
+120:mergeRules::usage =
+123:normalizeRules::usage =
+126:topLevelEquations::usage =
+129:extractLinearRules::usage =
+132:accumulateLinearRules::usage =
+135:attachAccumulatedRules::usage =
+138:branchToRules::usage =
+141:parseReduceResult::usage =
+144:parseDNFReduceResult::usage =
+149:branchStateReduceResult::usage =
+153:harvestDNFBranch::usage =
+158:buildSolverInputs::usage =
+163:checkBlock::usage =
+166:solutionResultKind::usage =
+169:dnfResidualDiagnostics::usage =
+172:dnfReduceDiagnosticReport::usage =
+177:reduceSystem[sys_?mfgSystemQ] :=
+189:dnfReduceSystem[sys_?mfgSystemQ] :=
+201:optimizedDNFReduceSystem[sys_?mfgSystemQ] :=
+215:activeSetReduceSystem[sys_?mfgSystemQ] :=
+256:Options[booleanReduceSystem] = {
+261:booleanReduceSystem[sys_?mfgSystemQ, opts : OptionsPattern[]] :=
+287:Options[findInstanceSystem] = {
+291:findInstanceSystem[sys_?mfgSystemQ, opts : OptionsPattern[]] :=
+319:trackedVarQ[var_] :=
+322:residualTrackedVariables[residual_] :=
+325:dnfResidualDiagnostics[sol_] :=
+342:solutionResultKind[sol_] :=
+366:buildSolverInputs[sys_?mfgSystemQ] :=
+393:flattenConjuncts::usage = "flattenConjuncts[expr] unpacks expr into a conjunct list for iterative processing.";
+394:substituteSolution::usage = "substituteSolution[rst, sol] substitutes solution rules sol into rst.";
+396:flattenConjuncts[True]  := {}
+397:flattenConjuncts[False] := {False}
+398:flattenConjuncts[x_And] := List @@ x
+399:flattenConjuncts[x_]    := {x}
+401:substituteSolution[rst_?BooleanQ, _] := rst
+402:substituteSolution[rst_, sol_]       := rst /. sol
+404:constraintPriority[expr_] :=
+411:orderedConjuncts[expr_] :=
+414:orderedAlternatives[expr_Or] := SortBy[List @@ expr, ToString[#, InputForm] &];
+415:orderedAlternatives[expr_]   := {expr};
+417:dnfTopLevelConjuncts[expr_] := flattenConjuncts[expr];
+419:dnfVarVertices[j[a_, b_]] := {a, b};
+420:dnfVarVertices[j[a_, b_, c_]] := {a, b, c};
+421:dnfVarVertices[u[a_, b_]] := {a, b};
+422:dnfVarVertices[_] := {};
+424:dnfExpressionTrackedVariables[expr_] :=
+427:dnfExpressionVertices[expr_] :=
+430:dnfTrackedVariableKind[var_] :=
+438:dnfPathInfo[sys_?mfgSystemQ] :=
+475:dnfPathRank[expr_, pathInfo_Association] :=
+490:dnfOrderingSummary[conjuncts_List] :=
+504:dnfOrderConjuncts[expr_, "original", ___] := dnfTopLevelConjuncts[expr];
+506:dnfOrderConjuncts[expr_, order_String, sys_: Missing["NoSystem"]] :=
+541:dnfOrderExpression[expr_, order_String, sys_: Missing["NoSystem"]] :=
+550:branchKey[branch_Association] :=
+560:deduplicateBranches[branches_List] := DeleteDuplicatesBy[branches, branchKey];
+562:trackedFreeQ[expr_] := FreeQ[expr, j[__] | u[__]];
+564:cheapConstraintSimplify[expr_] :=
+578:linearRuleFromEquality[eq_Equal, vars_List] :=
+599:simplifyResiduals[residuals_List, rules_List] :=
+602:addBranchConstraint[branch_Association, elem_, vars_List] :=
+646:branchStateReduce[constraints_, allVars_List] :=
+655:branchStateReduceFromBranches[branches_List, constraints_, allVars_List] :=
+664:groundRuleQ[rule_Rule, allVars_List] :=
+667:splitGroundRules[rules_List, allVars_List] :=
+675:branchStateFinalizeResult[branches_List, allVars_List] :=
+708:branchStateReduceResult[constraints_, allVars_List] :=
+711:dnfReduce[_,    False] := False
+712:dnfReduce[False, _]    := False
+713:dnfReduce[xp_,  True]  := xp
+715:dnfReduce[xp_, eq_Equal] := dnfReduce[xp, True, eq]
+717:dnfReduce[xp_, sys_And] :=
+764:dnfReduce[xp_, sys_Or] :=
+778:dnfReduce[xp_, leq_] := xp && leq
+780:dnfReduce[xp_, rst_, fst_Equal] :=
+792:dnfReduce[xp_, rst_, fst_] := dnfReduce[xp && fst, rst]
+794:ClearAttributes[dnfTraceEvent, HoldFirst];
+795:ClearAttributes[dnfCounterIncrement, HoldFirst];
+796:ClearAttributes[dnfReduceInstrumented, HoldAll];
+797:ClearAttributes[dnfReduceInstrumentedAnd, HoldAll];
+799:dnfTraceEvent[_, event_Association] :=
+818:dnfCounterIncrement[_, key_String, n_: 1] :=
+821:dnfReduceInstrumented[_, False, monitor_, _String, _] :=
+824:dnfReduceInstrumented[False, _, monitor_, _String, _] :=
+827:dnfReduceInstrumented[xp_, True, monitor_, _String, _] :=
+830:dnfReduceInstrumented[xp_, eq_Equal, monitor_, order_String, sys_] :=
+833:dnfReduceInstrumented[xp_, sys_And, monitor_, order_String, sysObj_] :=
+838:dnfReduceInstrumented[xp_, sys_Or, monitor_, order_String, sysObj_] :=
+862:dnfReduceInstrumented[xp_, leq_, monitor_, _String, _] :=
+867:dnfReduceInstrumentedAnd[xp_, conjuncts_List, monitor_, order_String, sysObj_, depth_Integer] :=
+932:dnfReduceInstrumented[xp_, rst_, fst_Equal, monitor_, order_String, sysObj_, depth_Integer] :=
+954:dnfReduceInstrumented[xp_, rst_, fst_, monitor_, order_String, sysObj_, depth_Integer] :=
+962:Options[dnfReduceDiagnosticReport] = {
+968:dnfReduceDiagnosticReport[sys_?mfgSystemQ, OptionsPattern[]] :=
+1064:criticalCongestionSystemQ[sys_?mfgSystemQ] :=
+1081:mergeRules[oldRules_List, newRules_List] :=
+1084:normalizeRules[rules_List] :=
+1087:topLevelEquations[constraints_] :=
+1093:extractLinearRules[equations_List, vars_List, existingRules_List] :=
+1105:accumulateLinearRules[baseConstraints_, vars_List, initRules_List] :=
+1121:attachAccumulatedRules[result_, rulesAcc_List] /; ListQ[result] :=
+1124:attachAccumulatedRules[result_, rulesAcc_List] /; AssociationQ[result] :=
+1127:attachAccumulatedRules[result_, _] := result;
+1129:branchToRules[branch_, allVars_] :=
+1138:parseReduceResult[reduced_, allVars_] :=
+1169:harvestDNFBranch[False, _] := False;
+1171:harvestDNFBranch[branch_, allVars_List] :=
+1204:parseDNFReduceResult[reduced_, allVars_List] :=
+1246:Options[isValidSystemSolution] = {
+1251:isValidSystemSolution[sys_?mfgSystemQ, sol_, OptionsPattern[]] :=
+1316:checkBlock[True,  _] := True;
+1317:checkBlock[False, _] := False;
+1319:checkBlock[expr_And, tol_] :=
+1328:checkBlock[expr_Or, tol_] :=
+1337:checkBlock[lhs_ == rhs_, tol_] :=
+1351:checkBlock[lhs_ >= rhs_, tol_] :=
+1361:checkBlock[lhs_ <= rhs_, tol_] :=
+1371:checkBlock[lhs_ > rhs_, tol_] :=
+1381:checkBlock[lhs_ < rhs_, tol_] :=
+1391:checkBlock[Inequality[a_, Less, b_, Less, c_], tol_] :=
+1405:checkBlock[expr_, tol_] :=
+1410:End[];
+1412:EndPackage[];
+
+===== MFGraphs/orchestrationTools.wl =====
+4:BeginPackage["orchestrationTools`", {
+12:solveScenario::usage =
+15:solveScenario[{s1, s2, ...}] solves multiple populations (scenarios) and \
+17:solveScenario[..., solver] uses the specified solver function (e.g., reduceSystem).";
+19:SolveMFG::usage =
+23:Begin["`Private`"];
+26:solveScenario[s_?scenarioQ, solver_:dnfReduceSystem] :=
+34:solveScenario[scenarios_List, solver_:dnfReduceSystem] :=
+37:SolveMFG[assoc_Association] :=
+49:End[];
+51:EndPackage[];
+
+===== MFGraphs/graphicsTools.wl =====
+4:BeginPackage["graphicsTools`", {"primitives`", "scenarioTools`", "systemTools`"}];
+6:scenarioTopologyPlot::usage =
+9:mfgSolutionPlot::usage =
+12:mfgFlowPlot::usage =
+15:mfgTransitionPlot::usage =
+18:mfgAugmentedPlot::usage =
+21:augmentAuxiliaryGraph::usage =
+24:Begin["`Private`"];
+26:Options[scenarioTopologyPlot] = {
+32:Options[mfgSolutionPlot] = {
+38:Options[mfgFlowPlot] = Options[mfgSolutionPlot];
+40:Options[mfgTransitionPlot] = {
+46:Options[mfgAugmentedPlot] = Options[mfgTransitionPlot];
+48:extractRules::usage =
+51:netEdgeFlow::usage =
+54:edgeJValue::usage =
+57:edgeUValue::usage =
+60:directedDisplayEdges::usage =
+63:stateLabel::usage =
+66:plotLabelValue::usage =
+69:extractRules[sol_List] := Select[sol, MatchQ[#, _Rule | _RuleDelayed] &];
+70:extractRules[sol_Association] := extractRules[Lookup[sol, "Rules", {}]];
+71:extractRules[_] := {};
+73:netEdgeFlow[a_, b_, rules_List] :=
+76:edgeJValue[a_, b_, rules_List] :=
+79:edgeUValue[a_, b_, rules_List] :=
+90:directedDisplayEdges[edges_List, rules_List] :=
+99:stateAtomLabel[x_] :=
+102:stateLabel[{a_, b_}] :=
+105:plotLabelValue[label_, default_String] :=
+112:augmentAuxiliaryGraph[sys_?mfgSystemQ] :=
+142:scenarioTopologyPlot[s_?scenarioQ, sys_?mfgSystemQ, title : Except[_Rule | _RuleDelayed], opts : OptionsPattern[]] :=
+145:scenarioTopologyPlot[s_?scenarioQ, sys_?mfgSystemQ, opts : OptionsPattern[]] :=
+168:mfgSolutionPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, title : Except[_Rule | _RuleDelayed], opts : OptionsPattern[]] :=
+171:mfgSolutionPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, opts : OptionsPattern[]] :=
+250:mfgFlowPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, title : Except[_Rule | _RuleDelayed], opts : OptionsPattern[]] :=
+253:mfgFlowPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, opts : OptionsPattern[]] :=
+313:mfgTransitionPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, title : Except[_Rule | _RuleDelayed], opts : OptionsPattern[]] :=
+316:mfgTransitionPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, opts : OptionsPattern[]] :=
+385:mfgAugmentedPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, title : Except[_Rule | _RuleDelayed], opts : OptionsPattern[]] :=
+388:mfgAugmentedPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, opts : OptionsPattern[]] :=
+470:End[];
+472:EndPackage[];
