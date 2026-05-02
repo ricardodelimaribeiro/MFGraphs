@@ -4,8 +4,8 @@
    Direct constructors — topology clear from arguments:
      gridScenario[{n}, entries, exits]          chain, vertices 1..n
      gridScenario[{r,c}, entries, exits]        grid, vertices 1..r*c row-major
-     cycleScenario[n, entries, exits]           directed n-cycle 1->2->...->n->1
-     graphScenario[graph, entries, exits]       any WL directed Graph object; integer vertex labels required
+     cycleScenario[n, entries, exits]           cycle connections 1-2-...-n-1
+     graphScenario[graph, entries, exits]       any WL Graph object; integer vertex labels required
      amScenario[vl, am, entries, exits]         explicit vertices list + adjacency matrix; integer vertex labels required
 
    Named examples (benchmark registry):
@@ -14,6 +14,8 @@
 
    All constructors accept optional trailing args: sc, alpha, V, g.
    Defaults: sc={}, alpha=1, V=0, g=Function[z,-1/z] (from $DefaultHamiltonian).
+   Edges are network connections; topology is symmetrized before system construction,
+   and restrictions on movement should be encoded with switching costs such as Infinity.
    Numeric benchmark defaults are in Scripts/BenchmarkHelpers.wls. *)
 
 BeginPackage["examples`", {"primitives`", "scenarioTools`"}];
@@ -21,23 +23,27 @@ BeginPackage["examples`", {"primitives`", "scenarioTools`"}];
 (* --- Public API declarations --- *)
 
 gridScenario::usage =
-"gridScenario[dims, entries, exits] creates a scenario on a directed GridGraph[dims]. \
+"gridScenario[dims, entries, exits] creates a scenario on GridGraph[dims] connections. \
 {n} gives a chain with vertices 1..n; {r,c} gives an r\[Times]c grid with vertices 1..r*c (row-major). \
-Optional: sc (switching costs, default {}), alpha, V, g (Hamiltonian defaults from $DefaultHamiltonian).";
+Topology is symmetrized into undirected network edges before system construction. \
+Optional: sc (switching costs, default {}), alpha, V, g (Hamiltonian defaults from $DefaultHamiltonian; V/G are preserved but not applied by current system construction).";
 
 cycleScenario::usage =
-"cycleScenario[n, entries, exits] creates a scenario on a directed n-cycle (1->2->...->n->1), \
-vertices 1..n. Optional: sc, alpha, V, g.";
+"cycleScenario[n, entries, exits] creates a scenario on n-cycle connections, vertices 1..n. \
+Topology is symmetrized into undirected network edges before system construction. Optional: sc, alpha, V, g.";
 
 graphScenario::usage =
-"graphScenario[graph, entries, exits] creates a scenario from any WL directed Graph object. \
+"graphScenario[graph, entries, exits] creates a scenario from any WL Graph object. \
+Graph edges are treated as network connections and symmetrized before system construction; \
+movement restrictions should be encoded with switching costs such as Infinity. \
 Vertex labels must be positive integers; non-integer labels are not accepted (makeScenario \
 returns Failure). Optional: sc, alpha, V, g.";
 
 amScenario::usage =
 "amScenario[vl, am, entries, exits] creates a scenario from an explicit vertices list vl \
 and adjacency matrix am. Vertex labels in vl must be positive integers; non-integer labels \
-are not accepted. Optional: sc, alpha, V, g.";
+are not accepted. The adjacency matrix is treated as network connections and symmetrized before \
+system construction. Optional: sc, alpha, V, g.";
 
 getExampleScenario::usage =
 "getExampleScenario[n] returns a 6-arg factory Function[{entries,exits,sc,alpha,V,g}, scenario[...]] \
@@ -45,6 +51,7 @@ for built-in example n. Topology is baked in; all parameters are caller-supplied
 getExampleScenario[n, entries, exits] calls the factory using the canonical switching costs \
 for that case (sc=Automatic resolves via $CaseDefaultSC, defaulting to {} if none defined) \
 and standard Hamiltonian defaults (alpha=1, V=0, g=Function[z,-1/z]). \
+V/G are preserved on the scenario for future density and visualization work, but are not applied by current system construction. \
 Additional optional arguments override each default in order: sc, alpha, V, g. \
 Pass sc={} explicitly to force no switching costs. \
 entries={{vertex,flow},...}, exits={{vertex,cost},...}, sc={{i,k,j,cost},...}. \
@@ -161,7 +168,7 @@ makeAmFactory[vl_, am_]     := amScenario[vl, am, ##]&;
 $ExampleScenarios = Association[
 
     (* ------------------------------------------------------------------ *)
-    (* Linear chains (cases 1–6): directed GridGraph[{n}]                 *)
+    (* Linear chains (cases 1–6): GridGraph[{n}] connections              *)
     (* ------------------------------------------------------------------ *)
 
     1 -> makeGridFactory[{1}],
@@ -319,7 +326,7 @@ $ExampleScenarios = Association[
     "Inconsistent attraction shortcut" -> makeAmFactory[{1,2,3,4}, $Attraction4AM],
 
     (* ------------------------------------------------------------------ *)
-    (* Grid cases: directed GridGraph[{r,c}]                              *)
+    (* Grid cases: GridGraph[{r,c}] connections                           *)
     (* ------------------------------------------------------------------ *)
 
     "Grid0303" -> makeGridFactory[{3,3}],

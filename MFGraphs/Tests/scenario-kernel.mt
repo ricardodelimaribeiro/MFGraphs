@@ -158,6 +158,37 @@ Test[
     TestID -> "Scenario kernel: function-valued EdgeG is accepted"
 ]
 
+(* Test: V/G are preserved but not used in current EqGeneral construction *)
+Test[
+    Module[{model, sBase, sVG, sysBase, sysVG},
+        model = <|
+            "Vertices" -> {1, 2},
+            "Adjacency" -> {{0, 1}, {1, 0}},
+            "Entries" -> {{1, 10}},
+            "Exits" -> {{2, 0}},
+            "Switching" -> {}
+        |>;
+        sBase = makeScenario[<|"Model" -> model|>];
+        sVG = makeScenario[<|
+            "Model" -> model,
+            "Hamiltonian" -> <|
+                "Alpha" -> 1,
+                "V" -> 7,
+                "G" -> Function[z, z^2],
+                "EdgeV" -> <|{1, 2} -> 3|>,
+                "EdgeG" -> <|{1, 2} -> Function[z, z + 1]|>
+            |>
+        |>];
+        sysBase = makeSystem[sBase];
+        sysVG = makeSystem[sVG];
+        scenarioData[sVG, "Hamiltonian"]["V"] === 7 &&
+        KeyExistsQ[scenarioData[sVG, "Hamiltonian"]["EdgeV"], {1, 2}] &&
+        systemData[sysBase, "EqGeneral"] === systemData[sysVG, "EqGeneral"]
+    ],
+    True,
+    TestID -> "Scenario kernel: V and G are preserved but not applied to EqGeneral yet"
+]
+
 (* Test: user-supplied Benchmark values override defaults *)
 Test[
     Module[{data, s, bench},

@@ -52,7 +52,7 @@ deriveAuxPairs[topology] returns the list of all directed edge pairs {u, v} in t
 
 ## makeScenario
 
-makeScenario[assoc] constructs a typed scenario from a raw association. The input must contain a "Model" key whose value is a network topology association (required keys: "Vertices", "Adjacency", "Entries", "Exits", "Switching"). If "Model" contains a Wolfram Graph under key "Graph", missing "Vertices" and/or "Adjacency" are derived automatically. Optional keys: "Hamiltonian" (<|"Alpha" -> a, "V" -> v, "G" -> g, "EdgeAlpha" -> <|{u,v} -> a_uv, ...|>, "EdgeV" -> <|{u,v} -> v_uv, ...|>, "EdgeG" -> <|{u,v} -> g_uv, ...|>|>), "Identity" (name, version), "Benchmark" (tier, timeout), "Visualization", "Inheritance". Default Hamiltonian is Alpha=1 and V=0 on all edges, with G[z]=-1/z (overridable globally and per edge). Boundary values must be numeric; switching-cost values must be numeric or Infinity. Returns a scenario[...] object on success or Failure[...] on error.
+makeScenario[assoc] constructs a typed scenario from a raw association. The input must contain a "Model" key whose value is a network topology association (required keys: "Vertices", "Adjacency", "Entries", "Exits", "Switching"). If "Model" contains a Wolfram Graph under key "Graph", missing "Vertices" and/or "Adjacency" are derived automatically. Optional keys: "Hamiltonian" (<|"Alpha" -> a, "V" -> v, "G" -> g, "EdgeAlpha" -> <|{u,v} -> a_uv, ...|>, "EdgeV" -> <|{u,v} -> v_uv, ...|>, "EdgeG" -> <|{u,v} -> g_uv, ...|>|>), "Identity" (name, version), "Benchmark" (tier, timeout), "Visualization", "Inheritance". Default Hamiltonian is Alpha=1 and V=0 on all edges, with G[z]=-1/z (overridable globally and per edge). V/G/EdgeV/EdgeG are validated and preserved for future density and visualization work, but current system construction applies only Alpha/EdgeAlpha. Boundary values must be numeric; switching-cost values must be numeric or Infinity. Returns a scenario[...] object on success or Failure[...] on error.
 
 ## scenario
 
@@ -72,23 +72,23 @@ validateScenario[s] checks that the scenario s has all required Model keys and t
 
 ## amScenario
 
-amScenario[vl, am, entries, exits] creates a scenario from an explicit vertices list vl and adjacency matrix am. Vertex labels in vl must be positive integers; non-integer labels are not accepted. Optional: sc, alpha, V, g.
+amScenario[vl, am, entries, exits] creates a scenario from an explicit vertices list vl and adjacency matrix am. Vertex labels in vl must be positive integers; non-integer labels are not accepted. The adjacency matrix is treated as network connections and symmetrized before system construction. Optional: sc, alpha, V, g.
 
 ## cycleScenario
 
-cycleScenario[n, entries, exits] creates a scenario on a directed n-cycle (1->2->...->n->1), vertices 1..n. Optional: sc, alpha, V, g.
+cycleScenario[n, entries, exits] creates a scenario on n-cycle connections, vertices 1..n. Topology is symmetrized into undirected network edges before system construction. Optional: sc, alpha, V, g.
 
 ## getExampleScenario
 
-getExampleScenario[n] returns a 6-arg factory Function[{entries,exits,sc,alpha,V,g}, scenario[...]] for built-in example n. Topology is baked in; all parameters are caller-supplied. getExampleScenario[n, entries, exits] calls the factory using the canonical switching costs for that case (sc=Automatic resolves via $CaseDefaultSC, defaulting to {} if none defined) and standard Hamiltonian defaults (alpha=1, V=0, g=Function[z,-1/z]). Additional optional arguments override each default in order: sc, alpha, V, g. Pass sc={} explicitly to force no switching costs. entries={{vertex,flow},...}, exits={{vertex,cost},...}, sc={{i,k,j,cost},...}. Returns $Failed for unknown keys.
+getExampleScenario[n] returns a 6-arg factory Function[{entries,exits,sc,alpha,V,g}, scenario[...]] for built-in example n. Topology is baked in; all parameters are caller-supplied. getExampleScenario[n, entries, exits] calls the factory using the canonical switching costs for that case (sc=Automatic resolves via $CaseDefaultSC, defaulting to {} if none defined) and standard Hamiltonian defaults (alpha=1, V=0, g=Function[z,-1/z]). V/G are preserved on the scenario for future density and visualization work, but are not applied by current system construction. Additional optional arguments override each default in order: sc, alpha, V, g. Pass sc={} explicitly to force no switching costs. entries={{vertex,flow},...}, exits={{vertex,cost},...}, sc={{i,k,j,cost},...}. Returns $Failed for unknown keys.
 
 ## graphScenario
 
-graphScenario[graph, entries, exits] creates a scenario from any WL directed Graph object. Vertex labels must be positive integers; non-integer labels are not accepted (makeScenario returns Failure). Optional: sc, alpha, V, g.
+graphScenario[graph, entries, exits] creates a scenario from any WL Graph object. Graph edges are treated as network connections and symmetrized before system construction; movement restrictions should be encoded with switching costs such as Infinity. Vertex labels must be positive integers; non-integer labels are not accepted (makeScenario returns Failure). Optional: sc, alpha, V, g.
 
 ## gridScenario
 
-gridScenario[dims, entries, exits] creates a scenario on a directed GridGraph[dims]. {n} gives a chain with vertices 1..n; {r,c} gives an r×c grid with vertices 1..r*c (row-major). Optional: sc (switching costs, default {}), alpha, V, g (Hamiltonian defaults from $DefaultHamiltonian).
+gridScenario[dims, entries, exits] creates a scenario on GridGraph[dims] connections. {n} gives a chain with vertices 1..n; {r,c} gives an r×c grid with vertices 1..r*c (row-major). Topology is symmetrized into undirected network edges before system construction. Optional: sc (switching costs, default {}), alpha, V, g (Hamiltonian defaults from $DefaultHamiltonian; V/G are preserved but not applied by current system construction).
 
 ## makeSymbolicUnknowns
 
@@ -123,6 +123,22 @@ altFlowOp[j][list] returns the alternative: j@@list ==0 || j@@Reverse@list ==0.
 altSwitch[j, u, switchingCosts][r, i, w] returns the complementarity condition at junction i for the transition from r to w:
 (j[r, i, w] == 0) || (u[w, i] + switchingCosts[r, i, w] - u[r, i] == 0)
 where switchingCosts[r, i, w] is the minimal cost of transitioning from edge e_{r,i} to edge e_{i,w}; minimal because when switching costs are inconsistent the broader alternative-transition-flow conditions (j[j,i,l]==0 || j[l,i,k]==0) for all v_j, v_l, v_k adjacent to v_i are added to the system (this generalizes the condition for j=k already present in the system).
+
+## buildBoundaryData
+
+buildBoundaryData[s, topology] builds typed boundary equations, boundary value rules, and entry/exit metadata.
+
+## buildComplementarityData
+
+buildComplementarityData[s, topology, unk] builds typed complementarity alternatives and switching inequalities.
+
+## buildFlowData
+
+buildFlowData[s, topology, unk] builds typed flow-balance equations and non-negativity constraints.
+
+## buildHamiltonianData
+
+buildHamiltonianData[s, topology, flowData] builds typed Hamiltonian residual equations for the system. The current EqGeneral block is the integrated transport-equation form associated with the Hamiltonian equation: the integral over [0,1] of the adjoint of the linearization of the stationary Hamilton-Jacobi equation. Current system construction uses Alpha/EdgeAlpha; V/G/EdgeV/EdgeG are preserved on scenarios for future density and visualization work but are not applied here yet.
 
 ## consistentSwitchingCosts
 
@@ -218,6 +234,10 @@ systemData[sys, key] returns the value associated with key in the system sys, or
 
 systemDataFlatten[sys] returns a single flat Association containing all keys from all nested typed sub-records within the system. Useful for backward compatibility with legacy solvers.
 
+## activeSetReduceSystem
+
+activeSetReduceSystem[sys] is an opt-in exact active-set solver for the critical-congestion linear complementarity structure. It enumerates small complementarity alternatives incrementally with exact linear substitution and falls back to the proven exact DNF reducer for larger residual variable sets. Returns the same rule/residual shape as dnfReduceSystem. Fails for non-critical congestion systems where Alpha != 1 on any edge.
+
 ## booleanReduceSystem
 
 booleanReduceSystem[sys] solves the mfgSystem sys by converting the preprocessed constraint system to DNF via BooleanConvert, then calling Reduce independently on each disjunct. Each disjunct is a pure conjunction (no Or), so Reduce avoids case-splitting. Non-False results are collected; if the system has a unique equilibrium all non-False results are equivalent. Returns a list of rules when fully determined, or <|"Rules" -> rules, "Equations" -> residual|> when underdetermined. Fails for non-critical congestion systems where Alpha != 1 on any edge. Options: "DisjunctTimeout" (default 30s per Reduce call), "ReturnAll" (default False; True returns all non-False parsed results).
@@ -237,6 +257,10 @@ findInstanceSystem[sys] solves the mfgSystem sys by collecting and linearly prep
 ## isValidSystemSolution
 
 isValidSystemSolution[sys, sol] checks whether sol (the output of reduceSystem[sys]) satisfies the constraint blocks of sys. Returns True or False. With option "ReturnReport" -> True, returns a detailed association with per-block results. Tolerance for numeric checks is set via "Tolerance" (default 10^-6). For underdetermined solutions the partial rules are checked; blocks that remain symbolic after substitution are reported as Indeterminate, not False.
+
+## optimizedDNFReduceSystem
+
+optimizedDNFReduceSystem[sys] is an opt-in exact solver for critical congestion systems. It follows the same preprocessing and output contract as dnfReduceSystem. It carries small DNF branch families directly as rules plus residual constraints, and falls back to the proven exact DNF reducer for larger residual variable sets. Returns a list of rules when fully determined, or <|"Rules" -> rules, "Equations" -> residual|> when underdetermined. Fails for non-critical congestion systems where Alpha != 1 on any edge.
 
 ## reduceSystem
 
