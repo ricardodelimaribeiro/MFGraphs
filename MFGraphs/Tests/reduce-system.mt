@@ -7,6 +7,31 @@ Test[
 ]
 
 Test[
+    NameQ["systemTools`buildBoundaryData"] &&
+    NameQ["systemTools`buildFlowData"] &&
+    NameQ["systemTools`buildComplementarityData"] &&
+    NameQ["systemTools`buildHamiltonianData"],
+    True,
+    TestID -> "systemTools: modular system builders are public symbols"
+]
+
+Test[
+    Module[{s, sys, data},
+        s = gridScenario[{2}, {{1, 10}}, {{2, 0}}];
+        sys = makeSystem[s];
+        data = systemDataFlatten[sys];
+        AssociationQ[data] &&
+        KeyExistsQ[data, "EqGeneral"] &&
+        KeyExistsQ[data, "RuleExitValues"] &&
+        KeyExistsQ[data, "AltOptCond"] &&
+        !KeyExistsQ[data, "BoundaryData"] &&
+        !KeyExistsQ[data, "FlowData"]
+    ],
+    True,
+    TestID -> "systemDataFlatten: exposes nested solver keys without typed sub-record wrappers"
+]
+
+Test[
     Module[{data, s, sys, result},
         data = <|
             "Vertices" -> {1, 2, 3},

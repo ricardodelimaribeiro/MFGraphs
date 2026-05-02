@@ -11,7 +11,7 @@ This directory contains the active scenario-kernel tests and archived legacy/sol
 
 ## File groups
 
-- Active tests: root `.mt` files (`scenario-kernel`, `symbolic-unknowns`, `reduce-system`, `scenario-consistency`, `graphicsTools`).
+- Active tests: root `.mt` files (`scenario-kernel`, `symbolic-unknowns`, `reduce-system`, `scenario-consistency`, `graphicsTools`, `orchestration`).
 - Archived tests: `archive/` (legacy or non-core surfaces).
 
 ## Notes

@@ -12,7 +12,7 @@ Print["Mathematica: ", $Version];
 Print["OS: ", $SystemID];
 Print[];
 
-$RepoRoot = "/Users/ribeirrd/Documents/GitHub/MFGraphs";
+$RepoRoot = FileNameJoin[{DirectoryName[$InputFileName], ".."}];
 PrependTo[$Path, $RepoRoot];
 Needs["MFGraphs`"];
 $MFGraphsVerbose = False;
@@ -121,14 +121,29 @@ RunCase[{name_String, buildFn_}] :=
     ];
     warmupMs = warmupTime * 1000;
 
-    (* Repeated timing - 3 reps, short timeout per rep *)
-    repTime = RepeatedTiming[
-      TimeConstrained[reduceSystem[sys], timeout, $TimedOut],
-      3
-    ][[1]];
-    sol  = reduceSystem[sys];  (* final solution to store *)
-    kind = ResultKind[sol];
+    (* Repeat timing with the same timeout-safe shape as BenchmarkSystemSolver.wls. *)
+    {repTime, result} = AbsoluteTiming[
+      TimeConstrained[reduceSystem[sys], timeout, $TimedOut]
+    ];
+    If[result === $TimedOut,
+      Print["  Repeat: TIMED OUT after ", FmtMs[repTime]];
+      Return[<|"Name" -> name, "BuildMs" -> buildMs * 1000,
+        "WarmupMs" -> warmupMs, "RepMs" -> Missing["TimedOut"],
+        "Status" -> "TIMEOUT", "Kind" -> "-", "Valid" -> Missing["TimedOut"],
+        "Solution" -> $TimedOut|>]
+    ];
     repMs = repTime * 1000;
+    sol = TimeConstrained[reduceSystem[sys], timeout, $TimedOut];  (* final solution to store *)
+    If[sol === $TimedOut,
+      kind = "TIMEOUT";
+      valid = Missing["TimedOut"];
+      Print["  Final solve: TIMED OUT after ", timeout, "s"];
+      Return[<|"Name" -> name, "BuildMs" -> buildMs * 1000,
+        "WarmupMs" -> warmupMs, "RepMs" -> repMs,
+        "Status" -> "TIMEOUT", "Kind" -> kind, "Valid" -> valid,
+        "Solution" -> $TimedOut|>]
+    ];
+    kind = ResultKind[sol];
 
     valid = isValidSystemSolution[sys, sol];
 

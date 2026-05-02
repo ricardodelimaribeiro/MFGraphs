@@ -46,7 +46,9 @@ Optional keys: \
 \"EdgeG\" -> <|{u,v} -> g_uv, ...|>|>), \
 \"Identity\" (name, version), \"Benchmark\" (tier, timeout), \"Visualization\", \
 \"Inheritance\". Default Hamiltonian is Alpha=1 and V=0 on all edges, with \
-G[z]=-1/z (overridable globally and per edge). Boundary values must be numeric; \
+G[z]=-1/z (overridable globally and per edge). V/G/EdgeV/EdgeG are validated \
+and preserved for future density and visualization work, but current system \
+construction applies only Alpha/EdgeAlpha. Boundary values must be numeric; \
 switching-cost values must be numeric or Infinity. Returns a scenario[...] object \
 on success or Failure[...] on error.";
 

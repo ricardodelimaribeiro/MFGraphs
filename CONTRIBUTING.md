@@ -57,11 +57,11 @@ When opening a PR:
 Before and after structural solver changes, benchmark to measure impact:
 
 ```bash
-# Establish or compare a reduceSystem benchmark
-wolframscript -file Scripts/BenchmarkReduceSystem.wls --tag "baseline"
+# Establish or compare the active DNF-first benchmark
+wolframscript -file Scripts/BenchmarkSystemSolver.wls --tag "baseline"
 
-# Limit a run to one case if needed
-wolframscript -file Scripts/BenchmarkReduceSystem.wls --case chain-3v-2exit --timeout 120
+# Compare the raw Reduce baseline through the active benchmark harness
+wolframscript -file Scripts/BenchmarkSystemSolver.wls --solver reduce --case chain-3v-2exit --timeout 120
 
 # Tagged runs append a benchmark-history entry to BENCHMARKS.md
 ```
@@ -74,7 +74,7 @@ wolframscript -file Scripts/BenchmarkReduceSystem.wls --case chain-3v-2exit --ti
 - Legacy tiered solver benchmarks live in `Scripts/archive/` and require solver-era symbols that are not loaded in the current core phase
 
 ### Profiling bottlenecks
-For the active workflow, start with `BenchmarkReduceSystem.wls`. Older bottleneck-profiling scripts are archived:
+For the active workflow, start with `BenchmarkSystemSolver.wls`. Older bottleneck-profiling scripts are archived:
 
 ```bash
 wolframscript -file Scripts/archive/BottleneckReport.wls

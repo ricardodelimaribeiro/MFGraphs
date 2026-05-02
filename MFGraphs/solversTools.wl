@@ -213,26 +213,27 @@ optimizedDNFReduceSystem[sys_?mfgSystemQ] :=
     ];
 
 activeSetReduceSystem[sys_?mfgSystemQ] :=
-    Module[{ruleExitVals, deterministicConstraints, activeConstraints, allVars,
+    Module[{data, ruleExitVals, deterministicConstraints, activeConstraints, allVars,
             detReduced, rulesAcc, activeReduced, result, branches},
         If[!criticalCongestionSystemQ[sys],
             Message[activeSetReduceSystem::noncritical];
             Return[Failure["activeSetReduceSystem", <|"Message" -> "activeSetReduceSystem supports only critical congestion systems with Alpha == 1 on every edge."|>], Module]
         ];
-        ruleExitVals = Normal @ systemData[sys, "RuleExitValues"];
+        data = systemDataFlatten[sys];
+        ruleExitVals = Normal @ Lookup[data, "RuleExitValues"];
         deterministicConstraints = And[
-            And @@ systemData[sys, "EqEntryIn"],
-            systemData[sys, "EqBalanceSplittingFlows"],
-            systemData[sys, "EqBalanceGatheringFlows"],
-            systemData[sys, "EqGeneral"],
-            systemData[sys, "IneqJs"],
-            systemData[sys, "IneqJts"],
-            systemData[sys, "IneqSwitchingByVertex"]
+            And @@ Lookup[data, "EqEntryIn"],
+            Lookup[data, "EqBalanceSplittingFlows"],
+            Lookup[data, "EqBalanceGatheringFlows"],
+            Lookup[data, "EqGeneral"],
+            Lookup[data, "IneqJs"],
+            Lookup[data, "IneqJts"],
+            Lookup[data, "IneqSwitchingByVertex"]
         ];
         activeConstraints = And[
-            systemData[sys, "AltFlows"],
-            systemData[sys, "AltTransitionFlows"],
-            systemData[sys, "AltOptCond"]
+            Lookup[data, "AltFlows"],
+            Lookup[data, "AltTransitionFlows"],
+            Lookup[data, "AltOptCond"]
         ];
         allVars = Select[
             Variables[(And[deterministicConstraints, activeConstraints] /. ruleExitVals) /. {Equal -> List, Or -> List, And -> List}],
@@ -364,19 +365,20 @@ solutionResultKind[sol_] :=
     ];
 
 buildSolverInputs[sys_?mfgSystemQ] :=
-    Module[{ruleExitVals, baseConstraints, allVars, constraints, rulesAcc},
-        ruleExitVals = Normal @ systemData[sys, "RuleExitValues"];
+    Module[{data, ruleExitVals, baseConstraints, allVars, constraints, rulesAcc},
+        data = systemDataFlatten[sys];
+        ruleExitVals = Normal @ Lookup[data, "RuleExitValues"];
         baseConstraints = And[
-            And @@ systemData[sys, "EqEntryIn"],
-            systemData[sys, "EqBalanceSplittingFlows"],
-            systemData[sys, "EqBalanceGatheringFlows"],
-            systemData[sys, "EqGeneral"],
-            systemData[sys, "IneqJs"],
-            systemData[sys, "IneqJts"],
-            systemData[sys, "IneqSwitchingByVertex"],
-            systemData[sys, "AltFlows"],
-            systemData[sys, "AltTransitionFlows"],
-            systemData[sys, "AltOptCond"]
+            And @@ Lookup[data, "EqEntryIn"],
+            Lookup[data, "EqBalanceSplittingFlows"],
+            Lookup[data, "EqBalanceGatheringFlows"],
+            Lookup[data, "EqGeneral"],
+            Lookup[data, "IneqJs"],
+            Lookup[data, "IneqJts"],
+            Lookup[data, "IneqSwitchingByVertex"],
+            Lookup[data, "AltFlows"],
+            Lookup[data, "AltTransitionFlows"],
+            Lookup[data, "AltOptCond"]
         ];
         allVars = Select[
             Variables[(baseConstraints /. ruleExitVals) /. {Equal -> List, Or -> List, And -> List}],
@@ -1062,9 +1064,10 @@ dnfReduceDiagnosticReport[sys_?mfgSystemQ, OptionsPattern[]] :=
    non-1 default Alpha or per-edge EdgeAlpha before Reduce sees nonlinear
    placeholder equations. *)
 criticalCongestionSystemQ[sys_?mfgSystemQ] :=
-    Module[{halfPairs, hamiltonian, alphaDefault, edgeAlpha, alphaAtEdge},
-        halfPairs   = systemData[sys, "HalfPairs"];
-        hamiltonian = systemData[sys, "Hamiltonian"];
+    Module[{data, halfPairs, hamiltonian, alphaDefault, edgeAlpha, alphaAtEdge},
+        data = systemDataFlatten[sys];
+        halfPairs   = Lookup[data, "HalfPairs"];
+        hamiltonian = Lookup[data, "Hamiltonian"];
         If[MissingQ[hamiltonian] || !AssociationQ[hamiltonian], hamiltonian = <||>];
         alphaDefault = Lookup[hamiltonian, "Alpha", 1];
         edgeAlpha    = Lookup[hamiltonian, "EdgeAlpha", <||>];

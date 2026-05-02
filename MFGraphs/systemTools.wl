@@ -49,6 +49,21 @@ structural equations (SignedFlows, Balance equations, HJ conditions, etc.) from 
 the provided scenario and exact symbolic unknown bundle. makeSystem[s_scenario] \
 automatically derives symbolicUnknowns using makeSymbolicUnknowns[s].";
 
+buildBoundaryData::usage =
+"buildBoundaryData[s, topology] builds typed boundary equations, boundary value rules, and entry/exit metadata.";
+
+buildFlowData::usage =
+"buildFlowData[s, topology, unk] builds typed flow-balance equations and non-negativity constraints.";
+
+buildComplementarityData::usage =
+"buildComplementarityData[s, topology, unk] builds typed complementarity alternatives and switching inequalities.";
+
+buildHamiltonianData::usage =
+"buildHamiltonianData[s, topology, flowData] builds typed Hamiltonian residual equations for the system. \
+The current EqGeneral block is the integrated transport-equation form associated with the Hamiltonian equation: \
+the integral over [0,1] of the adjoint of the linearization of the stationary Hamilton-Jacobi equation. \
+Current system construction uses Alpha/EdgeAlpha; V/G/EdgeV/EdgeG are preserved on scenarios for future density and visualization work but are not applied here yet.";
+
 systemData::usage =
 "systemData[sys, key] returns the value associated with key in the system sys, or \
 Missing[\"KeyAbsent\", key] if absent. systemData[sys] returns the underlying \
@@ -100,18 +115,6 @@ exactBoundaryValue::usage =
 
 exactBoundaryValues::usage =
 "exactBoundaryValues[vals] applies exactBoundaryValue to a list and returns the first Failure if conversion fails.";
-
-buildBoundaryData::usage =
-"buildBoundaryData[s, topology] builds typed boundary equations, boundary value rules, and entry/exit metadata.";
-
-buildFlowData::usage =
-"buildFlowData[s, topology, unk] builds typed flow-balance equations and non-negativity constraints.";
-
-buildComplementarityData::usage =
-"buildComplementarityData[s, topology, unk] builds typed complementarity alternatives and switching inequalities.";
-
-buildHamiltonianData::usage =
-"buildHamiltonianData[s, topology, flowData] builds typed Hamiltonian residual equations for the system.";
 
 (* --- Structural Helpers Implementation --- *)
 

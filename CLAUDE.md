@@ -34,7 +34,8 @@ wolframscript -version
 ```wolfram
 PrependTo[$Path, DirectoryName[$InputFileName]];
 BeginPackage["MFGraphs`", {"primitives`", "scenarioTools`", "examples`",
-                            "unknownsTools`", "systemTools`", "solversTools`", "graphicsTools`"}];
+                            "unknownsTools`", "systemTools`", "solversTools`",
+                            "orchestrationTools`", "graphicsTools`"}];
 EndPackage[]
 ```
 
@@ -44,6 +45,7 @@ Loading DAG (each file is an independent package with its own flat context):
 ```
 primitives`  →  scenarioTools`  →  examples`
                                →  unknownsTools`  →  systemTools`  →  solversTools`
+                                                                   →  orchestrationTools`
                                                                    →  graphicsTools`
 ```
 
@@ -73,13 +75,13 @@ All kernel objects follow one pattern: `TypeHead[Association]` with a predicate 
 | `symbolicUnknowns` | `symbolicUnknownsQ` | `symbolicUnknownsData[u]` / `symbolicUnknownsData[u, key]` |
 | `mfgSystem` | `mfgSystemQ` | `systemData[sys]` / `systemData[sys, key]` |
 
-`typeData[obj, key]` returns `Missing["KeyAbsent", key]` for absent keys. Sub-records (`mfgBoundaryData` etc.) follow the same accessor convention.
+`typeData[obj, key]` returns `Missing["KeyAbsent", key]` for absent keys. System sub-records (`mfgBoundaryData` etc.) are typed records nested inside `mfgSystem`; use `systemData[sys, key]` or `systemDataFlatten[sys]` for flattened access to their fields.
 
 ### Topology construction and caching
 
 `buildAuxiliaryTopology` creates synthetic auxiliary vertices as string labels (`"auxEntry1"`, `"auxEntry2"`, …) for network boundary points and computes all valid three-vertex transitions (triples `{vIn, vMid, vOut}`) for flow variable generation. Building topology is expensive — it is computed once inside `makeScenario` and cached in `scenarioData[s, "Topology"]`. Always pass the full scenario object to downstream constructors rather than rebuilding.
 
-The graph is always undirected. A non-symmetric AM is symmetrized (`Unitize[AM + Transpose[AM]]`) before topology construction, so `makeScenario` with AM or `AM + Transpose[AM]` produces identical topologies. Edge directionality is imposed exclusively via switching costs = `Infinity` on the blocked triples.
+Edges are network connections, not directed movement permissions. A non-symmetric AM is symmetrized (`Unitize[AM + Transpose[AM]]`) before topology construction, so `makeScenario` with AM or `AM + Transpose[AM]` produces identical topologies. Movement restrictions are imposed via switching costs = `Infinity` on the blocked triples.
 
 ### Switching costs
 
@@ -164,9 +166,11 @@ The following are currently not loaded from `MFGraphs.wl`:
 - solver-phase backend helpers (archived in `MFGraphs/archive/SolverBackendHelpers.wl`)
 
 **V, G, EdgeV, EdgeG Hamiltonian parameters** are validated and stored in the scenario
-schema but are **not applied** in `buildHamiltonianData` — only `Alpha`/`EdgeAlpha` are
-used in system construction. Implementing V and G requires extending the HJ-equation
-builder. Treat these fields as schema-only for now.
+schema but are **not applied** in `buildHamiltonianData` yet — only `Alpha`/`EdgeAlpha` are
+used in current system construction. They are reserved for future density-per-edge
+visualization work. Current `EqGeneral` is the integrated transport-equation form
+associated with the Hamiltonian equation: the integral over `[0,1]` of the adjoint
+of the linearization of the stationary Hamilton-Jacobi equation.
 
 If solver work resumes, restore the module loading and docs in a dedicated pass.
 
