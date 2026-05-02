@@ -1,0 +1,51 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{hyperref}
+\title{orchestrationTools.wl Module Documentation}
+\author{Manus AI}
+\date{}
+\begin{document}
+\maketitle
+
+\section{High-level explanation}
+
+\texttt{orchestrationTools.wl} is the high-level workflow glue for the active MFGraphs package. It does not introduce new mathematical data structures. Instead, it connects the existing scenario, unknown, system, and solver layers into convenient top-level calls.
+
+This file is important because it presents the cleanest end-to-end public story of the current package. A user with a scenario object typically wants a solution, not a manual reconstruction of all intermediate stages. This module is what turns the staged architecture into a practical workflow.
+
+\section{Low-level explanation of functions and functionality}
+
+\subsection*{\texttt{solveScenario}}
+
+\texttt{solveScenario[s, solver]} is the main orchestration entrypoint. On a single scenario, it builds the symbolic unknown bundle with \texttt{makeSymbolicUnknowns}, builds the structural system with \texttt{makeSystem}, and then applies the selected solver. If no solver is supplied, it defaults to \texttt{dnfReduceSystem}.
+
+The function also has a list overload: \texttt{solveScenario[\{s1,s2,\ldots\}, solver]} maps the same workflow across multiple scenarios and returns a corresponding list of solutions.
+
+Typical usage is:
+
+\begin{verbatim}
+sol = solveScenario[s];
+sol2 = solveScenario[s, activeSetReduceSystem];
+sols = solveScenario[{s1, s2}];
+\end{verbatim}
+
+\subsection*{\texttt{SolveMFG}}
+
+\texttt{SolveMFG[assoc]} is a backward-compatibility wrapper for legacy raw-association input. It first calls \texttt{makeScenario} to convert the raw input into the current typed scenario representation. If conversion fails, it emits a message and returns the failure. Otherwise, it delegates to \texttt{solveScenario}.
+
+Its main role is transitional. New code should generally prefer explicit \texttt{makeScenario} plus \texttt{solveScenario}, but \texttt{SolveMFG} preserves a familiar entrypoint for older calling styles.
+
+\section{Usage guidance}
+
+For most end users, this file contains the friendliest solve API in the repository. If the caller already has a scenario, \texttt{solveScenario} is usually the right choice. If the caller is migrating older code based on raw associations, \texttt{SolveMFG} provides a compatibility bridge.
+
+\section*{References}
+
+\begin{enumerate}
+\item Source file: \texttt{MFGraphs/orchestrationTools.wl}
+\item Upstream dependencies: \texttt{scenarioTools.wl}, \texttt{unknownsTools.wl}, \texttt{systemTools.wl}, \texttt{solversTools.wl}
+\end{enumerate}
+
+\end{document}

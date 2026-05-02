@@ -1,0 +1,141 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{hyperref}
+\title{solversTools.wl Module Documentation}
+\author{Manus AI}
+\date{}
+\begin{document}
+\maketitle
+
+\section{High-level explanation}
+
+\texttt{solversTools.wl} is the active symbolic solver layer for \texttt{mfgSystem} objects. All public solver entrypoints in this file work on the same basic principle: first preprocess the system structurally, then apply a final solving strategy suited to the residual logical form. The file therefore serves as both the solve-stage API and the shared solver-infrastructure layer.
+
+A central architectural fact about this module is that the active public solvers only support \emph{critical congestion} systems, meaning systems with \texttt{Alpha == 1} on every edge. This restriction is enforced explicitly by several public entrypoints. Another central fact is that the module distinguishes between exact linear preprocessing and the final residual-solve strategy. That is why multiple solver entrypoints can coexist while still sharing most of their setup logic.
+
+\section{Low-level explanation of functions and functionality}
+
+\subsection*{\texttt{reduceSystem}}
+
+\texttt{reduceSystem[sys]} is the most direct symbolic solver. It calls the shared preprocessing pipeline and then runs \texttt{Reduce[constraints, allVars, Reals]} on the result. If the system is fully determined, it returns a rule list. If the system remains underdetermined, it returns an association of the form \texttt{<|"Rules" -> rules, "Equations" -> residual|>}.
+
+Its main advantage is conceptual simplicity. Its main weakness is that \texttt{Reduce} can time out or branch heavily on the complementarity structure.
+
+\subsection*{\texttt{dnfReduce}}
+
+\texttt{dnfReduce[xp, sys]} is the module's private-style public reducer for disjunctive systems. It simplifies \texttt{xp \&\& sys} by solving equalities, substituting solutions, and distributing across disjunctions. The three-argument form is used internally for one-conjunct processing.
+
+This function is not the top-level solver most users call first, but it is the key algorithmic primitive behind \texttt{dnfReduceSystem}.
+
+\subsection*{\texttt{dnfReduceSystem}}
+
+\texttt{dnfReduceSystem[sys]} uses the same preprocessing pipeline as \texttt{reduceSystem} but replaces the final \texttt{Reduce} call with \texttt{dnfReduce[True, constraints]}. This often helps on systems where explicit symbolic case splitting is preferable to a monolithic \texttt{Reduce}.
+
+In the current repository phase, this is the default user-facing symbolic solver route.
+
+\subsection*{\texttt{optimizedDNFReduceSystem}}
+
+\texttt{optimizedDNFReduceSystem[sys]} is an opt-in exact solver that uses a small-branch exact branch-state path when the number of tracked variables is sufficiently small, and otherwise falls back to the proven DNF reducer path.
+
+Its role is to preserve exactness while improving performance on small residual branch families.
+
+\subsection*{\texttt{activeSetReduceSystem}}
+
+\texttt{activeSetReduceSystem[sys]} is an opt-in exact active-set solver tailored to the critical-congestion complementarity structure. It splits the problem into deterministic constraints and active complementarity constraints, preprocesses the deterministic block, and then handles the active block either via branch-state methods or via DNF fallback.
+
+This solver is structurally more specialized than \texttt{optimizedDNFReduceSystem}, and its value lies in exploiting the system's complementarity decomposition explicitly.
+
+\subsection*{\texttt{booleanReduceSystem}}
+
+\texttt{booleanReduceSystem[sys, opts]} converts the preprocessed constraints to DNF via \texttt{BooleanConvert}, then calls \texttt{Reduce} independently on each disjunct. Since each disjunct is a pure conjunction, this can avoid some internal \texttt{Reduce} branching pathologies.
+
+Its options are \texttt{"DisjunctTimeout"} and \texttt{"ReturnAll"}. The first bounds each disjunct-level \texttt{Reduce} call. The second chooses whether to return only the first parsed result or all non-false parsed results.
+
+\subsection*{\texttt{findInstanceSystem}}
+
+\texttt{findInstanceSystem[sys, opts]} applies the shared preprocessing and then asks \texttt{FindInstance} for one feasible rule set on the remaining variables. It is useful when feasibility is more important than obtaining a complete symbolic parameterization.
+
+Its main option is \texttt{"Timeout"}.
+
+\subsection*{\texttt{isValidSystemSolution}}
+
+\texttt{isValidSystemSolution[sys, sol]} checks whether a solver result satisfies the system blocks. It can return a simple Boolean or, with \texttt{"ReturnReport" -> True}, a detailed block-by-block validation report.
+
+This function is critical operationally because MFGraphs solvers may return full rules, partial rules plus residual equations, or no-solution signals. Validation must therefore work across multiple result shapes.
+
+\subsection*{\texttt{trackedVarQ}}
+
+\texttt{trackedVarQ[var]} identifies the variable heads that matter to solver post-processing. In the current active implementation, these are principally \texttt{j[\_\_]} and \texttt{u[\_\_]}. This keeps preprocessing and residual analysis focused on meaningful unknowns.
+
+\subsection*{\texttt{mergeRules} and \texttt{normalizeRules}}
+
+\texttt{mergeRules} joins old and new rule sets while keeping the latest rule for a left-hand side. \texttt{normalizeRules} pushes the full rule set through the right-hand sides so accumulated substitutions become internally consistent.
+
+These helpers are small, but they are vital for making multi-stage elimination results usable.
+
+\subsection*{\texttt{topLevelEquations}}
+
+\texttt{topLevelEquations[constraints]} extracts top-level equalities from a conjunction. This is a structural helper used before linear elimination.
+
+\subsection*{\texttt{extractLinearRules}}
+
+\texttt{extractLinearRules[equations, vars, existingRules]} solves eliminable linear equations for new substitution rules. It is the inner rule-extraction engine used during preprocessing.
+
+\subsection*{\texttt{accumulateLinearRules}}
+
+\texttt{accumulateLinearRules[baseConstraints, vars, initRules]} repeatedly extracts linear rules from the system and returns both the reduced constraints and the accumulated rule set. This is one of the most important helper functions in the whole solver file because it performs the shared symbolic elimination that makes every final solver entrypoint lighter.
+
+\subsection*{\texttt{attachAccumulatedRules}}
+
+\texttt{attachAccumulatedRules[result, rulesAcc]} merges preprocessing rules back into a final solver result. This preserves the user-facing contract that solutions should include all discovered substitutions, not only those from the final residual solve.
+
+\subsection*{\texttt{branchToRules}, \texttt{branchStateReduceResult}, and related branch helpers}
+
+\texttt{branchToRules} extracts explicit variable rules from one branch. \texttt{branchStateReduceResult} reduces constraints by carrying surviving branches as exact rules plus residuals. Additional helpers such as \texttt{harvestDNFBranch} and branch-finalization logic perform the conversion from branch-state representations to user-facing rule or residual outputs.
+
+These functions are the exact-branching machinery that distinguishes the optimized and active-set solvers from the simpler DNF path.
+
+\subsection*{\texttt{buildSolverInputs}}
+
+\texttt{buildSolverInputs[sys]} is the shared preprocessing pipeline. It collects the relevant system blocks, applies exit-value substitutions, runs linear accumulation, and returns \texttt{\{constraints, allVars, rulesAcc\}}.
+
+Conceptually, this function is the architectural heart of the solver file. The public solver family differs mainly in what happens \emph{after} this helper returns.
+
+\subsection*{\texttt{checkBlock}}
+
+\texttt{checkBlock[expr, tol]} evaluates whether a substituted constraint block is satisfied numerically within tolerance. It is one of the basic pieces behind \texttt{isValidSystemSolution}.
+
+\subsection*{\texttt{solutionResultKind}}
+
+\texttt{solutionResultKind[sol]} classifies solver outputs into categories such as rule-based, branched, parametric, residual, no-solution, timeout, and related cases. This is especially useful in scripts, benchmarks, and diagnostics.
+
+\subsection*{\texttt{dnfResidualDiagnostics}}
+
+\texttt{dnfResidualDiagnostics[sol]} provides lightweight information about residual DNF structure and tracked variables that remain unresolved. It is meant for analysis rather than direct solving.
+
+\subsection*{\texttt{dnfReduceDiagnosticReport}}
+
+\texttt{dnfReduceDiagnosticReport[sys, opts]} runs the DNF reducer with instrumentation and returns a diagnostic association. It is a profiling and debugging helper rather than a normal production solver call.
+
+\section{Usage guidance}
+
+Typical users should begin with:
+
+\begin{verbatim}
+sol = dnfReduceSystem[sys];
+validQ = isValidSystemSolution[sys, sol];
+\end{verbatim}
+
+Advanced users can switch solver strategy by passing a different public solver into \texttt{solveScenario} or by calling the solver entrypoints directly on a prepared system. The main decision point is whether the residual problem is better handled by direct \texttt{Reduce}, DNF-style symbolic distribution, branch-state logic, or feasibility search.
+
+\section*{References}
+
+\begin{enumerate}
+\item Source file: \texttt{MFGraphs/solversTools.wl}
+\item Upstream dependency: \texttt{MFGraphs/systemTools.wl}
+\item Benchmark script context: \texttt{Scripts/BenchmarkSystemSolver.wls}
+\end{enumerate}
+
+\end{document}

@@ -1,0 +1,83 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{hyperref}
+\title{unknownsTools.wl Module Documentation}
+\author{Manus AI}
+\date{}
+\begin{document}
+\maketitle
+
+\section{High-level explanation}
+
+\texttt{unknownsTools.wl} is the layer that converts a completed scenario topology into a typed bundle of symbolic unknown variables. In the active MFGraphs architecture, this is the stage between scenario construction and system construction. It does not derive equations itself; instead, it creates the symbolic families that later modules place into those equations.
+
+The file is deliberately narrow. Its purpose is to determine which \texttt{j}-variables, transition-flow variables, and \texttt{u}-variables should exist for a given scenario. This modularity is important because it keeps variable generation distinct from both topology generation and system assembly.
+
+\section{Low-level explanation of functions and functionality}
+
+\subsection*{\texttt{symbolicUnknowns}}
+
+\texttt{symbolicUnknowns[assoc]} is the typed head used to wrap the unknown bundle. It indicates that the wrapped association should be interpreted as a structured symbolic-variable record rather than an arbitrary association.
+
+\subsection*{\texttt{symbolicUnknownsQ}}
+
+\texttt{symbolicUnknownsQ[x]} returns \texttt{True} exactly when \texttt{x} matches \texttt{symbolicUnknowns[\_Association]}. It is the standard predicate used by downstream constructors that demand a typed unknown bundle.
+
+\subsection*{\texttt{symbolicUnknownsData}}
+
+\texttt{symbolicUnknownsData[u]} returns the underlying association, while \texttt{symbolicUnknownsData[u,key]} performs lookup with \texttt{Missing["KeyAbsent", key]} fallback. This accessor is the canonical way to retrieve fields such as \texttt{"Js"}, \texttt{"Jts"}, and \texttt{"Us"}.
+
+\subsection*{\texttt{makeSymbolicUnknowns}}
+
+\texttt{makeSymbolicUnknowns[s]} is the main public constructor. It accepts a typed scenario, a typed wrapper carrying an association, or a raw association. It first tries to reuse cached topology. If no topology is present, it attempts to rebuild auxiliary topology from the model. Once topology is available, it constructs the unknown bundle from the auxiliary pairs and triples.
+
+This function is the standard entrypoint for the unknown-generation stage. In typical workflow code, users call:
+
+\begin{verbatim}
+unk = makeSymbolicUnknowns[s];
+\end{verbatim}
+
+\subsection*{\texttt{unknown}}
+
+\texttt{unknown} is a reserved symbol for future numeric or grid-based solver fields. In the current exact symbolic graph-system phase, it is intentionally unused.
+
+Its presence is historically and architecturally informative: the file leaves space for a broader solver boundary without confusing the current symbolic pipeline.
+
+\subsection*{\texttt{unknowns}}
+
+\texttt{unknowns} is the reserved plural analogue of \texttt{unknown}. Like \texttt{unknown}, it is not active in the current exact symbolic graph-system constructors.
+
+\subsection*{\texttt{canonicalUPair}}
+
+\texttt{canonicalUPair[\{a,b\}]} is a private helper that orients auxiliary boundary pairs consistently for \texttt{u}-variables. In particular, if the second endpoint is an auxiliary entry or auxiliary exit label, the pair is reversed.
+
+This convention matters because it makes value-function variables stable and predictable at the boundary. Tests in the repository rely on this orientation rule.
+
+\subsection*{\texttt{makeSymbolicUnknownsFromPairsTriples}}
+
+\texttt{makeSymbolicUnknownsFromPairsTriples[auxPairs, auxTriples]} is the private constructor that actually builds the typed unknown bundle. It populates five fields: \texttt{"Js"}, \texttt{"Jts"}, \texttt{"Us"}, \texttt{"AuxPairs"}, and \texttt{"AuxTriples"}.
+
+The low-level mapping is straightforward but important. Two-point auxiliary pairs produce \texttt{j[a,b]} flow variables. Three-point auxiliary triples produce \texttt{j[r,i,w]} transition variables. Canonicalized pairs produce \texttt{u[a,b]} value variables.
+
+\section{Usage guidance}
+
+This module should be used through its main constructor rather than through manual symbolic-variable creation. The reason is not convenience alone. Topology-aware generation ensures that the unknown bundle is consistent with the scenario's auxiliary graph and transition structure.
+
+The standard pattern is:
+
+\begin{verbatim}
+unk = makeSymbolicUnknowns[s];
+js  = symbolicUnknownsData[unk, "Js"];
+\end{verbatim}
+
+\section*{References}
+
+\begin{enumerate}
+\item Source file: \texttt{MFGraphs/unknownsTools.wl}
+\item Upstream dependency: \texttt{MFGraphs/scenarioTools.wl}
+\item Downstream consumer: \texttt{MFGraphs/systemTools.wl}
+\end{enumerate}
+
+\end{document}

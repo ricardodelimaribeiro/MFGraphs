@@ -1,0 +1,58 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\title{MFGraphs.wl Module Documentation}
+\author{Manus AI}
+\date{}
+\begin{document}
+\maketitle
+
+\section{High-level explanation}
+
+\texttt{MFGraphs.wl} is the top-level loader for the active MFGraphs package surface. Its job is not to implement mathematics directly, but to make the package usable through a single \texttt{Needs["MFGraphs`"]} call. Concretely, it prepends the package directory to \texttt{\$Path}, declares the dependency contexts, and then relies on \texttt{EndPackage[]} to expose the public symbols from the active subpackages on the Wolfram context path.
+
+The file therefore acts as the architectural front door to the repository. It defines the load order and the public dependency graph: primitives first, then the scenario kernel, then example constructors, then symbolic unknowns, then system construction, then solvers, orchestration, and graphics. In practice, this means that most user-facing workflows begin by loading \texttt{MFGraphs`} rather than any subcontext individually.
+
+\section{Low-level explanation of functions and functionality}
+
+This file is intentionally thin. It does not define user-callable computational functions of its own. Instead, it contributes three operational actions that matter for package behavior.
+
+\subsection*{Path bootstrap via \texttt{PrependTo[\$Path, DirectoryName[\$InputFileName]]}}
+
+This expression ensures that the directory containing the package files is available to the Wolfram loader. Without this step, the later \texttt{BeginPackage} declaration might fail to locate sibling module files when MFGraphs is loaded from outside the package directory.
+
+In usage terms, users do not call this expression directly. Its purpose is entirely infrastructural: it makes the rest of the package importable.
+
+\subsection*{Context export via \texttt{BeginPackage["MFGraphs`", \{...\}]}}
+
+This call declares the top-level \texttt{MFGraphs`} context and specifies the active dependency contexts that should be loaded with it: \texttt{primitives`}, \texttt{scenarioTools`}, \texttt{examples`}, \texttt{unknownsTools`}, \texttt{systemTools`}, \texttt{solversTools`}, \texttt{orchestrationTools`}, and \texttt{graphicsTools`}.
+
+At a low level, this is how the package defines its public surface. Any symbol documented as public inside those dependent contexts becomes accessible after a single top-level load.
+
+\subsection*{Context finalization via \texttt{EndPackage[]}}
+
+The closing \texttt{EndPackage[]} finalizes the loader. Operationally, it appends the dependency contexts to \texttt{\$ContextPath}, which is why users can call names such as \texttt{makeScenario}, \texttt{makeSystem}, \texttt{solveScenario}, and \texttt{mfgFlowPlot} without qualifying them by subcontext after loading \texttt{MFGraphs`}.
+
+\section{Usage guidance}
+
+The normal usage pattern is simply:
+
+\begin{verbatim}
+Needs["MFGraphs`"]
+\end{verbatim}
+
+Users should regard this file as the package entrypoint rather than a functional API module. If someone is working on architecture, dependency order, or public symbol exposure, this is the correct file to inspect. If they are working on modeling, solving, or plotting logic, they should move immediately to the downstream modules that this file loads.
+
+\section*{References}
+
+\begin{enumerate}
+\item Source file: \texttt{MFGraphs/MFGraphs.wl}
+\item Repository guidance: \texttt{CLAUDE.md}
+\end{enumerate}
+
+\end{document}

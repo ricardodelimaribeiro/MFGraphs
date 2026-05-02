@@ -1,0 +1,108 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{hyperref}
+\title{graphicsTools.wl Module Documentation}
+\author{Manus AI}
+\date{}
+\begin{document}
+\maketitle
+
+\section{High-level explanation}
+
+\texttt{graphicsTools.wl} is the visualization layer of the active MFGraphs package. It turns scenarios, systems, and solver outputs into readable Wolfram \texttt{Graph} objects that display topology, flow, value, transition, and augmented-infrastructure structure.
+
+The module's design is intentionally layered. First, it normalizes solution input into rules. Second, it derives edge orientation, edge labels, and state labels from those rules. Third, it exposes several specialized plotters, each tailored to a different interpretation of the underlying mean field game data. This separation makes the file easier to extend and also keeps plotting concerns distinct from the solver and system modules.
+
+\section{Low-level explanation of functions and functionality}
+
+\subsection*{\texttt{scenarioTopologyPlot}}
+
+\texttt{scenarioTopologyPlot[s, sys, opts]} displays the base network topology. Entry vertices, exit vertices, and internal vertices are given distinct colors. The plot ignores solved values and instead emphasizes the structural graph itself.
+
+The function also provides a convenience overload in which a bare title argument is rewritten as \texttt{PlotLabel -> title}. This makes it easy to label figures succinctly.
+
+\subsection*{\texttt{mfgSolutionPlot}}
+
+\texttt{mfgSolutionPlot[s, sys, sol, opts]} plots the auxiliary network with edge directions inferred from solved net flows and with labels that include both \texttt{j} and \texttt{u} values. It is the most information-dense general-purpose visualization in the file.
+
+Use this plot when both edge-flow magnitudes and edge-value information matter simultaneously.
+
+\subsection*{\texttt{mfgFlowPlot}}
+
+\texttt{mfgFlowPlot[s, sys, sol, opts]} is the flow-only counterpart to \texttt{mfgSolutionPlot}. It emphasizes directed flow structure and labels edges with \texttt{j}-values only.
+
+This is often the best first plot when a user wants to inspect routing patterns without the additional clutter of value labels.
+
+\subsection*{\texttt{mfgTransitionPlot}}
+
+\texttt{mfgTransitionPlot[s, sys, sol, opts]} visualizes the transition graph. In this view, nodes represent auxiliary-pair states and directed edges represent transition-flow variables \texttt{j[r,i,w]}. Where available, node labels include \texttt{u}-values.
+
+This plot is especially helpful when analyzing switching structure rather than only aggregate edge flows.
+
+\subsection*{\texttt{mfgAugmentedPlot}}
+
+\texttt{mfgAugmentedPlot[s, sys, sol, opts]} displays the augmented road-traffic infrastructure graph built by \texttt{augmentAuxiliaryGraph}. In this representation, flow edges and transition edges are visually distinguished, typically by color.
+
+It is the most explicit plotter for understanding the expanded state-transition interpretation of the system.
+
+\subsection*{\texttt{augmentAuxiliaryGraph}}
+
+\texttt{augmentAuxiliaryGraph[sys]} constructs an association containing the augmented graph, its vertices, flow edges, transition edges, a mapping from edges to symbolic variables, and a mapping from edges to edge kinds.
+
+This function is not only a helper for plotting. It is also a compact structural export of the augmented graph model that other tooling could inspect or reuse.
+
+\subsection*{\texttt{extractRules}}
+
+\texttt{extractRules[sol]} normalizes accepted solution formats into a simple rule list. It supports both raw rule lists and associations carrying a \texttt{"Rules"} key.
+
+This helper is crucial because the solver layer can return multiple solution shapes.
+
+\subsection*{\texttt{netEdgeFlow}}
+
+\texttt{netEdgeFlow[a,b,rules]} computes the signed net flow \texttt{j[a,b] - j[b,a]} under the supplied rules, defaulting absent variables to zero. It is used to orient displayed edges consistently with the solved direction of travel.
+
+\subsection*{\texttt{edgeJValue}}
+
+\texttt{edgeJValue[a,b,rules]} retrieves the solved \texttt{j[a,b]} value for an edge, again defaulting absent variables to zero. It is used for labeling and thickness scaling.
+
+\subsection*{\texttt{edgeUValue}}
+
+\texttt{edgeUValue[a,b,rules]} retrieves a solved \texttt{u}-value associated with the edge endpoints when one is available. If neither orientation yields a solved value, it returns \texttt{Missing[]}.
+
+\subsection*{\texttt{directedDisplayEdges}}
+
+\texttt{directedDisplayEdges[edges, rules]} converts undirected display edges into directed ones according to solved net flow. This is a key helper because the system's structural graph and the displayed flow orientation are not always the same thing.
+
+\subsection*{\texttt{stateLabel} and related helpers}
+
+\texttt{stateAtomLabel} and \texttt{stateLabel} create compact readable labels for augmented-state vertices, especially auxiliary boundary labels such as \texttt{auxEntry1} and \texttt{auxExit1}. These helpers keep the transition and augmented plots legible.
+
+\subsection*{\texttt{plotLabelValue}}
+
+\texttt{plotLabelValue[label, default]} standardizes title behavior. It turns \texttt{Automatic} into a styled default title, respects \texttt{None}, and styles custom labels consistently.
+
+\section{Usage guidance}
+
+A typical plotting workflow is:
+
+\begin{verbatim}
+s   = gridScenario[{3}, {{1,10}}, {{3,0}}];
+sys = makeSystem[s];
+sol = solveScenario[s];
+plot1 = scenarioTopologyPlot[s, sys];
+plot2 = mfgFlowPlot[s, sys, sol];
+\end{verbatim}
+
+In general, choose \texttt{scenarioTopologyPlot} for structure only, \texttt{mfgFlowPlot} for routing, \texttt{mfgSolutionPlot} for joint flow-and-value inspection, \texttt{mfgTransitionPlot} for switching analysis, and \texttt{mfgAugmentedPlot} for augmented-state infrastructure views.
+
+\section*{References}
+
+\begin{enumerate}
+\item Source file: \texttt{MFGraphs/graphicsTools.wl}
+\item Upstream dependencies: \texttt{scenarioTools.wl}, \texttt{systemTools.wl}
+\item Current usage examples: \texttt{MFGraphs/Tests/graphicsTools.mt}
+\end{enumerate}
+
+\end{document}
