@@ -242,6 +242,10 @@ activeSetReduceSystem[sys] is an opt-in exact active-set solver for the critical
 
 booleanReduceSystem[sys] solves the mfgSystem sys by converting the preprocessed constraint system to DNF via BooleanConvert, then calling Reduce independently on each disjunct. Each disjunct is a pure conjunction (no Or), so Reduce avoids case-splitting. Non-False results are collected; if the system has a unique equilibrium all non-False results are equivalent. Returns a list of rules when fully determined, or <|"Rules" -> rules, "Equations" -> residual|> when underdetermined. Fails for non-critical congestion systems where Alpha != 1 on any edge. Options: "DisjunctTimeout" (default 30s per Reduce call), "ReturnAll" (default False; True returns all non-False parsed results).
 
+## computeKirchhoffResidual
+
+computeKirchhoffResidual[sys, sol] calculates the Kirchhoff Residual (the maximum absolute divergence in the transition flux conservation equations) for the solution sol. Returns the maximum numerical residual, or Missing["NotAvailable"] if the solution is symbolic or incomplete.
+
 ## dnfReduce
 
 dnfReduce[xp, sys] simplifies xp && sys by solving equalities, substituting their solutions throughout the system, and distributing over disjunctions. Returns a DNF expression with all equalities eliminated where possible. dnfReduce[xp, sys, elem] is the 3-argument form used internally to process one conjunct elem from sys.

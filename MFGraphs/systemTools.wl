@@ -316,7 +316,8 @@ buildComplementarityData[s_?scenarioQ, topology_Association, unk_?symbolicUnknow
     Module[{model, verticesList, switchingCosts, inAuxEntryPairs, outAuxExitPairs,
          halfPairs, auxTriples, consistCosts, altFlows, altTransitionFlows,
          activeTriples, auxTriplesByMiddle, ineqSwitchingByVertex, altOptCond,
-         auxEntrySet, auxExitSet, interiorTripleQ},
+         auxEntrySet, auxExitSet, interiorTripleQ,
+         zeroSwitchUEqualities},
         model = scenarioData[s, "Model"];
         verticesList  = model["Vertices"];
         switchingCosts = model["Switching"];
@@ -373,6 +374,36 @@ buildComplementarityData[s_?scenarioQ, topology_Association, unk_?symbolicUnknow
                     Lookup[auxTriplesByMiddle, #, {}] & /@ verticesList;
             ineqSwitchingByVertex = And @@ Flatten[ineqSwitchingByVertex];
 
+            (* Derive u-equality rules forced by zero-cost symmetric triple pairs.
+               Theorem: {r,v,w} and {w,v,r} both with cost 0 produce
+               u[w,v]>=u[r,v] and u[r,v]>=u[w,v] from IneqSwitching; antisymmetry
+               of >= forces u[r,v]=u[w,v]. Only real (non-aux) vertex pairs qualify. *)
+            zeroSwitchUEqualities = Flatten @ Map[
+                Function[v,
+                    Module[{triples, realZeroTriples, tripleSet, pairs, edges, components},
+                        triples = Lookup[auxTriplesByMiddle, v, {}];
+                        realZeroTriples = Select[triples, interiorTripleQ[#] && scFn @@ # == 0 &];
+                        If[realZeroTriples === {}, Return[{}, Module]];
+                        tripleSet = AssociationMap[True &, realZeroTriples];
+                        pairs = Select[realZeroTriples, KeyExistsQ[tripleSet, Reverse[#]] &];
+                        If[pairs === {}, Return[{}, Module]];
+                        edges = DeleteDuplicates[
+                            UndirectedEdge[u[#[[1]], v], u[#[[3]], v]] & /@ pairs
+                        ];
+                        components = ConnectedComponents[Graph[edges]];
+                        Flatten @ Map[
+                            Function[comp,
+                                With[{canonical = First @ Sort[comp]},
+                                    Rule[#, canonical] & /@ DeleteCases[comp, canonical]
+                                ]
+                            ],
+                            components
+                        ]
+                    ]
+                ],
+                verticesList
+            ];
+
             altOptCond = And @@ altSwitch[j, u, scFn] @@@ activeTriples;
         ];
 
@@ -383,7 +414,8 @@ buildComplementarityData[s_?scenarioQ, topology_Association, unk_?symbolicUnknow
             "AltTransitionFlows"     -> altTransitionFlows,
             "IneqSwitchingByVertex"  -> ineqSwitchingByVertex,
             "AltOptCond"             -> altOptCond,
-            "ActiveTriples"          -> activeTriples
+            "ActiveTriples"          -> activeTriples,
+            "ZeroSwitchUEqualities"  -> zeroSwitchUEqualities
         |>
     ];
 

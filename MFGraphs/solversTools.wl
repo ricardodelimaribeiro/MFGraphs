@@ -36,6 +36,12 @@ with per-block results. Tolerance for numeric checks is set via \
 rules are checked; blocks that remain symbolic after substitution are \
 reported as Indeterminate, not False.";
 
+computeKirchhoffResidual::usage =
+"computeKirchhoffResidual[sys, sol] calculates the Kirchhoff Residual (the maximum absolute divergence \
+in the transition flux conservation equations) for the solution sol. \
+Returns the maximum numerical residual, or Missing[\"NotAvailable\"] if the \
+solution is symbolic or incomplete.";
+
 dnfReduce::usage =
 "dnfReduce[xp, sys] simplifies xp && sys by solving equalities, substituting \
 their solutions throughout the system, and distributing over disjunctions. \
@@ -360,6 +366,10 @@ buildSolverInputs[sys_?mfgSystemQ] :=
     Module[{data, ruleExitVals, baseConstraints, allVars, constraints, rulesAcc},
         data = systemDataFlatten[sys];
         ruleExitVals = Normal @ Lookup[data, "RuleExitValues"];
+        (* Zero-cost symmetric triple pairs force u-equalities by antisymmetry of >=.
+           Injecting them here applies the substitution to all constraints uniformly
+           before the DNF stage, rather than only partially at construction time. *)
+        ruleExitVals = Join[ruleExitVals, Lookup[data, "ZeroSwitchUEqualities", {}]];
         baseConstraints = And[
             And @@ Lookup[data, "EqEntryIn"],
             Lookup[data, "EqBalanceSplittingFlows"],
@@ -1281,6 +1291,27 @@ isValidSystemSolution[sys_?mfgSystemQ, sol_, OptionsPattern[]] :=
         |>;
 
         If[returnReportQ, report, overall]
+    ];
+
+computeKirchhoffResidual[sys_?mfgSystemQ, sol_] :=
+    Module[{rules, balanceSplitting, balanceGathering, diffs, numDiffs},
+        rules = If[ListQ[sol], sol, Lookup[sol, "Rules", {}]];
+        If[!ListQ[rules], Return[Missing["NotAvailable"], Module]];
+
+        balanceSplitting = systemData[sys, "BalanceSplittingFlows"];
+        balanceGathering = systemData[sys, "BalanceGatheringFlows"];
+
+        If[MissingQ[balanceSplitting], balanceSplitting = {}];
+        If[MissingQ[balanceGathering], balanceGathering = {}];
+
+        diffs = Join[balanceSplitting, balanceGathering] /. rules;
+        numDiffs = Quiet @ Check[N[diffs], $Failed];
+
+        If[numDiffs === $Failed || !VectorQ[numDiffs, NumericQ],
+            Return[Missing["NotAvailable"], Module]
+        ];
+
+        If[Length[numDiffs] === 0, 0., Max[Abs[numDiffs]]]
     ];
 
 (* Recursively evaluate a constraint expression after solution substitution.
