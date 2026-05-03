@@ -66,6 +66,104 @@ DescribeOutput[title_String, description_String, expr_] :=
         Spacings -> {0.2, 0.7}
     ];
 
+ClearAll[
+    EdgeEndpoints,
+    EdgeHamiltonianValue,
+    FormatHamiltonianTerm,
+    EdgeModelSummary,
+    EdgeModelPlot
+];
+
+EdgeEndpoints[UndirectedEdge[a_, b_]] := {a, b};
+EdgeEndpoints[DirectedEdge[a_, b_]] := {a, b};
+EdgeEndpoints[{a_, b_}] := {a, b};
+
+EdgeHamiltonianValue[edgeValues_Association, edge_List, default_] :=
+    Lookup[
+        edgeValues,
+        Key[edge],
+        Lookup[edgeValues, Key[Reverse[edge]], default]
+    ];
+
+FormatHamiltonianTerm[term_] :=
+    Which[
+        MatchQ[term, _Function], ToString[Unevaluated[term], InputForm],
+        True, term
+    ];
+
+EdgeModelSummary[s_?scenarioQ, sys_?mfgSystemQ] :=
+    Module[{hamiltonian, edges, edgeModel},
+        hamiltonian = scenarioData[s, "Hamiltonian"];
+        edges = EdgeEndpoints /@ systemData[sys, "Edges"];
+        edgeModel[edge_] := <|
+            "Alpha" -> EdgeHamiltonianValue[
+                Lookup[hamiltonian, "EdgeAlpha", <||>],
+                edge,
+                Lookup[hamiltonian, "Alpha", 1]
+            ],
+            "V" -> EdgeHamiltonianValue[
+                Lookup[hamiltonian, "EdgeV", <||>],
+                edge,
+                Lookup[hamiltonian, "V", 0]
+            ],
+            "G" -> FormatHamiltonianTerm @ EdgeHamiltonianValue[
+                Lookup[hamiltonian, "EdgeG", <||>],
+                edge,
+                Lookup[hamiltonian, "G", Function[z, -1/z]]
+            ]
+        |>;
+        AssociationThread[edges, edgeModel /@ edges]
+    ];
+
+Options[EdgeModelPlot] = {
+    GraphLayout -> Automatic,
+    PlotLabel -> Automatic,
+    ImageSize -> Medium
+};
+
+EdgeModelPlot[s_?scenarioQ, sys_?mfgSystemQ, opts : OptionsPattern[]] :=
+    Module[{summary, modelEdges, edgeLabels},
+        summary = EdgeModelSummary[s, sys];
+        modelEdges = systemData[sys, "Edges"];
+        edgeLabels = Association @ Map[
+            With[
+                {
+                    edge = #,
+                    model = Lookup[summary, Key[EdgeEndpoints[#]], <||>]
+                },
+                edge -> Placed[
+                    Style[
+                        Row[{
+                            "\[Alpha]=", Lookup[model, "Alpha", "?"],
+                            ", V=", Lookup[model, "V", "?"],
+                            ", G=", Lookup[model, "G", "?"]
+                        }],
+                        9,
+                        Black,
+                        Background -> White
+                    ],
+                    Center
+                ]
+            ] &,
+            modelEdges
+        ];
+        Graph[
+            scenarioTopologyPlot[s, sys, PlotLabel -> None,
+                GraphLayout -> OptionValue[GraphLayout],
+                ImageSize -> OptionValue[ImageSize]],
+            EdgeLabels -> Normal[edgeLabels],
+            PlotLabel -> Replace[
+                OptionValue[PlotLabel],
+                {
+                    Automatic -> Style["Per-edge Hamiltonian model", 14, Bold],
+                    None -> None,
+                    other_ :> Style[other, 14, Bold]
+                }
+            ],
+            ImageSize -> OptionValue[ImageSize]
+        ]
+    ];
+
 (* Use the global flag from primitives context *)
 $MFGraphsVerbose = False;
 
@@ -164,7 +262,64 @@ DescribeOutput[
 ]
 
 
-(* --- 4. Build exact symbolic unknown bundles from unknownsTools.wl --- *)
+(* --- 4. Show the Hamiltonian model stored on each edge --- *)
+
+edgeModelScenario = makeScenario[
+    <|
+        "Model" -> <|
+            "Vertices" -> {1, 2, 3, 4},
+            "Adjacency" -> {
+                {0, 1, 1, 0},
+                {0, 0, 0, 1},
+                {0, 0, 0, 1},
+                {0, 0, 0, 0}
+            },
+            "Entries" -> {{1, 80.0}},
+            "Exits" -> {{4, 0.0}},
+            "Switching" -> {}
+        |>,
+        "Hamiltonian" -> <|
+            "Alpha" -> 1,
+            "V" -> 0,
+            "G" -> Function[z, -1/z],
+            "EdgeAlpha" -> <|{1, 2} -> 1.0, {1, 3} -> 2.0, {2, 4} -> 1.5|>,
+            "EdgeV" -> <|{1, 3} -> 0.25, {3, 4} -> -0.5|>,
+            "EdgeG" -> <|{2, 4} -> Function[z, -2/z], {3, 4} -> Function[z, -1/(2 z)]|>
+        |>
+    |>
+];
+
+edgeModelSystem = makeSystem[edgeModelScenario];
+
+Column[{
+    DescribeOutput[
+        "Topology plot from graphicsTools",
+        "scenarioTopologyPlot shows the network while preserving entry/exit coloring.",
+        scenarioTopologyPlot[edgeModelScenario, edgeModelSystem,
+            PlotLabel -> "Example network for per-edge model parameters",
+            ImageSize -> Large]
+    ],
+    DescribeOutput[
+        "Per-edge Hamiltonian model",
+        "Each edge shows the effective \[Alpha], V, and G after applying per-edge overrides. Current system construction applies \[Alpha]/EdgeAlpha; V/G are stored for visualization and future density work.",
+        EdgeModelPlot[edgeModelScenario, edgeModelSystem,
+            PlotLabel -> "Hamiltonian model on each edge",
+            ImageSize -> Large]
+    ],
+    DescribeOutput[
+        "Per-edge model table",
+        "Association keyed by network edge {u,v}; values are the effective model terms used for display.",
+        EdgeModelSummary[edgeModelScenario, edgeModelSystem]
+    ],
+    DescribeOutput[
+        "Hamilton-Jacobi equations with EdgeAlpha",
+        "The structural equations reflect Alpha/EdgeAlpha on each edge.",
+        systemData[edgeModelSystem, "EqGeneral"]
+    ]
+}]
+
+
+(* --- 5. Build exact symbolic unknown bundles from unknownsTools.wl --- *)
 
 exampleUnknowns = makeSymbolicUnknowns[exY];
 
@@ -185,7 +340,7 @@ DescribeOutput[
 ]
 
 
-(* --- 5. Build structural systems from System.wl --- *)
+(* --- 6. Build structural systems from System.wl --- *)
 
 exampleSystem = makeSystem[exY, exampleUnknowns];
 
@@ -211,7 +366,7 @@ DescribeOutput[
 ]
 
 
-(* --- 6. Chain with two exits: equations without and with switching costs --- *)
+(* --- 7. Chain with two exits: equations without and with switching costs --- *)
 
 chain2ExNoSC = gridScenario[
     {3},
@@ -259,7 +414,7 @@ Column[{
 }]
 
 
-(* --- 7. Topology visualization (from MFGraphs`graphicsTools`) --- *)
+(* --- 8. Topology visualization (from MFGraphs`graphicsTools`) --- *)
 
 Column[{
     DescribeOutput[
@@ -277,7 +432,7 @@ Column[{
 }]
 
 
-(* --- 8. Solve with solveScenario (DNF-first default) --- *)
+(* --- 9. Solve with solveScenario (DNF-first default) --- *)
 
 (* Chain 1->2->3, single exit at 3 (cost=0), entry flow=10.
    All variables are uniquely determined. *)
@@ -300,7 +455,7 @@ DescribeOutput[
 ]
 
 
-(* --- 9. Visualize solveScenario solutions (from MFGraphs`graphicsTools`) --- *)
+(* --- 10. Visualize solveScenario solutions (from MFGraphs`graphicsTools`) --- *)
 
 (* --- Apply to chain with one exit --- *)
 
@@ -347,7 +502,7 @@ Column[{
 }]
 
 
-(* --- 10. Advanced Solution Visualization (Paper Scheme) --- *)
+(* --- 11. Advanced Solution Visualization (Paper Scheme) --- *)
 
 augChain1 = augmentAuxiliaryGraph[sys1Ex];
 
@@ -377,7 +532,7 @@ Column[{
 }]
 
 
-(* --- 11. Paper-style network: Figure 3 \[Rule] Figure 4 transformation --- *)
+(* --- 12. Paper-style network: Figure 3 \[Rule] Figure 4 transformation --- *)
 
 paperFig3Scenario = graphScenario[
     Graph[{1 \[UndirectedEdge] 2, 2 \[UndirectedEdge] 3, 3 \[UndirectedEdge] 4}],
@@ -422,6 +577,56 @@ Column[{
             "FlowEdges" -> paperFig3Augmented["FlowEdges"],
             "TransitionEdges" -> paperFig3Augmented["TransitionEdges"],
             "EdgeVariables" -> paperFig3Augmented["EdgeVariables"]
+        |>
+    ]
+}]
+
+
+(* --- 13. Jamaratv9 example from the named scenario registry --- *)
+
+jamaratScenario = getExampleScenario[
+    "Jamaratv9",
+    {{1, 100}, {3, 50}},
+    {{7, 0}, {8, 0}, {9, 0}}
+];
+
+jamaratSystem = makeSystem[jamaratScenario];
+jamaratAugmented = augmentAuxiliaryGraph[jamaratSystem];
+
+Column[{
+    DescribeOutput[
+        "Jamaratv9 scenario",
+        "Named registry example with two entrances and three exits.",
+        <|
+            "scenarioQ" -> scenarioQ[jamaratScenario],
+            "Entries" -> scenarioData[jamaratScenario, "Model"]["Entries"],
+            "Exits" -> scenarioData[jamaratScenario, "Model"]["Exits"],
+            "Network edges" -> systemData[jamaratSystem, "Edges"]
+        |>
+    ],
+    DescribeOutput[
+        "Jamaratv9 topology plot",
+        "scenarioTopologyPlot shows the original network with entry/exit coloring.",
+        scenarioTopologyPlot[jamaratScenario, jamaratSystem,
+            PlotLabel -> "Jamaratv9 topology",
+            ImageSize -> Large]
+    ],
+    DescribeOutput[
+        "Jamaratv9 augmented road-traffic graph",
+        "mfgAugmentedPlot shows flow edges and transition edges without requiring a solved system.",
+        mfgAugmentedPlot[jamaratScenario, jamaratSystem, <||>,
+            PlotLabel -> "Jamaratv9 augmented infrastructure",
+            ImageSize -> Large]
+    ],
+    DescribeOutput[
+        "Jamaratv9 augmented graph metadata",
+        "augmentAuxiliaryGraph exposes the graph structure used by the plot.",
+        <|
+            "Vertex count" -> Length[jamaratAugmented["Vertices"]],
+            "Flow edge count" -> Length[jamaratAugmented["FlowEdges"]],
+            "Transition edge count" -> Length[jamaratAugmented["TransitionEdges"]],
+            "First flow edges" -> Take[jamaratAugmented["FlowEdges"], UpTo[8]],
+            "First transition edges" -> Take[jamaratAugmented["TransitionEdges"], UpTo[8]]
         |>
     ]
 }]
