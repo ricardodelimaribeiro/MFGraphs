@@ -15,7 +15,7 @@
      findInstanceSystem   -- FindInstance[constraints, allVars, Reals]
 *)
 
-BeginPackage["solversTools`", {"primitives`", "systemTools`"}];
+BeginPackage["solversTools`", {"primitives`", "utilities`", "systemTools`"}];
 
 reduceSystem::usage =
 "reduceSystem[sys] reduces the structural equations, flow balance, \
@@ -175,65 +175,56 @@ instrumentation and returns a diagnostic association. This helper is intended \
 for scripts and tests; dnfReduceSystem behavior is unchanged.";
 
 reduceSystem[sys_?mfgSystemQ] :=
-    Module[{constraints, allVars, rulesAcc},
-        If[!criticalCongestionSystemQ[sys],
-            Message[reduceSystem::noncritical];
-            Return[Failure["reduceSystem", <|"Message" -> "reduceSystem supports only critical congestion systems with Alpha == 1 on every edge."|>], Module]
-        ];
-        {constraints, allVars, rulesAcc} = buildSolverInputs[sys];
-        With[{reduced = Reduce[constraints, allVars, Reals]},
-            attachAccumulatedRules[parseReduceResult[reduced, allVars], rulesAcc]
-        ]
+    withCriticalCongestionSolver[sys, "reduceSystem",
+        Function[{constraints, allVars},
+            parseReduceResult[Reduce[constraints, allVars, Reals], allVars]
+        ],
+        buildSolverInputs,
+        attachAccumulatedRules
     ];
 
 dnfReduceSystem[sys_?mfgSystemQ] :=
-    Module[{constraints, allVars, rulesAcc},
-        If[!criticalCongestionSystemQ[sys],
-            Message[dnfReduceSystem::noncritical];
-            Return[Failure["dnfReduceSystem", <|"Message" -> "dnfReduceSystem supports only critical congestion systems with Alpha == 1 on every edge."|>], Module]
-        ];
-        {constraints, allVars, rulesAcc} = buildSolverInputs[sys];
-        With[{reduced = dnfReduce[True, constraints]},
-            attachAccumulatedRules[parseDNFReduceResult[reduced, allVars], rulesAcc]
-        ]
+    withCriticalCongestionSolver[sys, "dnfReduceSystem",
+        Function[{constraints, allVars},
+            parseDNFReduceResult[dnfReduce[True, constraints], allVars]
+        ],
+        buildSolverInputs,
+        attachAccumulatedRules
     ];
 
 optimizedDNFReduceSystem[sys_?mfgSystemQ] :=
-    Module[{constraints, allVars, rulesAcc, result},
-        If[!criticalCongestionSystemQ[sys],
-            Message[optimizedDNFReduceSystem::noncritical];
-            Return[Failure["optimizedDNFReduceSystem", <|"Message" -> "optimizedDNFReduceSystem supports only critical congestion systems with Alpha == 1 on every edge."|>], Module]
-        ];
-        {constraints, allVars, rulesAcc} = buildSolverInputs[sys];
-        result = If[Length[allVars] <= 8,
-            branchStateReduceResult[constraints, allVars],
-            parseDNFReduceResult[dnfReduce[True, constraints], allVars]
-        ];
-        attachAccumulatedRules[result, rulesAcc]
+    withCriticalCongestionSolver[sys, "optimizedDNFReduceSystem",
+        Function[{constraints, allVars},
+            If[Length[allVars] <= 8,
+                branchStateReduceResult[constraints, allVars],
+                parseDNFReduceResult[dnfReduce[True, constraints], allVars]
+            ]
+        ],
+        buildSolverInputs,
+        attachAccumulatedRules
     ];
 
 activeSetReduceSystem[sys_?mfgSystemQ] :=
-    Module[{data, ruleExitVals, deterministicConstraints, activeConstraints, allVars,
+    Module[{ruleExitVals, deterministicConstraints, activeConstraints, allVars,
             detReduced, rulesAcc, activeReduced, result, branches},
         If[!criticalCongestionSystemQ[sys],
             Message[activeSetReduceSystem::noncritical];
             Return[Failure["activeSetReduceSystem", <|"Message" -> "activeSetReduceSystem supports only critical congestion systems with Alpha == 1 on every edge."|>], Module]
         ];
-        data = systemDataFlatten[sys];
-        ruleExitVals = Normal @ Lookup[data, "RuleExitValues"];
+        ruleExitVals = Normal @ systemData[sys, "RuleExitValues"];
         deterministicConstraints = And[
-            And @@ Lookup[data, "EqEntryIn"],
-            Lookup[data, "EqBalanceSplittingFlows"],
-            Lookup[data, "EqBalanceGatheringFlows"],
-            Lookup[data, "EqGeneral"],
-            Lookup[data, "IneqJs"],
-            Lookup[data, "IneqJts"],
-            Lookup[data, "IneqSwitchingByVertex"]
+            And @@ systemData[sys, "EqEntryIn"],
+            systemData[sys, "EqBalanceSplittingFlows"],
+            systemData[sys, "EqBalanceGatheringFlows"],
+            systemData[sys, "EqGeneral"],
+            systemData[sys, "IneqJs"],
+            systemData[sys, "IneqJts"],
+            systemData[sys, "IneqSwitchingByVertex"]
         ];
         activeConstraints = And[
-            Lookup[data, "AltFlows"],
-            Lookup[data, "AltTransitionFlows"],
-            Lookup[data, "AltOptCond"]
+            systemData[sys, "AltFlows"],
+            systemData[sys, "AltTransitionFlows"],
+            systemData[sys, "AltOptCond"]
         ];
         allVars = Select[
             Variables[(And[deterministicConstraints, activeConstraints] /. ruleExitVals) /. {Equal -> List, Or -> List, And -> List}],
@@ -260,29 +251,29 @@ Options[booleanReduceSystem] = {
 };
 
 booleanReduceSystem[sys_?mfgSystemQ, opts : OptionsPattern[]] :=
-    Module[{constraints, allVars, rulesAcc, dnf, disjuncts,
-            reducedList, nonFalse, parsed, timeout, returnAll},
-        timeout   = OptionValue["DisjunctTimeout"];
-        returnAll = TrueQ[OptionValue["ReturnAll"]];
-        If[!criticalCongestionSystemQ[sys],
-            Message[booleanReduceSystem::noncritical];
-            Return[Failure["booleanReduceSystem", <|"Message" -> "booleanReduceSystem supports only critical congestion systems with Alpha == 1 on every edge."|>], Module]
-        ];
-        {constraints, allVars, rulesAcc} = buildSolverInputs[sys];
-        dnf       = BooleanConvert[constraints, "DNF"];
-        disjuncts = If[Head[dnf] === Or, List @@ dnf, {dnf}];
-        reducedList = TimeConstrained[Reduce[#, allVars, Reals], timeout, $Aborted] & /@ disjuncts;
-        nonFalse = Select[reducedList, # =!= False && # =!= $Aborted &];
-        If[nonFalse === {},
-            Return[attachAccumulatedRules[<|"Rules" -> {}, "Equations" -> False|>, rulesAcc], Module]
-        ];
-        parsed = parseReduceResult[#, allVars] & /@ nonFalse;
-        If[Length[parsed] > 1,
-            With[{ruleSets = (If[ListQ[#], #, Lookup[#, "Rules", {}]] & /@ parsed)},
-                If[!SameQ @@ (Sort /@ ruleSets), Message[booleanReduceSystem::multisol, Length[parsed]]]
+    withCriticalCongestionSolver[sys, "booleanReduceSystem",
+        Function[{constraints, allVars},
+            Module[{dnf, disjuncts, reducedList, nonFalse, parsed, timeout, returnAll},
+                timeout   = OptionValue[booleanReduceSystem, {opts}, "DisjunctTimeout"];
+                returnAll = TrueQ[OptionValue[booleanReduceSystem, {opts}, "ReturnAll"]];
+                dnf       = BooleanConvert[constraints, "DNF"];
+                disjuncts = If[Head[dnf] === Or, List @@ dnf, {dnf}];
+                reducedList = TimeConstrained[Reduce[#, allVars, Reals], timeout, $Aborted] & /@ disjuncts;
+                nonFalse = Select[reducedList, # =!= False && # =!= $Aborted &];
+                If[nonFalse === {},
+                    Return[<|"Rules" -> {}, "Equations" -> False|>, Module]
+                ];
+                parsed = parseReduceResult[#, allVars] & /@ nonFalse;
+                If[Length[parsed] > 1,
+                    With[{ruleSets = (If[ListQ[#], #, Lookup[#, "Rules", {}]] & /@ parsed)},
+                        If[!SameQ @@ (Sort /@ ruleSets), Message[booleanReduceSystem::multisol, Length[parsed]]]
+                    ]
+                ];
+                If[returnAll, parsed, First[parsed]]
             ]
-        ];
-        If[returnAll, attachAccumulatedRules[#, rulesAcc] & /@ parsed, attachAccumulatedRules[First[parsed], rulesAcc]]
+        ],
+        buildSolverInputs,
+        attachAccumulatedRules
     ];
 
 Options[findInstanceSystem] = {
@@ -290,31 +281,32 @@ Options[findInstanceSystem] = {
 };
 
 findInstanceSystem[sys_?mfgSystemQ, opts : OptionsPattern[]] :=
-    Module[{constraints, allVars, rulesAcc, timeout, instance},
-        timeout = OptionValue["Timeout"];
-        If[!criticalCongestionSystemQ[sys],
-            Message[findInstanceSystem::noncritical];
-            Return[Failure["findInstanceSystem", <|"Message" -> "findInstanceSystem supports only critical congestion systems with Alpha == 1 on every edge."|>], Module]
-        ];
-        {constraints, allVars, rulesAcc} = buildSolverInputs[sys];
-        If[allVars === {},
-            Return[
-                If[TrueQ[Simplify[constraints]],
-                    normalizeRules[rulesAcc],
-                    attachAccumulatedRules[<|"Rules" -> {}, "Equations" -> False|>, rulesAcc]
-                ],
-                Module
+    withCriticalCongestionSolver[sys, "findInstanceSystem",
+        Function[{constraints, allVars},
+            Module[{timeout, instance},
+                timeout = OptionValue[findInstanceSystem, {opts}, "Timeout"];
+                If[allVars === {},
+                    Return[
+                        If[TrueQ[Simplify[constraints]],
+                            {},
+                            <|"Rules" -> {}, "Equations" -> False|>
+                        ],
+                        Module
+                    ]
+                ];
+                instance = TimeConstrained[
+                    FindInstance[constraints, allVars, Reals],
+                    timeout,
+                    $Aborted
+                ];
+                If[MatchQ[instance, {{___Rule}, ___}],
+                    First[instance],
+                    <|"Rules" -> {}, "Equations" -> False|>
+                ]
             ]
-        ];
-        instance = TimeConstrained[
-            FindInstance[constraints, allVars, Reals],
-            timeout,
-            $Aborted
-        ];
-        If[MatchQ[instance, {{___Rule}, ___}],
-            attachAccumulatedRules[First[instance], rulesAcc],
-            attachAccumulatedRules[<|"Rules" -> {}, "Equations" -> False|>, rulesAcc]
-        ]
+        ],
+        buildSolverInputs,
+        attachAccumulatedRules
     ];
 
 trackedVarQ[var_] :=
@@ -1063,29 +1055,6 @@ dnfReduceDiagnosticReport[sys_?mfgSystemQ, OptionsPattern[]] :=
    system object carries the scenario Hamiltonian so this check can reject any
    non-1 default Alpha or per-edge EdgeAlpha before Reduce sees nonlinear
    placeholder equations. *)
-criticalCongestionSystemQ[sys_?mfgSystemQ] :=
-    Module[{data, halfPairs, hamiltonian, alphaDefault, edgeAlpha, alphaAtEdge},
-        data = systemDataFlatten[sys];
-        halfPairs   = Lookup[data, "HalfPairs"];
-        hamiltonian = Lookup[data, "Hamiltonian"];
-        If[MissingQ[hamiltonian] || !AssociationQ[hamiltonian], hamiltonian = <||>];
-        alphaDefault = Lookup[hamiltonian, "Alpha", 1];
-        edgeAlpha    = Lookup[hamiltonian, "EdgeAlpha", <||>];
-        If[!ListQ[halfPairs] || !AssociationQ[edgeAlpha], Return[False, Module]];
-        alphaAtEdge[edge_List] :=
-            Lookup[
-                edgeAlpha,
-                Key[edge],
-                Lookup[edgeAlpha, Key[Reverse[edge]], alphaDefault]
-            ];
-        alphaDefault === 1 && AllTrue[halfPairs, alphaAtEdge[#] === 1 &]
-    ];
-
-mergeRules[oldRules_List, newRules_List] :=
-    Reverse @ DeleteDuplicatesBy[Reverse @ Join[oldRules, newRules], First];
-
-normalizeRules[rules_List] :=
-    Map[Rule[First[#], ReplaceRepeated[Last[#], rules]] &, rules];
 
 topLevelEquations[constraints_] :=
     Select[

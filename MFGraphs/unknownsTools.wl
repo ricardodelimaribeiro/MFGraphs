@@ -1,7 +1,7 @@
 (* Wolfram Language package *)
 (* unknownsTools.wl — construction helpers for MFGraphs symbolic unknown families. *)
 
-BeginPackage["unknownsTools`", {"primitives`", "scenarioTools`"}]
+BeginPackage["unknownsTools`", {"primitives`", "utilities`", "scenarioTools`"}]
 
 symbolicUnknowns::usage =
 "symbolicUnknowns[assoc] is the typed head for topology-derived exact symbolic \
@@ -56,11 +56,10 @@ makeSymbolicUnknownsFromPairsTriples[auxPairs_List, auxTriples_List] :=
         |>
     ];
 
-symbolicUnknownsQ[symbolicUnknowns[_Association]] := True;
-symbolicUnknownsQ[_] := False;
+symbolicUnknownsQ[x_] := mfgTypedQ[x, symbolicUnknowns];
 
-symbolicUnknownsData[symbolicUnknowns[assoc_Association]] := assoc;
-symbolicUnknownsData[symbolicUnknowns[assoc_Association], key_] := Lookup[assoc, key, Missing["KeyAbsent", key]];
+symbolicUnknownsData[u_] := mfgData[u];
+symbolicUnknownsData[u_, key_] := mfgData[u, key];
 
 makeSymbolicUnknowns[s_] :=
     Module[{model, topology, rawAssoc, auxPairs, auxTriples},

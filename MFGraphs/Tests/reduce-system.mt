@@ -186,7 +186,7 @@ Test[
 ]
 
 Test[
-    solversTools`Private`mergeRules[{x -> 1}, {x -> 2}],
+    utilities`mergeRules[{x -> 1}, {x -> 2}],
     {x -> 2},
     TestID -> "mergeRules: duplicate lhs keeps latest rule"
 ]

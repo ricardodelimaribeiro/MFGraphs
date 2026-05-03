@@ -22,7 +22,7 @@
      "Topology"    — derived auxiliary graph data (cached)
 *)
 
-BeginPackage["scenarioTools`", {"primitives`"}]
+BeginPackage["scenarioTools`", {"primitives`", "utilities`"}]
 
 (* --- Public API declarations --- *)
 
@@ -419,13 +419,12 @@ buildAuxiliaryTopology[model_Association] :=
 
 (* --- Type predicate --- *)
 
-scenarioQ[scenario[_Association]] := True;
-scenarioQ[_]                       := False;
+scenarioQ[x_] := mfgTypedQ[x, scenario];
 
 (* --- Accessor --- *)
 
-scenarioData[scenario[assoc_Association]]       := assoc;
-scenarioData[scenario[assoc_Association], key_] := Lookup[assoc, key, Missing["KeyAbsent", key]];
+scenarioData[s_] := mfgData[s];
+scenarioData[s_, key_] := mfgData[s, key];
 
 (* --- Validate --- *)
 
