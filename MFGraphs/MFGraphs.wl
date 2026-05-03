@@ -28,6 +28,7 @@ PrependTo[$Path, DirectoryName[$InputFileName]];
 
 BeginPackage["MFGraphs`",
   { "primitives`",
+    "utilities`",
     "scenarioTools`",
     "examples`",
     "unknownsTools`",

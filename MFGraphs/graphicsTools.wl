@@ -1,7 +1,7 @@
 (* Wolfram Language package *)
 (* Graphics: public visualization helpers for MFGraphs systems and solutions. *)
 
-BeginPackage["graphicsTools`", {"primitives`", "scenarioTools`", "systemTools`"}];
+BeginPackage["graphicsTools`", {"primitives`", "utilities`", "scenarioTools`", "systemTools`"}];
 
 scenarioTopologyPlot::usage =
 "scenarioTopologyPlot[s, sys, opts] plots the scenario topology using vertex coloring for entry, exit, and internal vertices. Use PlotLabel, GraphLayout, and ImageSize options to control display.";
@@ -45,9 +45,6 @@ Options[mfgTransitionPlot] = {
 
 Options[mfgAugmentedPlot] = Options[mfgTransitionPlot];
 
-extractRules::usage =
-"extractRules[sol] extracts replacement rules from a solution list or solution association.";
-
 netEdgeFlow::usage =
 "netEdgeFlow[a, b, rules] returns the solved net flow j[a,b]-j[b,a], defaulting absent flow variables to zero.";
 
@@ -65,10 +62,6 @@ stateLabel::usage =
 
 plotLabelValue::usage =
 "plotLabelValue[label, default] returns a styled plot label unless label is None.";
-
-extractRules[sol_List] := Select[sol, MatchQ[#, _Rule | _RuleDelayed] &];
-extractRules[sol_Association] := extractRules[Lookup[sol, "Rules", {}]];
-extractRules[_] := {};
 
 netEdgeFlow[a_, b_, rules_List] :=
     (j[a, b] - j[b, a]) /. rules /. {_j -> 0};

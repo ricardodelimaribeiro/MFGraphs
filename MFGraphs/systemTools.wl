@@ -12,7 +12,7 @@
      systemData[sys]     →  returns the underlying equation association
 *)
 
-BeginPackage["systemTools`", {"primitives`", "scenarioTools`", "unknownsTools`"}]
+BeginPackage["systemTools`", {"primitives`", "utilities`", "scenarioTools`", "unknownsTools`"}]
 
 (* --- Public API declarations --- *)
 
@@ -118,43 +118,6 @@ exactBoundaryValues::usage =
 
 (* --- Structural Helpers Implementation --- *)
 
-roundValues[x_?NumberQ] :=
-    Round[x, 10^-10]
-
-roundValues[Rule[a_, b_]] :=
-    Rule[a, roundValues[b]]
-
-roundValues[x_List] :=
-    roundValues /@ x
-
-roundValues[x_Association] :=
-    roundValues /@ x
-
-exactBoundaryValue[val_] /; ExactNumberQ[val] := val;
-
-exactBoundaryValue[val_?NumericQ] :=
-    Module[{nval = N[val]},
-        If[TrueQ[Im[nval] == 0],
-            Rationalize[val, 0],
-            Failure["buildBoundaryData", <|
-                "Message" -> "Boundary values must be real numeric values.",
-                "Value" -> val
-            |>]
-        ]
-    ];
-
-exactBoundaryValue[val_] :=
-    Failure["buildBoundaryData", <|
-        "Message" -> "Boundary values must be numeric values.",
-        "Value" -> val
-    |>];
-
-exactBoundaryValues[vals_List] :=
-    Module[{exactVals = exactBoundaryValue /@ vals, firstFailure},
-        firstFailure = FirstCase[exactVals, _Failure, Missing["NotFound"]];
-        If[FailureQ[firstFailure], firstFailure, exactVals]
-    ];
-
 consistentSwitchingCosts[sc_Association][trip:{a_, b_, c_}] :=
     Module[{S = sc[trip], originTriples, conds},
         originTriples = DeleteCases[
@@ -214,33 +177,30 @@ altSwitch[j_, u_, switching_][r_, i_, w_] :=
 
 (* --- Type predicates --- *)
 
-mfgSystemQ[mfgSystem[_Association]] := True;
-mfgSystemQ[_]                         := False;
+mfgSystemQ[x_] := mfgTypedQ[x, mfgSystem];
 
-mfgBoundaryDataQ[mfgBoundaryData[_Association]] := True;
-mfgBoundaryDataQ[_]                             := False;
+mfgBoundaryDataQ[x_] := mfgTypedQ[x, mfgBoundaryData];
 
-mfgFlowDataQ[mfgFlowData[_Association]] := True;
-mfgFlowDataQ[_]                         := False;
+mfgFlowDataQ[x_] := mfgTypedQ[x, mfgFlowData];
 
-mfgComplementarityDataQ[mfgComplementarityData[_Association]] := True;
-mfgComplementarityDataQ[_]                                     := False;
+mfgComplementarityDataQ[x_] := mfgTypedQ[x, mfgComplementarityData];
 
-mfgHamiltonianDataQ[mfgHamiltonianData[_Association]] := True;
-mfgHamiltonianDataQ[_]                                 := False;
+mfgHamiltonianDataQ[x_] := mfgTypedQ[x, mfgHamiltonianData];
 
 (* --- Accessor --- *)
 
-systemData[mfgSystem[assoc_Association]]           := assoc;
-systemData[mfgSystem[assoc_Association], key_] :=
-    Module[{val},
+systemData[sys_] := mfgData[sys];
+systemData[sys_, key_] :=
+    Module[{val, assoc},
+        assoc = mfgData[sys];
         val = Lookup[assoc, key, $Failed];
         If[val =!= $Failed, Return[val, Module]];
 
         (* Search in typed sub-records only *)
         Do[
-            If[MatchQ[sub, (mfgBoundaryData|mfgFlowData|mfgComplementarityData|mfgHamiltonianData)[_Association]],
-                val = Lookup[First[sub], key, $Failed];
+            If[mfgTypedQ[sub, mfgBoundaryData] || mfgTypedQ[sub, mfgFlowData] || 
+               mfgTypedQ[sub, mfgComplementarityData] || mfgTypedQ[sub, mfgHamiltonianData],
+                val = Lookup[mfgData[sub], key, $Failed];
                 If[val =!= $Failed, Return[val, Module]]
             ],
             {sub, Values[assoc]}
@@ -249,11 +209,14 @@ systemData[mfgSystem[assoc_Association], key_] :=
         Missing["KeyAbsent", key]
     ];
 
-systemDataFlatten[mfgSystem[assoc_Association]] :=
-    KeyDrop[
-        Join[assoc, Sequence @@ (First /@ Select[Values[assoc],
-            MatchQ[#, (mfgBoundaryData|mfgFlowData|mfgComplementarityData|mfgHamiltonianData)[_Association]]&])],
-        {"BoundaryData", "FlowData", "ComplementarityData", "HamiltonianData"}
+systemDataFlatten[sys_] :=
+    Module[{assoc = mfgData[sys]},
+        KeyDrop[
+            Join[assoc, Sequence @@ (mfgData /@ Select[Values[assoc],
+                mfgTypedQ[#, mfgBoundaryData] || mfgTypedQ[#, mfgFlowData] || 
+                mfgTypedQ[#, mfgComplementarityData] || mfgTypedQ[#, mfgHamiltonianData] &])],
+            {"BoundaryData", "FlowData", "ComplementarityData", "HamiltonianData"}
+        ]
     ];
 
 (* --- Modular Builders --- *)
