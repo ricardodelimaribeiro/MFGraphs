@@ -738,7 +738,7 @@ Test[
 
 (* Test: Achdou 2023 finite stationary junction analog builds with caller-supplied boundaries *)
 Test[
-    Module[{s, model, topology, metadata},
+    Module[{s, model, topology, metadata, expectedEdges, expectedAdjacency},
         s = getExampleScenario[
             "Achdou 2023 junction",
             {{2, 25}, {3, 25}, {4, 25}, {5, 25}},
@@ -747,11 +747,22 @@ Test[
         model = scenarioData[s, "Model"];
         topology = scenarioData[s, "Topology"];
         metadata = getExampleScenarioMetadata["Achdou 2023 junction"];
+        expectedEdges = {{1, 2}, {1, 3}, {1, 4}, {1, 5}};
+        expectedAdjacency = {
+            {0, 1, 1, 1, 1},
+            {0, 0, 0, 0, 0},
+            {0, 0, 0, 0, 0},
+            {0, 0, 0, 0, 0},
+            {0, 0, 0, 0, 0}
+        };
         scenarioQ[s] &&
         Length[model["Vertices"]] === 5 &&
         Length[model["Vertices"]] === metadata["DeclaredVertexCount"] &&
         Length[topology["HalfPairs"]] === 4 &&
         Length[topology["HalfPairs"]] === metadata["DeclaredEdgeCount"] &&
+        metadata["EdgeList"] === expectedEdges &&
+        model["Adjacency"] === expectedAdjacency &&
+        Sort[topology["HalfPairs"]] === expectedEdges &&
         model["Entries"] === {{2, 25}, {3, 25}, {4, 25}, {5, 25}} &&
         model["Exits"] === {{1, 0}}
     ]
