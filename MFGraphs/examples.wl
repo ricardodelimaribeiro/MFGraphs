@@ -57,6 +57,10 @@ Pass sc={} explicitly to force no switching costs. \
 entries={{vertex,flow},...}, exits={{vertex,cost},...}, sc={{i,k,j,cost},...}. \
 Returns $Failed for unknown keys.";
 
+getExampleScenarioMetadata::usage =
+"getExampleScenarioMetadata[key] returns metadata for a built-in example scenario, \
+including source/provenance details when available. Returns $Failed for unknown keys.";
+
 Begin["`Private`"];
 
 scenarioFromGraph::usage =
@@ -71,11 +75,98 @@ makeCycleFactory::usage =
 makeAmFactory::usage =
 "makeAmFactory[vl, am] returns a built-in example factory backed by amScenario[vl, am, ...].";
 
+edgePairsToAdjacency::usage =
+"edgePairsToAdjacency[vertices, pairs] builds an adjacency matrix from directed edge pairs.";
+
 (* --- Shared topology constants --- *)
 
 $Y1In2OutAM    = {{0,1,0,0},{0,0,1,1},{0,0,0,0},{0,0,0,0}};
 $Y2In1OutAM    = {{0,1,0,0},{0,0,0,1},{0,1,0,0},{0,0,0,0}};
 $Attraction4AM = {{0,1,1,0},{0,0,1,1},{0,0,0,1},{0,0,0,0}};
+
+$Camilli2015SourcePath =
+    "docs/research/papers/Camilli et al. - 2015 - A model problem for Mean Field Games on networks.pdf";
+
+$Achdou2023SourcePath =
+    "docs/research/papers/Achdou et al. - 2023 - First order Mean Field Games on networks.pdf";
+
+$AchdouJunctionVertices = Range[5];
+$AchdouJunctionCoordinates = <|
+    1 -> {0, 0},
+    2 -> {0, 1},
+    3 -> {1, 0},
+    4 -> {0, -1},
+    5 -> {-1, 0}
+|>;
+$AchdouJunctionEdges = {
+    {1, 2},
+    {1, 3},
+    {1, 4},
+    {1, 5}
+};
+
+$CamilliSimpleVertices = Range[4];
+$CamilliSimpleCoordinates = <|
+    1 -> {0, 0},
+    2 -> {0, 1},
+    3 -> {-1, 2},
+    4 -> {1, 2}
+|>;
+$CamilliSimpleEdges = {
+    {1, 2},
+    {2, 3},
+    {2, 4},
+    {3, 4}
+};
+
+$CamilliGeneralVertices = Range[17];
+$CamilliGeneralCoordinates = <|
+    1 -> {0, 0},
+    2 -> {0, 1/2},
+    3 -> {-1, 1},
+    4 -> {-1/2, 3/2},
+    5 -> {-1, 2},
+    6 -> {-1/2, 5/2},
+    7 -> {-1, 3},
+    8 -> {-3/2, 7/2},
+    9 -> {-2, 3},
+    10 -> {-5/2, 5/2},
+    11 -> {-3/2, 5/2},
+    12 -> {-2, 2},
+    13 -> {-3/2, 3/2},
+    14 -> {1/2, 3/2},
+    15 -> {1, 2},
+    16 -> {3/2, 3/2},
+    17 -> {1, 1}
+|>;
+$CamilliGeneralEdges = {
+    {1, 2},
+    {2, 3},
+    {2, 14},
+    {2, 17},
+    {3, 4},
+    {3, 13},
+    {4, 5},
+    {4, 6},
+    {5, 6},
+    {5, 11},
+    {5, 13},
+    {6, 7},
+    {7, 8},
+    {7, 11},
+    {8, 9},
+    {9, 10},
+    {9, 12},
+    {10, 11},
+    {11, 12},
+    {12, 13},
+    {14, 15},
+    {15, 16},
+    {16, 17},
+    {14, 17}
+};
+
+$CamilliGeneralImportedEdges = DeleteCases[$CamilliGeneralEdges, {2, 14} | {5, 11}];
 
 (* Canonical switching costs looked up by getExampleScenario when sc=Automatic. *)
 $CaseDefaultSC = <|
@@ -162,6 +253,105 @@ amScenario[vl_, am_, entries_, exits_,
 makeGridFactory[dims_List]  := gridScenario[dims, ##]&;
 makeCycleFactory[n_Integer] := cycleScenario[n, ##]&;
 makeAmFactory[vl_, am_]     := amScenario[vl, am, ##]&;
+
+edgePairsToAdjacency[vertices_List, pairs_List] :=
+    Module[{index = AssociationThread[vertices -> Range[Length[vertices]]]},
+        Normal @ SparseArray[
+            ({index[#[[1]]], index[#[[2]]]} -> 1) & /@ pairs,
+            {Length[vertices], Length[vertices]}
+        ]
+    ];
+
+$ExampleScenarioMetadata = <|
+    "Camilli 2015 simple" -> <|
+        "Title" -> "A model problem for Mean Field Games on networks",
+        "SourcePaperPath" -> $Camilli2015SourcePath,
+        "Source" -> "Camilli, Carlini, and Marchi (2015), Figure 1 and Section 5.1",
+        "PackageInterpretation" -> "Stationary analog only: the meeting point v0 is represented as the unique exit vertex with cost 0; the original time-dependent stochastic MFG and heat-equation fixed-point solver are not implemented here.",
+        "VertexCoordinates" -> $CamilliSimpleCoordinates,
+        "MeetingVertex" -> 1,
+        "ExitDefault" -> {{1, 0}},
+        "EdgeList" -> $CamilliSimpleEdges,
+        "DeclaredVertexCount" -> 4,
+        "DeclaredEdgeCount" -> 4,
+        "TimeDependentData" -> <|
+            "t0" -> 0.5,
+            "Tmax" -> 10,
+            "Theta" -> 0.5,
+            "CostFormula" -> "c_T(s) = 0.1 max(s - t0, 0) + 0.1 max(T - s, 0)",
+            "InitialDensityFormula" -> "m0(x) = g(x) / Integral_Gamma g(y) dy, with g(x) = |x| restricted to the graph",
+            "ReportedNumericalResult" -> <|"T2" -> 5.62|>
+        |>,
+        "RecommendedStationaryEntries" -> <|
+            "Description" -> "Split total inflow across the two non-exit upper vertices to reflect g(x)=|x| concentrating mass away from v0.",
+            "Vertices" -> {3, 4},
+            "ExampleForTotalInflow100" -> {{3, 50}, {4, 50}}
+        |>,
+        "ImportNotes" -> {
+            "Edges are network connections; MFGraphs symmetrizes the topology before system construction.",
+            "Switching costs default to zero, matching the paper graph as connections rather than directed movement restrictions."
+        }
+    |>,
+    "Camilli 2015 general" -> <|
+        "Title" -> "A model problem for Mean Field Games on networks",
+        "SourcePaperPath" -> $Camilli2015SourcePath,
+        "Source" -> "Camilli, Carlini, and Marchi (2015), Figure 3 and Section 5.2",
+        "PackageInterpretation" -> "Stationary analog only: the meeting point v0 is represented as the unique exit vertex with cost 0; the original time-dependent stochastic MFG and heat-equation fixed-point solver are not implemented here.",
+        "VertexCoordinates" -> $CamilliGeneralCoordinates,
+        "MeetingVertex" -> 1,
+        "ExitDefault" -> {{1, 0}},
+        "EdgeList" -> $CamilliGeneralImportedEdges,
+        "DeclaredVertexCount" -> 17,
+        "DeclaredEdgeCount" -> 22,
+        "TimeDependentData" -> <|
+            "t0" -> 0.5,
+            "Tmax" -> 25,
+            "Theta" -> 0.7,
+            "CostFormula" -> "c_T(s) = 0.1 max(s - t0, 0) + 0.1 max(T - s, 0)",
+            "InitialDensityFormula" -> "m0(x) = g(x) / Integral_Gamma g(y) dy, with g(x)=max(1/4 - |x - p1|^2, 0) + max(1/4 - |x - p2|^2, 0), p1=(1,3/2), p2=(-3/2,3)",
+            "ReportedNumericalResult" -> <|"T" -> 23.99, "ErrorEhT" -> 2.35*10^-2|>
+        |>,
+        "RecommendedStationaryEntries" -> <|
+            "Description" -> "Split inflow around neighborhoods of p1=(1,3/2) and p2=(-3/2,3), reflecting the two-bump initial density.",
+            "VerticesNearP1" -> {14, 15, 16, 17},
+            "VerticesNearP2" -> {7, 8, 9, 11},
+            "ExampleForTotalInflow100" -> {{14, 25}, {15, 25}, {7, 25}, {9, 25}}
+        |>,
+        "ImportNotes" -> {
+            "The paper states 17 vertices and 22 edges for Figure 3; this registry preserves that declared topology.",
+            "Two visually ambiguous drawn segments, {2,14} and {5,11}, are omitted from the imported edge set to match the declared edge count.",
+            "Edges are network connections; MFGraphs symmetrizes the topology before system construction.",
+            "Switching costs default to zero, matching the paper graph as connections rather than directed movement restrictions."
+        }
+    |>,
+    "Achdou 2023 junction" -> <|
+        "Title" -> "First order Mean Field Games on networks",
+        "Authors" -> {"Yves Achdou", "Paola Mannucci", "Claudio Marchi", "Nicoletta Tchou"},
+        "HALId" -> "hal-03729443v3",
+        "SourcePaperPath" -> $Achdou2023SourcePath,
+        "Source" -> "Achdou, Mannucci, Marchi, and Tchou (2023), deterministic first-order MFGs on junctions",
+        "Keywords" -> {"mean field games", "networks", "junctions", "relaxed equilibria", "viscosity solutions", "continuity equation"},
+        "ModelClass" -> "Stationary finite graph analog of a first-order deterministic junction model",
+        "FiniteAnalogNote" -> "This registry entry is a stationary finite graph analog: the paper studies finite-horizon deterministic relaxed equilibria on junctions, with probability measures over admissible trajectories, mild solutions (u,m), viscosity Hamilton-Jacobi theory, and weak continuity equations. Those formulations are not implemented here.",
+        "VertexCoordinates" -> $AchdouJunctionCoordinates,
+        "CentralVertex" -> 1,
+        "LeafVertices" -> {2, 3, 4, 5},
+        "EdgeList" -> $AchdouJunctionEdges,
+        "DeclaredVertexCount" -> 5,
+        "DeclaredEdgeCount" -> 4,
+        "RecommendedStationaryBoundaryExamples" -> <|
+            "Description" -> "Metadata-only suggestions for stationary MFGraphs experiments: inject mass at one or more leaves and use the central vertex as the exit.",
+            "SingleLeafToCenter" -> <|"Entries" -> {{2, 100}}, "Exits" -> {{1, 0}}|>,
+            "BalancedLeavesToCenter" -> <|"Entries" -> {{2, 25}, {3, 25}, {4, 25}, {5, 25}}, "Exits" -> {{1, 0}}|>
+        |>,
+        "ImportNotes" -> {
+            "Edges are finite network connections replacing the paper's semi-infinite junction half-lines.",
+            "Entries and exits remain caller-supplied through getExampleScenario[key, entries, exits].",
+            "Switching costs default to zero via the existing example registry behavior.",
+            "This entry does not implement relaxed equilibria, trajectory measures, viscosity solutions, or finite-horizon first-order MFG solvers."
+        }
+    |>
+|>;
 
 (* --- Scenario registry --- *)
 
@@ -318,6 +508,21 @@ $ExampleScenarios = Association[
 
     "Paper example" -> makeGridFactory[{4}],
 
+    "Camilli 2015 simple" -> makeAmFactory[
+        $CamilliSimpleVertices,
+        edgePairsToAdjacency[$CamilliSimpleVertices, $CamilliSimpleEdges]
+    ],
+
+    "Camilli 2015 general" -> makeAmFactory[
+        $CamilliGeneralVertices,
+        edgePairsToAdjacency[$CamilliGeneralVertices, $CamilliGeneralImportedEdges]
+    ],
+
+    "Achdou 2023 junction" -> makeAmFactory[
+        $AchdouJunctionVertices,
+        edgePairsToAdjacency[$AchdouJunctionVertices, $AchdouJunctionEdges]
+    ],
+
     (* ------------------------------------------------------------------ *)
     (* Inconsistent switching (feature validation — infeasible by design)  *)
     (* ------------------------------------------------------------------ *)
@@ -341,6 +546,8 @@ $ExampleScenarios = Association[
 (* --- Accessors --- *)
 
 getExampleScenario[n_] := Lookup[$ExampleScenarios, n, $Failed];
+
+getExampleScenarioMetadata[n_] := Lookup[$ExampleScenarioMetadata, n, $Failed];
 
 (* sc=Automatic resolves to the canonical SC via $CaseDefaultSC, or {} if undefined. *)
 getExampleScenario[n_, entries_, exits_,

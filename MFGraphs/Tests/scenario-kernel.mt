@@ -682,3 +682,112 @@ Test[
     ,
     TestID -> "directed-am-symmetrized-topology"
 ]
+
+(* Test: Camilli 2015 metadata accessor is public after package load *)
+Test[
+    NameQ["getExampleScenarioMetadata"] &&
+    AssociationQ[getExampleScenarioMetadata["Camilli 2015 simple"]]
+    ,
+    True
+    ,
+    TestID -> "Example metadata: public accessor is available"
+]
+
+(* Test: Camilli 2015 simple stationary analog builds with representative boundaries *)
+Test[
+    Module[{s, model, topology, metadata},
+        s = getExampleScenario["Camilli 2015 simple", {{3, 50}, {4, 50}}, {{1, 0}}];
+        model = scenarioData[s, "Model"];
+        topology = scenarioData[s, "Topology"];
+        metadata = getExampleScenarioMetadata["Camilli 2015 simple"];
+        scenarioQ[s] &&
+        Length[model["Vertices"]] === metadata["DeclaredVertexCount"] &&
+        Length[topology["HalfPairs"]] === metadata["DeclaredEdgeCount"] &&
+        model["Exits"] === metadata["ExitDefault"] &&
+        StringContainsQ[metadata["PackageInterpretation"], "Stationary analog only"]
+    ]
+    ,
+    True
+    ,
+    TestID -> "Example registry: Camilli 2015 simple builds as stationary analog"
+]
+
+(* Test: Camilli 2015 general stationary analog preserves paper-declared topology count *)
+Test[
+    Module[{s, model, topology, metadata, sys},
+        s = getExampleScenario["Camilli 2015 general", {{14, 25}, {15, 25}, {7, 25}, {9, 25}}, {{1, 0}}];
+        model = scenarioData[s, "Model"];
+        topology = scenarioData[s, "Topology"];
+        metadata = getExampleScenarioMetadata["Camilli 2015 general"];
+        sys = makeSystem[s];
+        scenarioQ[s] &&
+        mfgSystemQ[sys] &&
+        Length[model["Vertices"]] === 17 &&
+        Length[model["Vertices"]] === metadata["DeclaredVertexCount"] &&
+        Length[topology["HalfPairs"]] === 22 &&
+        Length[topology["HalfPairs"]] === metadata["DeclaredEdgeCount"] &&
+        metadata["TimeDependentData"]["Theta"] === 0.7 &&
+        StringContainsQ[metadata["PackageInterpretation"], "time-dependent stochastic MFG"] &&
+        StringContainsQ[StringRiffle[metadata["ImportNotes"], " "], "visually ambiguous"]
+    ]
+    ,
+    True
+    ,
+    TestID -> "Example registry: Camilli 2015 general builds with declared 17/22 topology"
+]
+
+(* Test: Achdou 2023 finite stationary junction analog builds with caller-supplied boundaries *)
+Test[
+    Module[{s, model, topology, metadata},
+        s = getExampleScenario[
+            "Achdou 2023 junction",
+            {{2, 25}, {3, 25}, {4, 25}, {5, 25}},
+            {{1, 0}}
+        ];
+        model = scenarioData[s, "Model"];
+        topology = scenarioData[s, "Topology"];
+        metadata = getExampleScenarioMetadata["Achdou 2023 junction"];
+        scenarioQ[s] &&
+        Length[model["Vertices"]] === 5 &&
+        Length[model["Vertices"]] === metadata["DeclaredVertexCount"] &&
+        Length[topology["HalfPairs"]] === 4 &&
+        Length[topology["HalfPairs"]] === metadata["DeclaredEdgeCount"] &&
+        model["Entries"] === {{2, 25}, {3, 25}, {4, 25}, {5, 25}} &&
+        model["Exits"] === {{1, 0}}
+    ]
+    ,
+    True
+    ,
+    TestID -> "Example registry: Achdou 2023 junction builds finite stationary analog"
+]
+
+(* Test: Achdou 2023 finite junction analog supports system construction *)
+Test[
+    Module[{s, sys},
+        s = getExampleScenario["Achdou 2023 junction", {{2, 100}}, {{1, 0}}];
+        sys = makeSystem[s];
+        scenarioQ[s] && mfgSystemQ[sys]
+    ]
+    ,
+    True
+    ,
+    TestID -> "Example registry: Achdou 2023 junction makeSystem succeeds"
+]
+
+(* Test: Achdou 2023 metadata records source and finite-analog scope *)
+Test[
+    Module[{metadata},
+        metadata = getExampleScenarioMetadata["Achdou 2023 junction"];
+        AssociationQ[metadata] &&
+        metadata["SourcePaperPath"] ===
+            "docs/research/papers/Achdou et al. - 2023 - First order Mean Field Games on networks.pdf" &&
+        metadata["HALId"] === "hal-03729443v3" &&
+        StringContainsQ[metadata["FiniteAnalogNote"], "stationary finite graph analog"] &&
+        StringContainsQ[metadata["FiniteAnalogNote"], "not implemented here"] &&
+        metadata["RecommendedStationaryBoundaryExamples"]["BalancedLeavesToCenter"]["Exits"] === {{1, 0}}
+    ]
+    ,
+    True
+    ,
+    TestID -> "Example metadata: Achdou 2023 source and finite analog note"
+]
