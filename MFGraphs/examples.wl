@@ -13,7 +13,7 @@
      getExampleScenario[8, {{1,80}}, {{3,0},{4,10}}, {}]  override: no SC
 
    All constructors accept optional trailing args: sc, alpha, V, g.
-   Defaults: sc={}, alpha=1, V=0, g=Function[z,-1/z] (from $DefaultHamiltonian).
+   Hamiltonian defaults are supplied by makeScenario.
    Edges are network connections; topology is symmetrized before system construction,
    and restrictions on movement should be encoded with switching costs such as Infinity.
    Numeric benchmark defaults are in Scripts/BenchmarkHelpers.wls. *)
@@ -26,7 +26,7 @@ gridScenario::usage =
 "gridScenario[dims, entries, exits] creates a scenario on GridGraph[dims] connections. \
 {n} gives a chain with vertices 1..n; {r,c} gives an r\[Times]c grid with vertices 1..r*c (row-major). \
 Topology is symmetrized into undirected network edges before system construction. \
-Optional: sc (switching costs, default {}), alpha, V, g (Hamiltonian defaults from $DefaultHamiltonian; V/G are preserved but not applied by current system construction).";
+Optional: sc (switching costs, default {}), alpha, V, g (Hamiltonian defaults are supplied by makeScenario; V/G are preserved but not applied by current system construction).";
 
 cycleScenario::usage =
 "cycleScenario[n, entries, exits] creates a scenario on n-cycle connections, vertices 1..n. \
@@ -50,7 +50,7 @@ getExampleScenario::usage =
 for built-in example n. Topology is baked in; all parameters are caller-supplied. \
 getExampleScenario[n, entries, exits] calls the factory using the canonical switching costs \
 for that case (sc=Automatic resolves via $CaseDefaultSC, defaulting to {} if none defined) \
-and standard Hamiltonian defaults (alpha=1, V=0, g=Function[z,-1/z]). \
+and makeScenario-supplied Hamiltonian defaults. \
 V/G are preserved on the scenario for future density and visualization work, but are not applied by current system construction. \
 Additional optional arguments override each default in order: sc, alpha, V, g. \
 Pass sc={} explicitly to force no switching costs. \
@@ -196,9 +196,13 @@ $CaseDefaultSC = <|
          {2,3,4,1},{4,3,2,1},{3,1,2,1},{2,1,3,1}}
 |>;
 
-$ExamplesDefaultAlpha = 1;
-$ExamplesDefaultV = 0;
-$ExamplesDefaultG = Function[z, -1/z];
+$ExamplesDefaultHamiltonianValue = Automatic;
+
+exampleHamiltonianSpec[alpha_, V_, g_] :=
+    Association @ Select[
+        {"Alpha" -> alpha, "V" -> V, "G" -> g},
+        Last[#] =!= $ExamplesDefaultHamiltonianValue &
+    ];
 
 scenarioFromGraph[graph_, entries_, exits_, sc_, alpha_, V_, g_] :=
     makeScenario[<|
@@ -208,35 +212,35 @@ scenarioFromGraph[graph_, entries_, exits_, sc_, alpha_, V_, g_] :=
             "Exits" -> exits,
             "Switching"                 -> sc
         |>,
-        "Hamiltonian" -> <|"Alpha" -> alpha, "V" -> V, "G" -> g|>
+        "Hamiltonian" -> exampleHamiltonianSpec[alpha, V, g]
     |>];
 
 gridScenario[dims_List, entries_, exits_,
         sc_    : {},
-        alpha_ : $ExamplesDefaultAlpha,
-        V_     : $ExamplesDefaultV,
-        g_     : $ExamplesDefaultG] :=
+        alpha_ : $ExamplesDefaultHamiltonianValue,
+        V_     : $ExamplesDefaultHamiltonianValue,
+        g_     : $ExamplesDefaultHamiltonianValue] :=
     scenarioFromGraph[GridGraph[dims, DirectedEdges -> True], entries, exits, sc, alpha, V, g];
 
 cycleScenario[n_Integer, entries_, exits_,
         sc_    : {},
-        alpha_ : $ExamplesDefaultAlpha,
-        V_     : $ExamplesDefaultV,
-        g_     : $ExamplesDefaultG] :=
+        alpha_ : $ExamplesDefaultHamiltonianValue,
+        V_     : $ExamplesDefaultHamiltonianValue,
+        g_     : $ExamplesDefaultHamiltonianValue] :=
     scenarioFromGraph[CycleGraph[n, DirectedEdges -> True], entries, exits, sc, alpha, V, g];
 
 graphScenario[graph_, entries_, exits_,
         sc_    : {},
-        alpha_ : $ExamplesDefaultAlpha,
-        V_     : $ExamplesDefaultV,
-        g_     : $ExamplesDefaultG] :=
+        alpha_ : $ExamplesDefaultHamiltonianValue,
+        V_     : $ExamplesDefaultHamiltonianValue,
+        g_     : $ExamplesDefaultHamiltonianValue] :=
     scenarioFromGraph[graph, entries, exits, sc, alpha, V, g];
 
 amScenario[vl_, am_, entries_, exits_,
         sc_    : {},
-        alpha_ : $ExamplesDefaultAlpha,
-        V_     : $ExamplesDefaultV,
-        g_     : $ExamplesDefaultG] :=
+        alpha_ : $ExamplesDefaultHamiltonianValue,
+        V_     : $ExamplesDefaultHamiltonianValue,
+        g_     : $ExamplesDefaultHamiltonianValue] :=
     makeScenario[<|
         "Model" -> <|
             "Vertices"                   -> vl,
@@ -245,7 +249,7 @@ amScenario[vl_, am_, entries_, exits_,
             "Exits" -> exits,
             "Switching"                 -> sc
         |>,
-        "Hamiltonian" -> <|"Alpha" -> alpha, "V" -> V, "G" -> g|>
+        "Hamiltonian" -> exampleHamiltonianSpec[alpha, V, g]
     |>];
 
 (* --- Private factory helpers — thin wrappers used by $ExampleScenarios --- *)
@@ -482,7 +486,7 @@ $ExampleScenarios = Association[
                                 edge === DirectedEdge[3,6] || edge === DirectedEdge[1,4], j/100,
                                 True, 0]]
                 |>,
-                "Hamiltonian" -> <|"Alpha" -> alpha, "V" -> V, "G" -> g|>
+                "Hamiltonian" -> exampleHamiltonianSpec[alpha, V, g]
             |>]]],
 
     "Big Braess split" -> makeAmFactory[Range[10], {
@@ -552,9 +556,9 @@ getExampleScenarioMetadata[n_] := Lookup[$ExampleScenarioMetadata, n, $Failed];
 (* sc=Automatic resolves to the canonical SC via $CaseDefaultSC, or {} if undefined. *)
 getExampleScenario[n_, entries_, exits_,
         sc_    : Automatic,
-        alpha_ : $ExamplesDefaultAlpha,
-        V_     : $ExamplesDefaultV,
-        g_     : $ExamplesDefaultG] :=
+        alpha_ : $ExamplesDefaultHamiltonianValue,
+        V_     : $ExamplesDefaultHamiltonianValue,
+        g_     : $ExamplesDefaultHamiltonianValue] :=
     Module[{f = Lookup[$ExampleScenarios, n, $Failed]},
         If[f === $Failed, Return[$Failed]];
         f[entries, exits,

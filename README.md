@@ -68,8 +68,7 @@ isValidSystemSolution[sys, sol]
 Example factory workflow:
 
 ```mathematica
-f = getExampleScenario[12];
-s = f[{{1, 100}}, {{4, 0}}, {}, 1, 0, Function[z, -1/z]];
+s = getExampleScenario[12, {{1, 100}}, {{4, 0}}];
 ```
 
 ## Active API (current phase)
