@@ -319,8 +319,8 @@ Test[
         result = dnfReduceSystem[sys];
         solversTools`Private`solutionResultKind[result]
     ],
-    "Branched",
-    TestID -> "solutionResultKind: chain-3v-2exit dnf result is Branched"
+    "Rules",
+    TestID -> "solutionResultKind: chain-3v-2exit dnf result is Rules"
 ]
 
 Test[
@@ -330,8 +330,8 @@ Test[
         result = dnfReduceSystem[sys];
         solversTools`Private`solutionResultKind[result]
     ],
-    "Branched",
-    TestID -> "solutionResultKind: example-7 dnf result is Branched"
+    "Rules",
+    TestID -> "solutionResultKind: example-7 dnf result is Rules"
 ]
 
 Test[
@@ -369,79 +369,75 @@ Test[
 ]
 
 Test[
-    Module[{s, sys, result, rules, residual},
+    Module[{s, sys, result, rules},
         s = getExampleScenario[7, {{1, 100.0}}, {{3, 0.0}, {4, 10.0}}];
         sys = makeSystem[s];
         result = dnfReduceSystem[sys];
         rules = If[ListQ[result], result, Lookup[result, "Rules", {}]];
-        residual = If[AssociationQ[result], Lookup[result, "Equations", True], True];
         And[
-            AssociationQ[result],
-            (j[2, 4] /. rules) === 100 - j[2, 3],
-            (j[3, "auxExit3"] /. rules) === j[2, 3],
-            (j[4, "auxExit4"] /. rules) === 100 - j[2, 3],
-            !FreeQ[residual, j[2, 3] == 55],
+            ListQ[rules],
+            (j[2, 3] /. rules) === 55,
+            (j[2, 4] /. rules) === 45,
+            (j[3, "auxExit3"] /. rules) === 55,
+            (j[4, "auxExit4"] /. rules) === 45,
             isValidSystemSolution[sys, result]
         ]
     ],
     True,
-    TestID -> "dnfReduceSystem: example-7 preserves edge-flow branches"
+    TestID -> "dnfReduceSystem: example-7 fully determines edge flows"
 ]
 
 Test[
-    Module[{s, sys, result, rules, residual},
+    Module[{s, sys, result, rules},
         s = getExampleScenario[7, {{1, 100.0}}, {{3, 0.0}, {4, 10.0}}];
         sys = makeSystem[s];
         result = dnfReduceSystem[sys];
         rules = If[ListQ[result], result, Lookup[result, "Rules", {}]];
-        residual = If[AssociationQ[result], Lookup[result, "Equations", True], True];
         And[
-            AssociationQ[result],
-            (u[1, 2] /. rules) === -100 + u[2, 1],
-            !FreeQ[residual, u[2, 3] == 0],
-            !FreeQ[residual, u[2, 4] == 10],
+            ListQ[rules],
+            (u[1, 2] /. rules) === 55,
+            (u[2, 3] /. rules) === 0,
+            (u[2, 4] /. rules) === 10,
             isValidSystemSolution[sys, result]
         ]
     ],
     True,
-    TestID -> "dnfReduceSystem: example-7 preserves value branches"
+    TestID -> "dnfReduceSystem: example-7 fully determines value functions"
 ]
 
 Test[
-    Module[{s, sys, result, rules, residual},
+    Module[{s, sys, result, rules},
         s = gridScenario[{3}, {{1, 5}}, {{2, 0}, {3, 10}}];
         sys = makeSystem[s];
         result = dnfReduceSystem[sys];
         rules = If[ListQ[result], result, Lookup[result, "Rules", {}]];
-        residual = If[AssociationQ[result], Lookup[result, "Equations", True], True];
         And[
-            AssociationQ[result],
+            ListQ[rules],
             (j[2, 3] /. rules) === 0,
             (j[3, 2] /. rules) === 0,
-            (u[2, 3] /. rules) === u[2, 3],
-            TrueQ[Simplify[Implies[residual, u[2, 3] <= 10]]],
+            (u[2, 3] /. rules) === 0,
             isValidSystemSolution[sys, result]
         ]
     ],
     True,
-    TestID -> "dnfReduceSystem: zero-flow edge leaves unused value constrained"
+    TestID -> "dnfReduceSystem: cheaper-exit chain fully determines zero flow and value"
 ]
 
 Test[
-    Module[{s, sys, result, residual},
+    Module[{s, sys, result, rules},
         s = gridScenario[{3}, {{1, 5}}, {{2, 10}, {3, 0}}];
         sys = makeSystem[s];
         result = dnfReduceSystem[sys];
-        residual = If[AssociationQ[result], Lookup[result, "Equations", True], True];
+        rules = If[ListQ[result], result, Lookup[result, "Rules", {}]];
         And[
-            AssociationQ[result],
-            !FreeQ[residual, j[2, "auxExit2"] == 5],
-            !FreeQ[residual, j[2, "auxExit2"] == 0],
+            ListQ[rules],
+            (j[2, 3] /. rules) === 5,
+            (j[2, "auxExit2"] /. rules) === 0,
             isValidSystemSolution[sys, result]
         ]
     ],
     True,
-    TestID -> "dnfReduceSystem: relaxed edge equation preserves chain branches"
+    TestID -> "dnfReduceSystem: cheaper-remote-exit chain fully determines flow"
 ]
 
 Test[
@@ -728,4 +724,60 @@ Test[
     ],
     True,
     TestID -> "findInstanceSystem: timeout returns rules plus false residual"
+]
+
+(* --- ZeroSwitchUEqualities --- *)
+
+Test[
+    Module[{s, sys},
+        s = gridScenario[{2, 3}, {{1, 100}}, {{6, 0}}];
+        sys = makeSystem[s];
+        Length[systemData[sys, "ZeroSwitchUEqualities"]] > 0
+    ],
+    True,
+    TestID -> "ZeroSwitchUEqualities: grid-2x3 produces nontrivial equality rules"
+]
+
+Test[
+    Module[{s, sys},
+        s = gridScenario[{2, 3}, {{1, 100}}, {{6, 0}}];
+        sys = makeSystem[s];
+        Length[systemData[sys, "ZeroSwitchUEqualities"]] == 8
+    ],
+    True,
+    TestID -> "ZeroSwitchUEqualities: grid-2x3 has 8 equality rules (one per non-canonical u at each vertex)"
+]
+
+Test[
+    Module[{s, sys, result},
+        s = gridScenario[{3}, {{1, 120}}, {{2, 0}, {3, 10}}];
+        sys = makeSystem[s];
+        result = dnfReduceSystem[sys];
+        isValidSystemSolution[sys, result]
+    ],
+    True,
+    TestID -> "ZeroSwitchUEqualities: chain-2-exits solution remains valid after substitution"
+]
+
+Test[
+    Module[{sSC, sNoSC, sysSC, sysNoSC},
+        sSC   = gridScenario[{3}, {{1, 120}}, {{3, 0}}, {{1, 2, 3, 5}}];
+        sNoSC = gridScenario[{3}, {{1, 120}}, {{3, 0}}];
+        sysSC   = makeSystem[sSC];
+        sysNoSC = makeSystem[sNoSC];
+        Length[systemData[sysSC, "ZeroSwitchUEqualities"]] <
+        Length[systemData[sysNoSC, "ZeroSwitchUEqualities"]]
+    ],
+    True,
+    TestID -> "ZeroSwitchUEqualities: nonzero switching cost suppresses equality rule"
+]
+
+Test[
+    Module[{s, sys},
+        s = gridScenario[{2}, {{1, 10}}, {{2, 0}}];
+        sys = makeSystem[s];
+        ListQ[systemData[sys, "ZeroSwitchUEqualities"]]
+    ],
+    True,
+    TestID -> "ZeroSwitchUEqualities: key exists and is a list"
 ]

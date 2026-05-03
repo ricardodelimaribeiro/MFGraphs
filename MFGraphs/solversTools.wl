@@ -360,6 +360,10 @@ buildSolverInputs[sys_?mfgSystemQ] :=
     Module[{data, ruleExitVals, baseConstraints, allVars, constraints, rulesAcc},
         data = systemDataFlatten[sys];
         ruleExitVals = Normal @ Lookup[data, "RuleExitValues"];
+        (* Zero-cost symmetric triple pairs force u-equalities by antisymmetry of >=.
+           Injecting them here applies the substitution to all constraints uniformly
+           before the DNF stage, rather than only partially at construction time. *)
+        ruleExitVals = Join[ruleExitVals, Lookup[data, "ZeroSwitchUEqualities", {}]];
         baseConstraints = And[
             And @@ Lookup[data, "EqEntryIn"],
             Lookup[data, "EqBalanceSplittingFlows"],
