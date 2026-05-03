@@ -45,7 +45,7 @@ Optional keys: \
 \"EdgeAlpha\" -> <|{u,v} -> a_uv, ...|>, \"EdgeV\" -> <|{u,v} -> v_uv, ...|>, \
 \"EdgeG\" -> <|{u,v} -> g_uv, ...|>|>), \
 \"Identity\" (name, version), \"Benchmark\" (tier, timeout), \"Visualization\", \
-\"Inheritance\". Default Hamiltonian is Alpha=1 and V=0 on all edges, with \
+\"Inheritance\". Default Hamiltonian is Alpha=1 and V=-1 on all edges, with \
 G[z]=-1/z (overridable globally and per edge). V/G/EdgeV/EdgeG are validated \
 and preserved for future density and visualization work, but current system \
 construction applies only Alpha/EdgeAlpha. Boundary values must be numeric; \
@@ -134,10 +134,10 @@ $RequiredModelKeys = {
 $DefaultBenchmarkTier    = "core";
 $DefaultBenchmarkTimeout = 300;
 (* Default Hamiltonian:
-   alpha = 1 on all edges, V = 0 on all edges, and g(z) = -1/z. *)
+   alpha = 1 on all edges, V = -1 on all edges, and g(z) = -1/z. *)
 $DefaultHamiltonian = <|
     "Alpha" -> 1,
-    "V" -> 0,
+    "V" -> -1,
     "G" -> Function[z, -1 / z],
     "EdgeAlpha" -> <||>,
     "EdgeV" -> <||>,

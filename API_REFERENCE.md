@@ -52,7 +52,7 @@ deriveAuxPairs[topology] returns the list of all directed edge pairs {u, v} in t
 
 ## makeScenario
 
-makeScenario[assoc] constructs a typed scenario from a raw association. The input must contain a "Model" key whose value is a network topology association (required keys: "Vertices", "Adjacency", "Entries", "Exits", "Switching"). If "Model" contains a Wolfram Graph under key "Graph", missing "Vertices" and/or "Adjacency" are derived automatically. Optional keys: "Hamiltonian" (<|"Alpha" -> a, "V" -> v, "G" -> g, "EdgeAlpha" -> <|{u,v} -> a_uv, ...|>, "EdgeV" -> <|{u,v} -> v_uv, ...|>, "EdgeG" -> <|{u,v} -> g_uv, ...|>|>), "Identity" (name, version), "Benchmark" (tier, timeout), "Visualization", "Inheritance". Default Hamiltonian is Alpha=1 and V=0 on all edges, with G[z]=-1/z (overridable globally and per edge). V/G/EdgeV/EdgeG are validated and preserved for future density and visualization work, but current system construction applies only Alpha/EdgeAlpha. Boundary values must be numeric; switching-cost values must be numeric or Infinity. Returns a scenario[...] object on success or Failure[...] on error.
+makeScenario[assoc] constructs a typed scenario from a raw association. The input must contain a "Model" key whose value is a network topology association (required keys: "Vertices", "Adjacency", "Entries", "Exits", "Switching"). If "Model" contains a Wolfram Graph under key "Graph", missing "Vertices" and/or "Adjacency" are derived automatically. Optional keys: "Hamiltonian" (<|"Alpha" -> a, "V" -> v, "G" -> g, "EdgeAlpha" -> <|{u,v} -> a_uv, ...|>, "EdgeV" -> <|{u,v} -> v_uv, ...|>, "EdgeG" -> <|{u,v} -> g_uv, ...|>|>), "Identity" (name, version), "Benchmark" (tier, timeout), "Visualization", "Inheritance". Default Hamiltonian is Alpha=1 and V=-1 on all edges, with G[z]=-1/z (overridable globally and per edge). V/G/EdgeV/EdgeG are validated and preserved for future density and visualization work, but current system construction applies only Alpha/EdgeAlpha. Boundary values must be numeric; switching-cost values must be numeric or Infinity. Returns a scenario[...] object on success or Failure[...] on error.
 
 ## scenario
 
@@ -80,7 +80,11 @@ cycleScenario[n, entries, exits] creates a scenario on n-cycle connections, vert
 
 ## getExampleScenario
 
-getExampleScenario[n] returns a 6-arg factory Function[{entries,exits,sc,alpha,V,g}, scenario[...]] for built-in example n. Topology is baked in; all parameters are caller-supplied. getExampleScenario[n, entries, exits] calls the factory using the canonical switching costs for that case (sc=Automatic resolves via $CaseDefaultSC, defaulting to {} if none defined) and standard Hamiltonian defaults (alpha=1, V=0, g=Function[z,-1/z]). V/G are preserved on the scenario for future density and visualization work, but are not applied by current system construction. Additional optional arguments override each default in order: sc, alpha, V, g. Pass sc={} explicitly to force no switching costs. entries={{vertex,flow},...}, exits={{vertex,cost},...}, sc={{i,k,j,cost},...}. Returns $Failed for unknown keys.
+getExampleScenario[n] returns a 6-arg factory Function[{entries,exits,sc,alpha,V,g}, scenario[...]] for built-in example n. Topology is baked in; all parameters are caller-supplied. getExampleScenario[n, entries, exits] calls the factory using the canonical switching costs for that case (sc=Automatic resolves via $CaseDefaultSC, defaulting to {} if none defined) and makeScenario-supplied Hamiltonian defaults. V/G are preserved on the scenario for future density and visualization work, but are not applied by current system construction. Additional optional arguments override each default in order: sc, alpha, V, g. Pass sc={} explicitly to force no switching costs. entries={{vertex,flow},...}, exits={{vertex,cost},...}, sc={{i,k,j,cost},...}. Returns $Failed for unknown keys.
+
+## getExampleScenarioMetadata
+
+getExampleScenarioMetadata[key] returns metadata for a built-in example scenario, including source/provenance details when available. Returns $Failed for unknown keys.
 
 ## graphScenario
 
@@ -88,7 +92,7 @@ graphScenario[graph, entries, exits] creates a scenario from any WL Graph object
 
 ## gridScenario
 
-gridScenario[dims, entries, exits] creates a scenario on GridGraph[dims] connections. {n} gives a chain with vertices 1..n; {r,c} gives an r×c grid with vertices 1..r*c (row-major). Topology is symmetrized into undirected network edges before system construction. Optional: sc (switching costs, default {}), alpha, V, g (Hamiltonian defaults from $DefaultHamiltonian; V/G are preserved but not applied by current system construction).
+gridScenario[dims, entries, exits] creates a scenario on GridGraph[dims] connections. {n} gives a chain with vertices 1..n; {r,c} gives an r×c grid with vertices 1..r*c (row-major). Topology is symmetrized into undirected network edges before system construction. Optional: sc (switching costs, default {}), alpha, V, g (Hamiltonian defaults are supplied by makeScenario; V/G are preserved but not applied by current system construction).
 
 ## makeSymbolicUnknowns
 
@@ -218,10 +222,6 @@ mfgSystem[assoc] is the typed head for an MFG structural equation system. Use ma
 
 mfgSystemQ[x] returns True if x is a typed mfgSystem[assoc_Association] object, False otherwise.
 
-## roundValues
-
-roundValues[x] rounds numerical values in x to a standard precision (10^-10).
-
 ## switchingCostLookup
 
 switchingCostLookup[sc] returns a function f such that f[r, i, w] gives the switching cost for the transition from e_{r,i} to e_{i,w}, defaulting to 0 if absent.
@@ -286,17 +286,25 @@ augmentAuxiliaryGraph[sys] constructs the road-traffic augmented infrastructure 
 
 mfgAugmentedPlot[s, sys, sol, opts] plots the augmented road-traffic infrastructure graph built by augmentAuxiliaryGraph. Blue edges represent flow variables j[a,b]; red edges represent transition variables j[r,i,w]. Use PlotLabel, GraphLayout, and ImageSize options to control display.
 
+## mfgDensityPlot
+
+mfgDensityPlot[s, sys, sol, opts] plots real network edges with agent density inferred from solved signed spatial flow and the scenario Hamiltonian density equation. Use PlotLabel, GraphLayout, and ImageSize options to control display.
+
 ## mfgFlowPlot
 
 mfgFlowPlot[s, sys, sol, opts] plots a flow-only solution graph with real and auxiliary edges. Edges are displayed as directed, and edge labels show only j flow values. Use PlotLabel, GraphLayout, and ImageSize options to control display.
 
 ## mfgSolutionPlot
 
-mfgSolutionPlot[s, sys, sol, opts] plots a combined solution graph with real and auxiliary edges. Edge labels include both j and u values, and real-edge directions follow solved net flow orientation. Use PlotLabel, GraphLayout, and ImageSize options to control display.
+mfgSolutionPlot[s, sys, sol, opts] plots coordinated solution views: flows, value samples, and agent density. Use PlotLabel, GraphLayout, and ImageSize options to control display.
 
 ## mfgTransitionPlot
 
 mfgTransitionPlot[s, sys, sol, opts] plots the transition graph of the solution. Nodes are AuxPair states {r,i}->{i,w}; directed edges represent transition flows j[r,i,w]. Nodes are labeled with internal values u where available. Use PlotLabel, GraphLayout, and ImageSize options to control display.
+
+## mfgValuePlot
+
+mfgValuePlot[s, sys, sol, opts] plots real network edges with endpoint value variables u[a,b], u[b,a] and linearly interpolated interior samples at 1/4, 1/2, and 3/4. Use PlotLabel, GraphLayout, and ImageSize options to control display.
 
 ## scenarioTopologyPlot
 

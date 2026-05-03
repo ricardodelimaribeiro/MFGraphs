@@ -143,8 +143,10 @@ All public solver entrypoints share a common preprocessing pipeline (`buildSolve
 
 ### Graphics (`graphicsTools`)
 - `scenarioTopologyPlot` — entry/exit/internal vertex coloring
-- `mfgSolutionPlot` — network-centric plot (j and u labels)
+- `mfgSolutionPlot` — coordinated grid of flow, value, and density views
 - `mfgFlowPlot` — flow-only network plot with directed real and auxiliary edges
+- `mfgValuePlot` — real-edge endpoint and interpolated interior value labels
+- `mfgDensityPlot` — real-edge inferred agent density labels and styling
 - `mfgTransitionPlot` — transition graph (nodes = edges, edges = j[a,b,c])
 - `augmentAuxiliaryGraph` — road-traffic graph derived from AuxPairs/AuxTriples
 - `mfgAugmentedPlot` — paper infrastructure graph (nodes = (e,v) pairs)
@@ -204,8 +206,7 @@ isValidSystemSolution[sys, sol]
 Example factory usage:
 
 ```mathematica
-f = getExampleScenario[12];
-s = f[{{1, 100}}, {{4, 0}}, {}, 1, 0, Function[z, -1/z]];
+s = getExampleScenario[12, {{1, 100}}, {{4, 0}}];
 ```
 
 ## Testing

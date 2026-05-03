@@ -2,7 +2,8 @@
 
 Test[
     NameQ["graphicsTools`scenarioTopologyPlot"] && NameQ["graphicsTools`mfgSolutionPlot"] &&
-    NameQ["graphicsTools`mfgFlowPlot"] && NameQ["graphicsTools`mfgTransitionPlot"] &&
+    NameQ["graphicsTools`mfgFlowPlot"] && NameQ["graphicsTools`mfgValuePlot"] &&
+    NameQ["graphicsTools`mfgDensityPlot"] && NameQ["graphicsTools`mfgTransitionPlot"] &&
     NameQ["graphicsTools`mfgAugmentedPlot"] && NameQ["graphicsTools`augmentAuxiliaryGraph"],
     True,
     TestID -> "GraphicsTools: public symbols exist"
@@ -11,7 +12,8 @@ Test[
 Test[
     Module[{names, globalNames},
         names = {"scenarioTopologyPlot", "mfgSolutionPlot", "mfgFlowPlot",
-            "mfgTransitionPlot", "mfgAugmentedPlot", "augmentAuxiliaryGraph"};
+            "mfgValuePlot", "mfgDensityPlot", "mfgTransitionPlot",
+            "mfgAugmentedPlot", "augmentAuxiliaryGraph"};
         globalNames = ("Global`" <> #) & /@ names;
         Scan[If[NameQ[#], Remove[#]] &, globalNames];
         Needs["MFGraphs`"];
@@ -29,22 +31,11 @@ Test[
         topoPlot = scenarioTopologyPlot[s, sys];
         solPlot = mfgSolutionPlot[s, sys, sol];
         flowPlot = mfgFlowPlot[s, sys, sol];
-        MatchQ[topoPlot, _Graph] && MatchQ[solPlot, _Graph] && MatchQ[flowPlot, _Graph]
+        MatchQ[topoPlot, _Graph] && MatchQ[solPlot, _Graphics | _GraphicsGrid] &&
+        MatchQ[flowPlot, _Graph]
     ],
     True,
-    TestID -> "GraphicsTools: topology, solution, and flow plots return Graph"
-]
-
-Test[
-    Module[{s, sys, sol, edges},
-        s = gridScenario[{3}, {{1, 120}}, {{2, 10}, {3, 0}}];
-        sys = makeSystem[s];
-        sol = solveScenario[s];
-        edges = EdgeList[mfgSolutionPlot[s, sys, sol]];
-        MemberQ[edges, DirectedEdge[1, 2]]
-    ],
-    True,
-    TestID -> "GraphicsTools: positive j[1,2] displays as DirectedEdge[1,2]"
+    TestID -> "GraphicsTools: topology, solution grid, and flow plots return renderable expressions"
 ]
 
 Test[
@@ -57,18 +48,6 @@ Test[
     ],
     True,
     TestID -> "GraphicsTools: mfgFlowPlot positive j[1,2] displays as DirectedEdge[1,2]"
-]
-
-Test[
-    Module[{s, sys, sol, edges},
-        s = gridScenario[{3}, {{3, 120.0}}, {{1, 0.0}, {2, 10.0}}];
-        sys = makeSystem[s];
-        sol = {j[1, 2] -> 0, j[2, 1] -> 5};
-        edges = EdgeList[mfgSolutionPlot[s, sys, sol]];
-        MemberQ[edges, DirectedEdge[2, 1]]
-    ],
-    True,
-    TestID -> "GraphicsTools: negative net flow flips display direction to DirectedEdge[2,1]"
 ]
 
 Test[
@@ -148,19 +127,24 @@ Test[
                 PlotLabel -> "Solution option", ImageSize -> Medium],
             mfgFlowPlot[s, sys, sol, GraphLayout -> "LayeredDigraphEmbedding",
                 PlotLabel -> "Flow option", ImageSize -> Medium],
+            mfgValuePlot[s, sys, sol, GraphLayout -> "LayeredDigraphEmbedding",
+                PlotLabel -> "Value option", ImageSize -> Medium],
+            mfgDensityPlot[s, sys, sol, GraphLayout -> "LayeredDigraphEmbedding",
+                PlotLabel -> "Density option", ImageSize -> Medium],
             mfgTransitionPlot[s, sys, sol, GraphLayout -> "LayeredDigraphEmbedding",
                 PlotLabel -> "Transition option", ImageSize -> Medium],
             mfgAugmentedPlot[s, sys, sol, GraphLayout -> "LayeredDigraphEmbedding",
                 PlotLabel -> "Augmented option", ImageSize -> Medium]
         };
-        AllTrue[plots, MatchQ[#, _Graph] &] &&
+        MatchQ[plots[[2]], _Graphics | _GraphicsGrid] &&
+        AllTrue[Delete[plots, 2], MatchQ[#, _Graph] &] &&
         And @@ MapThread[
             !FreeQ[AbsoluteOptions[#1, PlotLabel], #2] &,
             {plots, {"Topology option", "Solution option", "Flow option",
-                "Transition option", "Augmented option"}}
+                "Value option", "Density option", "Transition option", "Augmented option"}}
         ] &&
         AllTrue[
-            plots,
+            Delete[plots, 2],
             !FreeQ[AbsoluteOptions[#, GraphLayout], "LayeredDigraphEmbedding"] &
         ]
     ],
@@ -177,10 +161,13 @@ Test[
             scenarioTopologyPlot[s, sys, PlotLabel -> None],
             mfgSolutionPlot[s, sys, sol, PlotLabel -> None],
             mfgFlowPlot[s, sys, sol, PlotLabel -> None],
+            mfgValuePlot[s, sys, sol, PlotLabel -> None],
+            mfgDensityPlot[s, sys, sol, PlotLabel -> None],
             mfgTransitionPlot[s, sys, sol, PlotLabel -> None],
             mfgAugmentedPlot[s, sys, sol, PlotLabel -> None]
         };
-        AllTrue[plots, MatchQ[#, _Graph] &] &&
+        MatchQ[plots[[2]], _Graphics | _GraphicsGrid] &&
+        AllTrue[Delete[plots, 2], MatchQ[#, _Graph] &] &&
         AllTrue[plots, FreeQ[AbsoluteOptions[#, PlotLabel], _Style] &]
     ],
     True,
@@ -213,29 +200,130 @@ Test[
 ]
 
 Test[
+    Module[{s, sys, graph, labelText},
+        s = gridScenario[{3}, {{1, 10}}, {{3, 0}}];
+        sys = makeSystem[s];
+        graph = mfgValuePlot[s, sys, {u[1, 2] -> 0., u[2, 1] -> 4.}];
+        labelText = ToString[InputForm[AbsoluteOptions[graph, EdgeLabels]]];
+        MatchQ[graph, _Graph] &&
+        StringContainsQ[labelText, "1/2"] &&
+        StringContainsQ[labelText, "2."]
+    ],
+    True,
+    TestID -> "GraphicsTools: mfgValuePlot labels include interpolated midpoint values"
+]
+
+Test[
+    Module[{s, sys, graph, labelText},
+        s = gridScenario[{3}, {{1, 10}}, {{3, 0}}];
+        sys = makeSystem[s];
+        graph = mfgDensityPlot[s, sys, {j[1, 2] -> 0, j[2, 1] -> 0}];
+        labelText = ToString[InputForm[AbsoluteOptions[graph, EdgeLabels]]];
+        MatchQ[graph, _Graph] && StringContainsQ[labelText, "m="] &&
+        StringContainsQ[labelText, "0."]
+    ],
+    True,
+    TestID -> "GraphicsTools: mfgDensityPlot displays zero density for zero flow"
+]
+
+Test[
+    Module[{s, sys, graph, labelText},
+        s = makeScenario[<|"Model" -> <|
+            "Vertices" -> {1, 2},
+            "Adjacency" -> {{0, 1}, {1, 0}},
+            "Entries" -> {{1, 1}},
+            "Exits" -> {{2, 0}},
+            "Switching" -> {}
+        |>|>];
+        sys = makeSystem[s];
+        graph = mfgDensityPlot[s, sys, {j[1, 2] -> 2, j[2, 1] -> 0}];
+        labelText = ToString[InputForm[AbsoluteOptions[graph, EdgeLabels]]];
+        MatchQ[graph, _Graph] && StringContainsQ[labelText, "3."]
+    ],
+    True,
+    TestID -> "GraphicsTools: mfgDensityPlot solves positive density with default Hamiltonian"
+]
+
+Test[
+    Module[{s, sys, graph, labelText},
+        s = makeScenario[<|
+            "Model" -> <|
+                "Vertices" -> {1, 2},
+                "Adjacency" -> {{0, 1}, {1, 0}},
+                "Entries" -> {{1, 1}},
+                "Exits" -> {{2, 0}},
+                "Switching" -> {}
+            |>,
+            "Hamiltonian" -> <|
+                "Alpha" -> 1,
+                "V" -> -2,
+                "G" -> Function[z, -2/z]
+            |>
+        |>];
+        sys = makeSystem[s];
+        graph = mfgDensityPlot[s, sys, {j[1, 2] -> 2, j[2, 1] -> 0}];
+        labelText = ToString[InputForm[AbsoluteOptions[graph, EdgeLabels]]];
+        MatchQ[graph, _Graph] && StringContainsQ[labelText, "2."]
+    ],
+    True,
+    TestID -> "GraphicsTools: mfgDensityPlot uses scenario Hamiltonian defaults"
+]
+
+Test[
+    Module[{s, sBroken, sys, graph, labelText},
+        s = gridScenario[{2}, {{1, 10}}, {{2, 0}}];
+        sys = makeSystem[s];
+        sBroken = scenario[Join[scenarioData[s], <|"Hamiltonian" -> <||>|>]];
+        graph = mfgDensityPlot[sBroken, sys, {j[1, 2] -> 2, j[2, 1] -> 0}];
+        labelText = ToString[InputForm[AbsoluteOptions[graph, EdgeLabels]]];
+        MatchQ[graph, _Graph] && StringContainsQ[labelText, "?"]
+    ],
+    True,
+    TestID -> "GraphicsTools: mfgDensityPlot reports malformed Hamiltonian as unknown density"
+]
+
+Test[
+    Module[{s, sys, graph, labelText},
+        s = gridScenario[{3}, {{1, 10}}, {{3, 0}}];
+        sys = makeSystem[s];
+        graph = mfgDensityPlot[s, sys, <||>];
+        labelText = ToString[InputForm[AbsoluteOptions[graph, EdgeLabels]]];
+        MatchQ[graph, _Graph] && StringContainsQ[labelText, "?"]
+    ],
+    True,
+    TestID -> "GraphicsTools: mfgDensityPlot renders missing solution rules as unknown density"
+]
+
+Test[
     Module[{s, sys, sol, rules},
         s = gridScenario[{3}, {{1, 120}}, {{2, 10}, {3, 0}}];
         sys = makeSystem[s];
         sol = solveScenario[s];
         rules = Replace[sol, a_Association :> Lookup[a, "Rules", {}]];
-        MatchQ[mfgSolutionPlot[s, sys, rules], _Graph] &&
-        MatchQ[mfgFlowPlot[s, sys, rules], _Graph]
+        MatchQ[mfgSolutionPlot[s, sys, rules], _Graphics | _GraphicsGrid] &&
+        MatchQ[mfgFlowPlot[s, sys, rules], _Graph] &&
+        MatchQ[mfgValuePlot[s, sys, rules], _Graph] &&
+        MatchQ[mfgDensityPlot[s, sys, rules], _Graph]
     ],
     True,
-    TestID -> "GraphicsTools: solution and flow plots accept raw rule list solution"
+    TestID -> "GraphicsTools: solution panels accept raw rule list solution"
 ]
 
 Test[
-    Module[{s, sys, graph, flowGraph},
+    Module[{s, sys, graph, flowGraph, valueGraph, densityGraph},
         s = gridScenario[{3}, {{1, 120}}, {{2, 10}, {3, 0}}];
         sys = makeSystem[s];
         graph = mfgSolutionPlot[s, sys, <||>];
         flowGraph = mfgFlowPlot[s, sys, <||>];
-        MatchQ[graph, _Graph] && Length[EdgeList[graph]] > 0 &&
-        MatchQ[flowGraph, _Graph] && Length[EdgeList[flowGraph]] > 0
+        valueGraph = mfgValuePlot[s, sys, <||>];
+        densityGraph = mfgDensityPlot[s, sys, <||>];
+        MatchQ[graph, _Graphics | _GraphicsGrid] &&
+        MatchQ[flowGraph, _Graph] && Length[EdgeList[flowGraph]] > 0 &&
+        MatchQ[valueGraph, _Graph] && Length[EdgeList[valueGraph]] > 0 &&
+        MatchQ[densityGraph, _Graph] && Length[EdgeList[densityGraph]] > 0
     ],
     True,
-    TestID -> "GraphicsTools: solution and flow plots handle missing Rules association without failure"
+    TestID -> "GraphicsTools: solution panels handle missing Rules association without failure"
 ]
 
 Test[

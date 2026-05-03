@@ -67,7 +67,7 @@ This design separates topology from boundary-condition choice. The registry stor
 
 \section{Registry data and constants}
 
-The file also defines several important constants. \texttt{\$Y1In2OutAM}, \texttt{\$Y2In1OutAM}, and \texttt{\$Attraction4AM} are reusable adjacency patterns for benchmark families. \texttt{\$CaseDefaultSC} stores canonical switching-cost sets keyed by example number or example name. \texttt{\$ExamplesDefaultAlpha}, \texttt{\$ExamplesDefaultV}, and \texttt{\$ExamplesDefaultG} define the default Hamiltonian parameters used when example calls omit overrides.
+The file also defines several important constants. \texttt{\$Y1In2OutAM}, \texttt{\$Y2In1OutAM}, and \texttt{\$Attraction4AM} are reusable adjacency patterns for benchmark families. \texttt{\$CaseDefaultSC} stores canonical switching-cost sets keyed by example number or example name. Omitted Hamiltonian parameters use an \texttt{Automatic} sentinel in the example layer and are delegated to \texttt{makeScenario}, which is the canonical source for concrete Hamiltonian defaults.
 
 The large \texttt{\$ExampleScenarios} association is not itself a function, but it is central to the file's behavior. It maps numeric and string identifiers to factories for chains, Y-cases, attraction cases, Braess variants, Jamarat-style examples, paper examples, inconsistent-switching validation cases, and larger grids.
 
@@ -79,8 +79,7 @@ Representative usage patterns are:
 
 \begin{verbatim}
 s1 = gridScenario[{3}, {{1,10}}, {{3,0}}];
-f  = getExampleScenario[12];
-s2 = f[{{1,100}}, {{4,0}}, {}, 1, 0, Function[z, -1/z]];
+s2 = getExampleScenario[12, {{1,100}}, {{4,0}}];
 s3 = getExampleScenario[8, {{1,80}}, {{3,0},{4,10}}];
 \end{verbatim}
 

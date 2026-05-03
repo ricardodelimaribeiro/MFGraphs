@@ -84,7 +84,7 @@ Test[
         h = scenarioData[s, "Hamiltonian"];
         AssociationQ[h] &&
         h["Alpha"] === 1 &&
-        h["V"] === 0 &&
+        h["V"] === -1 &&
         MatchQ[h["G"], _Function] &&
         h["G"][2] === -1/2 &&
         h["EdgeAlpha"] === <||> &&
@@ -95,6 +95,62 @@ Test[
     True
     ,
     TestID -> "Scenario kernel: default Hamiltonian settings are present"
+]
+
+(* Test: example constructors delegate omitted Hamiltonian defaults to makeScenario *)
+Test[
+    Module[{s, h},
+        s = gridScenario[{2}, {{1, 10}}, {{2, 0}}];
+        h = scenarioData[s, "Hamiltonian"];
+        scenarioQ[s] && h["Alpha"] === 1 && h["V"] === -1 && h["G"][2] === -1/2
+    ],
+    True,
+    TestID -> "Scenario kernel: gridScenario uses makeScenario Hamiltonian defaults"
+]
+
+(* Test: positional Alpha override is preserved while omitted V/G use defaults *)
+Test[
+    Module[{s, h},
+        s = gridScenario[{2}, {{1, 10}}, {{2, 0}}, {}, 2];
+        h = scenarioData[s, "Hamiltonian"];
+        scenarioQ[s] && h["Alpha"] === 2 && h["V"] === -1 && h["G"][2] === -1/2
+    ],
+    True,
+    TestID -> "Scenario kernel: gridScenario preserves positional Alpha override"
+]
+
+(* Test: positional V override is preserved *)
+Test[
+    Module[{s, h},
+        s = gridScenario[{2}, {{1, 10}}, {{2, 0}}, {}, 1, 3];
+        h = scenarioData[s, "Hamiltonian"];
+        scenarioQ[s] && h["Alpha"] === 1 && h["V"] === 3 && h["G"][2] === -1/2
+    ],
+    True,
+    TestID -> "Scenario kernel: gridScenario preserves positional V override"
+]
+
+(* Test: positional G override is preserved *)
+Test[
+    Module[{s, h, g},
+        g = Function[z, -2/z];
+        s = gridScenario[{2}, {{1, 10}}, {{2, 0}}, {}, 1, 3, g];
+        h = scenarioData[s, "Hamiltonian"];
+        scenarioQ[s] && h["Alpha"] === 1 && h["V"] === 3 && h["G"][2] === -1
+    ],
+    True,
+    TestID -> "Scenario kernel: gridScenario preserves positional G override"
+]
+
+(* Test: getExampleScenario forwarding delegates omitted Hamiltonian defaults *)
+Test[
+    Module[{s, h},
+        s = getExampleScenario[2, {{1, 10}}, {{2, 0}}];
+        h = scenarioData[s, "Hamiltonian"];
+        scenarioQ[s] && h["Alpha"] === 1 && h["V"] === -1 && h["G"][2] === -1/2
+    ],
+    True,
+    TestID -> "Scenario kernel: getExampleScenario uses makeScenario Hamiltonian defaults"
 ]
 
 (* Test: user-supplied per-edge Hamiltonian parameters are preserved *)
