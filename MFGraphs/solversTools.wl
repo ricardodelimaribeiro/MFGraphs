@@ -172,6 +172,10 @@ checkBlock::usage =
 solutionResultKind::usage =
 "solutionResultKind[sol] classifies solver output by its residual content.";
 
+solutionVariableDiagnostics::usage =
+"solutionVariableDiagnostics[sys, sol] reports primary solution classification \
+and transition-flow determinacy for a solver result.";
+
 dnfResidualDiagnostics::usage =
 "dnfResidualDiagnostics[sol] returns lightweight branch and tracked-variable diagnostics for solver residuals.";
 
@@ -318,23 +322,50 @@ findInstanceSystem[sys_?mfgSystemQ, opts : OptionsPattern[]] :=
 trackedVarQ[var_] :=
     MatchQ[var, j[__] | u[__]];
 
+primarySolutionVarQ[var_] :=
+    MatchQ[var, j[_, _] | u[__]];
+
+transitionFlowVarQ[var_] :=
+    MatchQ[var, j[_, _, _]];
+
+residualPrimaryVariables[residual_] :=
+    DeleteDuplicates @ Cases[Unevaluated[residual], (j[_, _] | u[__]), {0, Infinity}];
+
+residualTransitionFlows[residual_] :=
+    DeleteDuplicates @ Cases[Unevaluated[residual], j[_, _, _], {0, Infinity}];
+
 residualTrackedVariables[residual_] :=
-    DeleteDuplicates @ Cases[Unevaluated[residual], j[__] | u[__], {0, Infinity}];
+    DeleteDuplicates @ Join[residualPrimaryVariables[residual], residualTransitionFlows[residual]];
+
+orInvolvingPrimaryVariableQ[residual_] :=
+    !FreeQ[
+        Unevaluated[residual],
+        expr_Or /; residualPrimaryVariables[expr] =!= {}
+    ];
+
+solutionRules[sol_] :=
+    If[ListQ[sol], sol, If[AssociationQ[sol], Lookup[sol, "Rules", {}], {}]];
 
 dnfResidualDiagnostics[sol_] :=
-    Module[{residual, topLevelBranches, nestedOrQ, trackedVars},
+    Module[{residual, topLevelBranches, nestedOrQ, primaryVars, transitionVars, trackedVars},
         residual = If[AssociationQ[sol], Lookup[sol, "Equations", True], True];
         topLevelBranches = If[Head[residual] === Or, Length[List @@ residual], 0];
         nestedOrQ = If[Head[residual] === Or,
             !FreeQ[List @@ residual, Or],
             !FreeQ[residual, Or]
         ];
+        primaryVars = residualPrimaryVariables[residual];
+        transitionVars = residualTransitionFlows[residual];
         trackedVars = residualTrackedVariables[residual];
         <|
             "TopLevelBranchCount" -> topLevelBranches,
             "NestedOrQ" -> nestedOrQ,
             "TrackedVariablesQ" -> (trackedVars =!= {}),
-            "TrackedVariables" -> trackedVars
+            "TrackedVariables" -> trackedVars,
+            "PrimaryVariablesQ" -> (primaryVars =!= {}),
+            "PrimaryVariables" -> primaryVars,
+            "TransitionFlowVariablesQ" -> (transitionVars =!= {}),
+            "TransitionFlowVariables" -> transitionVars
         |>
     ];
 
@@ -352,14 +383,41 @@ solutionResultKind[sol_] :=
                 Which[
                     residual === True, "Rules",
                     residual === False, "NoSolution",
-                    !FreeQ[residual, Or], "Branched",
+                    orInvolvingPrimaryVariableQ[residual], "Branched",
                     True,
                         diagnostics = dnfResidualDiagnostics[sol];
-                        If[TrueQ[diagnostics["TrackedVariablesQ"]], "Parametric", "Residual"]
+                        Which[
+                            TrueQ[diagnostics["PrimaryVariablesQ"]], "Parametric",
+                            TrueQ[diagnostics["TransitionFlowVariablesQ"]], "Rules",
+                            True, "Residual"
+                        ]
                 ],
             True,
                 "Unknown"
         ]
+    ];
+
+solutionVariableDiagnostics[sys_?mfgSystemQ, sol_] :=
+    Module[{rules, residual, transitionFlows, transitionRuleFlows,
+            residualTransitions, residualTransitionSet, determinedTransitions},
+        rules = solutionRules[sol];
+        residual = If[AssociationQ[sol], Lookup[sol, "Equations", True], True];
+        residual = residual /. rules;
+        transitionFlows = Replace[systemData[sys, "Jts"], Except[_List] -> {}];
+        transitionRuleFlows = DeleteDuplicates @ Cases[rules, Rule[lhs_?transitionFlowVarQ, _] :> lhs];
+        residualTransitions = Select[residualTransitionFlows[residual], MemberQ[transitionFlows, #] &];
+        residualTransitionSet = AssociationThread[residualTransitions, True];
+        determinedTransitions = Select[transitionFlows, !KeyExistsQ[residualTransitionSet, #] &];
+        <|
+            "PrimaryResultKind" -> solutionResultKind[sol],
+            "PrimaryResidualVariables" -> residualPrimaryVariables[residual],
+            "TransitionFlowStatus" -> If[residualTransitions === {}, "Unique", "Underdetermined"],
+            "TransitionFlowCount" -> Length[transitionFlows],
+            "TransitionFlowRuleCount" -> Length[Select[transitionRuleFlows, MemberQ[transitionFlows, #] &]],
+            "TransitionFlowResidualCount" -> Length[residualTransitions],
+            "DeterminedTransitionFlows" -> determinedTransitions,
+            "ResidualTransitionFlows" -> residualTransitions
+        |>
     ];
 
 buildSolverInputs[sys_?mfgSystemQ] :=
@@ -972,7 +1030,7 @@ Options[dnfReduceDiagnosticReport] = {
 dnfReduceDiagnosticReport[sys_?mfgSystemQ, OptionsPattern[]] :=
     Module[{order, timeout, traceLength, tInputs, inputs, constraints, allVars,
             rulesAcc, conjuncts, orderedConstraints, orderingSummary, monitor,
-            tDNF, reduced, status, parsed, result, summary},
+            tDNF, reduced, status, parsed, result, variableDiagnostics, summary},
         order = ToLowerCase[ToString[OptionValue["Order"]]];
         timeout = OptionValue["Timeout"];
         traceLength = OptionValue["TraceLength"];
@@ -1028,6 +1086,19 @@ dnfReduceDiagnosticReport[sys_?mfgSystemQ, OptionsPattern[]] :=
             Missing["TimedOut"]
         ];
         result = If[status === "OK", attachAccumulatedRules[parsed, rulesAcc], $TimedOut];
+        variableDiagnostics = If[status === "OK",
+            solutionVariableDiagnostics[sys, result],
+            <|
+                "PrimaryResultKind" -> "TIMEOUT",
+                "PrimaryResidualVariables" -> {},
+                "TransitionFlowStatus" -> Missing["TimedOut"],
+                "TransitionFlowCount" -> Length[Replace[systemData[sys, "Jts"], Except[_List] -> {}]],
+                "TransitionFlowRuleCount" -> Missing["TimedOut"],
+                "TransitionFlowResidualCount" -> Missing["TimedOut"],
+                "DeterminedTransitionFlows" -> Missing["TimedOut"],
+                "ResidualTransitionFlows" -> Missing["TimedOut"]
+            |>
+        ];
         summary = <|
             "SolverInputSeconds" -> tInputs,
             "DNFSeconds" -> tDNF,
@@ -1046,7 +1117,13 @@ dnfReduceDiagnosticReport[sys_?mfgSystemQ, OptionsPattern[]] :=
             "ExpressionLeafCount" -> Lookup[monitor, "ExpressionLeafCount", Missing["Unavailable"]],
             "OrderedExpressionLeafCount" -> Lookup[monitor, "OrderedExpressionLeafCount", Missing["Unavailable"]],
             "ResultLeafCount" -> If[status === "OK", LeafCount[reduced], Missing["TimedOut"]],
-            "ResultKind" -> If[status === "OK", solutionResultKind[result], "TIMEOUT"]
+            "ResultKind" -> If[status === "OK", solutionResultKind[result], "TIMEOUT"],
+            "PrimaryResultKind" -> Lookup[variableDiagnostics, "PrimaryResultKind", Missing["Unavailable"]],
+            "PrimaryResidualVariables" -> Lookup[variableDiagnostics, "PrimaryResidualVariables", Missing["Unavailable"]],
+            "TransitionFlowStatus" -> Lookup[variableDiagnostics, "TransitionFlowStatus", Missing["Unavailable"]],
+            "TransitionFlowCount" -> Lookup[variableDiagnostics, "TransitionFlowCount", Missing["Unavailable"]],
+            "TransitionFlowRuleCount" -> Lookup[variableDiagnostics, "TransitionFlowRuleCount", Missing["Unavailable"]],
+            "TransitionFlowResidualCount" -> Lookup[variableDiagnostics, "TransitionFlowResidualCount", Missing["Unavailable"]]
         |>;
         <|
             "Status" -> status,

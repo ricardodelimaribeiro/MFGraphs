@@ -97,7 +97,7 @@ Print["Orders\t", StringRiffle[$RunOrders, ","]];
 If[$RecursionLimitOpt =!= Automatic, Print["RecursionLimit\t", $RecursionLimitOpt]];
 If[$SelectedCase =!= "all", Print["CaseFilter\t", $SelectedCase]];
 Print[
-  "Header\tCase\tOrder\tBuildMs\tStatus\tKind\tValid\tVertices\tEdges\tVars\tPreRules\tPreConjuncts\tOrs\tOrLeafCounts\t" <>
+  "Header\tCase\tOrder\tBuildMs\tStatus\tKind\tTransitionFlowStatus\tTransitionFlowRules\tTransitionFlowResiduals\tValid\tVertices\tEdges\tVars\tPreRules\tPreConjuncts\tOrs\tOrLeafCounts\t" <>
   "SolverInputMs\tDNFMs\tProcessed\tBranchesStarted\tBranchesKept\tBranchesDropped\tMaxDepth\tEqualitySolves\tSubstitutions\t" <>
   "ExpressionLeaves\tResultLeaves\tTimeoutPhase\tLastHead\tLastLeaves\tLastConjunct"
 ];
@@ -131,6 +131,9 @@ RunOne[name_String, buildFn_, order_String] :=
         Fmt[Ms[tBuild]],
         status,
         kind,
+        ToString[Lookup[summary, "TransitionFlowStatus", Missing["Unavailable"]]],
+        ToString[Lookup[summary, "TransitionFlowRuleCount", Missing["Unavailable"]]],
+        ToString[Lookup[summary, "TransitionFlowResidualCount", Missing["Unavailable"]]],
         valid,
         ToString[Length[systemData[sys, "Vertices"]]],
         ToString[ModelEdgeCount[sys]],
