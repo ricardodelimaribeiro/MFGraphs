@@ -104,7 +104,8 @@ ProfileCase[{name_String, buildFn_}] :=
           rulesAcc, tSolve, sol, kind, valid, status, model, vertices,
           edges, auxPairs, auxTriples, halfPairs, js, jts, us, eqCount,
           switchIneqCount, altFlowCount, altTransitionCount, altOptCount,
-          scenarioBytes, unknownBytes, systemBytes},
+          scenarioBytes, unknownBytes, systemBytes, varDiag, transitionStatus,
+          transitionRules, transitionResiduals},
     Print["CASE ", name];
 
     mem0 = MemoryInUse[];
@@ -146,13 +147,17 @@ ProfileCase[{name_String, buildFn_}] :=
     mem4 = MemoryInUse[];
     kind = ResultKind[sol];
     status = If[sol === $TimedOut, "TIMEOUT", "OK"];
+    varDiag = If[sol === $TimedOut, <||>, solversTools`Private`solutionVariableDiagnostics[sys, sol]];
+    transitionStatus = Lookup[varDiag, "TransitionFlowStatus", "TimedOut"];
+    transitionRules = Lookup[varDiag, "TransitionFlowRuleCount", "TimedOut"];
+    transitionResiduals = Lookup[varDiag, "TransitionFlowResidualCount", "TimedOut"];
     valid = If[sol === $TimedOut, "TimedOut", ToString[isValidSystemSolution[sys, sol]]];
 
     Print[StringRiffle[
       {
         name,
         Fmt[Ms[tScenario]], Fmt[Ms[tUnknowns]], Fmt[Ms[tSystem]], Fmt[Ms[tInputs]], Fmt[Ms[tSolve]],
-        status, kind, valid,
+        status, kind, transitionStatus, ToString[transitionRules], ToString[transitionResiduals], valid,
         ToString[vertices], ToString[edges], ToString[halfPairs], ToString[auxPairs], ToString[auxTriples],
         ToString[js], ToString[jts], ToString[us], ToString[Length[allVars]], ToString[Length[rulesAcc]],
         ToString[eqCount], ToString[switchIneqCount], ToString[altFlowCount], ToString[altTransitionCount], ToString[altOptCount],
@@ -168,7 +173,7 @@ Print["Date\t", DateString[]];
 Print["Solver\t", $SolverName];
 Print["TimeoutSeconds\t", $TimeoutSecs];
 If[$SelectedCase =!= All, Print["CaseFilter\t", $SelectedCase]];
-Print["Header\tCase\tScenarioMs\tUnknownsMs\tSystemMs\tSolverInputMs\tSolveMs\tStatus\tKind\tValid\tVertices\tEdges\tHalfPairs\tAuxPairs\tAuxTriples\tJs\tJts\tUs\tSolverVars\tPreRules\tEqCount\tSwitchIneqs\tAltFlows\tAltTransitionFlows\tAltOptCond\tScenarioBytes\tUnknownBytes\tSystemBytes\tScenarioMemDelta\tUnknownsMemDelta\tSystemMemDelta\tSolveMemDelta"];
+Print["Header\tCase\tScenarioMs\tUnknownsMs\tSystemMs\tSolverInputMs\tSolveMs\tStatus\tKind\tTransitionFlowStatus\tTransitionFlowRules\tTransitionFlowResiduals\tValid\tVertices\tEdges\tHalfPairs\tAuxPairs\tAuxTriples\tJs\tJts\tUs\tSolverVars\tPreRules\tEqCount\tSwitchIneqs\tAltFlows\tAltTransitionFlows\tAltOptCond\tScenarioBytes\tUnknownBytes\tSystemBytes\tScenarioMemDelta\tUnknownsMemDelta\tSystemMemDelta\tSolveMemDelta"];
 Scan[ProfileCase, $Cases];
 
 (* :!CodeAnalysis::EndBlock:: *)

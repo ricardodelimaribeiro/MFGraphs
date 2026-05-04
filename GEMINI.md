@@ -61,3 +61,7 @@ data["AltFlows"]
 
 Benchmark selector names include `dnf` (default), `optimizeddnf`, `activeset`,
 `reduce`, `boolean`, and `findinstance`.
+
+`solutionResultKind` is flow-first: primary classification depends on edge
+flows `j[_,_]` and values `u[__]`; transition-flow determinacy for `j[_,_,_]`
+is reported separately by `solutionVariableDiagnostics[sys, sol]`.

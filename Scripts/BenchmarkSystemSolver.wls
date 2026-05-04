@@ -107,7 +107,8 @@ ResultKind[sol_] := solversTools`Private`solutionResultKind[sol] /. "Unknown" ->
 
 RunCase[{name_String, buildFn_}] :=
   Module[{sys, warmupTime, repTime, solWarmup, repSol, sol, buildMs,
-          warmupMs, repMs, kind, valid, timeout},
+          warmupMs, repMs, kind, valid, timeout, varDiag, transitionStatus,
+          transitionResiduals},
     timeout = $TimeoutSecs;
     Print["Case: ", name];
 
@@ -131,18 +132,24 @@ RunCase[{name_String, buildFn_}] :=
     ];
     sol = solWarmup;
     kind = ResultKind[sol];
+    varDiag = solversTools`Private`solutionVariableDiagnostics[sys, sol];
+    transitionStatus = Lookup[varDiag, "TransitionFlowStatus", "-"];
+    transitionResiduals = Lookup[varDiag, "TransitionFlowResidualCount", "-"];
     repMs = If[repSol === $TimedOut, Missing["TimedOut"], repTime * 1000];
     valid = If[sol === $TimedOut, Missing["TimedOut"], isValidSystemSolution[sys, sol]];
 
     Print["  Warmup: ", FmtMs[warmupTime],
       " | Repeat: ", If[repSol === $TimedOut, "TIMED OUT", FmtMs[repTime]],
       " | Kind: ", kind,
+      " | TransitionFlows: ", transitionStatus, " (residual ", transitionResiduals, ")",
       " | Valid: ", valid];
 
     <|"Name" -> name, "BuildMs" -> buildMs * 1000,
       "WarmupMs" -> warmupMs, "RepMs" -> repMs,
       "Status" -> If[sol === $TimedOut, "TIMEOUT", "OK"],
-      "Kind" -> kind, "Valid" -> valid, "Solution" -> sol|>
+      "Kind" -> kind, "TransitionFlowStatus" -> transitionStatus,
+      "TransitionFlowResidualCount" -> transitionResiduals,
+      "Valid" -> valid, "Solution" -> sol|>
   ];
 
 Print["Running ", Length[$BenchCases], " cases...\n"];
@@ -156,6 +163,8 @@ $SolutionStore = Association[
     "Cases" -> Association[
       Table[
         r["Name"] -> <|"Status" -> r["Status"], "Kind" -> r["Kind"],
+          "TransitionFlowStatus" -> r["TransitionFlowStatus"],
+          "TransitionFlowResidualCount" -> r["TransitionFlowResidualCount"],
           "Valid" -> r["Valid"], "Solution" -> r["Solution"]|>,
         {r, $AllResults}
       ]
@@ -168,11 +177,11 @@ Export[$LatestSolFile, $SolutionStore, "WL"];
 Print["\nSolutions written to: ", $SolFile];
 
 $CSVRows = Join[
-  {{"Case", "Solver", "BuildMs", "WarmupMs", "RepMs", "Status", "Kind", "Valid"}},
+  {{"Case", "Solver", "BuildMs", "WarmupMs", "RepMs", "Status", "Kind", "TransitionFlowStatus", "TransitionFlowResidualCount", "Valid"}},
   Table[
     {r["Name"], $SolverName, r["BuildMs"], r["WarmupMs"],
       Replace[r["RepMs"], Missing[_] -> ""],
-      r["Status"], r["Kind"],
+      r["Status"], r["Kind"], r["TransitionFlowStatus"], r["TransitionFlowResidualCount"],
       Replace[r["Valid"], Missing[_] -> ""]},
     {r, $AllResults}
   ]
@@ -181,14 +190,15 @@ Export[$CSVFile, $CSVRows, "CSV"];
 Export[$LatestCSVFile, $CSVRows, "CSV"];
 Print["CSV written to:       ", $CSVFile];
 
-Print["\n| Case | Solver | Build (ms) | Warmup (ms) | Repeat (ms) | Status | Kind | Valid |"];
-Print["|------|--------|-----------|------------|--------------|--------|------|-------|"];
+Print["\n| Case | Solver | Build (ms) | Warmup (ms) | Repeat (ms) | Status | Kind | Transition flows | Residual Jts | Valid |"];
+Print["|------|--------|-----------|------------|--------------|--------|------|------------------|--------------|-------|"];
 Do[
   Print["| ", r["Name"], " | ", $SolverName, " | ",
     FmtMsCell[r["BuildMs"]/1000], " | ",
     FmtMsCell[r["WarmupMs"]/1000], " | ",
     Replace[r["RepMs"], {Missing[_] -> "-", v_?NumericQ :> FmtMsCell[v/1000]}], " | ",
-    r["Status"], " | ", r["Kind"], " | ",
+    r["Status"], " | ", r["Kind"], " | ", r["TransitionFlowStatus"], " | ",
+    r["TransitionFlowResidualCount"], " | ",
     Replace[r["Valid"], {Missing[_] -> "-", v_ :> ToString[v]}], " |"],
   {r, $AllResults}
 ];
@@ -200,8 +210,8 @@ If[$HistoryTag =!= None,
     commitHash = StringTrim[RunProcess[{"git", "rev-parse", "--short", "HEAD"}]["StandardOutput"]];
     date = DateString[{"Year", "-", "Month", "-", "Day"}];
 
-    tableLines = {"| Case | Solver | Build (ms) | Warmup (ms) | Repeat (ms) | Status | Kind | Valid |",
-      "|------|--------|-----------|------------|--------------|--------|------|-------|"};
+    tableLines = {"| Case | Solver | Build (ms) | Warmup (ms) | Repeat (ms) | Status | Kind | Transition flows | Residual Jts | Valid |",
+      "|------|--------|-----------|------------|--------------|--------|------|------------------|--------------|-------|"};
     Do[
       AppendTo[tableLines,
         "| " <> r["Name"] <> " | " <> $SolverName <> " | " <>
@@ -209,6 +219,8 @@ If[$HistoryTag =!= None,
         FmtMsCell[r["WarmupMs"]/1000] <> " | " <>
         Replace[r["RepMs"], {Missing[_] -> "-", v_?NumericQ :> FmtMsCell[v/1000]}] <> " | " <>
         r["Status"] <> " | " <> r["Kind"] <> " | " <>
+        ToString[r["TransitionFlowStatus"]] <> " | " <>
+        ToString[r["TransitionFlowResidualCount"]] <> " | " <>
         Replace[r["Valid"], {Missing[_] -> "-", v_ :> ToString[v]}] <> " |"],
       {r, $AllResults}
     ];

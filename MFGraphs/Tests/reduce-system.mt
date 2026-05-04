@@ -216,9 +216,37 @@ Test[
 ]
 
 Test[
+    solversTools`Private`solutionResultKind[<|"Rules" -> {}, "Equations" -> j[1, 2, 3] >= 0|>],
+    "Rules",
+    TestID -> "solutionResultKind: transition-only residual is Rules"
+]
+
+Test[
+    solversTools`Private`solutionResultKind[<|"Rules" -> {}, "Equations" -> (j[1, 2, 3] == 0 || j[1, 2, 3] == 1)|>],
+    "Rules",
+    TestID -> "solutionResultKind: transition-only Or is not Branched"
+]
+
+Test[
     solversTools`Private`solutionResultKind[<|"Rules" -> {}, "Equations" -> (j[1, 2] >= 0 && u[1, 2] <= 1)|>],
     "Parametric",
     TestID -> "solutionResultKind: tracked residual without Or is Parametric"
+]
+
+Test[
+    solversTools`Private`solutionResultKind[
+        <|"Rules" -> {}, "Equations" -> (j[1, 2] >= 0 && (j[1, 2, 3] == 0 || j[1, 2, 3] == 1))|>
+    ],
+    "Parametric",
+    TestID -> "solutionResultKind: mixed residual classifies by primary variables"
+]
+
+Test[
+    solversTools`Private`solutionResultKind[
+        <|"Rules" -> {}, "Equations" -> ((j[1, 2] == 0 && j[1, 2, 3] >= 0) || j[1, 2] == 1)|>
+    ],
+    "Branched",
+    TestID -> "solutionResultKind: primary Or remains Branched"
 ]
 
 Test[
@@ -228,10 +256,62 @@ Test[
         ];
         diag["TopLevelBranchCount"] === 2 &&
         diag["NestedOrQ"] === True &&
-        diag["TrackedVariablesQ"] === True
+        diag["TrackedVariablesQ"] === True &&
+        diag["PrimaryVariables"] === {j[1, 2], u[1, 2]} &&
+        diag["TransitionFlowVariables"] === {}
     ],
     True,
     TestID -> "dnfResidualDiagnostics: reports branches nested Or and tracked variables"
+]
+
+Test[
+    Module[{diag},
+        diag = solversTools`Private`dnfResidualDiagnostics[
+            <|"Rules" -> {}, "Equations" -> (j[1, 2] >= 0 && j[1, 2, 3] >= 0)|>
+        ];
+        diag["PrimaryVariables"] === {j[1, 2]} &&
+        diag["TransitionFlowVariables"] === {j[1, 2, 3]}
+    ],
+    True,
+    TestID -> "dnfResidualDiagnostics: separates primary and transition variables"
+]
+
+Test[
+    Module[{s, sys, jts, diag},
+        s = gridScenario[{3}, {{1, 10}}, {{3, 0}}];
+        sys = makeSystem[s];
+        jts = systemData[sys, "Jts"];
+        diag = solversTools`Private`solutionVariableDiagnostics[
+            sys,
+            Thread[jts -> Range[Length[jts]]]
+        ];
+        diag["PrimaryResultKind"] === "Rules" &&
+        diag["TransitionFlowStatus"] === "Unique" &&
+        diag["TransitionFlowCount"] === Length[jts] &&
+        diag["TransitionFlowRuleCount"] === Length[jts] &&
+        diag["TransitionFlowResidualCount"] === 0 &&
+        diag["ResidualTransitionFlows"] === {}
+    ],
+    True,
+    TestID -> "solutionVariableDiagnostics: transition flow rules are unique"
+]
+
+Test[
+    Module[{s, sys, jt, diag},
+        s = gridScenario[{3}, {{1, 10}}, {{3, 0}}];
+        sys = makeSystem[s];
+        jt = First[systemData[sys, "Jts"]];
+        diag = solversTools`Private`solutionVariableDiagnostics[
+            sys,
+            <|"Rules" -> {}, "Equations" -> jt >= 0|>
+        ];
+        diag["PrimaryResultKind"] === "Rules" &&
+        diag["TransitionFlowStatus"] === "Underdetermined" &&
+        diag["TransitionFlowResidualCount"] === 1 &&
+        diag["ResidualTransitionFlows"] === {jt}
+    ],
+    True,
+    TestID -> "solutionVariableDiagnostics: residual transition flow is underdetermined"
 ]
 
 Test[
