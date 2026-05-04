@@ -283,8 +283,8 @@ buildFlowData[s_?scenarioQ, topology_Association, unk_?symbolicUnknownsQ] :=
             Join[inAuxEntryPairs, outAuxExitPairs, halfPairs]
         ];
 
-        ineqJs  = And @@ (# >= 0& /@ js);
-        ineqJts = And @@ (# >= 0& /@ jts);
+        ineqJs  = # >= 0& /@ js;
+        ineqJts = # >= 0& /@ jts;
 
         splittingPairs = Join[inAuxEntryPairs, pairs];
         balanceSplittingFlows = (j @@ # - Total[j @@@ Lookup[splittingMaps, Key[#], {}]])& /@ splittingPairs;
@@ -336,11 +336,11 @@ buildComplementarityData[s_?scenarioQ, topology_Association, unk_?symbolicUnknow
 
         If[consistCosts === False, Message[mfgSystem::switchingcosts]];
 
-        altFlows = And @@ (altFlowOp[j] /@ halfPairs);
+        altFlows = altFlowOp[j] /@ halfPairs;
 
         altTransitionFlows =
             If[consistCosts === False,
-                And @@ DeleteDuplicates[
+                DeleteDuplicates[
                     Sort /@ Flatten @ KeyValueMap[
                         Function[{k, trips},
                             Module[{bySource, byTarget},
@@ -361,8 +361,8 @@ buildComplementarityData[s_?scenarioQ, topology_Association, unk_?symbolicUnknow
                         GroupBy[auxTriples, #[[2]] &]
                     ]
                 ],
-                And @@ (altFlowOp[j] /@
-                    Select[auxTriples, interiorTripleQ[#] && OrderedQ[{First[#], Last[#]}]&])
+                altFlowOp[j] /@
+                    Select[auxTriples, interiorTripleQ[#] && OrderedQ[{First[#], Last[#]}]&]
             ];
 
         activeTriples = auxTriples;
@@ -372,7 +372,7 @@ buildComplementarityData[s_?scenarioQ, topology_Association, unk_?symbolicUnknow
             ineqSwitchingByVertex =
                 ineqSwitch[u, scFn] @@@
                     Lookup[auxTriplesByMiddle, #, {}] & /@ verticesList;
-            ineqSwitchingByVertex = And @@ Flatten[ineqSwitchingByVertex];
+            ineqSwitchingByVertex = Flatten[ineqSwitchingByVertex];
 
             (* Derive u-equality rules forced by zero-cost symmetric triple pairs.
                Theorem: {r,v,w} and {w,v,r} both with cost 0 produce
@@ -404,7 +404,7 @@ buildComplementarityData[s_?scenarioQ, topology_Association, unk_?symbolicUnknow
                 verticesList
             ];
 
-            altOptCond = And @@ altSwitch[j, u, scFn] @@@ activeTriples;
+            altOptCond = altSwitch[j, u, scFn] @@@ activeTriples;
         ];
 
         mfgComplementarityData @ <|
@@ -442,7 +442,7 @@ buildHamiltonianData[s_?scenarioQ, topology_Association, flowData_mfgFlowData] :
         nrhs = Flatten[signedFlows[#] - Sign[signedFlows[#]] edgeCost[signedFlows[#], #]& /@ halfPairs];
 
         costCurrents = Table[Symbol["systemTools`Private`cpc" <> ToString[k]], {k, 1, EdgeCount[topology["Graph"]]}];
-        eqGeneral = And @@ MapThread[
+        eqGeneral = MapThread[
             With[{edge = halfPairs[[#3]],
                   eq = Equal[#1, If[alphaAtEdge[halfPairs[[#3]]] === 1, 0, #2]]},
                 (j @@ edge + j @@ Reverse[edge] == 0) || eq
@@ -564,8 +564,14 @@ makeSystem[s_?scenarioQ, unk_?symbolicUnknownsQ] :=
         hamData  = buildHamiltonianData[s, topology, flowData];
 
         finalAssoc = Join[
-            model,
-            topology,
+            (* Only the model fields accessed downstream via systemData are kept here.
+               Vertices/Adjacency/Switching remain in scenarioData[s, "Model"]. *)
+            KeyTake[model, {"Entries", "Exits"}],
+            (* Only topology fields accessed downstream; AuxiliaryGraph/AuxEntryEdges/
+               AuxExitEdges are not accessed via systemData. *)
+            KeyTake[topology, {"Graph", "AuxEntryVertices", "AuxExitVertices",
+                               "HalfPairs", "InAuxEntryPairs", "OutAuxExitPairs",
+                               "Pairs", "AuxPairs"}],
             <|
                 "Js"          -> symbolicUnknownsData[unk, "Js"],
                 "Us"          -> symbolicUnknownsData[unk, "Us"],

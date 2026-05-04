@@ -226,15 +226,15 @@ activeSetReduceSystem[sys_?mfgSystemQ] :=
             And @@ systemData[sys, "EqEntryIn"],
             systemData[sys, "EqBalanceSplittingFlows"],
             systemData[sys, "EqBalanceGatheringFlows"],
-            systemData[sys, "EqGeneral"],
-            systemData[sys, "IneqJs"],
-            systemData[sys, "IneqJts"],
-            systemData[sys, "IneqSwitchingByVertex"]
+            And @@ systemData[sys, "EqGeneral"],
+            And @@ systemData[sys, "IneqJs"],
+            And @@ systemData[sys, "IneqJts"],
+            And @@ systemData[sys, "IneqSwitchingByVertex"]
         ];
         activeConstraints = And[
-            systemData[sys, "AltFlows"],
-            systemData[sys, "AltTransitionFlows"],
-            systemData[sys, "AltOptCond"]
+            And @@ systemData[sys, "AltFlows"],
+            And @@ systemData[sys, "AltTransitionFlows"],
+            And @@ systemData[sys, "AltOptCond"]
         ];
         allVars = Select[
             Variables[(And[deterministicConstraints, activeConstraints] /. ruleExitVals) /. {Equal -> List, Or -> List, And -> List}],
@@ -432,13 +432,13 @@ buildSolverInputs[sys_?mfgSystemQ] :=
             And @@ Lookup[data, "EqEntryIn"],
             Lookup[data, "EqBalanceSplittingFlows"],
             Lookup[data, "EqBalanceGatheringFlows"],
-            Lookup[data, "EqGeneral"],
-            Lookup[data, "IneqJs"],
-            Lookup[data, "IneqJts"],
-            Lookup[data, "IneqSwitchingByVertex"],
-            Lookup[data, "AltFlows"],
-            Lookup[data, "AltTransitionFlows"],
-            Lookup[data, "AltOptCond"]
+            And @@ Lookup[data, "EqGeneral"],
+            And @@ Lookup[data, "IneqJs"],
+            And @@ Lookup[data, "IneqJts"],
+            And @@ Lookup[data, "IneqSwitchingByVertex"],
+            And @@ Lookup[data, "AltFlows"],
+            And @@ Lookup[data, "AltTransitionFlows"],
+            And @@ Lookup[data, "AltOptCond"]
         ];
         allVars = Select[
             Variables[(baseConstraints /. ruleExitVals) /. {Equal -> List, Or -> List, And -> List}],
@@ -1162,7 +1162,8 @@ extractLinearRules[equations_List, vars_List, existingRules_List] :=
     ];
 
 accumulateLinearRules[baseConstraints_, vars_List, initRules_List] :=
-    Module[{rulesAcc = normalizeRules[initRules], constraints, eqs, newRules, iter = 0, maxIter},
+    Module[{rulesAcc = normalizeRules[initRules], constraints, eqs, newRules,
+            prevAcc, deltaRules, iter = 0, maxIter},
         maxIter = Max[10, 2 Length[vars] + 5];
         constraints = baseConstraints /. rulesAcc;
         While[iter < maxIter,
@@ -1170,8 +1171,10 @@ accumulateLinearRules[baseConstraints_, vars_List, initRules_List] :=
             If[eqs === {}, Break[]];
             newRules = extractLinearRules[eqs, vars, rulesAcc];
             If[newRules === {}, Break[]];
+            prevAcc = rulesAcc;
             rulesAcc = normalizeRules[mergeRules[rulesAcc, newRules]];
-            constraints = baseConstraints /. rulesAcc;
+            deltaRules = Complement[rulesAcc, prevAcc];
+            constraints = constraints /. deltaRules;
             iter++
         ];
         {constraints, rulesAcc}
@@ -1341,13 +1344,13 @@ isValidSystemSolution[sys_?mfgSystemQ, sol_, OptionsPattern[]] :=
             "EqEntryIn"               -> (And @@ systemData[sys, "EqEntryIn"]),
             "EqBalanceSplittingFlows" -> systemData[sys, "EqBalanceSplittingFlows"],
             "EqBalanceGatheringFlows" -> systemData[sys, "EqBalanceGatheringFlows"],
-            "EqGeneral"               -> systemData[sys, "EqGeneral"],
-            "IneqJs"                  -> systemData[sys, "IneqJs"],
-            "IneqJts"                 -> systemData[sys, "IneqJts"],
-            "IneqSwitchingByVertex"   -> systemData[sys, "IneqSwitchingByVertex"],
-            "AltFlows"                -> systemData[sys, "AltFlows"],
-            "AltTransitionFlows"      -> systemData[sys, "AltTransitionFlows"],
-            "AltOptCond"              -> systemData[sys, "AltOptCond"]
+            "EqGeneral"               -> And @@ systemData[sys, "EqGeneral"],
+            "IneqJs"                  -> And @@ systemData[sys, "IneqJs"],
+            "IneqJts"                 -> And @@ systemData[sys, "IneqJts"],
+            "IneqSwitchingByVertex"   -> And @@ systemData[sys, "IneqSwitchingByVertex"],
+            "AltFlows"                -> And @@ systemData[sys, "AltFlows"],
+            "AltTransitionFlows"      -> And @@ systemData[sys, "AltTransitionFlows"],
+            "AltOptCond"              -> And @@ systemData[sys, "AltOptCond"]
         |>;
 
         blockResults = Association @ KeyValueMap[

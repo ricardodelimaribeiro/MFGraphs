@@ -17,8 +17,10 @@ returns a list of solutions. \
 solveScenario[..., solver] uses the specified solver function (e.g., reduceSystem).";
 
 SolveMFG::usage =
-"SolveMFG[assoc] provides backward compatibility for legacy raw-association \
-solving. It constructs a scenario and delegates to solveScenario.";
+"SolveMFG[s] solves a typed scenario object by delegating to solveScenario. \
+SolveMFG[assoc] provides backward compatibility for legacy raw-association \
+solving. It constructs a scenario and delegates to solveScenario. \
+SolveMFG[s, solver] or SolveMFG[assoc, solver] uses the specified solver function.";
 
 Begin["`Private`"];
 
@@ -34,14 +36,17 @@ solveScenario[s_?scenarioQ, solver_:dnfReduceSystem] :=
 solveScenario[scenarios_List, solver_:dnfReduceSystem] :=
     solveScenario[#, solver] & /@ scenarios;
 
-SolveMFG[assoc_Association] :=
+SolveMFG[s_?scenarioQ, solver_:dnfReduceSystem] :=
+    solveScenario[s, solver];
+
+SolveMFG[assoc_Association, solver_:dnfReduceSystem] :=
     Module[{s},
         s = makeScenario[assoc];
         If[FailureQ[s],
             Message[SolveMFG::invalid, s["Message"]];
             Return[s]
         ];
-        solveScenario[s]
+        solveScenario[s, solver]
     ];
 
 SolveMFG::invalid = "Legacy SolveMFG input failed scenario conversion: `1`";
