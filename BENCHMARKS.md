@@ -16,6 +16,27 @@ Legacy tiered benchmarks for `DataToEquations` / `CriticalCongestionSolver`
 are archived under `Scripts/archive/` and are not part of the default package
 workflow while those solver-era symbols remain unloaded.
 
+## Benchmark policy for solver-sensitive changes
+
+Any pull request that modifies solver logic, system construction, or preprocessing
+must include a before/after benchmark run using `--tag`:
+
+```bash
+# Before the change (on the base branch)
+wolframscript -file Scripts/BenchmarkSystemSolver.wls --tag "before: <description>" --timeout 60
+
+# After the change (on the feature branch)
+wolframscript -file Scripts/BenchmarkSystemSolver.wls --tag "after: <description>" --timeout 60
+```
+
+Include the resulting table rows from `BENCHMARKS.md` in the PR description.
+Regressions above ~25% on non-timeout cases require explanation before merge.
+
+Solver-sensitive pull requests must also include `ProfileScenarioKernel.wls` output
+for at least one easy case (e.g. `chain-3v-1exit`) and one hard case (e.g. `grid-3x2`
+or `example-12`). Record which phase absorbed the cost change: scenario build, unknowns,
+system construction, solver inputs, or solve.
+
 ## Running benchmarks
 
 ### Prerequisites
@@ -122,6 +143,26 @@ as `dnfReduceSystem`.
 
 DNF-first benchmark entries from `Scripts/BenchmarkSystemSolver.wls` are appended
 here when the script is run with `--tag`.
+
+### 2026-05-04 - issue6-list-storage
+
+**Commit:** `045db36`  
+**Environment:** local `wolframscript`, `$MFGraphsVerbose=False`  
+**Solver:** `dnf`  
+**Timeout per case:** 60s  
+**Solutions file:** `Results/system_solver_dnf_solutions_20260504-102432.wl`
+
+| Case | Solver | Build (ms) | Warmup (ms) | Repeat (ms) | Status | Kind | Transition flows | Residual Jts | Valid |
+|------|--------|-----------|------------|--------------|--------|------|------------------|--------------|-------|
+| chain-2v | dnf | 9.47 | 25.31 | 0.68 | OK | Rules | Unique | 0 | True |
+| chain-3v-1exit | dnf | 2.5 | 0.94 | 0.84 | OK | Rules | Unique | 0 | True |
+| chain-3v-2exit | dnf | 2.49 | 2.59 | 1.97 | OK | Rules | Unique | 0 | True |
+| example-7 | dnf | 4.08 | 4.32 | 4.02 | OK | Rules | Unique | 0 | True |
+| chain-5v-1exit | dnf | 3.75 | 1.62 | 1.45 | OK | Rules | Unique | 0 | True |
+| grid-2x3 | dnf | 11. | 628.09 | 576.54 | OK | Branched | Underdetermined | 1 | True |
+| grid-3x2 | dnf | 10.84 | 548.82 | 524.39 | OK | Branched | Unique | 0 | True |
+| example-12 | dnf | 5.37 | 312.77 | 285.24 | OK | Branched | Underdetermined | 1 | True |
+---
 
 ### 2026-04-30 — post-PR-168 baseline (dnf, 60s timeout)
 

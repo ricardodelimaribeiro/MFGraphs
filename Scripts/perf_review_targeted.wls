@@ -1,7 +1,7 @@
 #!/usr/bin/env wolframscript
 (* Usage: wolframscript -file Scripts/perf_review_targeted.wls *)
 
-$RepoRoot = "/Users/ribeirrd/Documents/GitHub/MFGraphs";
+$RepoRoot = FileNameJoin[{DirectoryName[$InputFileName], ".."}];
 PrependTo[$Path, $RepoRoot];
 Needs["MFGraphs`"];
 $MFGraphsVerbose = False;

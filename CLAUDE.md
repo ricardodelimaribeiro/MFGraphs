@@ -159,6 +159,14 @@ All public solver entrypoints share a common preprocessing pipeline (`buildSolve
 ### Core symbolic primitives
 - `j`, `u`, `z`, `alpha`, `Cost`
 
+### Symbol classification
+
+| Classification | Symbols |
+|---|---|
+| **Active** | All symbols listed in the subsections above (scenario kernel, examples, unknowns/system kernels, solver, orchestration, graphics) |
+| **Compatibility-only** | `SolveMFG[assoc_Association, ...]` — accepts legacy raw associations; delegates to `solveScenario` internally |
+| **Archived** (not loaded) | `DataToEquations`, `CriticalCongestionSolver`, `GetExampleData`, `ScenarioByKey` |
+
 ## Intentionally unavailable in this phase
 
 The following are currently not loaded from `MFGraphs.wl`:

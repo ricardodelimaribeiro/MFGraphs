@@ -51,3 +51,40 @@ Test[
     True,
     TestID -> "solveScenario: supports custom solver dnfReduceSystem"
 ]
+
+Test[
+    NameQ["orchestrationTools`SolveMFG"],
+    True,
+    TestID -> "Orchestration: SolveMFG exists"
+]
+
+Test[
+    Module[{s, solveScenarioResult, solveMFGResult},
+        s = getExampleScenario[3, {{1, 10}}, {{3, 0}}];
+        solveScenarioResult = TimeConstrained[solveScenario[s], 5, $TimedOut];
+        solveMFGResult = TimeConstrained[SolveMFG[s], 5, $TimedOut];
+        (ListQ[solveMFGResult] || AssociationQ[solveMFGResult]) &&
+        solutionResultKind[solveMFGResult] === solutionResultKind[solveScenarioResult]
+    ],
+    True,
+    TestID -> "SolveMFG: accepts typed scenario and produces same result kind as solveScenario"
+]
+
+Test[
+    Module[{rawAssoc, s, solveScenarioResult, solveMFGResult},
+        rawAssoc = <|"Model" -> <|
+            "Vertices" -> {1, 2, 3},
+            "Adjacency" -> {{0,1,0},{0,0,1},{0,0,0}},
+            "Entries" -> {{1, 10}},
+            "Exits" -> {{3, 0}},
+            "Switching" -> {}
+        |>|>;
+        s = makeScenario[rawAssoc];
+        solveScenarioResult = TimeConstrained[solveScenario[s], 5, $TimedOut];
+        solveMFGResult = TimeConstrained[SolveMFG[rawAssoc], 5, $TimedOut];
+        (ListQ[solveMFGResult] || AssociationQ[solveMFGResult]) &&
+        solutionResultKind[solveMFGResult] === solutionResultKind[solveScenarioResult]
+    ],
+    True,
+    TestID -> "SolveMFG: legacy association input still works after scenario dispatch added"
+]
