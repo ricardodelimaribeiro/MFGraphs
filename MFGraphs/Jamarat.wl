@@ -561,3 +561,29 @@ jamaratRun[]
 
 
 symJamarat=%[[2]]
+
+
+(* ::Subsubsection:: *)
+(*Simplified Jamarat end*)
+
+
+(* ::Text:: *)
+(*This is a shorter version of the Jamarat example for when the flows are at the last pillar. *)
+
+
+jamaratEnd=cycleScenario[5, {{1,100},{2,100}},{{3,0},{4,0},{5,0}}];
+
+
+makeSystem[jamaratEnd]
+
+
+AbsoluteTiming[jamaratEndSol=solveScenario[jamaratEnd];]
+
+
+jamaratEndSol
+
+
+Length[j["auxEntry1",1,2]>=0&&j["auxEntry1",1,5]>=0&&j[2,1,5]>=0&&j[5,1,2]>=0&&j["auxEntry2",2,3]>=0&&j["auxEntry2",2,1]>=0&&j[1,2,3]>=0&&j[3,2,1]>=0&&j[2,3,"auxExit3"]>=0&&j[2,3,4]>=0&&j[4,3,"auxExit3"]>=0&&j[4,3,2]>=0&&j[3,4,"auxExit4"]>=0&&j[3,4,5]>=0&&j[5,4,"auxExit4"]>=0&&j[5,4,3]>=0&&j[1,5,"auxExit5"]>=0&&j[1,5,4]>=0&&j[4,5,"auxExit5"]>=0&&j[4,5,1]>=0]
+
+
+Reduce[u[2,1]-u["auxEntry1",1]>=0&&u[5,1]-u["auxEntry1",1]>=0&&-u[2,1]+u[5,1]>=0&&u[2,1]-u[5,1]>=0&&u[3,2]-u["auxEntry2",2]>=0&&u[1,2]-u["auxEntry2",2]>=0&&-u[1,2]+u[3,2]>=0&&u[1,2]-u[3,2]>=0&&-u[2,3]+u["auxExit3",3]>=0&&-u[2,3]+u[4,3]>=0&&-u[4,3]+u["auxExit3",3]>=0&&u[2,3]-u[4,3]>=0&&-u[3,4]+u["auxExit4",4]>=0&&-u[3,4]+u[5,4]>=0&&-u[5,4]+u["auxExit4",4]>=0&&u[3,4]-u[5,4]>=0&&-u[1,5]+u["auxExit5",5]>=0&&-u[1,5]+u[4,5]>=0&&-u[4,5]+u["auxExit5",5]>=0&&u[1,5]-u[4,5]>=0,Reals]
