@@ -50,7 +50,9 @@ the provided scenario and exact symbolic unknown bundle. makeSystem[s_scenario] 
 automatically derives symbolicUnknowns using makeSymbolicUnknowns[s].";
 
 buildBoundaryData::usage =
-"buildBoundaryData[s, topology] builds typed boundary equations, boundary value rules, and entry/exit metadata.";
+"buildBoundaryData[s, topology] builds typed boundary equations, entry rules, exit inequalities, and \
+entry/exit metadata. IneqExitValues stores upper-bound inequalities u[auxExit,N]<=cost for each exit; \
+AltExitCond stores the complementarity conditions j[N,auxExit]==0||u[auxExit,N]==cost.";
 
 buildFlowData::usage =
 "buildFlowData[s, topology, unk] builds typed flow-balance equations and non-negativity constraints.";
@@ -226,7 +228,8 @@ systemDataFlatten[sys_] :=
 buildBoundaryData[s_?scenarioQ, topology_Association] :=
     Module[{model, entryVerticesFlows, exitVerticesCosts, inAuxEntryPairs,
          outAuxExitPairs, entryDataAssoc,
-         exitCosts, eqEntryIn, ruleEntryIn, ruleEntryOut, ruleExitFlowsIn, ruleExitValues,
+         exitCosts, eqEntryIn, ruleEntryIn, ruleEntryOut,
+         ineqExitValues, altExitCond,
          auxExitVertices, entryValues, exitValues},
         model = scenarioData[s, "Model"];
         entryVerticesFlows = model["Entries"];
@@ -243,12 +246,13 @@ buildBoundaryData[s_?scenarioQ, topology_Association] :=
         entryDataAssoc = AssociationThread[inAuxEntryPairs, entryValues];
         exitCosts      = AssociationThread[auxExitVertices, exitValues];
 
-        eqEntryIn      = (j @@ # == entryDataAssoc[#])& /@ inAuxEntryPairs;
-        ruleEntryIn    = AssociationThread[j @@@ inAuxEntryPairs, entryValues];
-        ruleEntryOut   = <||>;
-        ruleExitFlowsIn = <||>;
+        eqEntryIn   = (j @@ # == entryDataAssoc[#])& /@ inAuxEntryPairs;
+        ruleEntryIn = AssociationThread[j @@@ inAuxEntryPairs, entryValues];
+        ruleEntryOut = <||>;
 
-        ruleExitValues = AssociationThread[u @@@ (Reverse /@ outAuxExitPairs), exitValues];
+        ineqExitValues = MapThread[(u @@ Reverse[#1]) <= #2 &, {outAuxExitPairs, exitValues}];
+        altExitCond    = MapThread[(j @@ #1 == 0) || ((u @@ Reverse[#1]) == #2) &,
+                             {outAuxExitPairs, exitValues}];
 
         mfgBoundaryData @ <|
             "EntryDataAssociation" -> entryDataAssoc,
@@ -256,8 +260,8 @@ buildBoundaryData[s_?scenarioQ, topology_Association] :=
             "EqEntryIn"            -> eqEntryIn,
             "RuleEntryIn"          -> ruleEntryIn,
             "RuleEntryOut"         -> ruleEntryOut,
-            "RuleExitFlowsIn"      -> ruleExitFlowsIn,
-            "RuleExitValues"       -> ruleExitValues
+            "IneqExitValues"       -> ineqExitValues,
+            "AltExitCond"          -> altExitCond
         |>
     ];
 
@@ -473,26 +477,24 @@ buildHamiltonianData[s_?scenarioQ, topology_Association, flowData_mfgFlowData] :
 
 getKirchhoffLinearSystem[sys_] :=
     Module[{kirchhoff, eqEntryIn, balanceGatheringFlows, balanceSplittingFlows,
-         ruleEntryIn, ruleExitFlowsIn, ruleEntryOut, bm, km, vars},
+         ruleEntryIn, ruleEntryOut, bm, km, vars},
         eqEntryIn            = systemData[sys, "EqEntryIn"];
         balanceGatheringFlows = systemData[sys, "BalanceGatheringFlows"];
         balanceSplittingFlows = systemData[sys, "BalanceSplittingFlows"];
         ruleEntryIn          = systemData[sys, "RuleEntryIn"];
-        ruleExitFlowsIn      = systemData[sys, "RuleExitFlowsIn"];
         ruleEntryOut         = systemData[sys, "RuleEntryOut"];
 
         If[MissingQ[eqEntryIn],            eqEntryIn = True];
         If[MissingQ[balanceGatheringFlows], balanceGatheringFlows = {}];
         If[MissingQ[balanceSplittingFlows], balanceSplittingFlows = {}];
         If[MissingQ[ruleEntryIn],          ruleEntryIn = <||>];
-        If[MissingQ[ruleExitFlowsIn],      ruleExitFlowsIn = <||>];
         If[MissingQ[ruleEntryOut],         ruleEntryOut = <||>];
 
         kirchhoff = Join[
             If[Head[eqEntryIn] === List, eqEntryIn, {eqEntryIn}],
             (# == 0& /@ Join[balanceGatheringFlows, balanceSplittingFlows])
         ];
-        kirchhoff = kirchhoff /. Join[Normal[ruleEntryIn], Normal[ruleExitFlowsIn], Normal[ruleEntryOut]];
+        kirchhoff = kirchhoff /. Join[Normal[ruleEntryIn], Normal[ruleEntryOut]];
         kirchhoff = DeleteCases[kirchhoff, True];
         kirchhoff = Replace[kirchhoff, False -> (0 == 1), {1}];
 

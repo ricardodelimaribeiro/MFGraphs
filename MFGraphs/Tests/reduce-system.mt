@@ -22,7 +22,8 @@ Test[
         data = systemDataFlatten[sys];
         AssociationQ[data] &&
         KeyExistsQ[data, "EqGeneral"] &&
-        KeyExistsQ[data, "RuleExitValues"] &&
+        KeyExistsQ[data, "IneqExitValues"] &&
+        KeyExistsQ[data, "AltExitCond"] &&
         KeyExistsQ[data, "AltOptCond"] &&
         !KeyExistsQ[data, "BoundaryData"] &&
         !KeyExistsQ[data, "FlowData"]
@@ -69,7 +70,7 @@ Test[
         s = gridScenario[{3}, {{1, 120.0}}, {{2, 0.0}, {3, 10.0}}];
         sys = makeSystem[s];
         entryVals = Values @ Normal @ systemData[sys, "RuleEntryIn"];
-        exitVals = Values @ Normal @ systemData[sys, "RuleExitValues"];
+        exitVals = Cases[systemData[sys, "IneqExitValues"], HoldPattern[_ <= v_] :> v];
         FreeQ[Join[entryVals, exitVals], _Real]
     ],
     True,
@@ -77,17 +78,19 @@ Test[
 ]
 
 Test[
-    Module[{s, sys, exitRules},
+    Module[{s, sys, exitIneqs, altExit},
         s = gridScenario[{3}, {{1, 120.0}}, {{2, 0.0}, {3, 10.0}}];
         sys = makeSystem[s];
-        exitRules = systemData[sys, "RuleExitValues"];
-        KeyExistsQ[exitRules, u["auxExit2", 2]] &&
-        KeyExistsQ[exitRules, u["auxExit3", 3]] &&
-        !KeyExistsQ[exitRules, u[2, "auxExit2"]] &&
-        !KeyExistsQ[exitRules, u[3, "auxExit3"]]
+        exitIneqs = systemData[sys, "IneqExitValues"];
+        altExit   = systemData[sys, "AltExitCond"];
+        MemberQ[exitIneqs, u["auxExit2", 2] <= 0] &&
+        MemberQ[exitIneqs, u["auxExit3", 3] <= 10] &&
+        !MemberQ[exitIneqs, u[2, "auxExit2"] <= _] &&
+        MemberQ[altExit, (j[2, "auxExit2"] == 0) || (u["auxExit2", 2] == 0)] &&
+        MemberQ[altExit, (j[3, "auxExit3"] == 0) || (u["auxExit3", 3] == 10)]
     ],
     True,
-    TestID -> "reduceSystem: RuleExitValues use u[auxExit, vertex] orientation"
+    TestID -> "reduceSystem: IneqExitValues and AltExitCond use u[auxExit, vertex] orientation"
 ]
 
 Test[
@@ -664,7 +667,7 @@ Test[
         s = getExampleScenario[12, {{1, 100.0}}, {{4, 0.0}}];
         sys = makeSystem[s];
         result = activeSetReduceSystem[sys];
-        AssociationQ[result] && isValidSystemSolution[sys, result]
+        !FailureQ[result] && isValidSystemSolution[sys, result]
     ],
     True,
     TestID -> "activeSetReduceSystem: example-12 remains valid"

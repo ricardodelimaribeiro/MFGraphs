@@ -244,13 +244,16 @@ optimizedDNFReduceSystem[sys_?mfgSystemQ] :=
     ];
 
 activeSetReduceSystem[sys_?mfgSystemQ] :=
-    Module[{ruleExitVals, deterministicConstraints, activeConstraints, allVars,
+    Module[{initRules, deterministicConstraints, activeConstraints, allVars,
             detReduced, rulesAcc, activeReduced, result, branches},
         If[!criticalCongestionSystemQ[sys],
             Message[activeSetReduceSystem::noncritical];
             Return[Failure["activeSetReduceSystem", <|"Message" -> "activeSetReduceSystem supports only critical congestion systems with Alpha == 1 on every edge."|>], Module]
         ];
-        ruleExitVals = Normal @ systemData[sys, "RuleExitValues"];
+        initRules = Join[
+            Normal @ With[{v = systemData[sys, "RuleBalanceGatheringFlows"]}, If[AssociationQ[v], v, <||>]],
+            With[{v = systemData[sys, "ZeroSwitchUEqualities"]}, If[ListQ[v], v, {}]]
+        ];
         deterministicConstraints = And[
             And @@ systemData[sys, "EqEntryIn"],
             systemData[sys, "EqBalanceSplittingFlows"],
@@ -258,18 +261,20 @@ activeSetReduceSystem[sys_?mfgSystemQ] :=
             And @@ systemData[sys, "EqGeneral"],
             And @@ systemData[sys, "IneqJs"],
             And @@ systemData[sys, "IneqJts"],
-            And @@ systemData[sys, "IneqSwitchingByVertex"]
+            And @@ systemData[sys, "IneqSwitchingByVertex"],
+            And @@ systemData[sys, "IneqExitValues"]
         ];
         activeConstraints = And[
             And @@ systemData[sys, "AltFlows"],
             And @@ systemData[sys, "AltTransitionFlows"],
-            And @@ systemData[sys, "AltOptCond"]
+            And @@ systemData[sys, "AltOptCond"],
+            And @@ systemData[sys, "AltExitCond"]
         ];
         allVars = Select[
-            Variables[(And[deterministicConstraints, activeConstraints] /. ruleExitVals) /. {Equal -> List, Or -> List, And -> List}],
+            Variables[(And[deterministicConstraints, activeConstraints] /. initRules) /. {Equal -> List, Or -> List, And -> List}],
             trackedVarQ
         ];
-        {detReduced, rulesAcc} = accumulateLinearRules[deterministicConstraints, allVars, ruleExitVals];
+        {detReduced, rulesAcc} = accumulateLinearRules[deterministicConstraints, allVars, initRules];
         activeReduced = activeConstraints /. rulesAcc;
         allVars = Select[
             Variables[And[detReduced, activeReduced] /. {Equal -> List, Or -> List, And -> List}],
@@ -559,13 +564,17 @@ solutionBranchCostReport[sys_?mfgSystemQ, sol_] :=
     ];
 
 buildSolverInputs[sys_?mfgSystemQ] :=
-    Module[{data, ruleExitVals, baseConstraints, allVars, constraints, rulesAcc},
+    Module[{data, initRules, baseConstraints, allVars, constraints, rulesAcc},
         data = systemDataFlatten[sys];
-        ruleExitVals = Normal @ Lookup[data, "RuleExitValues"];
-        (* Zero-cost symmetric triple pairs force u-equalities by antisymmetry of >=.
-           Injecting them here applies the substitution to all constraints uniformly
-           before the DNF stage, rather than only partially at construction time. *)
-        ruleExitVals = Join[ruleExitVals, Lookup[data, "ZeroSwitchUEqualities", {}]];
+        (* Seed with two rule families before the DNF stage:
+           1. RuleBalanceGatheringFlows: j[a,b] -> Sum j[a,b,c] eliminates all
+              non-transition edge flows upfront so residuals are j[a,b,c]-only.
+           2. ZeroSwitchUEqualities: zero-cost symmetric triple pairs force
+              u-equalities by antisymmetry of >=; applied uniformly here. *)
+        initRules = Join[
+            Normal @ Lookup[data, "RuleBalanceGatheringFlows", <||>],
+            Lookup[data, "ZeroSwitchUEqualities", {}]
+        ];
         baseConstraints = And[
             And @@ Lookup[data, "EqEntryIn"],
             Lookup[data, "EqBalanceSplittingFlows"],
@@ -574,15 +583,17 @@ buildSolverInputs[sys_?mfgSystemQ] :=
             And @@ Lookup[data, "IneqJs"],
             And @@ Lookup[data, "IneqJts"],
             And @@ Lookup[data, "IneqSwitchingByVertex"],
+            And @@ Lookup[data, "IneqExitValues"],
             And @@ Lookup[data, "AltFlows"],
             And @@ Lookup[data, "AltTransitionFlows"],
-            And @@ Lookup[data, "AltOptCond"]
+            And @@ Lookup[data, "AltOptCond"],
+            And @@ Lookup[data, "AltExitCond"]
         ];
         allVars = Select[
-            Variables[(baseConstraints /. ruleExitVals) /. {Equal -> List, Or -> List, And -> List}],
+            Variables[(baseConstraints /. initRules) /. {Equal -> List, Or -> List, And -> List}],
             trackedVarQ
         ];
-        {constraints, rulesAcc} = accumulateLinearRules[baseConstraints, allVars, ruleExitVals];
+        {constraints, rulesAcc} = accumulateLinearRules[baseConstraints, allVars, initRules];
         allVars = Select[
             Variables[constraints /. {Equal -> List, Or -> List, And -> List}],
             trackedVarQ
@@ -1539,7 +1550,7 @@ Options[isValidSystemSolution] = {
 };
 
 isValidSystemSolution[sys_?mfgSystemQ, sol_, OptionsPattern[]] :=
-    Module[{tol, returnReportQ, kind, rules, ruleExitVals,
+    Module[{tol, returnReportQ, kind, rules,
             blocks, blockResults, concretelyFailed, overall, report},
         tol          = OptionValue["Tolerance"];
         returnReportQ = TrueQ[OptionValue["ReturnReport"]];
@@ -1553,8 +1564,7 @@ isValidSystemSolution[sys_?mfgSystemQ, sol_, OptionsPattern[]] :=
                 False], Module]
         ];
 
-        rules        = If[ListQ[sol], sol, Lookup[sol, "Rules", {}]];
-        ruleExitVals = Normal @ systemData[sys, "RuleExitValues"];
+        rules = If[ListQ[sol], sol, Lookup[sol, "Rules", {}]];
 
         (* For residual-bearing results: fail fast if residual equations are inconsistent. *)
         If[AssociationQ[sol],
@@ -1576,13 +1586,17 @@ isValidSystemSolution[sys_?mfgSystemQ, sol_, OptionsPattern[]] :=
             "IneqJs"                  -> And @@ systemData[sys, "IneqJs"],
             "IneqJts"                 -> And @@ systemData[sys, "IneqJts"],
             "IneqSwitchingByVertex"   -> And @@ systemData[sys, "IneqSwitchingByVertex"],
+            "IneqExitValues"          -> With[{v = systemData[sys, "IneqExitValues"]},
+                                            If[ListQ[v] && v =!= {}, And @@ v, True]],
             "AltFlows"                -> And @@ systemData[sys, "AltFlows"],
             "AltTransitionFlows"      -> And @@ systemData[sys, "AltTransitionFlows"],
-            "AltOptCond"              -> And @@ systemData[sys, "AltOptCond"]
+            "AltOptCond"              -> And @@ systemData[sys, "AltOptCond"],
+            "AltExitCond"             -> With[{v = systemData[sys, "AltExitCond"]},
+                                            If[ListQ[v] && v =!= {}, And @@ v, True]]
         |>;
 
         blockResults = Association @ KeyValueMap[
-            #1 -> checkBlock[#2 /. ruleExitVals /. rules, tol] &,
+            #1 -> checkBlock[#2 /. rules, tol] &,
             blocks
         ];
 
@@ -1727,10 +1741,9 @@ sysToEqsInternal[sys_] :=
             "Entrance Vertices and Flows" -> systemData[sys, "Entries"],
             "Exit Vertices and Terminal Costs" -> systemData[sys, "Exits"],
             "SwitchingCosts" -> systemData[sys, "SwitchingCosts"],
-            "RuleEntryOut" -> Lookup[data, "RuleEntryOut", <||>],
-            "RuleExitFlowsIn" -> Lookup[data, "RuleExitFlowsIn", <||>],
             "RuleEntryValues" -> Lookup[data, "RuleEntryValues", <||>],
-            "RuleExitValues" -> Lookup[data, "RuleExitValues", <||>],
+            "IneqExitValues" -> Lookup[data, "IneqExitValues", {}],
+            "AltExitCond"    -> Lookup[data, "AltExitCond", {}],
             "RuleBalanceGatheringFlows" -> Lookup[data, "RuleBalanceGatheringFlows", <||>],
             "EqGeneral" -> Lookup[data, "EqGeneral", True],
             "EqEntryIn" -> Lookup[data, "EqEntryIn", True],
@@ -1783,10 +1796,9 @@ directCriticalSolverInternal[Eqs_] :=
             Lookup[Eqs, "EqBalanceSplittingFlows", True],
             Lookup[Eqs, "EqBalanceGatheringFlows", True],
             Lookup[Eqs, "EqValueAuxiliaryEdges", True],
-            KeyValueMap[Equal, Lookup[Eqs, "RuleExitValues", <||>]],
             KeyValueMap[Equal, Lookup[Eqs, "RuleEntryValues", <||>]],
-            Equal @@@ Normal[Lookup[Eqs, "RuleEntryOut", <||>]],
-            Equal @@@ Normal[Lookup[Eqs, "RuleExitFlowsIn", <||>]],
+            Lookup[Eqs, "IneqExitValues", {}],
+            Lookup[Eqs, "AltExitCond", {}],
             Equal @@@ Normal[Lookup[Eqs, "RuleBalanceGatheringFlows", <||>]],
             Equal[#, 0] & /@ Keys[zeroRules],
             Module[{byVertex = GroupBy[auxPairs, Last]},
@@ -1829,7 +1841,8 @@ SolveCriticalJFirstBackend[Eqs_, numericState_] :=
             Lookup[Eqs, "AltFlows", True],
             Lookup[Eqs, "AltTransitionFlows", True],
             Lookup[Eqs, "AltOptCond", True],
-            KeyValueMap[Equal, Lookup[Eqs, "RuleExitValues", <||>]],
+            Lookup[Eqs, "IneqExitValues", {}],
+            Lookup[Eqs, "AltExitCond", {}],
             KeyValueMap[Equal, Lookup[Eqs, "RuleEntryValues", <||>]]
         }];
         
