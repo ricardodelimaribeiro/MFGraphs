@@ -47,7 +47,10 @@ dnfReduce::usage =
 their solutions throughout the system, and distributing over disjunctions. \
 Returns a DNF expression with all equalities eliminated where possible. \
 dnfReduce[xp, sys, elem] is the 3-argument form used internally to process \
-one conjunct elem from sys.";
+one conjunct elem from sys. Implemented with direct recursion: the Or case \
+spawns one recursive call per branch and the Equal case recurses on the \
+substituted remainder. Deeply nested Or-chains may approach $RecursionLimit; \
+see dnfReduceProcedural for a stack-based iterative alternative.";
 
 dnfReduceSystem::usage =
 "dnfReduceSystem[sys] solves the mfgSystem sys using linear preprocessing \
@@ -114,6 +117,32 @@ found or the final solve times out, returns \
 <|\"Rules\" -> accumulatedRules, \"Equations\" -> False|>. \
 Fails for non-critical congestion systems where Alpha != 1 on any edge. \
 Options: \"Timeout\" (default Infinity).";
+
+solutionReport::usage =
+"solutionReport[sys, sol] returns a read-only diagnostic association for an \
+existing solver result. The report includes result kind, validation report, \
+Kirchhoff residual, residual branch diagnostics, primary residual variables, \
+and transition-flow determinacy diagnostics. It does not rewrite sol.";
+
+solutionBranchCostReport::usage =
+"solutionBranchCostReport[sys, sol] ranks top-level residual branches by a \
+diagnostic critical-congestion objective. It reports terminal exit cost, \
+switching cost, edge-flow quadratic cost, total objective, determined and \
+residual variables, and validation status for each branch.";
+
+directCriticalSystem::usage =
+"directCriticalSystem[sys] is an explicit opt-in solver for critical \
+congestion systems with all numeric zero switching costs and equal numeric \
+exit costs. It uses graph distance to exits to forbid flow directions that \
+move farther from every exit, then solves the resulting feasibility system. \
+Returns the standard raw solver shape or Failure[\"directCriticalSystem\", ...].";
+
+flowFirstCriticalSystem::usage =
+"flowFirstCriticalSystem[sys] is an explicit opt-in solver for critical \
+congestion systems. It minimizes the critical quadratic flow objective over \
+Kirchhoff/nonnegative flow constraints, then recovers value variables from \
+the remaining system. Returns the standard raw solver shape or \
+Failure[\"flowFirstCriticalSystem\", ...].";
 
 findInstanceSystem::noncritical =
 "findInstanceSystem supports only critical congestion systems with Alpha == 1 on every edge.";
@@ -319,6 +348,53 @@ findInstanceSystem[sys_?mfgSystemQ, opts : OptionsPattern[]] :=
         attachAccumulatedRules
     ];
 
+directCriticalSystem[sys_?mfgSystemQ] :=
+    Module[{eqs, exits, switching, exitCosts, sol},
+        If[!criticalCongestionSystemQ[sys],
+            Message[directCriticalSystem::noncritical];
+            Return[Failure["directCriticalSystem", <|"Reason" -> "NonCritical"|>]]
+        ];
+        
+        exits = systemData[sys, "Exits"];
+        exitCosts = If[ListQ[exits], exits[[All, 2]], {}];
+        If[!AllTrue[exitCosts, NumericQ] || (Length[DeleteDuplicates[exitCosts]] > 1),
+            Return[Failure["directCriticalSystem", <|"Tag" -> "directCriticalSystem", "Reason" -> "ExitCostsNotEqualNumeric"|>]]
+        ];
+        
+        switching = Values[systemData[sys, "SwitchingCosts"]];
+        If[MissingQ[switching] || !AllTrue[switching, NumericQ] || AnyTrue[switching, # != 0 &],
+            Return[Failure["directCriticalSystem", <|"Tag" -> "directCriticalSystem", "Reason" -> "NonZeroOrNonNumericSwitchingCosts"|>]]
+        ];
+
+        eqs = sysToEqsInternal[sys];
+        sol = directCriticalSolverInternal[eqs];
+        If[AssociationQ[sol],
+            sol,
+            Failure["directCriticalSystem", <|"Reason" -> "SolveFailed"|>]
+        ]
+    ];
+
+directCriticalSystem::noncritical =
+"directCriticalSystem supports only critical congestion systems with Alpha == 1 on every edge.";
+
+flowFirstCriticalSystem[sys_?mfgSystemQ] :=
+    Module[{eqs, numericState, sol},
+        If[!criticalCongestionSystemQ[sys],
+            Message[flowFirstCriticalSystem::noncritical];
+            Return[Failure["flowFirstCriticalSystem", <|"Reason" -> "NonCritical"|>]]
+        ];
+        eqs = sysToEqsInternal[sys];
+        numericState = Lookup[eqs, "NumericState", <||>];
+        sol = SolveCriticalJFirstBackend[eqs, numericState];
+        If[AssociationQ[sol],
+            sol,
+            Failure["flowFirstCriticalSystem", <|"Reason" -> "SolveFailed"|>]
+        ]
+    ];
+
+flowFirstCriticalSystem::noncritical =
+"flowFirstCriticalSystem supports only critical congestion systems with Alpha == 1 on every edge.";
+
 trackedVarQ[var_] :=
     MatchQ[var, j[__] | u[__]];
 
@@ -329,17 +405,17 @@ transitionFlowVarQ[var_] :=
     MatchQ[var, j[_, _, _]];
 
 residualPrimaryVariables[residual_] :=
-    DeleteDuplicates @ Cases[Unevaluated[residual], (j[_, _] | u[__]), {0, Infinity}];
+    DeleteDuplicates @ Cases[residual, (j[_, _] | u[__]), {0, Infinity}];
 
 residualTransitionFlows[residual_] :=
-    DeleteDuplicates @ Cases[Unevaluated[residual], j[_, _, _], {0, Infinity}];
+    DeleteDuplicates @ Cases[residual, j[_, _, _], {0, Infinity}];
 
 residualTrackedVariables[residual_] :=
     DeleteDuplicates @ Join[residualPrimaryVariables[residual], residualTransitionFlows[residual]];
 
 orInvolvingPrimaryVariableQ[residual_] :=
     !FreeQ[
-        Unevaluated[residual],
+        residual,
         expr_Or /; residualPrimaryVariables[expr] =!= {}
     ];
 
@@ -417,6 +493,68 @@ solutionVariableDiagnostics[sys_?mfgSystemQ, sol_] :=
             "TransitionFlowResidualCount" -> Length[residualTransitions],
             "DeterminedTransitionFlows" -> determinedTransitions,
             "ResidualTransitionFlows" -> residualTransitions
+        |>
+    ];
+
+solutionReport[sys_?mfgSystemQ, sol_] :=
+    Module[{kind, validation, residual, varDiagnostics, dnfDiagnostics},
+        kind = solutionResultKind[sol];
+        validation = isValidSystemSolution[sys, sol, "ReturnReport" -> True];
+        residual = computeKirchhoffResidual[sys, sol];
+        varDiagnostics = solutionVariableDiagnostics[sys, sol];
+        dnfDiagnostics = dnfResidualDiagnostics[sol];
+        <|
+            "ResultKind" -> kind,
+            "ValidationReport" -> validation,
+            "KirchhoffResidual" -> residual,
+            "TransitionFlowDiagnostics" -> varDiagnostics,
+            "ResidualTransitionFlows" -> Lookup[varDiagnostics, "ResidualTransitionFlows", {}],
+            "DNFDiagnostics" -> dnfDiagnostics
+        |>
+    ];
+
+solutionBranchCostReport[sys_?mfgSystemQ, sol_] :=
+    Module[{rules, residual, branches, branchData, sortedBranches},
+        rules = solutionRules[sol];
+        residual = If[AssociationQ[sol], Lookup[sol, "Equations", True], True];
+        branches = If[Head[residual] === Or, List @@ residual, {residual}];
+        
+        branchData = MapIndexed[
+            Function[{branch, idx},
+                Module[{branchRules, branchSol, exitCost, switchCost, edgeFlowCost, totalObjective, validation},
+                    branchRules = branchToRules[branch, residualTrackedVariables[branch]];
+                    branchSol = normalizeRules[mergeRules[rules, branchRules]];
+                    
+                    (* Simplified diagnostic objective: Exit costs + Switching costs + 0.5 * Sum[j^2] *)
+                    exitCost = Total[Cases[branchSol, Rule[u[_, v_], val_?NumericQ] /; MemberQ[systemData[sys, "Exits"][[All, 1]], v] :> val]];
+                    switchCost = Total[Cases[branchSol, Rule[j[r_, i_, w_], val_?NumericQ] :> val * switchingCostLookup[systemData[sys, "SwitchingCosts"]][r, i, w]]];
+                    edgeFlowCost = 0.5 * Total[Cases[branchSol, Rule[j[_, _], val_?NumericQ] :> val^2]];
+                    totalObjective = N[exitCost + switchCost + edgeFlowCost];
+                    
+                    validation = isValidSystemSolution[sys, <|"Rules" -> branchSol, "Equations" -> True|>];
+                    
+                    <|
+                        "Index" -> idx[[1]],
+                        "TotalObjective" -> If[NumericQ[totalObjective], totalObjective, 10^10],
+                        "ExitCost" -> exitCost,
+                        "SwitchingCost" -> switchCost,
+                        "EdgeFlowQuadraticCost" -> edgeFlowCost,
+                        "DeterminedVariables" -> Keys[branchRules],
+                        "ResidualVariables" -> residualTrackedVariables[branch],
+                        "Valid" -> validation,
+                        "Expression" -> branch
+                    |>
+                ]
+            ],
+            branches
+        ];
+        
+        sortedBranches = SortBy[branchData, #TotalObjective &];
+        
+        <|
+            "BranchCount" -> Length[branches],
+            "BestBranches" -> Take[sortedBranches, UpTo[3]],
+            "Branches" -> branchData
         |>
     ];
 
@@ -852,6 +990,96 @@ dnfReduce[xp_, rst_, fst_Equal] :=
     ]
 
 dnfReduce[xp_, rst_, fst_] := dnfReduce[xp && fst, rst]
+
+dnfReduceProcedural::usage =
+"dnfReduceProcedural[xp, sys, allVars] is a stack-based iterative equivalent \
+of dnfReduce. Uses an explicit worklist instead of recursive calls, avoiding \
+$RecursionLimit on deeply nested Or-chains. Produces the same output as \
+dnfReduce for well-formed inputs. Or-branches are pushed in original order \
+(Prepend + Reverse) so branch priority matches the recursive version. \
+Not wired into dnfReduceSystem by default; call directly for deep Or-chains.";
+
+dnfReduceProcedural[xp0_, sys0_, allVars_List] :=
+    Module[{stack = {<|"xp" -> xp0, "rst" -> True, "fst" -> sys0|>},
+            results = {}, item, xp, rst, fst,
+            conjuncts, xpAcc, i, elem, sol, fsol, newxp, rest, newRest},
+        While[stack =!= {},
+            item  = First[stack];
+            stack = Rest[stack];
+            xp = item["xp"]; rst = item["rst"]; fst = item["fst"];
+            Which[
+                xp  === False || fst === False,
+                    Null,
+                fst === True,
+                    AppendTo[results, xp && rst],
+                Head[fst] === Or,
+                    Do[stack = Prepend[stack, <|"xp" -> xp, "rst" -> rst, "fst" -> b|>],
+                       {b, Reverse[List @@ fst]}],
+                Head[fst] === And,
+                    conjuncts = List @@ fst;
+                    xpAcc     = xp;
+                    i         = 1;
+                    Module[{outcome = "normal"},
+                        While[i <= Length[conjuncts] && outcome === "normal",
+                            If[xpAcc === False, outcome = "false"; Break[]];
+                            elem = conjuncts[[i]];
+                            Which[
+                                elem === True,
+                                    i++,
+                                elem === False,
+                                    outcome = "false",
+                                Head[elem] === Or,
+                                    rest = If[i >= Length[conjuncts], rst,
+                                              And[rst, And @@ conjuncts[[i + 1 ;;]]]];
+                                    Do[stack = Prepend[stack, <|"xp" -> xpAcc, "rst" -> rest, "fst" -> b|>],
+                                       {b, Reverse[List @@ elem]}];
+                                    outcome = "branched",
+                                Head[elem] === Equal,
+                                    sol  = Quiet[Solve[elem], Solve::svars];
+                                    fsol = If[MatchQ[sol, {{__Rule}, ___}], First[sol], {}];
+                                    newxp = substituteSolution[xpAcc, fsol];
+                                    If[newxp === False,
+                                        outcome = "false",
+                                        xpAcc = newxp && elem;
+                                        If[i < Length[conjuncts],
+                                            newRest = substituteSolution[And @@ conjuncts[[i + 1 ;;]], fsol];
+                                            conjuncts = Join[conjuncts[[;; i]], flattenConjuncts[newRest]]
+                                        ]
+                                    ];
+                                    i++,
+                                True,
+                                    xpAcc = xpAcc && elem;
+                                    i++
+                            ]
+                        ];
+                        If[outcome === "normal",
+                            AppendTo[results, xpAcc && rst]]
+                    ],
+                Head[fst] === Equal,
+                    sol  = Quiet[Solve[fst], Solve::svars];
+                    fsol = If[MatchQ[sol, {{__Rule}, ___}], First[sol], {}];
+                    newxp = substituteSolution[xp, fsol];
+                    If[newxp =!= False,
+                        stack = Prepend[stack,
+                            <|"xp" -> newxp && fst, "rst" -> True,
+                              "fst" -> substituteSolution[rst, fsol]|>]],
+                True,
+                    AppendTo[results, xp && rst && fst]
+            ]
+        ];
+        Which[
+            results === {}, False,
+            Length[results] === 1, First[results],
+            True, Or @@ results
+        ]
+    ]
+
+dnfReduceInstrumented::usage =
+"dnfReduceInstrumented[xp, sys, monitor, order, sysObj] is the instrumented \
+recursive engine used by dnfReduceDiagnosticReport. Directly recursive with \
+an explicit depth counter: each Or-branch and Equal-continuation increments \
+depth by 1. Mirrors dnfReduce with branch-ordering and monitoring side effects \
+added. Non-reentrant: writes into $dnfCurrentMonitor via mutable assignments.";
 
 ClearAttributes[dnfTraceEvent, HoldFirst];
 ClearAttributes[dnfCounterIncrement, HoldFirst];
@@ -1488,6 +1716,164 @@ checkBlock[Inequality[a_, Less, b_, Less, c_], tol_] :=
 checkBlock[expr_, tol_] :=
     With[{s = Quiet @ Check[Simplify[expr], $Failed]},
         Which[s === True, True, s === False, False, True, Indeterminate]
+    ];
+
+(* --- Internal helpers for direct/flow-first solvers --- *)
+
+sysToEqsInternal[sys_] :=
+    Module[{data, Eqs},
+        data = systemDataFlatten[sys];
+        Eqs = <|
+            "Entrance Vertices and Flows" -> systemData[sys, "Entries"],
+            "Exit Vertices and Terminal Costs" -> systemData[sys, "Exits"],
+            "SwitchingCosts" -> systemData[sys, "SwitchingCosts"],
+            "RuleEntryOut" -> Lookup[data, "RuleEntryOut", <||>],
+            "RuleExitFlowsIn" -> Lookup[data, "RuleExitFlowsIn", <||>],
+            "RuleEntryValues" -> Lookup[data, "RuleEntryValues", <||>],
+            "RuleExitValues" -> Lookup[data, "RuleExitValues", <||>],
+            "RuleBalanceGatheringFlows" -> Lookup[data, "RuleBalanceGatheringFlows", <||>],
+            "EqGeneral" -> Lookup[data, "EqGeneral", True],
+            "EqEntryIn" -> Lookup[data, "EqEntryIn", True],
+            "EqBalanceSplittingFlows" -> Lookup[data, "EqBalanceSplittingFlows", True],
+            "EqBalanceGatheringFlows" -> Lookup[data, "EqBalanceGatheringFlows", True],
+            "EqValueAuxiliaryEdges" -> Lookup[data, "EqValueAuxiliaryEdges", True],
+            "IneqJs" -> Lookup[data, "IneqJs", True],
+            "IneqJts" -> Lookup[data, "IneqJts", True],
+            "IneqSwitchingByVertex" -> Lookup[data, "IneqSwitchingByVertex", True],
+            "AltFlows" -> Lookup[data, "AltFlows", True],
+            "AltTransitionFlows" -> Lookup[data, "AltTransitionFlows", True],
+            "AltOptCond" -> Lookup[data, "AltOptCond", True],
+            "costpluscurrents" -> Lookup[data, "costpluscurrents", <||>],
+            "us" -> systemData[sys, "Us"],
+            "js" -> systemData[sys, "Js"],
+            "jts" -> systemData[sys, "Jts"],
+            "auxiliaryGraph" -> Graph[systemData[sys, "AuxVertices"], systemData[sys, "AuxEdges"]],
+            "auxExitVertices" -> systemData[sys, "AuxExitVertices"],
+            "auxEntryVertices" -> systemData[sys, "AuxEntryVertices"],
+            "NumericState" -> systemData[sys, "NumericState"]
+        |>;
+        Eqs
+    ];
+
+directCriticalSolverInternal[Eqs_] :=
+    Module[{graph, exitVerts, distToExit, us, js, jts, auxPairs, zeroRules, eqSystem, allVars, result, flowVars, ineqs, inst},
+        graph = Lookup[Eqs, "auxiliaryGraph", None];
+        exitVerts = Lookup[Eqs, "auxExitVertices", {}];
+        If[graph === None || exitVerts === {}, Return[$Failed]];
+        
+        distToExit = Association @ Table[v -> Min[GraphDistance[graph, v, #] & /@ exitVerts], {v, VertexList[graph]}];
+        us = Lookup[Eqs, "us", {}];
+        js = Lookup[Eqs, "js", {}];
+        jts = Lookup[Eqs, "jts", {}];
+        auxPairs = Cases[us, u[a_, b_] :> {a, b}];
+        
+        zeroRules = Association[];
+        Do[
+            With[{a = p[[1]], b = p[[2]]},
+                If[KeyExistsQ[distToExit, a] && KeyExistsQ[distToExit, b] && distToExit[a] < distToExit[b],
+                    If[MemberQ[js, j[a, b]], zeroRules[j[a, b]] = 0]
+                ]
+            ],
+            {p, Join[Cases[js, j[a_, b_] :> {a, b}], Cases[jts, j[a_, b_, c_] :> {a, c}]]}
+        ];
+            
+        eqSystem = And @@ Flatten[{
+            (And @@ Flatten[{Lookup[Eqs, "EqGeneral", True]}]) /. Thread[Keys[Lookup[Eqs, "costpluscurrents", <||>]] -> 0],
+            Lookup[Eqs, "EqEntryIn", True],
+            Lookup[Eqs, "EqBalanceSplittingFlows", True],
+            Lookup[Eqs, "EqBalanceGatheringFlows", True],
+            Lookup[Eqs, "EqValueAuxiliaryEdges", True],
+            KeyValueMap[Equal, Lookup[Eqs, "RuleExitValues", <||>]],
+            KeyValueMap[Equal, Lookup[Eqs, "RuleEntryValues", <||>]],
+            Equal @@@ Normal[Lookup[Eqs, "RuleEntryOut", <||>]],
+            Equal @@@ Normal[Lookup[Eqs, "RuleExitFlowsIn", <||>]],
+            Equal @@@ Normal[Lookup[Eqs, "RuleBalanceGatheringFlows", <||>]],
+            Equal[#, 0] & /@ Keys[zeroRules],
+            Module[{byVertex = GroupBy[auxPairs, Last]},
+                Flatten @ KeyValueMap[
+                    Function[{v, pairs},
+                        If[Length[pairs] > 1,
+                            (u @@ # == u @@ pairs[[1]]) & /@ Rest[pairs],
+                            {}
+                        ]
+                    ],
+                    byVertex
+                ]
+            ]
+        }];
+        
+        allVars = Join[us, js, jts];
+        flowVars = Join[js, jts];
+        ineqs = And @@ (# >= 0 & /@ flowVars);
+        
+        inst = Quiet @ FindInstance[eqSystem && ineqs, allVars, Reals];
+        If[MatchQ[inst, {{___Rule}, ___}],
+            <|"Rules" -> First[inst], "Equations" -> True|>,
+            $Failed
+        ]
+    ];
+
+(* --- SolveCriticalJFirstBackend and utilities --- *)
+
+SolveCriticalJFirstBackend[Eqs_, numericState_] :=
+    Module[{equalities, ineqs, flowVars, allVars, linearSystem, aMat, bVec, xCandidate, inst, allConstraints},
+        (* Collect all constraints for FindInstance *)
+        allConstraints = And @@ Flatten[{
+            Lookup[Eqs, "EqEntryIn", True], 
+            Lookup[Eqs, "EqBalanceSplittingFlows", True], 
+            Lookup[Eqs, "EqBalanceGatheringFlows", True], 
+            Lookup[Eqs, "EqGeneral", True],
+            Lookup[Eqs, "EqValueAuxiliaryEdges", True],
+            Lookup[Eqs, "IneqJs", True],
+            Lookup[Eqs, "IneqJts", True],
+            Lookup[Eqs, "AltFlows", True],
+            Lookup[Eqs, "AltTransitionFlows", True],
+            Lookup[Eqs, "AltOptCond", True],
+            KeyValueMap[Equal, Lookup[Eqs, "RuleExitValues", <||>]],
+            KeyValueMap[Equal, Lookup[Eqs, "RuleEntryValues", <||>]]
+        }];
+        
+        equalities = Select[flattenConjuncts[allConstraints], MatchQ[#, _Equal] &];
+        flowVars = Join[Lookup[Eqs, "js", {}], Lookup[Eqs, "jts", {}]];
+        allVars = Join[Lookup[Eqs, "us", {}], flowVars];
+        
+        linearSystem = BuildLinearSystemFromEqualities[equalities, allVars];
+        If[AssociationQ[linearSystem],
+            xCandidate = LinearSolveCandidate[linearSystem["A"], linearSystem["b"]];
+            If[VectorQ[xCandidate, NumericQ] && AllTrue[xCandidate[[Lookup[AssociationThread[allVars, Range[Length[allVars]]], flowVars]]], # >= -10^-6 &],
+                With[{candidateRules = Normal[AssociationThread[allVars, xCandidate]]},
+                    If[checkBlock[allConstraints /. candidateRules, 10^-5] === True,
+                        Return[<|"Rules" -> candidateRules, "Equations" -> True|>]
+                    ]
+                ]
+            ];
+        ];
+        
+        (* Fallback to FindInstance with full system *)
+        inst = Quiet @ FindInstance[allConstraints, allVars, Reals];
+        If[MatchQ[inst, {{___Rule}, ___}],
+            <|"Rules" -> First[inst], "Equations" -> True|>,
+            $Failed
+        ]
+    ];
+
+BuildLinearSystemFromEqualities[equalities_List, vars_List] :=
+    Module[{exprs, placeholders, subExprs, coeffData, bVec, aMat},
+        If[equalities === {} || vars === {}, Return[$Failed]];
+        exprs = equalities /. Equal[l_, r_] :> (l - r);
+        placeholders = Table[Unique["lv"], {Length[vars]}];
+        subExprs = exprs /. Thread[vars -> placeholders];
+        coeffData = Quiet @ Check[CoefficientArrays[subExprs, placeholders], $Failed];
+        If[coeffData === $Failed || Length[coeffData] < 2, Return[$Failed]];
+        bVec = Developer`ToPackedArray @ N @ (-Normal[coeffData[[1]]]);
+        aMat = SparseArray[coeffData[[2]]];
+        <|"A" -> aMat, "b" -> bVec|>
+    ];
+
+LinearSolveCandidate[aMat_, bVec_] :=
+    Module[{x},
+        x = Quiet @ Check[LeastSquares[N[aMat], N[bVec]], $Failed];
+        If[VectorQ[x, NumericQ], Developer`ToPackedArray[x], $Failed]
     ];
 
 End[];

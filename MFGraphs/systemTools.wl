@@ -62,7 +62,8 @@ buildHamiltonianData::usage =
 "buildHamiltonianData[s, topology, flowData] builds typed Hamiltonian residual equations for the system. \
 The current EqGeneral block is the integrated transport-equation form associated with the Hamiltonian equation: \
 the integral over [0,1] of the adjoint of the linearization of the stationary Hamilton-Jacobi equation. \
-Current system construction uses Alpha/EdgeAlpha; V/G/EdgeV/EdgeG are preserved on scenarios for future density and visualization work but are not applied here yet.";
+Current system construction uses Alpha/EdgeAlpha; V/G/EdgeV/EdgeG are preserved on scenarios for future density and visualization work but are not applied here yet. \
+For an undirected edge {a,b}, SignedFlows stores the oriented net flow m = j[a,b] - j[b,a]; Nrhs stores the orientation-aware congestion current m - Sign[m] m^alpha, so for Alpha == 1 the Sign term encodes the edge traversal cost through Abs[m].";
 
 systemData::usage =
 "systemData[sys, key] returns the value associated with key in the system sys, or \
@@ -290,7 +291,7 @@ buildFlowData[s_?scenarioQ, topology_Association, unk_?symbolicUnknownsQ] :=
         balanceSplittingFlows = (j @@ # - Total[j @@@ Lookup[splittingMaps, Key[#], {}]])& /@ splittingPairs;
         eqBalanceSplittingFlows = Simplify /@ (And @@ ((# == 0)& /@ balanceSplittingFlows));
 
-        noDeadStarts = Join[outAuxExitPairs, pairs];
+        noDeadStarts = Join[pairs, outAuxExitPairs];
         ruleBalanceGatheringFlows = Association[(j @@ # -> Total[j @@@
              Lookup[gatheringMaps, Key[#], {}]])& /@ noDeadStarts];
 
@@ -445,7 +446,7 @@ buildHamiltonianData[s_?scenarioQ, topology_Association, flowData_mfgFlowData] :
         eqGeneral = MapThread[
             With[{edge = halfPairs[[#3]],
                   eq = Equal[#1, If[alphaAtEdge[halfPairs[[#3]]] === 1, 0, #2]]},
-                (j @@ edge + j @@ Reverse[edge] == 0) || eq
+                (j @@ edge - j @@ Reverse[edge] == 0) || eq
             ] &,
             {nlhs, costCurrents, Range[Length[halfPairs]]}
         ];
@@ -480,7 +481,7 @@ getKirchhoffLinearSystem[sys_] :=
 
         kirchhoff = Join[
             If[Head[eqEntryIn] === List, eqEntryIn, {eqEntryIn}],
-            (# == 0& /@ (balanceGatheringFlows + balanceSplittingFlows))
+            (# == 0& /@ Join[balanceGatheringFlows, balanceSplittingFlows])
         ];
         kirchhoff = kirchhoff /. Join[Normal[ruleEntryIn], Normal[ruleExitFlowsIn], Normal[ruleEntryOut]];
         kirchhoff = DeleteCases[kirchhoff, True];

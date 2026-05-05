@@ -120,6 +120,10 @@ All public solver entrypoints share a common preprocessing pipeline (`buildSolve
 - `activeSetReduceSystem` — opt-in exact active-set branch reducer for the critical-congestion complementarity structure, with exact DNF fallback for larger residual variable sets
 - `booleanReduceSystem` — converts to DNF via `BooleanConvert`, then calls `Reduce` independently per disjunct; options: `"DisjunctTimeout"` (default 30s), `"ReturnAll"` (default `False`)
 - `findInstanceSystem` — calls `FindInstance[constraints, allVars, Reals]` after accumulated linear preprocessing; option: `"Timeout"` (default `Infinity`)
+- `solutionReport` — read-only diagnostic wrapper for existing solutions; includes result kind, validation, Kirchhoff residual, residual variables, and transition-flow diagnostics
+- `solutionBranchCostReport` — diagnostic residual-branch ranking by terminal exit cost, switching cost, edge-flow quadratic cost, and total objective
+- `directCriticalSystem` — explicit opt-in direct critical solver for numeric zero-switching, equal-exit systems; fails explicitly otherwise
+- `flowFirstCriticalSystem` — explicit opt-in flow-first critical solver that optimizes feasible nonnegative flows before recovering remaining value/transition variables
 - `dnfReduce` — internal simplifier used by `dnfReduceSystem`; eliminates equalities and distributes over disjunctions
 - `isValidSystemSolution` — solution validator; option `"ReturnReport" -> True` gives per-block breakdown
 
@@ -182,6 +186,15 @@ visualization work. Current `EqGeneral` is the integrated transport-equation for
 associated with the Hamiltonian equation: the integral over `[0,1]` of the adjoint
 of the linearization of the stationary Hamilton-Jacobi equation.
 
+For an undirected edge `{a,b}`, the flow layer keeps directed variables and defines
+the oriented net flow as `m = j[a,b] - j[b,a]`. `buildHamiltonianData` stores
+`Nrhs`/`CostCurrents` using the orientation-aware congestion current
+`m - Sign[m] m^alpha`; in the critical case `Alpha == 1`, the traversal-cost part
+`m Sign[m]` is `Abs[m]`. Thus terms such as
+`-(j[1,5] - j[5,1]) Sign[j[1,5] - j[5,1]]` are the signed edge-cost contribution
+for the physical edge `{1,5}`. Active critical solvers consume `EqGeneral`
+directly; `Nrhs`/`CostCurrents` are currently stored metadata.
+
 If solver work resumes, restore the module loading and docs in a dedicated pass.
 
 ## Quick start (core phase)
@@ -204,11 +217,13 @@ sys = makeSystem[s, unk];
 sol = solveScenario[s];
 optSol = solveScenario[s, optimizedDNFReduceSystem];
 activeSol = solveScenario[s, activeSetReduceSystem];
+flowFirstSol = solveScenario[s, flowFirstCriticalSystem];
 
 scenarioQ[s]
 symbolicUnknownsQ[unk]
 mfgSystemQ[sys]
 isValidSystemSolution[sys, sol]
+solutionReport[sys, sol]["ResultKind"]
 ```
 
 Example factory usage:

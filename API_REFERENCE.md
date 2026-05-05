@@ -142,7 +142,7 @@ buildFlowData[s, topology, unk] builds typed flow-balance equations and non-nega
 
 ## buildHamiltonianData
 
-buildHamiltonianData[s, topology, flowData] builds typed Hamiltonian residual equations for the system. The current EqGeneral block is the integrated transport-equation form associated with the Hamiltonian equation: the integral over [0,1] of the adjoint of the linearization of the stationary Hamilton-Jacobi equation. Current system construction uses Alpha/EdgeAlpha; V/G/EdgeV/EdgeG are preserved on scenarios for future density and visualization work but are not applied here yet.
+buildHamiltonianData[s, topology, flowData] builds typed Hamiltonian residual equations for the system. The current EqGeneral block is the integrated transport-equation form associated with the Hamiltonian equation: the integral over [0,1] of the adjoint of the linearization of the stationary Hamilton-Jacobi equation. Current system construction uses Alpha/EdgeAlpha; V/G/EdgeV/EdgeG are preserved on scenarios for future density and visualization work but are not applied here yet. For an undirected edge {a,b}, SignedFlows stores the oriented net flow m = j[a,b] - j[b,a]; Nrhs stores the orientation-aware congestion current m - Sign[m] m^alpha, so for Alpha == 1 the Sign term encodes the edge traversal cost through Abs[m].
 
 ## consistentSwitchingCosts
 
@@ -246,6 +246,10 @@ booleanReduceSystem[sys] solves the mfgSystem sys by converting the preprocessed
 
 computeKirchhoffResidual[sys, sol] calculates the Kirchhoff Residual (the maximum absolute divergence in the transition flux conservation equations) for the solution sol. Returns the maximum numerical residual, or Missing["NotAvailable"] if the solution is symbolic or incomplete.
 
+## directCriticalSystem
+
+directCriticalSystem[sys] is an explicit opt-in solver for critical congestion systems with all numeric zero switching costs and equal numeric exit costs. It uses graph distance to exits to forbid flow directions that move farther from every exit, then solves the resulting feasibility system. Returns the standard raw solver shape or Failure["directCriticalSystem", ...].
+
 ## dnfReduce
 
 dnfReduce[xp, sys] simplifies xp && sys by solving equalities, substituting their solutions throughout the system, and distributing over disjunctions. Returns a DNF expression with all equalities eliminated where possible. dnfReduce[xp, sys, elem] is the 3-argument form used internally to process one conjunct elem from sys.
@@ -257,6 +261,10 @@ dnfReduceSystem[sys] solves the mfgSystem sys using linear preprocessing followe
 ## findInstanceSystem
 
 findInstanceSystem[sys] solves the mfgSystem sys by collecting and linearly preprocessing constraints, then calling FindInstance over the remaining variables. Returns one feasible list of rules. If no instance is found or the final solve times out, returns <|"Rules" -> accumulatedRules, "Equations" -> False|>. Fails for non-critical congestion systems where Alpha != 1 on any edge. Options: "Timeout" (default Infinity).
+
+## flowFirstCriticalSystem
+
+flowFirstCriticalSystem[sys] is an explicit opt-in solver for critical congestion systems. It minimizes the critical quadratic flow objective over Kirchhoff/nonnegative flow constraints, then recovers value variables from the remaining system. Returns the standard raw solver shape or Failure["flowFirstCriticalSystem", ...].
 
 ## isValidSystemSolution
 
@@ -270,9 +278,17 @@ optimizedDNFReduceSystem[sys] is an opt-in exact solver for critical congestion 
 
 reduceSystem[sys] reduces the structural equations, flow balance, non-negativity constraints, and complementarity conditions of the mfgSystem sys using Reduce over the Reals. Includes AltOptCond (switching-cost optimality complementarity) and IneqSwitchingByVertex (switching-cost optimality inequalities). Fails for non-critical congestion systems where Alpha != 1 on any edge. Returns a list of rules when the system is fully determined, or <|"Rules" -> rules, "Equations" -> residual|> when underdetermined.
 
+## solutionBranchCostReport
+
+solutionBranchCostReport[sys, sol] ranks top-level residual branches by a diagnostic critical-congestion objective. It reports terminal exit cost, switching cost, edge-flow quadratic cost, total objective, determined and residual variables, and validation status for each branch.
+
+## solutionReport
+
+solutionReport[sys, sol] returns a read-only diagnostic association for an existing solver result. The report includes result kind, validation report, Kirchhoff residual, residual branch diagnostics, primary residual variables, and transition-flow determinacy diagnostics. It does not rewrite sol.
+
 ## SolveMFG
 
-SolveMFG[assoc] provides backward compatibility for legacy raw-association solving. It constructs a scenario and delegates to solveScenario.
+SolveMFG[s] solves a typed scenario object by delegating to solveScenario. SolveMFG[assoc] provides backward compatibility for legacy raw-association solving. It constructs a scenario and delegates to solveScenario. SolveMFG[s, solver] or SolveMFG[assoc, solver] uses the specified solver function.
 
 ## solveScenario
 

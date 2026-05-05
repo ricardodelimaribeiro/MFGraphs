@@ -65,3 +65,13 @@ Benchmark selector names include `dnf` (default), `optimizeddnf`, `activeset`,
 `solutionResultKind` is flow-first: primary classification depends on edge
 flows `j[_,_]` and values `u[__]`; transition-flow determinacy for `j[_,_,_]`
 is reported separately by `solutionVariableDiagnostics[sys, sol]`.
+
+Use `solutionReport[sys, sol]` for read-only solution diagnostics and
+`solutionBranchCostReport[sys, sol]` to rank residual branches. The direct and
+flow-first critical solvers are explicit opt-ins (`directCriticalSystem`,
+`flowFirstCriticalSystem`); the default `solveScenario` path remains
+`dnfReduceSystem`.
+
+Hamiltonian signed-cost convention: for physical edge `{a,b}`, use oriented net
+flow `m = j[a,b] - j[b,a]`; `m Sign[m]` is the critical traversal cost `Abs[m]`.
+Active critical solvers consume `EqGeneral`; `Nrhs`/`CostCurrents` are metadata.
