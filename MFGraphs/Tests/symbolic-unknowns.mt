@@ -283,18 +283,17 @@ Test[
         sys = makeSystem[s, unk];
         entryEq = systemData[sys, "EqEntryIn"];
         entryRules = systemData[sys, "RuleEntryIn"];
-        exitValueRules = systemData[sys, "RuleExitValues"];
+        exitIneqs = systemData[sys, "IneqExitValues"];
+        altExitCond = systemData[sys, "AltExitCond"];
         entryOutRules = systemData[sys, "RuleEntryOut"];
-        exitInRules = systemData[sys, "RuleExitFlowsIn"];
         {B, KM, vars} = getKirchhoffLinearSystem[sys];
         mfgSystemQ[sys] &&
         MemberQ[entryEq, j["auxEntry1", 1] == 10] &&
         KeyExistsQ[entryRules, j["auxEntry1", 1]] &&
         entryRules[j["auxEntry1", 1]] === 10 &&
-        KeyExistsQ[exitValueRules, u["auxExit3", 3]] &&
-        !KeyExistsQ[exitValueRules, u[3, "auxExit3"]] &&
+        MemberQ[exitIneqs, u["auxExit3", 3] <= 0] &&
+        MemberQ[altExitCond, (j[3, "auxExit3"] == 0) || (u["auxExit3", 3] == 0)] &&
         AssociationQ[entryOutRules] && entryOutRules === <||> &&
-        AssociationQ[exitInRules] && exitInRules === <||> &&
         !MemberQ[vars, j["auxEntry1", 1]]
     ],
     True,
