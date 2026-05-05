@@ -558,3 +558,6 @@ Column[{
 
 
 jamaratRun[]
+
+
+symJamarat=%[[2]]

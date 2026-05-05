@@ -30,6 +30,77 @@ The symbolic solvers (`MFGraphs/solversTools.wl`) are designed for **critical co
 
 Hamiltonian parameters `V`, `G`, `EdgeV`, and `EdgeG` are validated and preserved on scenarios for future density-per-edge visualization work, but current structural system construction applies only `Alpha` and `EdgeAlpha`.
 
+### Signed edge traversal cost
+
+Physical network edges are undirected, but the symbolic system keeps one flow variable per direction. For an edge `{a, b}`, the oriented net flow is:
+
+```mathematica
+J = j[a, b] - j[b, a]
+```
+
+`buildHamiltonianData` stores the Hamiltonian right-hand side metadata as:
+
+```mathematica
+J - Sign[J] J^alpha
+```
+
+For critical congestion (`Alpha == 1`), the `Sign[J]` factor makes this orientation-aware:
+
+```mathematica
+J - Sign[J] J
+```
+
+and the congestion-cost part is equivalent to:
+
+```mathematica
+J Sign[J] == Abs[J]
+```
+
+Thus expressions such as:
+
+```mathematica
+-(j[1, 5] - j[5, 1]) Sign[j[1, 5] - j[5, 1]]
+```
+
+are the signed form of the traversal cost on the undirected edge `{1, 5}`. The sign convention lets one formula handle either travel direction along the edge. Current critical solvers solve the critical `EqGeneral` constraints directly; `Nrhs` and `CostCurrents` remain stored Hamiltonian metadata for diagnostics and future non-critical/numeric paths.
+
+### Solver diagnostics proof of concept
+
+Legacy-inspired diagnostics and alternate critical solvers are opt-in. They do not change `solveScenario`, `dnfReduceSystem`, or raw solver return shapes.
+
+```mathematica
+Needs["MFGraphs`"];
+
+s = gridScenario[{3}, {{1, 120}}, {{2, 0}, {3, 10}}];
+sys = makeSystem[s];
+
+defaultSol = solveScenario[s];
+report = solutionReport[sys, defaultSol];
+
+report["ResultKind"]
+report["ValidationReport"]["Valid"]
+report["KirchhoffResidual"]
+report["TransitionFlowDiagnostics"]
+
+flowFirstSol = flowFirstCriticalSystem[sys];
+isValidSystemSolution[sys, flowFirstSol]
+```
+
+For residual outputs, branch costs can be ranked without rewriting the solution:
+
+```mathematica
+branchScenario = getExampleScenario[12, {{1, 100}}, {{4, 0}}];
+branchSys = makeSystem[branchScenario];
+branchedSol = optimizedDNFReduceSystem[branchSys];
+
+branchReport = solutionBranchCostReport[branchSys, branchedSol];
+
+branchReport["BranchCount"]
+KeyTake[#, {"BranchIndex", "TotalObjective"}] & /@ branchReport["BestBranches"]
+```
+
+`directCriticalSystem[sys]` is stricter: it only runs on critical systems where every switching cost is numeric zero and all exit costs are equal numeric values. Otherwise it returns `Failure["directCriticalSystem", <|"Reason" -> ...|>]`.
+
 ## Installation
 
 ```mathematica
@@ -87,6 +158,7 @@ Symbolic unknown/system kernels:
 - `mfgSystem`, `mfgSystemQ`, `systemData`, `makeSystem`
 - `buildBoundaryData`, `buildFlowData`, `buildComplementarityData`, `buildHamiltonianData`
 - `solveScenario`, `dnfReduceSystem`, `reduceSystem`, `isValidSystemSolution`
+- `solutionReport`, `solutionBranchCostReport`, `directCriticalSystem`, `flowFirstCriticalSystem`
 
 Core symbolic primitives:
 - `j`, `u`, `z`, `alpha`, `Cost`

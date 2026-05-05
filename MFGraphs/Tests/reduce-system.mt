@@ -861,3 +861,136 @@ Test[
     True,
     TestID -> "ZeroSwitchUEqualities: key exists and is a list"
 ]
+
+Test[
+    Module[{s, sys, b, km, vars},
+        s = gridScenario[{3}, {{1, 10}}, {{2, 0}, {3, 5}}];
+        sys = makeSystem[s];
+        {b, km, vars} = getKirchhoffLinearSystem[sys];
+        VectorQ[vars, MatchQ[#, j[__]] &] &&
+        MatrixQ[km] &&
+        Dimensions[km][[2]] === Length[vars] &&
+        Length[b] === Dimensions[km][[1]]
+    ],
+    True,
+    TestID -> "getKirchhoffLinearSystem: nontrivial chain returns aligned matrix dimensions"
+]
+
+(* --- Additive legacy-inspired diagnostics and opt-in solvers --- *)
+
+Test[
+    NameQ["solversTools`solutionReport"] &&
+    NameQ["solversTools`solutionBranchCostReport"] &&
+    NameQ["solversTools`directCriticalSystem"] &&
+    NameQ["solversTools`flowFirstCriticalSystem"],
+    True,
+    TestID -> "legacy imports: public additive helper symbols exist"
+]
+
+Test[
+    Module[{s, sys, sol, before, report},
+        s = gridScenario[{2}, {{1, 10}}, {{2, 0}}];
+        sys = makeSystem[s];
+        sol = dnfReduceSystem[sys];
+        before = sol;
+        report = solutionReport[sys, sol];
+        sol === before &&
+        AssociationQ[report] &&
+        report["ResultKind"] === "Rules" &&
+        TrueQ[Lookup[report["ValidationReport"], "Valid", False]] &&
+        NumericQ[report["KirchhoffResidual"]] &&
+        AssociationQ[report["TransitionFlowDiagnostics"]] &&
+        ListQ[report["ResidualTransitionFlows"]]
+    ],
+    True,
+    TestID -> "solutionReport: reports diagnostics without rewriting solution"
+]
+
+Test[
+    Module[{s, sys, baseRules, sol, report, totals},
+        s = gridScenario[{2}, {{1, 10}}, {{2, 0}}];
+        sys = makeSystem[s];
+        baseRules = dnfReduceSystem[sys];
+        baseRules = If[ListQ[baseRules], baseRules, Lookup[baseRules, "Rules", {}]];
+        baseRules = DeleteCases[baseRules, HoldPattern[j[1, 2] -> _]];
+        sol = <|"Rules" -> baseRules, "Equations" -> (j[1, 2] == 5 || j[1, 2] == 10)|>;
+        report = solutionBranchCostReport[sys, sol];
+        totals = Lookup[#, "TotalObjective"] & /@ report["Branches"];
+        report["BranchCount"] === 2 &&
+        Length[report["BestBranches"]] >= 1 &&
+        TrueQ[First[totals] <= Last[totals]]
+    ],
+    True,
+    TestID -> "solutionBranchCostReport: ranks residual branches by objective"
+]
+
+Test[
+    Module[{s, sys, result},
+        s = gridScenario[{2}, {{1, 10}}, {{2, 0}}];
+        sys = makeSystem[s];
+        result = directCriticalSystem[sys];
+        AssociationQ[result] && isValidSystemSolution[sys, result]
+    ],
+    True,
+    TestID -> "directCriticalSystem: equal-exit zero-switching critical case succeeds"
+]
+
+Test[
+    Module[{s, sys, result},
+        s = gridScenario[{3}, {{1, 10}}, {{2, 0}, {3, 5}}];
+        sys = makeSystem[s];
+        result = directCriticalSystem[sys];
+        FailureQ[result] && result["Tag"] === "directCriticalSystem" &&
+        result["Reason"] === "ExitCostsNotEqualNumeric"
+    ],
+    True,
+    TestID -> "directCriticalSystem: unequal exits fail explicitly"
+]
+
+Test[
+    Module[{s, sys, result},
+        s = gridScenario[{3}, {{1, 10}}, {{3, 0}}, {{1, 2, 3, 5}}];
+        sys = makeSystem[s];
+        result = directCriticalSystem[sys];
+        FailureQ[result] && result["Tag"] === "directCriticalSystem" &&
+        result["Reason"] === "NonZeroOrNonNumericSwitchingCosts"
+    ],
+    True,
+    TestID -> "directCriticalSystem: nonzero switching costs fail explicitly"
+]
+
+Test[
+    Module[{s, sys, result},
+        s = gridScenario[{3}, {{1, 10}}, {{3, 0}}, {{1, 2, 3, Infinity}}];
+        sys = makeSystem[s];
+        result = directCriticalSystem[sys];
+        FailureQ[result] && result["Tag"] === "directCriticalSystem" &&
+        result["Reason"] === "NonZeroOrNonNumericSwitchingCosts"
+    ],
+    True,
+    TestID -> "directCriticalSystem: infinite switching costs fail explicit zero-cost precondition"
+]
+
+Test[
+    Module[{s, sys, result},
+        s = gridScenario[{3}, {{1, 120}}, {{2, 0}, {3, 10}}];
+        sys = makeSystem[s];
+        result = flowFirstCriticalSystem[sys];
+        AssociationQ[result] && isValidSystemSolution[sys, result]
+    ],
+    True,
+    TestID -> "flowFirstCriticalSystem: small critical unequal-exit case validates"
+]
+
+Test[
+    Module[{s, sys, defaultResult, directResult},
+        s = gridScenario[{2}, {{1, 10}}, {{2, 0}}];
+        sys = makeSystem[s];
+        defaultResult = solveScenario[s];
+        directResult = directCriticalSystem[sys];
+        defaultResult === dnfReduceSystem[sys] &&
+        directResult =!= defaultResult
+    ],
+    True,
+    TestID -> "opt-in solvers: solveScenario default remains dnfReduceSystem"
+]
