@@ -237,6 +237,29 @@ augmentAuxiliaryGraph[sys_?mfgSystemQ] :=
         |>
     ];
 
+stateVertexStyle[vertices_, sys_?mfgSystemQ] :=
+    Module[{auxEntryV, auxExitV},
+        auxEntryV = systemData[sys, "AuxEntryVertices"];
+        auxExitV  = systemData[sys, "AuxExitVertices"];
+        Normal @ Join[
+            AssociationThread[vertices, GrayLevel[0.72]],
+            AssociationThread[Select[vertices, Intersection[#, auxEntryV] =!= {} &], RGBColor[0.22, 0.6, 0.3]],
+            AssociationThread[Select[vertices, Intersection[#, auxExitV]  =!= {} &], RGBColor[0.82, 0.27, 0.2]]
+        ]
+    ];
+
+formatStateNodeLabel[state_, val_] :=
+    Placed[
+        Style[
+            If[NumericQ[val] && Abs[val] > 10^-5,
+                Row[{stateLabel[state], "\n", "u=", formatPlotNumber[val]}],
+                stateLabel[state]
+            ],
+            9, Black
+        ],
+        Center
+    ];
+
 scenarioTopologyPlot[s_?scenarioQ, sys_?mfgSystemQ, title : Except[_Rule | _RuleDelayed], opts : OptionsPattern[]] :=
     scenarioTopologyPlot[s, sys, PlotLabel -> title, opts];
 
@@ -519,24 +542,14 @@ mfgTransitionPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, opts : OptionsPattern[]] 
         ];
 
         nodeLabels = Association @ Map[
-            With[{uv = edgeUValue[#[[1]], #[[2]], rules]},
-                # -> Placed[
-                    Style[
-                        If[NumericQ[uv],
-                            Row[{stateLabel[#], "\n", "u=", NumberForm[N[uv], {5, 1}]}],
-                            stateLabel[#]
-                        ],
-                        9, Black, Background -> RGBColor[0.96, 0.96, 0.96]
-                    ],
-                    Center
-                ]
-            ] &,
+            # -> formatStateNodeLabel[#, edgeUValue[#[[1]], #[[2]], rules]] &,
             auxPairs
         ];
 
         Graph[auxPairs, transitionEdges,
             VertexLabels -> Normal[nodeLabels],
             VertexSize   -> 0.55,
+            VertexStyle  -> stateVertexStyle[auxPairs, sys],
             EdgeStyle    -> Normal[edgeStyles],
             EdgeLabels   -> Normal[edgeLabels],
             GraphLayout  -> OptionValue[GraphLayout],
@@ -600,28 +613,14 @@ mfgAugmentedPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, opts : OptionsPattern[]] :
         ];
 
         nodeLabels = Association @ Map[
-            With[{uv = getU[#]},
-                # -> Placed[
-                    Style[
-                        If[NumericQ[uv],
-                            Row[{stateLabel[#], "\n", NumberForm[N[uv], {5, 2}]}],
-                            stateLabel[#]
-                        ],
-                        9, Black
-                    ],
-                    Center
-                ]
-            ] &,
+            # -> formatStateNodeLabel[#, getU[#]] &,
             vertices
         ];
 
         Graph[vertices, allAugEdges,
             VertexLabels -> Normal[nodeLabels],
             VertexSize   -> 0.58,
-            VertexStyle  -> Normal @ Join[
-                AssociationThread[Select[vertices, Intersection[#, auxEntryV] =!= {} &], RGBColor[0.38, 0.74, 0.9]],
-                AssociationThread[Select[vertices, Intersection[#, auxExitV]  =!= {} &], RGBColor[0.95, 0.7, 0.4]]
-            ],
+            VertexStyle  -> stateVertexStyle[vertices, sys],
             EdgeStyle    -> Normal[edgeStyles],
             EdgeLabels   -> Normal[edgeLabels],
             GraphLayout  -> OptionValue[GraphLayout],
