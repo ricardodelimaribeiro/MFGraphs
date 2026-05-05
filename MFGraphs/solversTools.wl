@@ -47,7 +47,10 @@ dnfReduce::usage =
 their solutions throughout the system, and distributing over disjunctions. \
 Returns a DNF expression with all equalities eliminated where possible. \
 dnfReduce[xp, sys, elem] is the 3-argument form used internally to process \
-one conjunct elem from sys.";
+one conjunct elem from sys. Implemented with direct recursion: the Or case \
+spawns one recursive call per branch and the Equal case recurses on the \
+substituted remainder. Deeply nested Or-chains may approach $RecursionLimit; \
+see dnfReduceProcedural for a stack-based iterative alternative.";
 
 dnfReduceSystem::usage =
 "dnfReduceSystem[sys] solves the mfgSystem sys using linear preprocessing \
@@ -987,6 +990,96 @@ dnfReduce[xp_, rst_, fst_Equal] :=
     ]
 
 dnfReduce[xp_, rst_, fst_] := dnfReduce[xp && fst, rst]
+
+dnfReduceProcedural::usage =
+"dnfReduceProcedural[xp, sys, allVars] is a stack-based iterative equivalent \
+of dnfReduce. Uses an explicit worklist instead of recursive calls, avoiding \
+$RecursionLimit on deeply nested Or-chains. Produces the same output as \
+dnfReduce for well-formed inputs. Or-branches are pushed in original order \
+(Prepend + Reverse) so branch priority matches the recursive version. \
+Not wired into dnfReduceSystem by default; call directly for deep Or-chains.";
+
+dnfReduceProcedural[xp0_, sys0_, allVars_List] :=
+    Module[{stack = {<|"xp" -> xp0, "rst" -> True, "fst" -> sys0|>},
+            results = {}, item, xp, rst, fst,
+            conjuncts, xpAcc, i, elem, sol, fsol, newxp, rest, newRest},
+        While[stack =!= {},
+            item  = First[stack];
+            stack = Rest[stack];
+            xp = item["xp"]; rst = item["rst"]; fst = item["fst"];
+            Which[
+                xp  === False || fst === False,
+                    Null,
+                fst === True,
+                    AppendTo[results, xp && rst],
+                Head[fst] === Or,
+                    Do[stack = Prepend[stack, <|"xp" -> xp, "rst" -> rst, "fst" -> b|>],
+                       {b, Reverse[List @@ fst]}],
+                Head[fst] === And,
+                    conjuncts = List @@ fst;
+                    xpAcc     = xp;
+                    i         = 1;
+                    Module[{outcome = "normal"},
+                        While[i <= Length[conjuncts] && outcome === "normal",
+                            If[xpAcc === False, outcome = "false"; Break[]];
+                            elem = conjuncts[[i]];
+                            Which[
+                                elem === True,
+                                    i++,
+                                elem === False,
+                                    outcome = "false",
+                                Head[elem] === Or,
+                                    rest = If[i >= Length[conjuncts], rst,
+                                              And[rst, And @@ conjuncts[[i + 1 ;;]]]];
+                                    Do[stack = Prepend[stack, <|"xp" -> xpAcc, "rst" -> rest, "fst" -> b|>],
+                                       {b, Reverse[List @@ elem]}];
+                                    outcome = "branched",
+                                Head[elem] === Equal,
+                                    sol  = Quiet[Solve[elem], Solve::svars];
+                                    fsol = If[MatchQ[sol, {{__Rule}, ___}], First[sol], {}];
+                                    newxp = substituteSolution[xpAcc, fsol];
+                                    If[newxp === False,
+                                        outcome = "false",
+                                        xpAcc = newxp && elem;
+                                        If[i < Length[conjuncts],
+                                            newRest = substituteSolution[And @@ conjuncts[[i + 1 ;;]], fsol];
+                                            conjuncts = Join[conjuncts[[;; i]], flattenConjuncts[newRest]]
+                                        ]
+                                    ];
+                                    i++,
+                                True,
+                                    xpAcc = xpAcc && elem;
+                                    i++
+                            ]
+                        ];
+                        If[outcome === "normal",
+                            AppendTo[results, xpAcc && rst]]
+                    ],
+                Head[fst] === Equal,
+                    sol  = Quiet[Solve[fst], Solve::svars];
+                    fsol = If[MatchQ[sol, {{__Rule}, ___}], First[sol], {}];
+                    newxp = substituteSolution[xp, fsol];
+                    If[newxp =!= False,
+                        stack = Prepend[stack,
+                            <|"xp" -> newxp && fst, "rst" -> True,
+                              "fst" -> substituteSolution[rst, fsol]|>]],
+                True,
+                    AppendTo[results, xp && rst && fst]
+            ]
+        ];
+        Which[
+            results === {}, False,
+            Length[results] === 1, First[results],
+            True, Or @@ results
+        ]
+    ]
+
+dnfReduceInstrumented::usage =
+"dnfReduceInstrumented[xp, sys, monitor, order, sysObj] is the instrumented \
+recursive engine used by dnfReduceDiagnosticReport. Directly recursive with \
+an explicit depth counter: each Or-branch and Equal-continuation increments \
+depth by 1. Mirrors dnfReduce with branch-ordering and monitoring side effects \
+added. Non-reentrant: writes into $dnfCurrentMonitor via mutable assignments.";
 
 ClearAttributes[dnfTraceEvent, HoldFirst];
 ClearAttributes[dnfCounterIncrement, HoldFirst];
