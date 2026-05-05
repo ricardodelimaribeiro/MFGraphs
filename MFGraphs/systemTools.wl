@@ -60,10 +60,11 @@ buildComplementarityData::usage =
 
 buildHamiltonianData::usage =
 "buildHamiltonianData[s, topology, flowData] builds typed Hamiltonian residual equations for the system. \
-The current EqGeneral block is the integrated transport-equation form associated with the Hamiltonian equation: \
-the integral over [0,1] of the adjoint of the linearization of the stationary Hamilton-Jacobi equation. \
-Current system construction uses Alpha/EdgeAlpha; V/G/EdgeV/EdgeG are preserved on scenarios for future density and visualization work but are not applied here yet. \
-For an undirected edge {a,b}, SignedFlows stores the oriented net flow m = j[a,b] - j[b,a]; Nrhs stores the orientation-aware congestion current m - Sign[m] m^alpha, so for Alpha == 1 the Sign term encodes the edge traversal cost through Abs[m].";
+EqGeneral encodes the edge-level HJB equation u[a,b]-u[b,a]+j[a,b]-j[b,a] = nrhs unconditionally for every \
+undirected edge {a,b}, where nrhs = 0 for Alpha==1 and m - Sign[m] m^alpha otherwise. \
+The equation is enforced even when net flow is zero (zero-flow edges force u[a,b]=u[b,a]), which propagates \
+through switching inequalities to pin value variables at bypassed exit nodes to their terminal cost. \
+Current system construction uses Alpha/EdgeAlpha; V/G/EdgeV/EdgeG are preserved on scenarios for future work.";
 
 systemData::usage =
 "systemData[sys, key] returns the value associated with key in the system sys, or \
@@ -443,10 +444,18 @@ buildHamiltonianData[s_?scenarioQ, topology_Association, flowData_mfgFlowData] :
         nrhs = Flatten[signedFlows[#] - Sign[signedFlows[#]] edgeCost[signedFlows[#], #]& /@ halfPairs];
 
         costCurrents = Table[Symbol["systemTools`Private`cpc" <> ToString[k]], {k, 1, EdgeCount[topology["Graph"]]}];
+        (* The Hamiltonian equation u[a,b]-u[b,a]+j[a,b]-j[b,a] = nrhs is enforced
+           unconditionally. Dropping the former (j[a,b]-j[b,a]==0) || disjunct fixes
+           a gap: on zero-flow edges that disjunct fired True, leaving u[a,b] and u[b,a]
+           unconstrained. That prevented exit values at bypassed exit nodes from being
+           pinned, producing parametric solutions with free value variables at unused
+           exits. Without the disjunct, zero net flow forces u[a,b]=u[b,a]; the
+           switching inequalities at adjacent nodes then propagate this to pin values
+           at unused exits to their terminal cost. Safe for alpha≠1: nrhs=0 when j=0
+           for any alpha, so the behaviour on zero-flow edges is unchanged. *)
         eqGeneral = MapThread[
-            With[{edge = halfPairs[[#3]],
-                  eq = Equal[#1, If[alphaAtEdge[halfPairs[[#3]]] === 1, 0, #2]]},
-                (j @@ edge - j @@ Reverse[edge] == 0) || eq
+            With[{eq = Equal[#1, If[alphaAtEdge[halfPairs[[#3]]] === 1, 0, #2]]},
+                eq
             ] &,
             {nlhs, costCurrents, Range[Length[halfPairs]]}
         ];

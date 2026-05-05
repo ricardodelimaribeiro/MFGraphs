@@ -144,6 +144,46 @@ as `dnfReduceSystem`.
 DNF-first benchmark entries from `Scripts/BenchmarkSystemSolver.wls` are appended
 here when the script is run with `--tag`.
 
+### 2026-05-05 - unconditional EqGeneral
+
+**Commit:** `4648fac`  
+**Environment:** local `wolframscript`, `$MFGraphsVerbose=False`  
+**Solver:** `dnf`  
+**Timeout per case:** 60s  
+**Solutions file:** `Results/system_solver_dnf_solutions_20260505-112802.wl`
+
+| Case | Solver | Build (ms) | Warmup (ms) | Repeat (ms) | Status | Kind | Transition flows | Residual Jts | Valid |
+|------|--------|-----------|------------|--------------|--------|------|------------------|--------------|-------|
+| chain-2v | dnf | 9.3 | 25.6 | 0.78 | OK | Rules | Unique | 0 | True |
+| chain-3v-1exit | dnf | 3.11 | 1.37 | 1.07 | OK | Rules | Unique | 0 | True |
+| chain-3v-2exit | dnf | 2.7 | 2.1 | 2.02 | OK | Rules | Unique | 0 | True |
+| example-7 | dnf | 4.36 | 2.79 | 2.62 | OK | Rules | Unique | 0 | True |
+| chain-5v-1exit | dnf | 3.49 | 1.8 | 1.64 | OK | Rules | Unique | 0 | True |
+| grid-2x3 | dnf | 11.12 | 6.76 | 6.43 | OK | Rules | Unique | 0 | True |
+| grid-3x2 | dnf | 10.91 | 6.98 | 6.28 | OK | Rules | Unique | 0 | True |
+| example-12 | dnf | 5.11 | 7.62 | 7.53 | OK | Rules | Unique | 0 | True |
+---
+
+### 2026-05-05 - post-ship-20260505
+
+**Commit:** `4648fac`  
+**Environment:** local `wolframscript`, `$MFGraphsVerbose=False`  
+**Solver:** `dnf`  
+**Timeout per case:** 60s  
+**Solutions file:** `Results/system_solver_dnf_solutions_20260505-102048.wl`
+
+| Case | Solver | Build (ms) | Warmup (ms) | Repeat (ms) | Status | Kind | Transition flows | Residual Jts | Valid |
+|------|--------|-----------|------------|--------------|--------|------|------------------|--------------|-------|
+| chain-2v | dnf | 8.63 | 25.39 | 0.71 | OK | Rules | Unique | 0 | True |
+| chain-3v-1exit | dnf | 2.56 | 0.98 | 0.9 | OK | Rules | Unique | 0 | True |
+| chain-3v-2exit | dnf | 2.28 | 2.33 | 1.95 | OK | Rules | Unique | 0 | True |
+| example-7 | dnf | 4.18 | 4.38 | 3.96 | OK | Rules | Unique | 0 | True |
+| chain-5v-1exit | dnf | 3.41 | 1.57 | 1.41 | OK | Rules | Unique | 0 | True |
+| grid-2x3 | dnf | 10.89 | 425.63 | 438.73 | OK | Branched | Underdetermined | 4 | True |
+| grid-3x2 | dnf | 13. | 437.22 | 425.26 | OK | Branched | Underdetermined | 4 | True |
+| example-12 | dnf | 6.24 | 268.24 | 213.85 | OK | Branched | Underdetermined | 3 | True |
+---
+
 ### 2026-05-04 - issue6-list-storage
 
 **Commit:** `045db36`  
