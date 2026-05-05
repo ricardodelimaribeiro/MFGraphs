@@ -415,12 +415,15 @@ Test[
 ]
 
 Test[
+    (* EqGeneral is now unconditional: zero-flow edges force u[a,b]=u[b,a], which
+       propagates through switching inequalities to pin values at unused exits.
+       Example-12 is now fully determined ("Rules") rather than "Branched"/"Parametric". *)
     Module[{s, sys, result, kind},
         s = getExampleScenario[12, {{1, 100.0}}, {{4, 0.0}}];
         sys = makeSystem[s];
         result = dnfReduceSystem[sys];
         kind = solversTools`Private`solutionResultKind[result];
-        MemberQ[{"Branched", "Parametric"}, kind]
+        kind === "Rules" && isValidSystemSolution[sys, result]
     ],
     True,
     TestID -> "solutionResultKind: example-12 dnf result is specific residual kind"
@@ -562,11 +565,13 @@ Test[
 ]
 
 Test[
+    (* With unconditional EqGeneral the solution is now a fully-determined List of
+       rules rather than an Association with residual branches. *)
     Module[{s, sys, result},
         s = getExampleScenario[7, {{1, 100.0}}, {{3, 0.0}, {4, 10.0}}];
         sys = makeSystem[s];
         result = optimizedDNFReduceSystem[sys];
-        AssociationQ[result] && isValidSystemSolution[sys, result]
+        !FailureQ[result] && isValidSystemSolution[sys, result]
     ],
     True,
     TestID -> "optimizedDNFReduceSystem: example-7 returns valid exact residual family"
@@ -579,7 +584,7 @@ Test[
         result = optimizedDNFReduceSystem[sys];
         rules = If[ListQ[result], result, Lookup[result, "Rules", {}]];
         residual = If[AssociationQ[result], Lookup[result, "Equations", True], True];
-        AssociationQ[result] &&
+        !FailureQ[result] &&
         FreeQ[rules, _Real] &&
         FreeQ[residual, _Real] &&
         isValidSystemSolution[sys, result]

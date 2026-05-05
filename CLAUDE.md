@@ -189,11 +189,12 @@ of the linearization of the stationary Hamilton-Jacobi equation.
 For an undirected edge `{a,b}`, the flow layer keeps directed variables and defines
 the oriented net flow as `m = j[a,b] - j[b,a]`. `buildHamiltonianData` stores
 `Nrhs`/`CostCurrents` using the orientation-aware congestion current
-`m - Sign[m] m^alpha`; in the critical case `Alpha == 1`, the traversal-cost part
-`m Sign[m]` is `Abs[m]`. Thus terms such as
-`-(j[1,5] - j[5,1]) Sign[j[1,5] - j[5,1]]` are the signed edge-cost contribution
-for the physical edge `{1,5}`. Active critical solvers consume `EqGeneral`
-directly; `Nrhs`/`CostCurrents` are currently stored metadata.
+`m - Sign[m] m^alpha`; in the critical case `Alpha == 1` this simplifies to `0`.
+The edge-level equation `u[a,b] - u[b,a] + m = nrhs` is enforced **unconditionally**
+(no positive-current disjunct): on zero-flow edges it reduces to `u[a,b] = u[b,a]`,
+which propagates through the switching inequalities at adjacent nodes to pin value
+variables at bypassed exit nodes to their terminal cost. Active critical solvers
+consume `EqGeneral` directly; `Nrhs`/`CostCurrents` are currently stored metadata.
 
 If solver work resumes, restore the module loading and docs in a dedicated pass.
 
