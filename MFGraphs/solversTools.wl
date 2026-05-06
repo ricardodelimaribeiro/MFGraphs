@@ -489,7 +489,7 @@ solutionResultKind[sol_] :=
                     True,
                         diagnostics = dnfResidualDiagnostics[sol];
                         Which[
-                            TrueQ[diagnostics["PrimaryVariablesQ"]], "Parametric",
+                            TrueQ[diagnostics["PrimaryVariablesQ"]], "Underdetermined",
                             TrueQ[diagnostics["TransitionFlowVariablesQ"]], "Rules",
                             True, "ResidualLogic"
                         ]
@@ -1674,7 +1674,7 @@ isValidSystemSolution[sys_?mfgSystemQ, sol_, OptionsPattern[]] :=
 
         kind = solutionResultKind[sol];
 
-        If[!MemberQ[{"Rules", "Branched", "Parametric", "ResidualLogic", "NoSolution"}, kind],
+        If[!MemberQ[{"Rules", "Branched", "Underdetermined", "ResidualLogic", "NoSolution"}, kind],
             Return[If[returnReportQ,
                 <|"Valid" -> False, "Kind" -> kind,
                   "Reason" -> "UnrecognizedSolutionFormat", "BlockChecks" -> <||>|>,
