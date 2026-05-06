@@ -232,15 +232,15 @@ Test[
 
 Test[
     solversTools`Private`solutionResultKind[<|"Rules" -> {}, "Residual" -> (j[1, 2] >= 0 && u[1, 2] <= 1)|>],
-    "Parametric",
-    TestID -> "solutionResultKind: tracked residual without Or is Parametric"
+    "Underdetermined",
+    TestID -> "solutionResultKind: tracked residual without Or is Underdetermined"
 ]
 
 Test[
     solversTools`Private`solutionResultKind[
         <|"Rules" -> {}, "Residual" -> (j[1, 2] >= 0 && (j[1, 2, 3] == 0 || j[1, 2, 3] == 1))|>
     ],
-    "Parametric",
+    "Underdetermined",
     TestID -> "solutionResultKind: mixed residual classifies by primary variables"
 ]
 
@@ -396,17 +396,17 @@ Test[
 ]
 
 Test[
-    (* u[auxExit3,3] is genuinely parametric in [0,10]: no flow reaches exit 3,
-       so the exit value is unconstrained by complementarity and the solver
-       correctly returns "Parametric" with the interval inequality as residual. *)
+    (* u[auxExit3,3] is free in [0,10]: no flow reaches exit 3,
+       so the exit value is unconstrained by complementarity. The rest of the
+       solution is unaffected by its value — genuinely underdetermined. *)
     Module[{s, sys, result},
         s = gridScenario[{3}, {{1, 120.0}}, {{2, 0.0}, {3, 10.0}}];
         sys = makeSystem[s];
         result = dnfReduceSystem[sys];
         solversTools`Private`solutionResultKind[result]
     ],
-    "Parametric",
-    TestID -> "solutionResultKind: chain-3v-2exit dnf result is Parametric"
+    "Underdetermined",
+    TestID -> "solutionResultKind: chain-3v-2exit dnf result is Underdetermined"
 ]
 
 Test[
