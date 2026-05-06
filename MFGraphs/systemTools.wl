@@ -104,15 +104,16 @@ altSwitch::usage = "altSwitch[j, u, switchingCosts][r, i, w] returns the complem
 (j[r, i, w] == 0) || (u[w, i] + switchingCosts[r, i, w] - u[r, i] == 0)
 where switchingCosts[r, i, w] is the minimal cost of transitioning from edge e_{r,i} to edge e_{i,w}; minimal because when switching costs are inconsistent the broader alternative-transition-flow conditions (j[j,i,l]==0 || j[l,i,k]==0) for all v_j, v_l, v_k adjacent to v_i are added to the system (this generalizes the condition for j=k already present in the system)."
 
-roundValues::usage = "roundValues[x] rounds numerical values in x to a standard precision (10^-10).";
+(* The following function is declared and implemented in utilities.wl:
+   - roundValues
+*)
 
 Begin["`Private`"]
 
-exactBoundaryValue::usage =
-"exactBoundaryValue[val] converts a numeric real boundary value to an exact value or returns a buildBoundaryData Failure.";
-
-exactBoundaryValues::usage =
-"exactBoundaryValues[vals] applies exactBoundaryValue to a list and returns the first Failure if conversion fails.";
+(* The following functions are declared and implemented in utilities.wl:
+   - exactBoundaryValue
+   - exactBoundaryValues
+*)
 
 interiorTripleQ::usage =
 "interiorTripleQ[triple, auxEntrySet, auxExitSet] returns True if the triple \

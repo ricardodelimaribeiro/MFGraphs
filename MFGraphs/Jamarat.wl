@@ -227,7 +227,7 @@ JamaratScenarioSummary[s_?scenarioQ, sys_?mfgSystemQ] :=
 $MFGraphsVerbose = False;
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Simplified Jamarat cycle*)
 
 
@@ -302,7 +302,7 @@ jamaratEndSol
 jamaratScenario = getExampleScenario[
     "Jamaratv9",
     {{1, 10}, {2, 50}},
-    {{7, 0}, {8, 0}, {9, 0}}
+    {{7, 0}, {8, 4}, {9, 2}}
 ];
 
 jamaratSystem = makeSystem[jamaratScenario];
@@ -362,8 +362,6 @@ jamaratRun[] := AbsoluteTiming[jamaratSol=solveScenario[jamaratScenario]]
 
 jamaratRun[]
 
-
-jamaratSol = CapturedSolutionFromWorkbook["jamaratSol"];
 
 jamaratEquations = Lookup[jamaratSol, "Residual", True];
 

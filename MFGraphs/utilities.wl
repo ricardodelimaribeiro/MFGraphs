@@ -35,6 +35,8 @@ withCriticalCongestionSolver::usage =
 "withCriticalCongestionSolver[sys, solverName, bodyFunc] handles validation, input building, \
 and rule attachment for critical-congestion structural solvers.";
 
+MFGraphs::noncritical = "`1` supports only critical congestion systems with Alpha == 1 on every edge.";
+
 Begin["`Private`"]
 
 (* --- Typed Object Infrastructure --- *)
@@ -112,9 +114,7 @@ withCriticalCongestionSolver[sys_, solverName_String, bodyFunc_, buildInputsFunc
     Module[{inputs, constraints, allVars, rulesAcc, result},
         (* 1. Validation *)
         If[!criticalCongestionSystemQ[sys],
-            With[{sym = Symbol[solverName]},
-                Message[MessageName[sym, "noncritical"]]
-            ];
+            Message[MFGraphs::noncritical, solverName];
             Return[Failure[solverName, <|"Message" -> solverName <> " supports only critical congestion systems with Alpha == 1 on every edge."|>], Module]
         ];
 

@@ -130,7 +130,7 @@ Test[
     Module[{s, sys, result},
         s = gridScenario[{2}, {{1, 10}}, {{2, 0}}, {}, 2];
         sys = makeSystem[s];
-        result = Quiet[reduceSystem[sys], reduceSystem::noncritical];
+        result = Quiet[reduceSystem[sys], MFGraphs::noncritical];
         FailureQ[result] && result["Tag"] === "reduceSystem"
     ],
     True,
@@ -533,7 +533,7 @@ Test[
     Module[{s, sys, result},
         s = gridScenario[{2}, {{1, 10}}, {{2, 0}}, {}, 2];
         sys = makeSystem[s];
-        result = Quiet[dnfReduceSystem[sys], dnfReduceSystem::noncritical];
+        result = Quiet[dnfReduceSystem[sys], MFGraphs::noncritical];
         FailureQ[result] && result["Tag"] === "dnfReduceSystem"
     ],
     True,
@@ -603,7 +603,7 @@ Test[
     Module[{s, sys, result},
         s = gridScenario[{2}, {{1, 10}}, {{2, 0}}, {}, 2];
         sys = makeSystem[s];
-        result = Quiet[optimizedDNFReduceSystem[sys], optimizedDNFReduceSystem::noncritical];
+        result = Quiet[optimizedDNFReduceSystem[sys], MFGraphs::noncritical];
         FailureQ[result] && result["Tag"] === "optimizedDNFReduceSystem"
     ],
     True,
@@ -680,7 +680,7 @@ Test[
     Module[{s, sys, result},
         s = gridScenario[{2}, {{1, 10}}, {{2, 0}}, {}, 2];
         sys = makeSystem[s];
-        result = Quiet[activeSetReduceSystem[sys], activeSetReduceSystem::noncritical];
+        result = Quiet[activeSetReduceSystem[sys], MFGraphs::noncritical];
         FailureQ[result] && result["Tag"] === "activeSetReduceSystem"
     ],
     True,
@@ -734,7 +734,7 @@ Test[
     Module[{s, sys, result},
         s = gridScenario[{2}, {{1, 10}}, {{2, 0}}, {}, 2];
         sys = makeSystem[s];
-        result = Quiet[booleanReduceSystem[sys], booleanReduceSystem::noncritical];
+        result = Quiet[booleanReduceSystem[sys], MFGraphs::noncritical];
         FailureQ[result] && result["Tag"] === "booleanReduceSystem"
     ],
     True,
@@ -797,7 +797,7 @@ Test[
     Module[{s, sys, result},
         s = gridScenario[{2}, {{1, 10}}, {{2, 0}}, {}, 2];
         sys = makeSystem[s];
-        result = Quiet[findInstanceSystem[sys], findInstanceSystem::noncritical];
+        result = Quiet[findInstanceSystem[sys], MFGraphs::noncritical];
         FailureQ[result] && result["Tag"] === "findInstanceSystem"
     ],
     True,
