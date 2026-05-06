@@ -24,6 +24,9 @@ mfgTransitionPlot::usage =
 mfgAugmentedPlot::usage =
 "mfgAugmentedPlot[s, sys, sol, opts] plots the augmented road-traffic infrastructure graph built by augmentAuxiliaryGraph. Blue edges represent flow variables j[a,b]; red edges represent transition variables j[r,i,w]. Use PlotLabel, GraphLayout, and ImageSize options to control display.";
 
+mfgAugmentedBoundaryPlot::usage =
+"mfgAugmentedBoundaryPlot[s, sys, sol, opts] plots the augmented infrastructure graph with boundary data overlaid. In the augmented representation, edges correspond to flow and transition flow variables; vertices correspond to value variables. Entry flow edges are labeled with their fixed supply from boundary data; exit source vertices {exN,N} are annotated with their exit cost bound. Use PlotLabel, GraphLayout, and ImageSize options to control display.";
+
 augmentAuxiliaryGraph::usage =
 "augmentAuxiliaryGraph[sys] constructs the road-traffic augmented infrastructure graph from a system's AuxPairs and AuxTriples. Returns an Association containing the Graph, Vertices, FlowEdges, TransitionEdges, EdgeVariables, and EdgeKinds.";
 
@@ -54,6 +57,8 @@ Options[mfgTransitionPlot] = {
 };
 
 Options[mfgAugmentedPlot] = Options[mfgTransitionPlot];
+
+Options[mfgAugmentedBoundaryPlot] = Options[mfgTransitionPlot];
 
 netEdgeFlow::usage =
 "netEdgeFlow[a, b, rules] returns the solved net flow j[a,b]-j[b,a], defaulting absent flow variables to zero.";
@@ -266,7 +271,7 @@ stateVertexStyle[vertices_, sys_?mfgSystemQ] :=
 formatStateNodeLabel[state_, val_] :=
     Placed[
         Style[
-            If[NumericQ[val] && Abs[val] > 10^-5,
+            If[NumericQ[val],
                 Row[{stateLabel[state], "\n", "u=", formatPlotNumber[val]}],
                 stateLabel[state]
             ],
@@ -515,19 +520,19 @@ mfgTransitionPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, title : Except[_Rule | _R
     mfgTransitionPlot[s, sys, sol, PlotLabel -> title, opts];
 
 mfgTransitionPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, opts : OptionsPattern[]] :=
-    Module[{triples, rules, transitionEdges, nodeLabels, edgeStyles, edgeLabels,
-            numericJ, maxJ, auxPairs},
-        triples  = systemData[sys, "AuxTriples"];
-        auxPairs = systemData[sys, "AuxPairs"];
-        rules    = extractRules[sol];
+    Module[{triples, rules, transitionEdges, vertices, nodeLabels, edgeStyles, edgeLabels,
+            numericJ, maxJ},
+        triples = systemData[sys, "AuxTriples"];
+        rules   = extractRules[sol];
 
-        transitionEdges = DirectedEdge[#[[1 ;; 2]], #[[2 ;; 3]]] & /@ triples;
+        transitionEdges = DirectedEdge[{#[[1]], #[[2]]}, {#[[3]], #[[2]]}] & /@ triples;
+        vertices = DeleteDuplicates @ Flatten[List @@@ transitionEdges, 1];
 
         numericJ = Cases[(j @@ # /. rules) & /@ triples, _?NumericQ, Infinity];
         maxJ = Max[Append[Abs @ numericJ, 1]];
 
         edgeStyles = Association @ Map[
-            With[{trip = {#[[1, 1]], #[[1, 2]], #[[2, 2]]}, jv = (j @@ {#[[1, 1]], #[[1, 2]], #[[2, 2]]}) /. rules},
+            With[{jv = (j @@ {#[[1, 1]], #[[1, 2]], #[[2, 1]]}) /. rules},
                 # -> Directive[
                     Which[
                         NumericQ[jv] && jv > 0, RGBColor[0.12, 0.45, 0.78],
@@ -544,7 +549,7 @@ mfgTransitionPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, opts : OptionsPattern[]] 
         ];
 
         edgeLabels = Association @ Map[
-            With[{trip = {#[[1, 1]], #[[1, 2]], #[[2, 2]]}, jv = (j @@ {#[[1, 1]], #[[1, 2]], #[[2, 2]]}) /. rules},
+            With[{jv = (j @@ {#[[1, 1]], #[[1, 2]], #[[2, 1]]}) /. rules},
                 # -> Placed[
                     Style[
                         If[NumericQ[jv], NumberForm[N[jv], {5, 1}], "?"],
@@ -557,14 +562,14 @@ mfgTransitionPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, opts : OptionsPattern[]] 
         ];
 
         nodeLabels = Association @ Map[
-            # -> formatStateNodeLabel[#, edgeUValue[#[[1]], #[[2]], rules]] &,
-            auxPairs
+            # -> formatStateNodeLabel[#, (u @@ #) /. rules] &,
+            vertices
         ];
 
-        Graph[auxPairs, transitionEdges,
+        Graph[vertices, transitionEdges,
             VertexLabels -> Normal[nodeLabels],
             VertexSize   -> 0.55,
-            VertexStyle  -> stateVertexStyle[auxPairs, sys],
+            VertexStyle  -> stateVertexStyle[vertices, sys],
             EdgeStyle    -> Normal[edgeStyles],
             EdgeLabels   -> Normal[edgeLabels],
             GraphLayout  -> OptionValue[GraphLayout],
@@ -579,7 +584,8 @@ mfgAugmentedPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, title : Except[_Rule | _Ru
 mfgAugmentedPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, opts : OptionsPattern[]] :=
     Module[{augmented, vertices, flowEdges, transitionEdges, allAugEdges,
             edgeStyles, edgeLabels, nodeLabels, numericJ, maxJ,
-            edgeVariables, edgeKinds, rules, getU, auxEntryV, auxExitV},
+            edgeVariables, edgeKinds, rules, getU, auxEntryV, auxExitV,
+            effectiveFlows},
 
         augmented = augmentAuxiliaryGraph[sys];
         vertices = augmented["Vertices"];
@@ -594,11 +600,21 @@ mfgAugmentedPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, opts : OptionsPattern[]] :
 
         getU[p_] := (u @@ p) /. rules;
 
-        numericJ = Cases[Lookup[edgeVariables, allAugEdges] /. rules, _?NumericQ, Infinity];
-        maxJ = Max[Append[Abs @ numericJ, 1]];
+        (* For flow edges, complementarity ensures Max[j[a,b], j[b,a]] gives the actual flow *)
+        effectiveFlows = Association @ Map[
+            With[{edgeVar = edgeVariables[#], jv = edgeVariables[#] /. rules, kind = edgeKinds[#]},
+                # -> If[kind === "Flow" && NumericQ[jv],
+                        Max[jv, j @@ Reverse[List @@ edgeVar] /. rules],
+                        jv]
+            ] &,
+            allAugEdges
+        ];
+
+        numericJ = Cases[Values[effectiveFlows], _?NumericQ, Infinity];
+        maxJ = Max[Append[numericJ, 1]];
 
         edgeStyles = Association @ Map[
-            With[{jv = edgeVariables[#] /. rules, kind = edgeKinds[#]},
+            With[{effJ = effectiveFlows[#], kind = edgeKinds[#]},
                 # -> Directive[
                     Which[
                         kind === "Flow", RGBColor[0.12, 0.45, 0.78],
@@ -606,9 +622,9 @@ mfgAugmentedPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, opts : OptionsPattern[]] :
                         True, GrayLevel[0.45]
                     ],
                     AbsoluteThickness[
-                        If[NumericQ[jv], Rescale[Abs[jv], {0, maxJ}, {1.5, 7}], 2.0]
+                        If[NumericQ[effJ], Rescale[effJ, {0, maxJ}, {1.5, 7}], 2.0]
                     ],
-                    Opacity[0.8]
+                    If[NumericQ[effJ] && effJ == 0, Opacity[0], Opacity[0.8]]
                 ]
             ] &,
             allAugEdges
@@ -640,6 +656,120 @@ mfgAugmentedPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, opts : OptionsPattern[]] :
             EdgeLabels   -> Normal[edgeLabels],
             GraphLayout  -> OptionValue[GraphLayout],
             PlotLabel    -> plotLabelValue[OptionValue[PlotLabel], "Augmented infrastructure graph (Paper scheme)"],
+            ImageSize    -> OptionValue[ImageSize]
+        ]
+    ];
+
+entryFlowEdge[pair_List] :=
+    DirectedEdge[{pair[[2]], pair[[1]]}, {pair[[1]], pair[[2]]}];
+
+formatBoundaryExitLabel[state_, val_, cost_] :=
+    Placed[
+        Style[
+            If[NumericQ[val] && Abs[val] > 10^-5,
+                Column[{
+                    Row[{stateLabel[state], "  u=", formatPlotNumber[val]}],
+                    Style[Row[{"c\[LessEqual]", formatPlotNumber[cost]}], Italic]
+                }, Center, Spacings -> 0.1],
+                Column[{
+                    stateLabel[state],
+                    Style[Row[{"c\[LessEqual]", formatPlotNumber[cost]}], Italic]
+                }, Center, Spacings -> 0.1]
+            ],
+            9, Black
+        ],
+        Center
+    ];
+
+mfgAugmentedBoundaryPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, title : Except[_Rule | _RuleDelayed], opts : OptionsPattern[]] :=
+    mfgAugmentedBoundaryPlot[s, sys, sol, PlotLabel -> title, opts];
+
+mfgAugmentedBoundaryPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, opts : OptionsPattern[]] :=
+    Module[{augmented, vertices, flowEdges, transitionEdges, allAugEdges,
+            edgeStyles, edgeLabels, nodeLabels, numericJ, maxJ,
+            edgeVariables, edgeKinds, rules, getU, auxEntryV, auxExitV,
+            exitCosts, entryDataAssoc, inAuxEntryPairs, entryEdgeSet},
+
+        augmented = augmentAuxiliaryGraph[sys];
+        vertices        = augmented["Vertices"];
+        flowEdges       = augmented["FlowEdges"];
+        transitionEdges = augmented["TransitionEdges"];
+        allAugEdges     = Join[flowEdges, transitionEdges];
+        edgeVariables   = augmented["EdgeVariables"];
+        edgeKinds       = augmented["EdgeKinds"];
+        rules           = extractRules[sol];
+        auxEntryV       = systemData[sys, "AuxEntryVertices"];
+        auxExitV        = systemData[sys, "AuxExitVertices"];
+        exitCosts       = systemData[sys, "ExitCosts"];
+        entryDataAssoc  = systemData[sys, "EntryDataAssociation"];
+        inAuxEntryPairs = systemData[sys, "InAuxEntryPairs"];
+        entryEdgeSet    = Association @ Thread[(entryFlowEdge /@ inAuxEntryPairs) -> inAuxEntryPairs];
+
+        getU[p_] := (u @@ p) /. rules;
+
+        numericJ = Cases[Lookup[edgeVariables, allAugEdges] /. rules, _?NumericQ, Infinity];
+        maxJ = Max[Append[Abs @ numericJ, 1]];
+
+        edgeStyles = Association @ Map[
+            With[{jv = edgeVariables[#] /. rules, kind = edgeKinds[#]},
+                # -> Directive[
+                    Which[
+                        kind === "Flow", RGBColor[0.12, 0.45, 0.78],
+                        kind === "Transition", RGBColor[0.86, 0.25, 0.22],
+                        True, GrayLevel[0.45]
+                    ],
+                    AbsoluteThickness[
+                        If[NumericQ[jv], Rescale[Abs[jv], {0, maxJ}, {1.5, 7}], 2.0]
+                    ],
+                    Opacity[0.8]
+                ]
+            ] &,
+            allAugEdges
+        ];
+
+        edgeLabels = Association @ Map[
+            With[{jv = edgeVariables[#] /. rules,
+                  entryPair = Lookup[entryEdgeSet, Key[#], Missing[]]},
+                # -> Placed[
+                    Style[
+                        Which[
+                            !MissingQ[entryPair],
+                                With[{supply = Lookup[entryDataAssoc, Key[entryPair], Missing[]]},
+                                    If[!MissingQ[supply],
+                                        Row[{"f=", formatPlotNumber[supply]}],
+                                        If[NumericQ[jv] && Abs[jv] > 10^-5, NumberForm[N[jv], {5, 1}], ""]
+                                    ]
+                                ],
+                            NumericQ[jv] && Abs[jv] > 10^-5,
+                                NumberForm[N[jv], {5, 1}],
+                            True, ""
+                        ],
+                        8, Black, Background -> White
+                    ],
+                    Center
+                ]
+            ] &,
+            allAugEdges
+        ];
+
+        nodeLabels = Association @ Map[
+            With[{uval = getU[#], head = First[#]},
+                # -> If[MemberQ[auxExitV, head],
+                    formatBoundaryExitLabel[#, uval, Lookup[exitCosts, head, Missing[]]],
+                    formatStateNodeLabel[#, uval]
+                ]
+            ] &,
+            vertices
+        ];
+
+        Graph[vertices, allAugEdges,
+            VertexLabels -> Normal[nodeLabels],
+            VertexSize   -> 0.58,
+            VertexStyle  -> stateVertexStyle[vertices, sys],
+            EdgeStyle    -> Normal[edgeStyles],
+            EdgeLabels   -> Normal[edgeLabels],
+            GraphLayout  -> OptionValue[GraphLayout],
+            PlotLabel    -> plotLabelValue[OptionValue[PlotLabel], "Augmented graph with boundary data"],
             ImageSize    -> OptionValue[ImageSize]
         ]
     ];

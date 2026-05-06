@@ -78,18 +78,6 @@ falls back to the proven exact DNF reducer for larger residual variable sets. \
 Returns the same rule/residual shape as dnfReduceSystem. Fails for \
 non-critical congestion systems where Alpha != 1 on any edge.";
 
-reduceSystem::noncritical =
-"reduceSystem supports only critical congestion systems with Alpha == 1 on every edge.";
-
-dnfReduceSystem::noncritical =
-"dnfReduceSystem supports only critical congestion systems with Alpha == 1 on every edge.";
-
-optimizedDNFReduceSystem::noncritical =
-"optimizedDNFReduceSystem supports only critical congestion systems with Alpha == 1 on every edge.";
-
-activeSetReduceSystem::noncritical =
-"activeSetReduceSystem supports only critical congestion systems with Alpha == 1 on every edge.";
-
 booleanReduceSystem::usage =
 "booleanReduceSystem[sys] solves the mfgSystem sys by converting the \
 preprocessed constraint system to DNF via BooleanConvert, then calling \
@@ -101,9 +89,6 @@ Returns a list of rules when fully determined, or \
 Fails for non-critical congestion systems where Alpha != 1 on any edge. \
 Options: \"DisjunctTimeout\" (default 30s per Reduce call), \
 \"ReturnAll\" (default False; True returns all non-False parsed results).";
-
-booleanReduceSystem::noncritical =
-"booleanReduceSystem supports only critical congestion systems with Alpha == 1 on every edge.";
 
 booleanReduceSystem::multisol =
 "booleanReduceSystem found `1` non-False disjuncts with differing rules. \
@@ -144,19 +129,15 @@ Kirchhoff/nonnegative flow constraints, then recovers value variables from \
 the remaining system. Returns the standard raw solver shape or \
 Failure[\"flowFirstCriticalSystem\", ...].";
 
-findInstanceSystem::noncritical =
-"findInstanceSystem supports only critical congestion systems with Alpha == 1 on every edge.";
-
 Begin["`Private`"];
+
+(* The following functions are declared and implemented in utilities.wl:
+   - mergeRules
+   - normalizeRules
+*)
 
 trackedVarQ::usage =
 "trackedVarQ[var] returns True for solver variables tracked during Reduce post-processing.";
-
-mergeRules::usage =
-"mergeRules[oldRules, newRules] joins rule lists while keeping the latest rule for each left-hand side.";
-
-normalizeRules::usage =
-"normalizeRules[rules] rewrites right-hand sides through the full rule set.";
 
 topLevelEquations::usage =
 "topLevelEquations[constraints] extracts top-level Equal expressions from an And expression or single constraint.";
@@ -268,7 +249,7 @@ activeSetReduceSystem[sys_?mfgSystemQ] :=
     Module[{initRules, deterministicConstraints, activeConstraints, allVars,
             detReduced, rulesAcc, activeReduced, result, branches},
         If[!criticalCongestionSystemQ[sys],
-            Message[activeSetReduceSystem::noncritical];
+            Message[MFGraphs::noncritical, "activeSetReduceSystem"];
             Return[Failure["activeSetReduceSystem", <|"Message" -> "activeSetReduceSystem supports only critical congestion systems with Alpha == 1 on every edge."|>], Module]
         ];
         initRules = Join[
@@ -377,7 +358,7 @@ findInstanceSystem[sys_?mfgSystemQ, opts : OptionsPattern[]] :=
 directCriticalSystem[sys_?mfgSystemQ] :=
     Module[{eqs, exits, switching, exitCosts, sol},
         If[!criticalCongestionSystemQ[sys],
-            Message[directCriticalSystem::noncritical];
+            Message[MFGraphs::noncritical, "directCriticalSystem"];
             Return[Failure["directCriticalSystem", <|"Reason" -> "NonCritical"|>]]
         ];
         
@@ -400,13 +381,10 @@ directCriticalSystem[sys_?mfgSystemQ] :=
         ]
     ];
 
-directCriticalSystem::noncritical =
-"directCriticalSystem supports only critical congestion systems with Alpha == 1 on every edge.";
-
 flowFirstCriticalSystem[sys_?mfgSystemQ] :=
     Module[{eqs, numericState, sol},
         If[!criticalCongestionSystemQ[sys],
-            Message[flowFirstCriticalSystem::noncritical];
+            Message[MFGraphs::noncritical, "flowFirstCriticalSystem"];
             Return[Failure["flowFirstCriticalSystem", <|"Reason" -> "NonCritical"|>]]
         ];
         eqs = sysToEqsInternal[sys];
@@ -417,9 +395,6 @@ flowFirstCriticalSystem[sys_?mfgSystemQ] :=
             Failure["flowFirstCriticalSystem", <|"Reason" -> "SolveFailed"|>]
         ]
     ];
-
-flowFirstCriticalSystem::noncritical =
-"flowFirstCriticalSystem supports only critical congestion systems with Alpha == 1 on every edge.";
 
 trackedVarQ[var_] :=
     MatchQ[var, j[__] | u[__]];
