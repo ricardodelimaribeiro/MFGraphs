@@ -10,6 +10,22 @@ The repository is currently in a **core scenario-kernel phase**. The active pack
 - critical-congestion symbolic solving
 - visualization helpers
 
+## Mean Field Games on Networks: Model Overview
+
+MFGraphs solves for a stationary Mean Field Game (MFG) equilibrium on a network graph. The model describes the strategic behavior of a large population of rational agents moving through a graph.
+
+**Key Components:**
+1. **Mass Conservation:** A stationary distribution of agents satisfying Kirchhoff's laws (flow in = flow out) at all **original vertices** of the graph. Boundary conditions (entries/exits) are handled by auxiliary vertices.
+2. **Congestion Model:** The model employs an explicit Hamiltonian:
+   $$H(x,p,z) = \frac{|p|^2}{2 z^\alpha} + V(x) - g(z)$$
+   where $p$ is the momentum, $z$ is the density, $V(x)$ is the potential, and $g(z)$ represents the congestion cost.
+3. **Fundamental Equations:**
+   - **Hamilton-Jacobi-Bellman (HJB) Equation:** $H(x, u_x, m) = 0$, where $u$ is the value function and $m$ is mass.
+   - **Transport Equation:** $(-m D_p H(x, u_x, m))_x = 0$.
+4. **Edge Flow Relation:** Based on the model Hamiltonian, the flow is given by $j = -m \frac{u_x}{m^\alpha}$. Integrating over a canonical edge segment $[0, 1]$ for the **critical congestion** case ($\alpha = 1$) yields the constant flow relation:
+   $$j = u(1) - u(0)$$
+5. **Equilibrium (Complementarity):** Flow only exists on edges that are part of an optimal path, resulting in a Linear Complementarity Problem (LCP) for the critical regime.
+
 ## Current status
 
 Loaded by `Needs["MFGraphs`"]`:

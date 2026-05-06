@@ -25,7 +25,7 @@ mfgSystem sys using Reduce over the Reals. Includes AltOptCond \
 IneqSwitchingByVertex (switching-cost optimality inequalities). \
 Fails for non-critical congestion systems where Alpha != 1 on any edge. \
 Returns a list of rules when the system is fully determined, or \
-<|\"Rules\" -> rules, \"Equations\" -> residual|> when underdetermined.";
+<|\"Rules\" -> rules, \"Residual\" -> residual|> when underdetermined.";
 
 isValidSystemSolution::usage =
 "isValidSystemSolution[sys, sol] checks whether sol (the output of \
@@ -57,7 +57,7 @@ dnfReduceSystem::usage =
 followed by dnfReduce instead of Reduce. Handles cases where Reduce times \
 out by using equality-substitution and disjunction-distribution. Returns a \
 list of rules when fully determined, or \
-<|\"Rules\" -> rules, \"Equations\" -> residual|> when underdetermined. \
+<|\"Rules\" -> rules, \"Residual\" -> residual|> when underdetermined. \
 Fails for non-critical congestion systems where Alpha != 1 on any edge.";
 
 optimizedDNFReduceSystem::usage =
@@ -67,7 +67,7 @@ dnfReduceSystem. It carries small DNF branch families directly as rules plus \
 residual constraints, and falls back to the proven exact DNF reducer for \
 larger residual variable sets. \
 Returns a list of rules when fully determined, or \
-<|\"Rules\" -> rules, \"Equations\" -> residual|> when underdetermined. \
+<|\"Rules\" -> rules, \"Residual\" -> residual|> when underdetermined. \
 Fails for non-critical congestion systems where Alpha != 1 on any edge.";
 
 activeSetReduceSystem::usage =
@@ -97,7 +97,7 @@ Reduce independently on each disjunct. Each disjunct is a pure conjunction \
 (no Or), so Reduce avoids case-splitting. Non-False results are collected; \
 if the system has a unique equilibrium all non-False results are equivalent. \
 Returns a list of rules when fully determined, or \
-<|\"Rules\" -> rules, \"Equations\" -> residual|> when underdetermined. \
+<|\"Rules\" -> rules, \"Residual\" -> residual|> when underdetermined. \
 Fails for non-critical congestion systems where Alpha != 1 on any edge. \
 Options: \"DisjunctTimeout\" (default 30s per Reduce call), \
 \"ReturnAll\" (default False; True returns all non-False parsed results).";
@@ -114,7 +114,7 @@ findInstanceSystem::usage =
 linearly preprocessing constraints, then calling FindInstance over the \
 remaining variables. Returns one feasible list of rules. If no instance is \
 found or the final solve times out, returns \
-<|\"Rules\" -> accumulatedRules, \"Equations\" -> False|>. \
+<|\"Rules\" -> accumulatedRules, \"Residual\" -> False|>. \
 Fails for non-critical congestion systems where Alpha != 1 on any edge. \
 Options: \"Timeout\" (default Infinity).";
 
@@ -200,6 +200,27 @@ checkBlock::usage =
 
 solutionResultKind::usage =
 "solutionResultKind[sol] classifies solver output by its residual content.";
+
+primarySolutionVarQ::usage =
+"primarySolutionVarQ[var] returns True for primary solver variables (j[a,b] or u[a,b]).";
+
+transitionFlowVarQ::usage =
+"transitionFlowVarQ[var] returns True for transition flow variables (j[a,b,c]).";
+
+residualPrimaryVariables::usage =
+"residualPrimaryVariables[residual] returns a list of primary variables (j[a,b], u[a,b]) present in the residual expression.";
+
+residualTransitionFlows::usage =
+"residualTransitionFlows[residual] returns a list of transition flow variables (j[a,b,c]) present in the residual expression.";
+
+residualTrackedVariables::usage =
+"residualTrackedVariables[residual] returns a list of all tracked variables present in the residual expression.";
+
+orInvolvingPrimaryVariableQ::usage =
+"orInvolvingPrimaryVariableQ[residual] returns True if the residual contains an Or expression involving primary variables.";
+
+solutionRules::usage =
+"solutionRules[sol] extracts the rule list from a solver result (list or association).";
 
 solutionVariableDiagnostics::usage =
 "solutionVariableDiagnostics[sys, sol] reports primary solution classification \
@@ -305,7 +326,7 @@ booleanReduceSystem[sys_?mfgSystemQ, opts : OptionsPattern[]] :=
                 reducedList = TimeConstrained[Reduce[#, allVars, Reals], timeout, $Aborted] & /@ disjuncts;
                 nonFalse = Select[reducedList, # =!= False && # =!= $Aborted &];
                 If[nonFalse === {},
-                    Return[<|"Rules" -> {}, "Equations" -> False|>, Module]
+                    Return[<|"Rules" -> {}, "Residual" -> False|>, Module]
                 ];
                 parsed = parseReduceResult[#, allVars] & /@ nonFalse;
                 If[Length[parsed] > 1,
@@ -333,7 +354,7 @@ findInstanceSystem[sys_?mfgSystemQ, opts : OptionsPattern[]] :=
                     Return[
                         If[TrueQ[Simplify[constraints]],
                             {},
-                            <|"Rules" -> {}, "Equations" -> False|>
+                            <|"Rules" -> {}, "Residual" -> False|>
                         ],
                         Module
                     ]
@@ -345,7 +366,7 @@ findInstanceSystem[sys_?mfgSystemQ, opts : OptionsPattern[]] :=
                 ];
                 If[MatchQ[instance, {{___Rule}, ___}],
                     First[instance],
-                    <|"Rules" -> {}, "Equations" -> False|>
+                    <|"Rules" -> {}, "Residual" -> False|>
                 ]
             ]
         ],
@@ -429,7 +450,7 @@ solutionRules[sol_] :=
 
 dnfResidualDiagnostics[sol_] :=
     Module[{residual, topLevelBranches, nestedOrQ, primaryVars, transitionVars, trackedVars},
-        residual = If[AssociationQ[sol], Lookup[sol, "Equations", True], True];
+        residual = If[AssociationQ[sol], Lookup[sol, "Residual", True], True];
         topLevelBranches = If[Head[residual] === Or, Length[List @@ residual], 0];
         nestedOrQ = If[Head[residual] === Or,
             !FreeQ[List @@ residual, Or],
@@ -460,7 +481,7 @@ solutionResultKind[sol_] :=
             ListQ[sol] && AllTrue[sol, MatchQ[#, _Rule] &],
                 "Rules",
             AssociationQ[sol] && KeyExistsQ[sol, "Rules"],
-                residual = Lookup[sol, "Equations", True];
+                residual = Lookup[sol, "Residual", True];
                 Which[
                     residual === True, "Rules",
                     residual === False, "NoSolution",
@@ -470,7 +491,7 @@ solutionResultKind[sol_] :=
                         Which[
                             TrueQ[diagnostics["PrimaryVariablesQ"]], "Parametric",
                             TrueQ[diagnostics["TransitionFlowVariablesQ"]], "Rules",
-                            True, "Residual"
+                            True, "ResidualLogic"
                         ]
                 ],
             True,
@@ -482,7 +503,7 @@ solutionVariableDiagnostics[sys_?mfgSystemQ, sol_] :=
     Module[{rules, residual, transitionFlows, transitionRuleFlows,
             residualTransitions, residualTransitionSet, determinedTransitions},
         rules = solutionRules[sol];
-        residual = If[AssociationQ[sol], Lookup[sol, "Equations", True], True];
+        residual = If[AssociationQ[sol], Lookup[sol, "Residual", True], True];
         residual = residual /. rules;
         transitionFlows = Replace[systemData[sys, "Jts"], Except[_List] -> {}];
         transitionRuleFlows = DeleteDuplicates @ Cases[rules, Rule[lhs_?transitionFlowVarQ, _] :> lhs];
@@ -521,7 +542,7 @@ solutionReport[sys_?mfgSystemQ, sol_] :=
 solutionBranchCostReport[sys_?mfgSystemQ, sol_] :=
     Module[{rules, residual, branches, branchData, sortedBranches},
         rules = solutionRules[sol];
-        residual = If[AssociationQ[sol], Lookup[sol, "Equations", True], True];
+        residual = If[AssociationQ[sol], Lookup[sol, "Residual", True], True];
         branches = If[Head[residual] === Or, List @@ residual, {residual}];
         
         branchData = MapIndexed[
@@ -536,7 +557,7 @@ solutionBranchCostReport[sys_?mfgSystemQ, sol_] :=
                     edgeFlowCost = 0.5 * Total[Cases[branchSol, Rule[j[_, _], val_?NumericQ] :> val^2]];
                     totalObjective = N[exitCost + switchCost + edgeFlowCost];
                     
-                    validation = isValidSystemSolution[sys, <|"Rules" -> branchSol, "Equations" -> True|>];
+                    validation = isValidSystemSolution[sys, <|"Rules" -> branchSol, "Residual" -> True|>];
                     
                     <|
                         "Index" -> idx[[1]],
@@ -603,6 +624,81 @@ buildSolverInputs[sys_?mfgSystemQ] :=
 
 flattenConjuncts::usage = "flattenConjuncts[expr] unpacks expr into a conjunct list for iterative processing.";
 substituteSolution::usage = "substituteSolution[rst, sol] substitutes solution rules sol into rst.";
+
+constraintPriority::usage =
+"constraintPriority[expr] returns an integer priority (0 for Equal, 1 for non-Or, 2 for Or) used for ordering conjuncts.";
+
+orderedConjuncts::usage =
+"orderedConjuncts[expr] returns a list of conjuncts from expr sorted by constraintPriority and string form.";
+
+orderedAlternatives::usage =
+"orderedAlternatives[expr] returns the list of disjuncts from an Or expression sorted by string form.";
+
+dnfTopLevelConjuncts::usage =
+"dnfTopLevelConjuncts[expr] returns the top-level conjuncts of a boolean expression.";
+
+dnfVarVertices::usage =
+"dnfVarVertices[var] returns the vertex indices associated with a solver variable.";
+
+dnfExpressionTrackedVariables::usage =
+"dnfExpressionTrackedVariables[expr] returns the list of all tracked variables (j[__], u[__]) in an expression.";
+
+dnfExpressionVertices::usage =
+"dnfExpressionVertices[expr] returns the list of all vertex indices mentioned in an expression's variables.";
+
+dnfTrackedVariableKind::usage =
+"dnfTrackedVariableKind[var] returns a string describing the variable type (TransitionFlow, EdgeFlow, Value, or Other).";
+
+dnfPathInfo::usage =
+"dnfPathInfo[sys] returns an association with path and distance metadata used for path-aware DNF ordering.";
+
+dnfPathRank::usage =
+"dnfPathRank[expr, pathInfo] returns a ranking tuple for an expression based on its distance to optimal paths.";
+
+dnfOrderingSummary::usage =
+"dnfOrderingSummary[conjuncts] returns diagnostic counts of conjunct types (Equal, Or, etc.) for a list of conjuncts.";
+
+dnfOrderConjuncts::usage =
+"dnfOrderConjuncts[expr, order, sys] reorders the conjuncts of expr according to the specified strategy.";
+
+dnfOrderExpression::usage =
+"dnfOrderExpression[expr, order, sys] reorders and reassembles a boolean expression according to the specified strategy.";
+
+branchKey::usage =
+"branchKey[branch] returns a canonical string key for a branch association for deduplication.";
+
+deduplicateBranches::usage =
+"deduplicateBranches[branches] removes duplicate branch associations based on their canonical keys.";
+
+trackedFreeQ::usage =
+"trackedFreeQ[expr] returns True if the expression contains no tracked solver variables.";
+
+cheapConstraintSimplify::usage =
+"cheapConstraintSimplify[expr] performs lightweight simplification of boolean constraints.";
+
+linearRuleFromEquality::usage =
+"linearRuleFromEquality[eq, vars] extracts a substitution rule (var -> rhs) from a linear equality if possible.";
+
+simplifyResiduals::usage =
+"simplifyResiduals[residuals, rules] substitutes rules into a list of residuals and simplifies.";
+
+addBranchConstraint::usage =
+"addBranchConstraint[branch, elem, vars] incorporates a new constraint into an existing branch, potentially splitting it.";
+
+branchStateReduce::usage =
+"branchStateReduce[constraints, allVars] reduces a constraint system into a list of branch associations.";
+
+branchStateReduceFromBranches::usage =
+"branchStateReduceFromBranches[branches, constraints, allVars] continues branch-state reduction from an existing set of branches.";
+
+groundRuleQ::usage =
+"groundRuleQ[rule, allVars] returns True if the RHS of a rule is free of any tracked variables.";
+
+splitGroundRules::usage =
+"splitGroundRules[rules, allVars] splits a rule list into ground (numeric/constant) rules and symbolic residual equalities.";
+
+branchStateFinalizeResult::usage =
+"branchStateFinalizeResult[branches, allVars] converts a list of branch associations into the final solver result format.";
 
 flattenConjuncts[True]  := {}
 flattenConjuncts[False] := {False}
@@ -887,7 +983,7 @@ branchStateFinalizeResult[branches_List, allVars_List] :=
     Module[{ruleSets, common, commonGround, commonResiduals, branchExprs,
             branchRules, branchGround, branchSymbolic, residuals, residualExpr},
         If[branches === {},
-            Return[<|"Rules" -> {}, "Equations" -> False|>, Module]
+            Return[<|"Rules" -> {}, "Residual" -> False|>, Module]
         ];
         ruleSets = Lookup[#, "Rules", {}] & /@ branches;
         common = If[ruleSets === {}, {}, Fold[Intersection, First[ruleSets], Rest[ruleSets]]];
@@ -912,7 +1008,7 @@ branchStateFinalizeResult[branches_List, allVars_List] :=
         ];
         If[residualExpr === True,
             commonGround,
-            <|"Rules" -> commonGround, "Equations" -> residualExpr|>
+            <|"Rules" -> commonGround, "Residual" -> residualExpr|>
         ]
     ];
 
@@ -1085,12 +1181,36 @@ dnfReduceProcedural[xp0_, sys0_, allVars_List] :=
         ]
     ]
 
+dnfTraceEvent::usage =
+"dnfTraceEvent[monitor, event] logs an event to the DNF instrumentation monitor.";
+
+dnfCounterIncrement::usage =
+"dnfCounterIncrement[monitor, key, n] increments a diagnostic counter in the DNF monitor.";
+
 dnfReduceInstrumented::usage =
 "dnfReduceInstrumented[xp, sys, monitor, order, sysObj] is the instrumented \
 recursive engine used by dnfReduceDiagnosticReport. Directly recursive with \
 an explicit depth counter: each Or-branch and Equal-continuation increments \
 depth by 1. Mirrors dnfReduce with branch-ordering and monitoring side effects \
 added. Non-reentrant: writes into $dnfCurrentMonitor via mutable assignments.";
+
+dnfReduceInstrumentedAnd::usage =
+"dnfReduceInstrumentedAnd[xp, conjuncts, monitor, order, sysObj, depth] implements the And-case for the instrumented DNF reducer.";
+
+sysToEqsInternal::usage =
+"sysToEqsInternal[sys] extracts a flat association of all relevant system data for internal solver backends.";
+
+directCriticalSolverInternal::usage =
+"directCriticalSolverInternal[Eqs] implements the core logic for directCriticalSystem using graph distance heuristics.";
+
+SolveCriticalJFirstBackend::usage =
+"SolveCriticalJFirstBackend[Eqs, numericState] implements the core logic for flowFirstCriticalSystem.";
+
+BuildLinearSystemFromEqualities::usage =
+"BuildLinearSystemFromEqualities[equalities, vars] extracts a coefficient matrix and RHS vector from a list of linear equalities.";
+
+LinearSolveCandidate::usage =
+"LinearSolveCandidate[aMat, bVec] computes a least-squares candidate solution for a linear system.";
 
 ClearAttributes[dnfTraceEvent, HoldFirst];
 ClearAttributes[dnfCounterIncrement, HoldFirst];
@@ -1442,14 +1562,14 @@ parseReduceResult[reduced_, allVars_] :=
             Return[
                 With[{common = Fold[Intersection,
                                     branchToRules[#, allVars] & /@ List @@ reduced]},
-                    <|"Rules" -> common, "Equations" -> reduced|>
+                    <|"Rules" -> common, "Residual" -> reduced|>
                 ]
             ]
         ];
         conjuncts = Switch[Head[reduced],
             And,   List @@ reduced,
             True,  {},
-            False, Return[<|"Rules" -> {}, "Equations" -> False|>],
+            False, Return[<|"Rules" -> {}, "Residual" -> False|>],
             _,     {reduced}
         ];
         rules = Cases[conjuncts,
@@ -1463,15 +1583,14 @@ parseReduceResult[reduced_, allVars_] :=
         ];
         If[residual === {},
             rules,
-            <|"Rules" -> rules, "Equations" -> And @@ residual|>
+            <|"Rules" -> rules, "Residual" -> And @@ residual|>
         ]
     ];
 
 harvestDNFBranch[False, _] := False;
 
 harvestDNFBranch[branch_, allVars_List] :=
-    Module[{conjuncts, eqs, sol, rules, reducedConjuncts, residual,
-            residualVars},
+    Module[{conjuncts, eqs, sol, rules, reducedConjuncts, residual},
         conjuncts = flattenConjuncts[branch];
         eqs = Select[conjuncts, MatchQ[#, _Equal] &];
         sol = If[eqs === {} || allVars === {},
@@ -1488,35 +1607,33 @@ harvestDNFBranch[branch_, allVars_List] :=
         reducedConjuncts = DeleteCases[reducedConjuncts, True];
         residual = If[reducedConjuncts === {}, True, And @@ reducedConjuncts];
         residual = Simplify[residual];
-        If[residual === False, Return[False, Module]];
-        residualVars = Select[
-            Variables[residual /. {Equal -> List, Or -> List, And -> List}],
-            MemberQ[allVars, #] &
-        ];
-        If[residualVars === {},
-            If[TrueQ[Simplify[residual]],
-                <|"Rules" -> rules, "Equations" -> True|>,
-                False
-            ],
-            <|"Rules" -> rules, "Equations" -> residual|>
+        (* A residual that is neither True nor False is live by definition.
+           Variables[...] cannot see inequality atoms, so do not use it here. *)
+        Which[
+            residual === False,
+                False,
+            residual === True,
+                <|"Rules" -> rules, "Residual" -> True|>,
+            True,
+                <|"Rules" -> rules, "Residual" -> residual|>
         ]
     ];
 
 parseDNFReduceResult[reduced_, allVars_List] :=
     Module[{branches, harvested, ruleSets, common, branchExprs},
-        If[reduced === False, Return[<|"Rules" -> {}, "Equations" -> False|>, Module]];
+        If[reduced === False, Return[<|"Rules" -> {}, "Residual" -> False|>, Module]];
         branches = If[Head[reduced] === Or, List @@ reduced, {reduced}];
         harvested = DeleteCases[harvestDNFBranch[#, allVars] & /@ branches, False];
         If[harvested === {},
-            Return[<|"Rules" -> {}, "Equations" -> False|>, Module]
+            Return[<|"Rules" -> {}, "Residual" -> False|>, Module]
         ];
         If[Length[harvested] === 1,
             With[{rules = Lookup[First[harvested], "Rules", {}],
-                  residual = Lookup[First[harvested], "Equations", True]},
+                  residual = Lookup[First[harvested], "Residual", True]},
                 Return[
                     If[residual === True,
                         rules,
-                        <|"Rules" -> rules, "Equations" -> residual|>
+                        <|"Rules" -> rules, "Residual" -> residual|>
                     ],
                     Module
                 ]
@@ -1526,7 +1643,7 @@ parseDNFReduceResult[reduced_, allVars_List] :=
         common = If[ruleSets === {}, {}, Fold[Intersection, First[ruleSets], Rest[ruleSets]]];
         branchExprs = Simplify /@ Map[
             With[{branchRules = Complement[Lookup[#, "Rules", {}], common],
-                  residual = Lookup[#, "Equations", True]},
+                  residual = Lookup[#, "Residual", True]},
                 And[
                     And @@ (Equal @@@ branchRules),
                     residual
@@ -1538,7 +1655,7 @@ parseDNFReduceResult[reduced_, allVars_List] :=
         If[branchExprs === {},
             common,
             <|"Rules" -> common,
-              "Equations" -> Simplify @ If[Length[branchExprs] === 1, First[branchExprs], Or @@ branchExprs]|>
+              "Residual" -> Simplify @ If[Length[branchExprs] === 1, First[branchExprs], Or @@ branchExprs]|>
         ]
     ];
 
@@ -1557,7 +1674,7 @@ isValidSystemSolution[sys_?mfgSystemQ, sol_, OptionsPattern[]] :=
 
         kind = solutionResultKind[sol];
 
-        If[!MemberQ[{"Rules", "Branched", "Parametric", "Residual", "NoSolution"}, kind],
+        If[!MemberQ[{"Rules", "Branched", "Parametric", "ResidualLogic", "NoSolution"}, kind],
             Return[If[returnReportQ,
                 <|"Valid" -> False, "Kind" -> kind,
                   "Reason" -> "UnrecognizedSolutionFormat", "BlockChecks" -> <||>|>,
@@ -1568,7 +1685,7 @@ isValidSystemSolution[sys_?mfgSystemQ, sol_, OptionsPattern[]] :=
 
         (* For residual-bearing results: fail fast if residual equations are inconsistent. *)
         If[AssociationQ[sol],
-            With[{eqs = Lookup[sol, "Equations", True]},
+            With[{eqs = Lookup[sol, "Residual", True]},
                 If[eqs === False || TrueQ[Quiet @ Check[Simplify[eqs] === False, False]],
                     Return[If[returnReportQ,
                         <|"Valid" -> False, "Kind" -> kind,
@@ -1820,7 +1937,7 @@ directCriticalSolverInternal[Eqs_] :=
         
         inst = Quiet @ FindInstance[eqSystem && ineqs, allVars, Reals];
         If[MatchQ[inst, {{___Rule}, ___}],
-            <|"Rules" -> First[inst], "Equations" -> True|>,
+            <|"Rules" -> First[inst], "Residual" -> True|>,
             $Failed
         ]
     ];
@@ -1856,7 +1973,7 @@ SolveCriticalJFirstBackend[Eqs_, numericState_] :=
             If[VectorQ[xCandidate, NumericQ] && AllTrue[xCandidate[[Lookup[AssociationThread[allVars, Range[Length[allVars]]], flowVars]]], # >= -10^-6 &],
                 With[{candidateRules = Normal[AssociationThread[allVars, xCandidate]]},
                     If[checkBlock[allConstraints /. candidateRules, 10^-5] === True,
-                        Return[<|"Rules" -> candidateRules, "Equations" -> True|>]
+                        Return[<|"Rules" -> candidateRules, "Residual" -> True|>]
                     ]
                 ]
             ];
@@ -1865,7 +1982,7 @@ SolveCriticalJFirstBackend[Eqs_, numericState_] :=
         (* Fallback to FindInstance with full system *)
         inst = Quiet @ FindInstance[allConstraints, allVars, Reals];
         If[MatchQ[inst, {{___Rule}, ___}],
-            <|"Rules" -> First[inst], "Equations" -> True|>,
+            <|"Rules" -> First[inst], "Residual" -> True|>,
             $Failed
         ]
     ];

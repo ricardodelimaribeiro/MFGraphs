@@ -88,6 +88,21 @@ edgeDensityValue::usage =
 formatPlotNumber::usage =
 "formatPlotNumber[value] formats numeric plot labels and returns ? for unavailable values.";
 
+stateAtomLabel::usage =
+"stateAtomLabel[x] returns a compact string representation of an auxiliary or real vertex index.";
+
+edgeGExpression::usage =
+"edgeGExpression[g, m] evaluates the Hamiltonian congestion cost term G at mass m.";
+
+edgeSignedFlowValue::usage =
+"edgeSignedFlowValue[sys, edge, rules] returns the solved signed spatial flow for a real network edge.";
+
+stateVertexStyle::usage =
+"stateVertexStyle[vertices, sys] returns plot styles for augmented transition graph vertices.";
+
+formatStateNodeLabel::usage =
+"formatStateNodeLabel[state, val] formats a node label for the transition graph showing state and value.";
+
 netEdgeFlow[a_, b_, rules_List] :=
     (j[a, b] - j[b, a]) /. rules /. {_j -> 0};
 

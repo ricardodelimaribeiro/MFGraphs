@@ -147,13 +147,13 @@ Test[
 
 Test[
     solversTools`Private`branchStateReduceResult[x == 1 && x == 2, {x}],
-    <|"Rules" -> {}, "Equations" -> False|>,
+    <|"Rules" -> {}, "Residual" -> False|>,
     TestID -> "branchStateReduceResult: rejects direct conflicting equalities"
 ]
 
 Test[
     solversTools`Private`branchStateReduceResult[(x == 1 || x == 2) && x == 3, {x}],
-    <|"Rules" -> {}, "Equations" -> False|>,
+    <|"Rules" -> {}, "Residual" -> False|>,
     TestID -> "branchStateReduceResult: rejects disjuncts conflicting with later equality"
 ]
 
@@ -168,7 +168,7 @@ Test[
         result = solversTools`Private`branchStateReduceResult[x + y == 1, {x, y}];
         AssociationQ[result] &&
         Lookup[result, "Rules", Missing["Rules"]] === {} &&
-        !FreeQ[Lookup[result, "Equations", True], x + y == 1]
+        !FreeQ[Lookup[result, "Residual", True], x + y == 1]
     ],
     True,
     TestID -> "branchStateReduceResult: symbolic RHS remains residual"
@@ -178,7 +178,7 @@ Test[
     solversTools`Private`solutionResultKind[
         solversTools`Private`branchStateReduceResult[x + y == 1, {x, y}]
     ],
-    "Residual",
+    "ResidualLogic",
     TestID -> "solutionResultKind: symbolic RHS branch-state result is residual"
 ]
 
@@ -201,44 +201,44 @@ Test[
 ]
 
 Test[
-    solversTools`Private`solutionResultKind[<|"Rules" -> {j[1, 2] -> 10}, "Equations" -> True|>],
+    solversTools`Private`solutionResultKind[<|"Rules" -> {j[1, 2] -> 10}, "Residual" -> True|>],
     "Rules",
     TestID -> "solutionResultKind: true residual association is Rules"
 ]
 
 Test[
-    solversTools`Private`solutionResultKind[<|"Rules" -> {}, "Equations" -> False|>],
+    solversTools`Private`solutionResultKind[<|"Rules" -> {}, "Residual" -> False|>],
     "NoSolution",
     TestID -> "solutionResultKind: false residual association is NoSolution"
 ]
 
 Test[
-    solversTools`Private`solutionResultKind[<|"Rules" -> {}, "Equations" -> (j[1, 2] == 0 || j[1, 2] == 1)|>],
+    solversTools`Private`solutionResultKind[<|"Rules" -> {}, "Residual" -> (j[1, 2] == 0 || j[1, 2] == 1)|>],
     "Branched",
     TestID -> "solutionResultKind: residual with Or is Branched"
 ]
 
 Test[
-    solversTools`Private`solutionResultKind[<|"Rules" -> {}, "Equations" -> j[1, 2, 3] >= 0|>],
+    solversTools`Private`solutionResultKind[<|"Rules" -> {}, "Residual" -> j[1, 2, 3] >= 0|>],
     "Rules",
     TestID -> "solutionResultKind: transition-only residual is Rules"
 ]
 
 Test[
-    solversTools`Private`solutionResultKind[<|"Rules" -> {}, "Equations" -> (j[1, 2, 3] == 0 || j[1, 2, 3] == 1)|>],
+    solversTools`Private`solutionResultKind[<|"Rules" -> {}, "Residual" -> (j[1, 2, 3] == 0 || j[1, 2, 3] == 1)|>],
     "Rules",
     TestID -> "solutionResultKind: transition-only Or is not Branched"
 ]
 
 Test[
-    solversTools`Private`solutionResultKind[<|"Rules" -> {}, "Equations" -> (j[1, 2] >= 0 && u[1, 2] <= 1)|>],
+    solversTools`Private`solutionResultKind[<|"Rules" -> {}, "Residual" -> (j[1, 2] >= 0 && u[1, 2] <= 1)|>],
     "Parametric",
     TestID -> "solutionResultKind: tracked residual without Or is Parametric"
 ]
 
 Test[
     solversTools`Private`solutionResultKind[
-        <|"Rules" -> {}, "Equations" -> (j[1, 2] >= 0 && (j[1, 2, 3] == 0 || j[1, 2, 3] == 1))|>
+        <|"Rules" -> {}, "Residual" -> (j[1, 2] >= 0 && (j[1, 2, 3] == 0 || j[1, 2, 3] == 1))|>
     ],
     "Parametric",
     TestID -> "solutionResultKind: mixed residual classifies by primary variables"
@@ -246,7 +246,7 @@ Test[
 
 Test[
     solversTools`Private`solutionResultKind[
-        <|"Rules" -> {}, "Equations" -> ((j[1, 2] == 0 && j[1, 2, 3] >= 0) || j[1, 2] == 1)|>
+        <|"Rules" -> {}, "Residual" -> ((j[1, 2] == 0 && j[1, 2, 3] >= 0) || j[1, 2] == 1)|>
     ],
     "Branched",
     TestID -> "solutionResultKind: primary Or remains Branched"
@@ -255,7 +255,7 @@ Test[
 Test[
     Module[{diag},
         diag = solversTools`Private`dnfResidualDiagnostics[
-            <|"Rules" -> {}, "Equations" -> ((j[1, 2] == 0 && (u[1, 2] == 0 || u[1, 2] == 1)) || j[1, 2] == 1)|>
+            <|"Rules" -> {}, "Residual" -> ((j[1, 2] == 0 && (u[1, 2] == 0 || u[1, 2] == 1)) || j[1, 2] == 1)|>
         ];
         diag["TopLevelBranchCount"] === 2 &&
         diag["NestedOrQ"] === True &&
@@ -270,7 +270,7 @@ Test[
 Test[
     Module[{diag},
         diag = solversTools`Private`dnfResidualDiagnostics[
-            <|"Rules" -> {}, "Equations" -> (j[1, 2] >= 0 && j[1, 2, 3] >= 0)|>
+            <|"Rules" -> {}, "Residual" -> (j[1, 2] >= 0 && j[1, 2, 3] >= 0)|>
         ];
         diag["PrimaryVariables"] === {j[1, 2]} &&
         diag["TransitionFlowVariables"] === {j[1, 2, 3]}
@@ -306,7 +306,7 @@ Test[
         jt = First[systemData[sys, "Jts"]];
         diag = solversTools`Private`solutionVariableDiagnostics[
             sys,
-            <|"Rules" -> {}, "Equations" -> jt >= 0|>
+            <|"Rules" -> {}, "Residual" -> jt >= 0|>
         ];
         diag["PrimaryResultKind"] === "Rules" &&
         diag["TransitionFlowStatus"] === "Underdetermined" &&
@@ -396,14 +396,17 @@ Test[
 ]
 
 Test[
+    (* u[auxExit3,3] is genuinely parametric in [0,10]: no flow reaches exit 3,
+       so the exit value is unconstrained by complementarity and the solver
+       correctly returns "Parametric" with the interval inequality as residual. *)
     Module[{s, sys, result},
         s = gridScenario[{3}, {{1, 120.0}}, {{2, 0.0}, {3, 10.0}}];
         sys = makeSystem[s];
         result = dnfReduceSystem[sys];
         solversTools`Private`solutionResultKind[result]
     ],
-    "Rules",
-    TestID -> "solutionResultKind: chain-3v-2exit dnf result is Rules"
+    "Parametric",
+    TestID -> "solutionResultKind: chain-3v-2exit dnf result is Parametric"
 ]
 
 Test[
@@ -586,7 +589,7 @@ Test[
         sys = makeSystem[s];
         result = optimizedDNFReduceSystem[sys];
         rules = If[ListQ[result], result, Lookup[result, "Rules", {}]];
-        residual = If[AssociationQ[result], Lookup[result, "Equations", True], True];
+        residual = If[AssociationQ[result], Lookup[result, "Residual", True], True];
         !FailureQ[result] &&
         FreeQ[rules, _Real] &&
         FreeQ[residual, _Real] &&
@@ -652,7 +655,7 @@ Test[
         sys = makeSystem[s];
         result = activeSetReduceSystem[sys];
         rules = If[ListQ[result], result, Lookup[result, "Rules", {}]];
-        residual = If[AssociationQ[result], Lookup[result, "Equations", True], True];
+        residual = If[AssociationQ[result], Lookup[result, "Residual", True], True];
         AssociationQ[result] &&
         FreeQ[rules, _Real] &&
         FreeQ[residual, _Real] &&
@@ -690,7 +693,7 @@ Test[
         sys = makeSystem[s];
         !isValidSystemSolution[
             sys,
-            <|"Rules" -> {}, "Equations" -> (u[1, 2] == 0 && u[1, 2] == 1)|>
+            <|"Rules" -> {}, "Residual" -> (u[1, 2] == 0 && u[1, 2] == 1)|>
         ]
     ],
     True,
@@ -808,7 +811,7 @@ Test[
         result = findInstanceSystem[sys, "Timeout" -> 0];
         AssociationQ[result] &&
         KeyExistsQ[result, "Rules"] &&
-        Lookup[result, "Equations", Missing["KeyAbsent", "Equations"]] === False
+        Lookup[result, "Residual", Missing["KeyAbsent", "Residual"]] === False
     ],
     True,
     TestID -> "findInstanceSystem: timeout returns rules plus false residual"
@@ -921,7 +924,7 @@ Test[
         baseRules = dnfReduceSystem[sys];
         baseRules = If[ListQ[baseRules], baseRules, Lookup[baseRules, "Rules", {}]];
         baseRules = DeleteCases[baseRules, HoldPattern[j[1, 2] -> _]];
-        sol = <|"Rules" -> baseRules, "Equations" -> (j[1, 2] == 5 || j[1, 2] == 10)|>;
+        sol = <|"Rules" -> baseRules, "Residual" -> (j[1, 2] == 5 || j[1, 2] == 10)|>;
         report = solutionBranchCostReport[sys, sol];
         totals = Lookup[#, "TotalObjective"] & /@ report["Branches"];
         report["BranchCount"] === 2 &&

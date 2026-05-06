@@ -19,7 +19,8 @@ $TestSuites = <|
         "reduce-system.mt",
         "scenario-consistency.mt",
         "graphicsTools.mt",
-        "orchestration.mt"
+        "orchestration.mt",
+        "dnf-reducer.mt"
     },
     (* Archived tests are intentionally excluded from active CI.
        Use this suite only for explicit compatibility checks. *)
