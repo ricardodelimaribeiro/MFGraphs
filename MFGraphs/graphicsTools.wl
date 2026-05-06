@@ -56,7 +56,7 @@ Options[mfgTransitionPlot] = {
     ImageSize -> Large
 };
 
-Options[mfgAugmentedPlot] = Append[Options[mfgTransitionPlot], ColorFunction -> Automatic];
+Options[mfgAugmentedPlot] = Join[Options[mfgTransitionPlot], {ColorFunction -> Automatic, ShowBoundaryValues -> True}];
 
 Options[mfgAugmentedBoundaryPlot] = Options[mfgTransitionPlot];
 
@@ -605,15 +605,18 @@ mfgAugmentedPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, opts : OptionsPattern[]] :
            Exit vertex label can sit at either position in the pair. *)
         getEffectiveU[p_] := With[{uv = getU[p]},
             If[NumericQ[uv], uv,
-                With[{cost = Lookup[exitCosts, p[[1]], Lookup[exitCosts, p[[2]], Missing[]]]},
-                    If[!MissingQ[cost], cost,
-                        If[MemberQ[auxEntryV, p[[1]]] || MemberQ[auxEntryV, p[[2]]],
-                            With[{adjU = getU[Reverse[p]]},
-                                If[NumericQ[adjU], adjU, Missing[]]
-                            ],
-                            Missing[]
+                If[TrueQ[OptionValue[ShowBoundaryValues]],
+                    With[{cost = Lookup[exitCosts, p[[1]], Lookup[exitCosts, p[[2]], Missing[]]]},
+                        If[!MissingQ[cost], cost,
+                            If[MemberQ[auxEntryV, p[[1]]] || MemberQ[auxEntryV, p[[2]]],
+                                With[{adjU = getU[Reverse[p]]},
+                                    If[NumericQ[adjU], adjU, Missing[]]
+                                ],
+                                Missing[]
+                            ]
                         ]
-                    ]
+                    ],
+                    Missing[]
                 ]
             ]
         ];

@@ -1,18 +1,16 @@
 (* ::Package:: *)
 
-(*Quit[]*)
+Quit[]
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Initialization*)
 
 
 (* Notebook-friendly MFGraphs workbook for the Jamaratv9 scenario only. *)
-
 (* Evaluate cells one at a time or section by section \[LongDash] do not evaluate the entire file at once. *)
-
 (* Force clean reload \[LongDash] safe to re-evaluate without restarting the kernel. *)
-Quiet[
+(*Quiet[
     With[
         {
             reloadContexts = {
@@ -40,7 +38,7 @@ Quiet[
             Alternatives @@ Join[reloadContexts, (# <> "Private`") /@ reloadContexts]
         ];
     ];
-];
+];*)
 
 (* This file lives alongside MFGraphs.wl in the same directory. *)
 mfgDir = If[$InputFileName === "", 
@@ -60,7 +58,6 @@ If[!MemberQ[$Path, mfgParentDir],
 Needs["MFGraphs`"];
 
 ClearAll[DescribeOutput];
-
 DescribeOutput[title_String, description_String, expr_] :=
     Column[
         {
@@ -227,7 +224,7 @@ JamaratScenarioSummary[s_?scenarioQ, sys_?mfgSystemQ] :=
 $MFGraphsVerbose = False;
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Simplified Jamarat cycle*)
 
 
@@ -239,41 +236,31 @@ $MFGraphsVerbose = False;
 (*This is a shorter version of the Jamarat example for when the flows are at the last pillar. *)
 
 
-jamaratEnd=cycleScenario[5, {{1,100},{5,100}},{{3,10},{4,0},{2,0}}];
-
-
+jamaratEnd=cycleScenario[5, {{1,100},{5,100}},{{3,0},{4,40},{2,30}}];
 jamaratEndSystem=makeSystem[jamaratEnd];
-
-
 AbsoluteTiming[jamaratEndSol=solveScenario[jamaratEnd];]
-
-
 Column[{
     DescribeOutput[
-        "Simplified Jamarat topology",
-        "5-cycle network for the terminal pillar flow scenario.",
-        scenarioTopologyPlot[jamaratEnd, jamaratEndSystem,
-            PlotLabel -> "Simplified Jamarat topology",
+        "Simplified Jamarat augmented infrastructure",
+        "Augmented graph before solving \[LongDash] structure only.",
+        mfgAugmentedPlot[jamaratEnd, jamaratEndSystem, <||>,
+            PlotLabel -> "Simplified Jamarat infrastructure",
             ImageSize -> Large]
     ],
     DescribeOutput[
-        "Simplified Jamarat flow",
-        "Flow distribution for the terminal pillar scenario.",
-        mfgFlowPlot[jamaratEnd, jamaratEndSystem, jamaratEndSol,
-            PlotLabel -> "Simplified Jamarat flow",
-            ImageSize -> Large]
-    ],
-    DescribeOutput[
-        "Simplified Jamarat augmented plot",
-        "Augmented graph with flow and transition variables.",
+        "Simplified Jamarat augmented solution",
+        "Augmented graph with solved flow, transition, and u values.",
         mfgAugmentedPlot[jamaratEnd, jamaratEndSystem, jamaratEndSol,
-            PlotLabel -> "Simplified Jamarat augmented solution",
+            PlotLabel -> "Simplified Jamarat solution",
             ImageSize -> Large]
     ]
 }]
 
 
-(* ::Subsubsection:: *)
+jamaratEndSol
+
+
+(* ::Subsubsection::Closed:: *)
 (*Simplified Jamarat end*)
 
 
@@ -281,16 +268,31 @@ Column[{
 (*This is a shorter version of the Jamarat example for when the flows are at the last pillar. *)
 
 
-jamaratEnd=cycleScenario[5, {{1,100},{2,100}},{{3,0},{4,0},{5,0}}];
+jamaratEnd=cycleScenario[5, {{1,200},{2,100}},{{3,10},{4,0},{5,10}}];
 
 
-makeSystem[jamaratEnd]
+jamaratEndSystem = makeSystem[jamaratEnd];
 
 
 AbsoluteTiming[jamaratEndSol=solveScenario[jamaratEnd];]
 
 
-jamaratEndSol
+Column[{
+    DescribeOutput[
+        "Simplified Jamarat augmented infrastructure",
+        "Augmented graph before solving \[LongDash] structure only.",
+        mfgAugmentedPlot[jamaratEnd, jamaratEndSystem, <||>,
+            PlotLabel -> "Simplified Jamarat infrastructure",
+            ImageSize -> Large]
+    ],
+    DescribeOutput[
+        "Simplified Jamarat augmented solution",
+        "Augmented graph with solved flow, transition, and u values.",
+        mfgAugmentedPlot[jamaratEnd, jamaratEndSystem, jamaratEndSol,
+            PlotLabel -> "Simplified Jamarat solution",
+            ImageSize -> Large]
+    ]
+}]
 
 
 (* ::Subsection:: *)
@@ -301,8 +303,8 @@ jamaratEndSol
 
 jamaratScenario = getExampleScenario[
     "Jamaratv9",
-    {{1, 10}, {2, 50}},
-    {{7, 0}, {8, 4}, {9, 2}}
+    {{1, 40}, {2, 50}},
+    {{7, 3}, {8, 4}, {9, 2}}
 ];
 
 jamaratSystem = makeSystem[jamaratScenario];
@@ -320,15 +322,8 @@ Column[{
         |>
     ],
     DescribeOutput[
-        "Jamaratv9 topology plot",
-        "scenarioTopologyPlot shows the original network with entry/exit coloring.",
-        scenarioTopologyPlot[jamaratScenario, jamaratSystem,
-            PlotLabel -> "Jamaratv9 topology",
-            ImageSize -> Large]
-    ],
-    DescribeOutput[
         "Jamaratv9 augmented road-traffic graph",
-        "mfgAugmentedPlot shows flow edges and transition edges without requiring a solved system.",
+        "Augmented graph showing flow and transition edges before solving.",
         mfgAugmentedPlot[jamaratScenario, jamaratSystem, <||>,
             PlotLabel -> "Jamaratv9 augmented infrastructure",
             ImageSize -> Large]
@@ -357,13 +352,11 @@ DescribeOutput[
 
 
 (* Optional rerun of the captured scenario. This may be slow; evaluate explicitly. *)
-jamaratRun[] := AbsoluteTiming[jamaratSol=solveScenario[jamaratScenario]]
+AbsoluteTiming[jamaratSol=solveScenario[jamaratScenario]]
 
 
-jamaratRun[]
+If[Head[jamaratSol] =!= Association, jamaratSol = <|"Rules" -> jamaratSol, "Residual" -> True|>]
 
-
-jamaratEquations = Lookup[jamaratSol, "Residual", True];
 
 jamaratSolutionSummary = <|
     "CapturedSolutionQ" -> AssociationQ[jamaratSol],
@@ -419,18 +412,8 @@ jamaratBestBranchSol = <|
 
 Column[{
     DescribeOutput[
-        "Jamaratv9 problem topology",
-        "scenarioTopologyPlot shows the real network with entry and exit vertices highlighted.",
-        scenarioTopologyPlot[
-            jamaratScenario,
-            jamaratSystem,
-            PlotLabel -> "Jamaratv9 topology",
-            ImageSize -> Large
-        ]
-    ],
-    DescribeOutput[
-        "Jamaratv9 problem augmented infrastructure",
-        "mfgAugmentedPlot shows edge-flow and transition-flow variables on the augmented road-traffic graph.",
+        "Jamaratv9 augmented infrastructure",
+        "Augmented graph showing flow and transition edges before solving.",
         mfgAugmentedPlot[
             jamaratScenario,
             jamaratSystem,
@@ -440,63 +423,8 @@ Column[{
         ]
     ],
     DescribeOutput[
-        "Jamaratv9 captured solution, combined",
-        "mfgSolutionPlot combines flow, value, and density views for the best ranked branch of the captured solution.",
-        mfgSolutionPlot[
-            jamaratScenario,
-            jamaratSystem,
-            jamaratBestBranchSol,
-            PlotLabel -> "Jamaratv9 captured solution, best ranked branch",
-            ImageSize -> Large
-        ]
-    ],
-    DescribeOutput[
-        "Jamaratv9 captured solution, flow",
-        "mfgFlowPlot shows directed edge and auxiliary flows for the best ranked branch.",
-        mfgFlowPlot[
-            jamaratScenario,
-            jamaratSystem,
-            jamaratBestBranchSol,
-            PlotLabel -> "Jamaratv9 flow, best ranked branch",
-            ImageSize -> Large
-        ]
-    ],
-    DescribeOutput[
-        "Jamaratv9 captured solution, values",
-        "mfgValuePlot shows endpoint and interpolated value samples for the best ranked branch.",
-        mfgValuePlot[
-            jamaratScenario,
-            jamaratSystem,
-            jamaratBestBranchSol,
-            PlotLabel -> "Jamaratv9 values, best ranked branch",
-            ImageSize -> Large
-        ]
-    ],
-    DescribeOutput[
-        "Jamaratv9 captured solution, densities",
-        "mfgDensityPlot shows inferred edge densities for the best ranked branch.",
-        mfgDensityPlot[
-            jamaratScenario,
-            jamaratSystem,
-            jamaratBestBranchSol,
-            PlotLabel -> "Jamaratv9 densities, best ranked branch",
-            ImageSize -> Large
-        ]
-    ],
-    DescribeOutput[
-        "Jamaratv9 captured solution, transitions",
-        "mfgTransitionPlot shows transition-flow movement between directed edge states.",
-        mfgTransitionPlot[
-            jamaratScenario,
-            jamaratSystem,
-            jamaratBestBranchSol,
-            PlotLabel -> "Jamaratv9 transitions, best ranked branch",
-            ImageSize -> Large
-        ]
-    ],
-    DescribeOutput[
         "Jamaratv9 captured solution, augmented",
-        "mfgAugmentedPlot overlays solved flow and transition values on the augmented infrastructure graph.",
+        "Augmented graph with solved flow, transition, and u values for the best ranked branch.",
         mfgAugmentedPlot[
             jamaratScenario,
             jamaratSystem,
@@ -535,18 +463,8 @@ Column[{
         jamaratHighEntryScenarioSummary
     ],
     DescribeOutput[
-        "Jamaratv9 higher-entry-flow topology",
-        "Same Jamaratv9 network with a larger first entrance flow.",
-        scenarioTopologyPlot[
-            jamaratHighEntryScenario,
-            jamaratHighEntrySystem,
-            PlotLabel -> "Jamaratv9 topology, entries {20,50}",
-            ImageSize -> Large
-        ]
-    ],
-    DescribeOutput[
         "Jamaratv9 higher-entry-flow augmented graph",
-        "The augmented graph shape is unchanged; only boundary data changes.",
+        "Augmented graph \[LongDash] same shape as before, only boundary data changes.",
         mfgAugmentedPlot[
             jamaratHighEntryScenario,
             jamaratHighEntrySystem,
@@ -601,15 +519,8 @@ Column[{
         |>
     ],
     DescribeOutput[
-        "Jamaratv9 topology plot",
-        "scenarioTopologyPlot shows the original network with entry/exit coloring.",
-        scenarioTopologyPlot[jamaratScenario, jamaratSystem,
-            PlotLabel -> "Jamaratv9 topology",
-            ImageSize -> Large]
-    ],
-    DescribeOutput[
         "Jamaratv9 augmented road-traffic graph",
-        "mfgAugmentedPlot shows flow edges and transition edges without requiring a solved system.",
+        "Augmented graph showing flow and transition edges before solving.",
         mfgAugmentedPlot[jamaratScenario, jamaratSystem, <||>,
             PlotLabel -> "Jamaratv9 augmented infrastructure",
             ImageSize -> Large]
@@ -629,6 +540,3 @@ Column[{
 
 
 jamaratRun[]
-
-
-symJamarat=%[[2]]
