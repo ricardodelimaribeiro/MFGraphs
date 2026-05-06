@@ -56,7 +56,7 @@ Options[mfgTransitionPlot] = {
     ImageSize -> Large
 };
 
-Options[mfgAugmentedPlot] = Join[Options[mfgTransitionPlot], {ColorFunction -> Automatic, ShowBoundaryValues -> True}];
+Options[mfgAugmentedPlot] = Join[Options[mfgTransitionPlot], {ColorFunction -> Automatic, ShowBoundaryValues -> True, ShowLegend -> True}];
 
 Options[mfgAugmentedBoundaryPlot] = Options[mfgTransitionPlot];
 
@@ -716,7 +716,7 @@ mfgAugmentedPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, opts : OptionsPattern[]] :
             ImageSize    -> OptionValue[ImageSize]
         ];
 
-        If[legend === None, graph, Legended[graph, legend]]
+        If[legend === None || !TrueQ[OptionValue[ShowLegend]], graph, Legended[graph, legend]]
     ];
 
 entryFlowEdge[pair_List] :=

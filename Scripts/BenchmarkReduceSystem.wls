@@ -57,7 +57,7 @@ $BenchCases = {
   {"chain-3v-2exit",
     Function[gridScenario[{3}, {{1, 120.0}}, {{2, 0.0}, {3, 10.0}}]] },
   {"example-7",
-    Function[getExampleScenario[7, {{1, 100.0}}, {{3, 0.0}, {4, 10.0}}]] },
+    Function[gridScenario[{3}, {{2, 100.0}}, {{1, 0.0}, {3, 10.0}}]] },
   {"chain-5v-1exit",
     Function[gridScenario[{5}, {{1, 10}}, {{5, 0}}]] },
   {"grid-2x3",

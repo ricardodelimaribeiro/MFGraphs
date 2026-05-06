@@ -56,7 +56,7 @@ makeCase["chain-two-exits"] :=
 
 makeCase["example-7"] :=
     Module[{s, sys, sol},
-        s = getExampleScenario[7, {{1, 100}}, {{3, 0}, {4, 10}}];
+        s = gridScenario[{3}, {{2, 100}}, {{1, 0}, {3, 10}}];
         sys = makeSystem[s];
         sol = solveScenario[s];
         <|"Scenario" -> s, "System" -> sys, "Solution" -> sol|>

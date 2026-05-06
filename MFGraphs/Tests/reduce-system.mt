@@ -411,7 +411,7 @@ Test[
 
 Test[
     Module[{s, sys, result},
-        s = getExampleScenario[7, {{1, 100.0}}, {{3, 0.0}, {4, 10.0}}];
+        s = gridScenario[{3}, {{2, 100.0}}, {{1, 0.0}, {3, 10.0}}];
         sys = makeSystem[s];
         result = dnfReduceSystem[sys];
         solversTools`Private`solutionResultKind[result]
@@ -448,7 +448,7 @@ Test[
 
 Test[
     Module[{s, sys, result},
-        s = getExampleScenario[8, {{1, 80.0}}, {{3, 0.0}, {4, 10.0}}];
+        s = gridScenario[{3}, {{2, 80.0}}, {{1, 0.0}, {3, 10.0}}, {{1,2,3,2},{3,2,1,2}}];
         sys = makeSystem[s];
         result = dnfReduceSystem[sys];
         isValidSystemSolution[sys, result]
@@ -459,16 +459,16 @@ Test[
 
 Test[
     Module[{s, sys, result, rules},
-        s = getExampleScenario[7, {{1, 100.0}}, {{3, 0.0}, {4, 10.0}}];
+        s = gridScenario[{3}, {{2, 100.0}}, {{1, 0.0}, {3, 10.0}}];
         sys = makeSystem[s];
         result = dnfReduceSystem[sys];
         rules = If[ListQ[result], result, Lookup[result, "Rules", {}]];
         And[
             ListQ[rules],
-            (j[2, 3] /. rules) === 55,
-            (j[2, 4] /. rules) === 45,
-            (j[3, "auxExit3"] /. rules) === 55,
-            (j[4, "auxExit4"] /. rules) === 45,
+            (j[2, 1] /. rules) === 55,
+            (j[2, 3] /. rules) === 45,
+            (j[1, "auxExit1"] /. rules) === 55,
+            (j[3, "auxExit3"] /. rules) === 45,
             isValidSystemSolution[sys, result]
         ]
     ],
@@ -478,15 +478,15 @@ Test[
 
 Test[
     Module[{s, sys, result, rules},
-        s = getExampleScenario[7, {{1, 100.0}}, {{3, 0.0}, {4, 10.0}}];
+        s = gridScenario[{3}, {{2, 100.0}}, {{1, 0.0}, {3, 10.0}}];
         sys = makeSystem[s];
         result = dnfReduceSystem[sys];
         rules = If[ListQ[result], result, Lookup[result, "Rules", {}]];
         And[
             ListQ[rules],
             (u[1, 2] /. rules) === 55,
-            (u[2, 3] /. rules) === 0,
-            (u[2, 4] /. rules) === 10,
+            (u[2, 1] /. rules) === 0,
+            (u[2, 3] /. rules) === 10,
             isValidSystemSolution[sys, result]
         ]
     ],
@@ -561,7 +561,7 @@ Test[
 
 Test[
     Module[{s, sys, result},
-        s = getExampleScenario[8, {{1, 80.0}}, {{3, 0.0}, {4, 10.0}}];
+        s = gridScenario[{3}, {{2, 80.0}}, {{1, 0.0}, {3, 10.0}}, {{1,2,3,2},{3,2,1,2}}];
         sys = makeSystem[s];
         result = optimizedDNFReduceSystem[sys];
         isValidSystemSolution[sys, result]
@@ -574,7 +574,7 @@ Test[
     (* With unconditional EqGeneral the solution is now a fully-determined List of
        rules rather than an Association with residual branches. *)
     Module[{s, sys, result},
-        s = getExampleScenario[7, {{1, 100.0}}, {{3, 0.0}, {4, 10.0}}];
+        s = gridScenario[{3}, {{2, 100.0}}, {{1, 0.0}, {3, 10.0}}];
         sys = makeSystem[s];
         result = optimizedDNFReduceSystem[sys];
         !FailureQ[result] && isValidSystemSolution[sys, result]
@@ -640,7 +640,7 @@ Test[
 
 Test[
     Module[{s, sys, result},
-        s = getExampleScenario[8, {{1, 80.0}}, {{3, 0.0}, {4, 10.0}}];
+        s = gridScenario[{3}, {{2, 80.0}}, {{1, 0.0}, {3, 10.0}}, {{1,2,3,2},{3,2,1,2}}];
         sys = makeSystem[s];
         result = activeSetReduceSystem[sys];
         isValidSystemSolution[sys, result]
@@ -651,7 +651,7 @@ Test[
 
 Test[
     Module[{s, sys, result, rules, residual},
-        s = getExampleScenario[7, {{1, 100.0}}, {{3, 0.0}, {4, 10.0}}];
+        s = gridScenario[{3}, {{2, 100.0}}, {{1, 0.0}, {3, 10.0}}];
         sys = makeSystem[s];
         result = activeSetReduceSystem[sys];
         rules = If[ListQ[result], result, Lookup[result, "Rules", {}]];
@@ -721,7 +721,7 @@ Test[
 
 Test[
     Module[{s, sys, result},
-        s = getExampleScenario[8, {{1, 80.0}}, {{3, 0.0}, {4, 10.0}}];
+        s = gridScenario[{3}, {{2, 80.0}}, {{1, 0.0}, {3, 10.0}}, {{1,2,3,2},{3,2,1,2}}];
         sys = makeSystem[s];
         result = Quiet[booleanReduceSystem[sys], booleanReduceSystem::multisol];
         isValidSystemSolution[sys, result]
@@ -784,7 +784,7 @@ Test[
 
 Test[
     Module[{s, sys, result},
-        s = getExampleScenario[8, {{1, 80.0}}, {{3, 0.0}, {4, 10.0}}];
+        s = gridScenario[{3}, {{2, 80.0}}, {{1, 0.0}, {3, 10.0}}, {{1,2,3,2},{3,2,1,2}}];
         sys = makeSystem[s];
         result = findInstanceSystem[sys];
         MatchQ[result, {__Rule}] && isValidSystemSolution[sys, result]
@@ -806,7 +806,7 @@ Test[
 
 Test[
     Module[{s, sys, result},
-        s = getExampleScenario[8, {{1, 80.0}}, {{3, 0.0}, {4, 10.0}}];
+        s = gridScenario[{3}, {{2, 80.0}}, {{1, 0.0}, {3, 10.0}}, {{1,2,3,2},{3,2,1,2}}];
         sys = makeSystem[s];
         result = findInstanceSystem[sys, "Timeout" -> 0];
         AssociationQ[result] &&

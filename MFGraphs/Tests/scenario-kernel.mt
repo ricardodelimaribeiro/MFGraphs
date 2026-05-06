@@ -145,7 +145,7 @@ Test[
 (* Test: getExampleScenario forwarding delegates omitted Hamiltonian defaults *)
 Test[
     Module[{s, h},
-        s = getExampleScenario[2, {{1, 10}}, {{2, 0}}];
+        s = gridScenario[{2}, {{1, 10}}, {{2, 0}}];
         h = scenarioData[s, "Hamiltonian"];
         scenarioQ[s] && h["Alpha"] === 1 && h["V"] === -1 && h["G"][2] === -1/2
     ],

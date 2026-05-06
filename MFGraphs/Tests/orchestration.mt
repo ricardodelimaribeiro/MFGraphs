@@ -8,7 +8,7 @@ Test[
 
 Test[
     Module[{s, result},
-        s = getExampleScenario[2, {{1, 100}}, {{2, 0}}];
+        s = gridScenario[{2}, {{1, 100}}, {{2, 0}}];
         result = TimeConstrained[solveScenario[s], 2, $TimedOut];
         (ListQ[result] || AssociationQ[result]) &&
         isValidSystemSolution[makeSystem[s], result]
@@ -19,7 +19,7 @@ Test[
 
 Test[
     Module[{s, result},
-        s = getExampleScenario[2, {{1, 100}}, {{2, 0}}];
+        s = gridScenario[{2}, {{1, 100}}, {{2, 0}}];
         result = TimeConstrained[solveScenario[s], 2, $TimedOut];
         (ListQ[result] || AssociationQ[result]) &&
         isValidSystemSolution[makeSystem[s], result]
@@ -30,7 +30,7 @@ Test[
 
 Test[
     Module[{s1, s2, results},
-        s1 = getExampleScenario[2, {{1, 100}}, {{2, 0}}];
+        s1 = gridScenario[{2}, {{1, 100}}, {{2, 0}}];
         s2 = getExampleScenario[3, {{1, 100}}, {{3, 0}}]; (* Example 3 is another simple chain *)
         results = TimeConstrained[solveScenario[{s1, s2}], 5, $TimedOut];
         ListQ[results] && Length[results] === 2 &&
@@ -43,7 +43,7 @@ Test[
 
 Test[
     Module[{s, result},
-        s = getExampleScenario[2, {{1, 100}}, {{2, 0}}];
+        s = gridScenario[{2}, {{1, 100}}, {{2, 0}}];
         result = TimeConstrained[solveScenario[s, dnfReduceSystem], 5, $TimedOut];
         (ListQ[result] || AssociationQ[result]) &&
         isValidSystemSolution[makeSystem[s], result]

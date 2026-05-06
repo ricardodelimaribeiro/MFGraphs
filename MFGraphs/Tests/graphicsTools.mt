@@ -134,7 +134,8 @@ Test[
             mfgTransitionPlot[s, sys, sol, GraphLayout -> "LayeredDigraphEmbedding",
                 PlotLabel -> "Transition option", ImageSize -> Medium],
             mfgAugmentedPlot[s, sys, sol, GraphLayout -> "LayeredDigraphEmbedding",
-                PlotLabel -> "Augmented option", ImageSize -> Medium]
+                PlotLabel -> "Augmented option", ImageSize -> Medium,
+                ShowLegend -> False]
         };
         MatchQ[plots[[2]], _Graphics | _GraphicsGrid] &&
         AllTrue[Delete[plots, 2], MatchQ[#, _Graph] &] &&
@@ -164,7 +165,7 @@ Test[
             mfgValuePlot[s, sys, sol, PlotLabel -> None],
             mfgDensityPlot[s, sys, sol, PlotLabel -> None],
             mfgTransitionPlot[s, sys, sol, PlotLabel -> None],
-            mfgAugmentedPlot[s, sys, sol, PlotLabel -> None]
+            mfgAugmentedPlot[s, sys, sol, PlotLabel -> None, ShowLegend -> False]
         };
         MatchQ[plots[[2]], _Graphics | _GraphicsGrid] &&
         AllTrue[Delete[plots, 2], MatchQ[#, _Graph] &] &&
@@ -191,7 +192,7 @@ Test[
         transitionDims = ImageDimensions @ Import[transitionFile];
         augmentedDims = ImageDimensions @ Import[augmentedFile];
         MatchQ[transitionPlot, _Graph] &&
-        MatchQ[augmentedPlot, _Graph] &&
+        MatchQ[augmentedPlot, _Graph | _Legended] &&
         Min[transitionDims] > 100 &&
         Min[augmentedDims] > 100
     ],
@@ -396,7 +397,7 @@ Test[
     Module[{s, sys, graph, edges},
         s = gridScenario[{3}, {{1, 10}}, {{3, 0}}];
         sys = makeSystem[s];
-        graph = mfgAugmentedPlot[s, sys, <||>];
+        graph = mfgAugmentedPlot[s, sys, <||>, ShowBoundaryValues -> False];
         edges = EdgeList[graph];
         MatchQ[graph, _Graph] &&
         MemberQ[edges, DirectedEdge[{1, "auxEntry1"}, {"auxEntry1", 1}]] &&

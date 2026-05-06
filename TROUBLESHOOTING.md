@@ -112,7 +112,7 @@ wolframscript -file Scripts/BenchmarkReduceSystem.wls --tag "my change"
 
 ```mathematica
 $MFGraphsVerbose = True;
-s = getExampleScenario[7, {{1, 100}}, {{3, 0}, {4, 10}}];
+s = gridScenario[{3}, {{2, 100}}, {{1, 0}, {3, 10}}];
 sys = makeSystem[s];
 sol = reduceSystem[sys];
 isValidSystemSolution[sys, sol, "ReturnReport" -> True]
