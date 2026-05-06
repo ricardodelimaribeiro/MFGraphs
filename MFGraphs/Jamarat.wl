@@ -1,5 +1,12 @@
 (* ::Package:: *)
 
+(*Quit[]*)
+
+
+(* ::Subsection::Closed:: *)
+(*Initialization*)
+
+
 (* Notebook-friendly MFGraphs workbook for the Jamaratv9 scenario only. *)
 
 (* Evaluate cells one at a time or section by section \[LongDash] do not evaluate the entire file at once. *)
@@ -158,7 +165,7 @@ RankSolutionBranches[s_?scenarioQ, sys_?mfgSystemQ, sol_Association,
         maxBranches_:Infinity, dnfTimeout_:60, minimizeTimeout_:10] :=
     Module[{rules, residual, entry, branches, summaries, rows},
         rules = Lookup[sol, "Rules", {}];
-        residual = Simplify[Lookup[sol, "Equations", True] /. rules];
+        residual = Simplify[Lookup[sol, "Residual", True] /. rules];
         entry = EntryCostData[s, sys];
         branches = DNFBranches[residual, dnfTimeout];
         If[branches === $TimedOut || branches === $Failed,
@@ -218,6 +225,76 @@ JamaratScenarioSummary[s_?scenarioQ, sys_?mfgSystemQ] :=
 
 (* Use the global flag from primitives context *)
 $MFGraphsVerbose = False;
+
+
+(* ::Subsection:: *)
+(*Simplified Jamarat cycle*)
+
+
+(* ::Subsubsection:: *)
+(*Simplified Jamarat end*)
+
+
+(* ::Text:: *)
+(*This is a shorter version of the Jamarat example for when the flows are at the last pillar. *)
+
+
+jamaratEnd=cycleScenario[5, {{1,100},{5,100}},{{3,10},{4,0},{2,0}}];
+
+
+jamaratEndSystem=makeSystem[jamaratEnd];
+
+
+AbsoluteTiming[jamaratEndSol=solveScenario[jamaratEnd];]
+
+
+Column[{
+    DescribeOutput[
+        "Simplified Jamarat topology",
+        "5-cycle network for the terminal pillar flow scenario.",
+        scenarioTopologyPlot[jamaratEnd, jamaratEndSystem,
+            PlotLabel -> "Simplified Jamarat topology",
+            ImageSize -> Large]
+    ],
+    DescribeOutput[
+        "Simplified Jamarat flow",
+        "Flow distribution for the terminal pillar scenario.",
+        mfgFlowPlot[jamaratEnd, jamaratEndSystem, jamaratEndSol,
+            PlotLabel -> "Simplified Jamarat flow",
+            ImageSize -> Large]
+    ],
+    DescribeOutput[
+        "Simplified Jamarat augmented plot",
+        "Augmented graph with flow and transition variables.",
+        mfgAugmentedPlot[jamaratEnd, jamaratEndSystem, jamaratEndSol,
+            PlotLabel -> "Simplified Jamarat augmented solution",
+            ImageSize -> Large]
+    ]
+}]
+
+
+(* ::Subsubsection:: *)
+(*Simplified Jamarat end*)
+
+
+(* ::Text:: *)
+(*This is a shorter version of the Jamarat example for when the flows are at the last pillar. *)
+
+
+jamaratEnd=cycleScenario[5, {{1,100},{2,100}},{{3,0},{4,0},{5,0}}];
+
+
+makeSystem[jamaratEnd]
+
+
+AbsoluteTiming[jamaratEndSol=solveScenario[jamaratEnd];]
+
+
+jamaratEndSol
+
+
+(* ::Subsection:: *)
+(*Jamarat 9 vertices*)
 
 
 (* --- 1. Captured Jamaratv9 run from the named scenario registry --- *)
@@ -286,13 +363,9 @@ jamaratRun[] := AbsoluteTiming[jamaratSol=solveScenario[jamaratScenario]]
 jamaratRun[]
 
 
-(*keep the result above*)
-jamaratSolAssoc = jamaratSol;
-
-
 jamaratSol = CapturedSolutionFromWorkbook["jamaratSol"];
 
-jamaratEquations = Lookup[jamaratSol, "Equations", True];
+jamaratEquations = Lookup[jamaratSol, "Residual", True];
 
 jamaratSolutionSummary = <|
     "CapturedSolutionQ" -> AssociationQ[jamaratSol],
@@ -343,7 +416,7 @@ jamaratBestBranchRules = Replace[
 
 jamaratBestBranchSol = <|
     "Rules" -> Join[Lookup[jamaratSol, "Rules", {}], jamaratBestBranchRules],
-    "Equations" -> True
+    "Residual" -> True
 |>;
 
 Column[{
@@ -561,89 +634,3 @@ jamaratRun[]
 
 
 symJamarat=%[[2]]
-
-
-(* ::Subsubsection:: *)
-(*Simplified Jamarat end*)
-
-
-(* ::Text:: *)
-(*This is a shorter version of the Jamarat example for when the flows are at the last pillar. *)
-
-
-jamaratEnd=cycleScenario[5, {{1,100},{2,100}},{{3,0},{4,0},{5,0}}];
-
-
-makeSystem[jamaratEnd]
-
-
-AbsoluteTiming[jamaratEndSol=solveScenario[jamaratEnd];]
-
-
-jamaratEndSol
-
-
-Length[j["auxEntry1",1,2]>=0&&j["auxEntry1",1,5]>=0&&j[2,1,5]>=0&&j[5,1,2]>=0&&j["auxEntry2",2,3]>=0&&j["auxEntry2",2,1]>=0&&j[1,2,3]>=0&&j[3,2,1]>=0&&j[2,3,"auxExit3"]>=0&&j[2,3,4]>=0&&j[4,3,"auxExit3"]>=0&&j[4,3,2]>=0&&j[3,4,"auxExit4"]>=0&&j[3,4,5]>=0&&j[5,4,"auxExit4"]>=0&&j[5,4,3]>=0&&j[1,5,"auxExit5"]>=0&&j[1,5,4]>=0&&j[4,5,"auxExit5"]>=0&&j[4,5,1]>=0]
-
-
-Reduce[u[2,1]-u["auxEntry1",1]>=0&&u[5,1]-u["auxEntry1",1]>=0&&-u[2,1]+u[5,1]>=0&&u[2,1]-u[5,1]>=0&&u[3,2]-u["auxEntry2",2]>=0&&u[1,2]-u["auxEntry2",2]>=0&&-u[1,2]+u[3,2]>=0&&u[1,2]-u[3,2]>=0&&-u[2,3]+u["auxExit3",3]>=0&&-u[2,3]+u[4,3]>=0&&-u[4,3]+u["auxExit3",3]>=0&&u[2,3]-u[4,3]>=0&&-u[3,4]+u["auxExit4",4]>=0&&-u[3,4]+u[5,4]>=0&&-u[5,4]+u["auxExit4",4]>=0&&u[3,4]-u[5,4]>=0&&-u[1,5]+u["auxExit5",5]>=0&&-u[1,5]+u[4,5]>=0&&-u[4,5]+u["auxExit5",5]>=0&&u[1,5]-u[4,5]>=0,Reals]
-
-
-(* ::Subsubsection:: *)
-(*Simplified Jamarat end*)
-
-
-(* ::Text:: *)
-(*This is a shorter version of the Jamarat example for when the flows are at the last pillar. *)
-
-
-jamaratEnd=cycleScenario[5, {{1,100},{5,100}},{{3,0},{4,0},{2,0}}];
-
-
-jamaratEndSystem=makeSystem[jamaratEnd];
-
-
-AbsoluteTiming[jamaratEndSol=solveScenario[jamaratEnd];]
-
-
-jamaratEndSystem
-
-
-jamaratEndSol
-
-
-temperedJamarat = jamaratEndSol;
-If[AssociationQ[temperedJamarat],
-    temperedJamarat["Equations"] = Assuming[
-        u["auxExit4", 4] <= 0 && u["auxExit2", 2] <= 0 && u["auxExit3", 3] <= 0,
-        Refine[jamaratEndSol["Equations"]]
-    ]
-];
-temperedJamarat["Rules"]
-temperedJamarat["Equations"] // Reduce[#, Reals] &
-
-
-Column[{
-    DescribeOutput[
-        "Simplified Jamarat topology",
-        "5-cycle network for the terminal pillar flow scenario.",
-        scenarioTopologyPlot[jamaratEnd, jamaratEndSystem,
-            PlotLabel -> "Simplified Jamarat topology",
-            ImageSize -> Large]
-    ],
-    DescribeOutput[
-        "Simplified Jamarat flow",
-        "Flow distribution for the terminal pillar scenario.",
-        mfgFlowPlot[jamaratEnd, jamaratEndSystem, jamaratEndSol,
-            PlotLabel -> "Simplified Jamarat flow",
-            ImageSize -> Large]
-    ],
-    DescribeOutput[
-        "Simplified Jamarat augmented plot",
-        "Augmented graph with flow and transition variables.",
-        mfgAugmentedPlot[jamaratEnd, jamaratEndSystem, jamaratEndSol,
-            PlotLabel -> "Simplified Jamarat augmented solution",
-            ImageSize -> Large]
-    ]
-}]
-

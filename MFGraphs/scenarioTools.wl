@@ -121,6 +121,12 @@ buildAuxTriplesImpl::usage =
 completeSwitchingCosts::usage =
 "completeSwitchingCosts[model, topology] fills absent switching costs with zero on the auxiliary topology.";
 
+disjointBoundaryVerticesQ::usage =
+"disjointBoundaryVerticesQ[model] returns True if the set of entry vertices and exit vertices are disjoint.";
+
+boundaryVerticesPresentQ::usage =
+"boundaryVerticesPresentQ[model] returns True if all entry and exit vertices specified in the model are also present in the Vertices list.";
+
 (* Required keys that must appear inside the "Model" block. *)
 $RequiredModelKeys = {
     "Vertices",

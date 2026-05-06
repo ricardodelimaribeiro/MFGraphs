@@ -364,18 +364,19 @@ $ExampleScenarios = Association[
     (* ------------------------------------------------------------------ *)
     (* Linear chains (cases 1–6): GridGraph[{n}] connections              *)
     (* ------------------------------------------------------------------ *)
-
+(*TODO: clean up this list. keep makeGridFactory[{3}] only all others are pretty much the same. *)
     1 -> makeGridFactory[{1}],
     2 -> makeGridFactory[{2}],
     3 -> makeGridFactory[{3}],
     4 -> makeGridFactory[{4}],
     5 -> makeGridFactory[{5}],
     6 -> makeGridFactory[{10}],
-
+(*TODO: bring all grid examples here.*)
     (* ------------------------------------------------------------------ *)
     (* Y 1-in 2-out, 4 vertices (cases 7, 8, 19)                          *)
     (* ------------------------------------------------------------------ *)
-
+(*Todo: Remove these examples as the same behavior can be achieved with the grid {3} cases: 7 -> {2,flow in}, {{1,cost1},{3,cost3}}
+Remove the rest. *)
     7  -> makeAmFactory[{1,2,3,4}, $Y1In2OutAM],
     8  -> makeAmFactory[{1,2,3,4}, $Y1In2OutAM],
     19 -> makeAmFactory[{1,2,3,4}, $Y1In2OutAM],
@@ -383,7 +384,8 @@ $ExampleScenarios = Association[
     (* ------------------------------------------------------------------ *)
     (* Y 2-in 1-out, 4 vertices (cases 9, 10)                             *)
     (* ------------------------------------------------------------------ *)
-
+(*TODO: Remove these examples as the same behavior can be achieved with the grid {3} cases: {{1,flow in 
+1},{3,flow in 3}}, {2,cost}*)
     9  -> makeAmFactory[{1,2,3,4}, $Y2In1OutAM],
     10 -> makeAmFactory[{1,2,3,4}, $Y2In1OutAM],
 

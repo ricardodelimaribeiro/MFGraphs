@@ -84,12 +84,6 @@ getKirchhoffLinearSystem::usage = "getKirchhoffLinearSystem[sys] returns the ent
 
 getKirchhoffMatrix::usage = "getKirchhoffMatrix[sys] returns the entry current vector, Kirchhoff matrix, (critical congestion) cost function placeholder, and the variables in the order corresponding to the Kirchhoff matrix. The third slot is retained for backward compatibility.";
 
-consistentSwitchingCosts::usage = "consistentSwitchingCosts[switchingcosts][{a,b,c}->S]
-returns True if S, the cost of switching from the edge ab to cb, is smaller than any other combination,
-such as, ab to bd and then from db to bc.
-Returns the condition for this switching cost to satisfy the triangle inequality when S, and the other
-switching costs too, does not have a numerical value.";
-
 isSwitchingCostConsistent::usage = "isSwitchingCostConsistent[List of switching costs] is True if all switching costs satisfy the triangle inequality. If some switching costs are symbolic, then it returns the consistency conditions."
 
 altFlowOp::usage = "altFlowOp[j][list] returns the alternative: j@@list ==0 || j@@Reverse@list ==0.";
@@ -120,23 +114,11 @@ exactBoundaryValue::usage =
 exactBoundaryValues::usage =
 "exactBoundaryValues[vals] applies exactBoundaryValue to a list and returns the first Failure if conversion fails.";
 
+interiorTripleQ::usage =
+"interiorTripleQ[triple, auxEntrySet, auxExitSet] returns True if the triple \
+does not involve any auxiliary entry or exit vertices.";
+
 (* --- Structural Helpers Implementation --- *)
-
-consistentSwitchingCosts[sc_Association][trip:{a_, b_, c_}] :=
-    Module[{S = sc[trip], originTriples, conds},
-        originTriples = DeleteCases[
-            Select[Keys[sc], MatchQ[#, {a, b, _}] &],
-            trip
-        ];
-        If[originTriples === {},
-            True,
-            conds = (S <= sc[#] + Lookup[sc, Key[{#[[3]], b, c}], Missing["KeyAbsent", {#[[3]], b, c}]]) & /@ originTriples;
-            And @@ conds
-        ]
-    ];
-
-consistentSwitchingCosts[sc_List][{a_, b_, c_} -> S_] :=
-    consistentSwitchingCosts[Association[sc]][{a, b, c}];
 
 isSwitchingCostConsistent[switchingCosts_Association] :=
     Module[{triples, groupByAB, checkCost},
@@ -178,6 +160,10 @@ ineqSwitch[u_, switching_][r_, i_, w_] :=
 
 altSwitch[j_, u_, switching_][r_, i_, w_] :=
     (j[r, i, w] == 0) || (u[w, i] + switching[r, i, w] - u[r, i] == 0);
+
+interiorTripleQ[triple:{r_, _, w_}, auxEntrySet_, auxExitSet_] :=
+    !KeyExistsQ[auxEntrySet, r] && !KeyExistsQ[auxExitSet, w] &&
+    !KeyExistsQ[auxExitSet,  r] && !KeyExistsQ[auxEntrySet, w];
 
 (* --- Type predicates --- *)
 
@@ -322,7 +308,7 @@ buildComplementarityData[s_?scenarioQ, topology_Association, unk_?symbolicUnknow
     Module[{model, verticesList, switchingCosts, inAuxEntryPairs, outAuxExitPairs,
          halfPairs, auxTriples, consistCosts, altFlows, altTransitionFlows,
          activeTriples, auxTriplesByMiddle, ineqSwitchingByVertex, altOptCond,
-         auxEntrySet, auxExitSet, interiorTripleQ,
+         auxEntrySet, auxExitSet,
          zeroSwitchUEqualities},
         model = scenarioData[s, "Model"];
         verticesList  = model["Vertices"];
@@ -334,9 +320,6 @@ buildComplementarityData[s_?scenarioQ, topology_Association, unk_?symbolicUnknow
 
         auxEntrySet = AssociationThread[topology["AuxEntryVertices"], True];
         auxExitSet  = AssociationThread[topology["AuxExitVertices"],  True];
-        interiorTripleQ[{r_, _, w_}] :=
-            !KeyExistsQ[auxEntrySet, r] && !KeyExistsQ[auxExitSet, w] &&
-            !KeyExistsQ[auxExitSet,  r] && !KeyExistsQ[auxEntrySet, w];
 
         consistCosts = isSwitchingCostConsistent[Normal @ switchingCosts];
 
@@ -368,7 +351,7 @@ buildComplementarityData[s_?scenarioQ, topology_Association, unk_?symbolicUnknow
                     ]
                 ],
                 altFlowOp[j] /@
-                    Select[auxTriples, interiorTripleQ[#] && OrderedQ[{First[#], Last[#]}]&]
+                    Select[auxTriples, interiorTripleQ[#, auxEntrySet, auxExitSet] && OrderedQ[{First[#], Last[#]}]&]
             ];
 
         activeTriples = auxTriples;
@@ -388,7 +371,7 @@ buildComplementarityData[s_?scenarioQ, topology_Association, unk_?symbolicUnknow
                 Function[v,
                     Module[{triples, realZeroTriples, tripleSet, pairs, edges, components},
                         triples = Lookup[auxTriplesByMiddle, v, {}];
-                        realZeroTriples = Select[triples, interiorTripleQ[#] && scFn @@ # == 0 &];
+                        realZeroTriples = Select[triples, interiorTripleQ[#, auxEntrySet, auxExitSet] && scFn @@ # == 0 &];
                         If[realZeroTriples === {}, Return[{}, Module]];
                         tripleSet = AssociationMap[True &, realZeroTriples];
                         pairs = Select[realZeroTriples, KeyExistsQ[tripleSet, Reverse[#]] &];
