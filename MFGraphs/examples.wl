@@ -9,8 +9,8 @@
      amScenario[vl, am, entries, exits]         explicit vertices list + adjacency matrix; integer vertex labels required
 
    Named examples (benchmark registry):
-     getExampleScenario[7, {{1,80}}, {{3,0},{4,10}}]      canonical SC for case 7
-     getExampleScenario[8, {{1,80}}, {{3,0},{4,10}}, {}]  override: no SC
+     getExampleScenario[3, {{1,80}}, {{3,0}}]             chain-3 scenario
+     getExampleScenario[12, {{1,100}}, {{4,0}}]           attraction-4 scenario
 
    All constructors accept optional trailing args: sc, alpha, V, g.
    Hamiltonian defaults are supplied by makeScenario.
@@ -81,7 +81,6 @@ edgePairsToAdjacency::usage =
 (* --- Shared topology constants --- *)
 
 $Y1In2OutAM    = {{0,1,0,0},{0,0,1,1},{0,0,0,0},{0,0,0,0}};
-$Y2In1OutAM    = {{0,1,0,0},{0,0,0,1},{0,1,0,0},{0,0,0,0}};
 $Attraction4AM = {{0,1,1,0},{0,0,1,1},{0,0,0,1},{0,0,0,0}};
 
 $Camilli2015SourcePath =
@@ -170,8 +169,6 @@ $CamilliGeneralImportedEdges = DeleteCases[$CamilliGeneralEdges, {2, 14} | {5, 1
 
 (* Canonical switching costs looked up by getExampleScenario when sc=Automatic. *)
 $CaseDefaultSC = <|
-    8  -> {{1,2,3,2},{1,2,4,3},{3,2,1,2},{3,2,4,1},{4,2,1,3},{4,2,3,1}},
-    10 -> {{1,2,4,2},{1,2,3,3},{3,2,1,2},{3,2,4,1},{4,2,1,3},{4,2,3,1}},
     11 -> {{1,2,4,1},{1,2,3,1},{3,2,1,1},{3,2,4,1},{4,2,1,1},{4,2,3,1},
            {1,3,4,1},{4,3,1,1},{1,3,2,1},{2,3,1,1},{3,4,2,1},{2,4,3,1},
            {2,3,4,1},{4,3,2,1},{3,1,2,1},{2,1,3,1}},
@@ -181,7 +178,6 @@ $CaseDefaultSC = <|
     16 -> {{1,3,2,1}},
     17 -> {{1,2,3,2},{3,2,1,1}},
     18 -> {{1,2,3,2},{3,2,1,1}},
-    19 -> {{1,2,3,1},{1,2,4,1},{3,2,1,1},{3,2,4,1},{4,2,1,1},{4,2,3,1}},
     "Braess split"       -> {{1,2,4,1},{5,7,8,1}},
     "Braess congest"     -> {{1,2,4,1},{4,6,7,1}},
     "Big Braess split"   -> {{1,3,6,1},{5,7,10,1}},
@@ -362,32 +358,10 @@ $ExampleScenarioMetadata = <|
 $ExampleScenarios = Association[
 
     (* ------------------------------------------------------------------ *)
-    (* Linear chains (cases 1–6): GridGraph[{n}] connections              *)
+    (* Linear chain, 3 vertices                                           *)
     (* ------------------------------------------------------------------ *)
-(*TODO: clean up this list. keep makeGridFactory[{3}] only all others are pretty much the same. *)
-    1 -> makeGridFactory[{1}],
-    2 -> makeGridFactory[{2}],
-    3 -> makeGridFactory[{3}],
-    4 -> makeGridFactory[{4}],
-    5 -> makeGridFactory[{5}],
-    6 -> makeGridFactory[{10}],
-(*TODO: bring all grid examples here.*)
-    (* ------------------------------------------------------------------ *)
-    (* Y 1-in 2-out, 4 vertices (cases 7, 8, 19)                          *)
-    (* ------------------------------------------------------------------ *)
-(*Todo: Remove these examples as the same behavior can be achieved with the grid {3} cases: 7 -> {2,flow in}, {{1,cost1},{3,cost3}}
-Remove the rest. *)
-    7  -> makeAmFactory[{1,2,3,4}, $Y1In2OutAM],
-    8  -> makeAmFactory[{1,2,3,4}, $Y1In2OutAM],
-    19 -> makeAmFactory[{1,2,3,4}, $Y1In2OutAM],
 
-    (* ------------------------------------------------------------------ *)
-    (* Y 2-in 1-out, 4 vertices (cases 9, 10)                             *)
-    (* ------------------------------------------------------------------ *)
-(*TODO: Remove these examples as the same behavior can be achieved with the grid {3} cases: {{1,flow in 
-1},{3,flow in 3}}, {2,cost}*)
-    9  -> makeAmFactory[{1,2,3,4}, $Y2In1OutAM],
-    10 -> makeAmFactory[{1,2,3,4}, $Y2In1OutAM],
+    3 -> makeGridFactory[{3}],
 
     (* ------------------------------------------------------------------ *)
     (* Attraction 4-vertex diamond (cases 11, 12, 13)                     *)

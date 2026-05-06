@@ -27,7 +27,7 @@ safeReduce[sys_] := TimeConstrained[reduceSystem[sys], 20, $Aborted];
 
 scenarioSpecs = {
   <|"Name" -> "chain_3", "Build" -> Function[{}, gridScenario[{3}, {{1, 120.0}}, {{2, 0.0}, {3, 10.0}}]], "RunReduce" -> True|>,
-  <|"Name" -> "y_case_8", "Build" -> Function[{}, getExampleScenario[8, {{1, 80.0}}, {{3, 0.0}, {4, 10.0}}]], "RunReduce" -> True|>,
+  <|"Name" -> "chain3_mid_sc", "Build" -> Function[{}, gridScenario[{3}, {{2, 80.0}}, {{1, 0.0}, {3, 10.0}}, {{1,2,3,2},{3,2,1,2}}]], "RunReduce" -> True|>,
   <|"Name" -> "attraction_11", "Build" -> Function[{}, getExampleScenario[11, {{1, 100.0}}, {{4, 0.0}}]], "RunReduce" -> True|>,
   <|"Name" -> "jamarat_20", "Build" -> Function[{}, getExampleScenario[20, {{1, 60.0}, {2, 40.0}}, {{7, 0.0}, {8, 1.0}, {9, 2.0}}]], "RunReduce" -> False|>
 };

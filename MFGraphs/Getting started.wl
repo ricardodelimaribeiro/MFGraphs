@@ -218,11 +218,7 @@ Column[{
 
 (* --- 2. Use named factory examples from ExampleScenarios.wl --- *)
 
-exY = getExampleScenario[
-    7,
-    {{1, 100.0}},
-    {{3, 0.0}, {4, 10.0}}
-];
+exY = gridScenario[{3}, {{2, 100.0}}, {{1, 0.0}, {3, 10.0}}];
 
 exGrid = getExampleScenario[
     "Grid0303",
