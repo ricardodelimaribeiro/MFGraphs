@@ -47,14 +47,15 @@ system construction. Optional: sc, alpha, V, g.";
 
 getExampleScenario::usage =
 "getExampleScenario[n] returns a 6-arg factory Function[{entries,exits,sc,alpha,V,g}, scenario[...]] \
-for built-in example n. Topology is baked in; all parameters are caller-supplied. \
-getExampleScenario[n, entries, exits] calls the factory using the canonical switching costs \
-for that case (sc=Automatic resolves via $CaseDefaultSC, defaulting to {} if none defined) \
-and makeScenario-supplied Hamiltonian defaults. \
-V/G are preserved on the scenario for future density and visualization work, but are not applied by current system construction. \
-Additional optional arguments override each default in order: sc, alpha, V, g. \
-Pass sc={} explicitly to force no switching costs. \
-entries={{vertex,flow},...}, exits={{vertex,cost},...}, sc={{i,k,j,cost},...}. \
+for built-in example n (integer 1-23 or named string). Topology is baked in; all parameters are caller-supplied. \
+getExampleScenario[n, entries, exits] calls the factory with canonical defaults: \
+  sc=Automatic resolves via $CaseDefaultSC (falls back to {}), \
+  alpha=1 (critical congestion), V=0, g=0 (Hamiltonian parameters passed through but not yet applied in system construction). \
+getExampleScenario[n, entries, exits, sc] overrides switching costs (pass {} for none). \
+getExampleScenario[n, entries, exits, sc, alpha] also overrides alpha. \
+getExampleScenario[n, entries, exits, sc, alpha, V] also overrides V. \
+getExampleScenario[n, entries, exits, sc, alpha, V, g] overrides all parameters. \
+entries={{vertex,flow},...}; exits={{vertex,cost},...}; sc={{i,k,j,cost},...} or Association with 3-tuple keys. \
 Returns $Failed for unknown keys.";
 
 getExampleScenarioMetadata::usage =

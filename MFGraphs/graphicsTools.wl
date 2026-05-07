@@ -4,25 +4,25 @@
 BeginPackage["graphicsTools`", {"primitives`", "utilities`", "scenarioTools`", "systemTools`"}];
 
 scenarioTopologyPlot::usage =
-"scenarioTopologyPlot[s, sys, opts] plots the scenario topology using vertex coloring for entry, exit, and internal vertices. Use PlotLabel, GraphLayout, and ImageSize options to control display.";
+"scenarioTopologyPlot[s, sys, opts] plots the scenario topology using vertex coloring for entry (green), exit (red), and internal (gray) vertices. Options: PlotLabel (default Automatic), GraphLayout (default Automatic), ImageSize (default Medium).";
 
 mfgSolutionPlot::usage =
-"mfgSolutionPlot[s, sys, sol, opts] plots coordinated solution views: flows, value samples, and agent density. Use PlotLabel, GraphLayout, and ImageSize options to control display.";
+"mfgSolutionPlot[s, sys, sol, opts] plots coordinated solution views: flows, value samples, and agent density. Options: PlotLabel (default Automatic), GraphLayout (default Automatic), ImageSize (default Large).";
 
 mfgFlowPlot::usage =
-"mfgFlowPlot[s, sys, sol, opts] plots a flow-only solution graph with real and auxiliary edges. Edges are displayed as directed, and edge labels show only j flow values. Use PlotLabel, GraphLayout, and ImageSize options to control display.";
+"mfgFlowPlot[s, sys, sol, opts] plots a flow-only solution graph with real and auxiliary directed edges; edge labels show j flow values. Options: PlotLabel (default Automatic), GraphLayout (default Automatic), ImageSize (default Large).";
 
 mfgValuePlot::usage =
-"mfgValuePlot[s, sys, sol, opts] plots real network edges with endpoint value variables u[a,b], u[b,a] and linearly interpolated interior samples at 1/4, 1/2, and 3/4. Use PlotLabel, GraphLayout, and ImageSize options to control display.";
+"mfgValuePlot[s, sys, sol, opts] plots real network edges with endpoint value variables u[a,b], u[b,a] and linearly interpolated interior samples at 1/4, 1/2, and 3/4. Options: PlotLabel (default Automatic), GraphLayout (default Automatic), ImageSize (default Large).";
 
 mfgDensityPlot::usage =
-"mfgDensityPlot[s, sys, sol, opts] plots real network edges with agent density inferred from solved signed spatial flow and the scenario Hamiltonian density equation. Use PlotLabel, GraphLayout, and ImageSize options to control display.";
+"mfgDensityPlot[s, sys, sol, opts] plots real network edges with agent density inferred from solved signed spatial flow and the scenario Hamiltonian density equation. Options: PlotLabel (default Automatic), GraphLayout (default Automatic), ImageSize (default Large).";
 
 mfgTransitionPlot::usage =
-"mfgTransitionPlot[s, sys, sol, opts] plots the transition graph of the solution. Nodes are AuxPair states {r,i}->{i,w}; directed edges represent transition flows j[r,i,w]. Nodes are labeled with internal values u where available. Use PlotLabel, GraphLayout, and ImageSize options to control display.";
+"mfgTransitionPlot[s, sys, sol, opts] plots the transition graph. Nodes are AuxPair states {r,i}; directed edges represent transition flows j[r,i,w] labeled with their solved value. Nodes are labeled with internal values u where available. Options: PlotLabel (default Automatic), GraphLayout (default Automatic), ImageSize (default Large).";
 
 mfgAugmentedPlot::usage =
-"mfgAugmentedPlot[s, sys, sol, opts] plots the augmented road-traffic infrastructure graph built by augmentAuxiliaryGraph. Blue edges represent flow variables j[a,b]; red edges represent transition variables j[r,i,w]. Use PlotLabel, GraphLayout, and ImageSize options to control display.";
+"mfgAugmentedPlot[s, sys, sol, opts] plots the augmented infrastructure graph. Blue arcs are flow variables j[a,b]; red arcs are transition variables j[r,i,w]. Anti-parallel flow arcs curve to opposite sides so both directions are visible. Node colors show u-values on a gradient when a solution is provided; zero-flow arcs are invisible (Opacity 0). Options: PlotLabel (default Automatic), GraphLayout (default Automatic), ImageSize (default Large), ColorFunction (default Automatic, a Red\[Rule]Blue blend applied to u-values), ShowBoundaryValues (default True, shows entry/exit u-values on boundary nodes), ShowLegend (default True, shows color bar when u-values are numeric).";
 
 mfgAugmentedBoundaryPlot::usage =
 "mfgAugmentedBoundaryPlot[s, sys, sol, opts] plots the augmented infrastructure graph with boundary data overlaid. In the augmented representation, edges correspond to flow and transition flow variables; vertices correspond to value variables. Entry flow edges are labeled with their fixed supply from boundary data; exit source vertices {exN,N} are annotated with their exit cost bound. Use PlotLabel, GraphLayout, and ImageSize options to control display.";
@@ -690,8 +690,14 @@ mfgAugmentedPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, opts : OptionsPattern[]] :
                     Module[{
                         op    = If[NumericQ[effJ] && effJ == 0, 0, 0.9],
                         thick = AbsoluteThickness[If[NumericQ[effJ], Rescale[effJ, {0, maxJ}, {1.5, 7}], 2.0]],
-                        edgeColorAt
+                        edgeColorAt, d, perp, ctrl, pAt
                     },
+                        d    = p2 - p1;
+                        perp = With[{len = Norm[d]}, If[len > 0, {-d[[2]], d[[1]]} / len, {0, 1}]];
+                        ctrl = 0.5*(p1 + p2) + 0.15*Norm[d]*perp;
+                        (* Quadratic Bezier curves each edge to the left of its direction;
+                           anti-parallel pairs curve to opposite sides and appear as distinct arcs. *)
+                        pAt  = Function[t, (1-t)^2*p1 + 2*(1-t)*t*ctrl + t^2*p2];
                         edgeColorAt = If[NumericQ[uS] && NumericQ[uT] && Length[numericU] > 0,
                             colorFn[Rescale[(1 - #)*uS + #*uT, {uMin, uMax}]] &,
                             (Which[kind === "Flow", RGBColor[0.12, 0.45, 0.78],
@@ -702,10 +708,10 @@ mfgAugmentedPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, opts : OptionsPattern[]] :
                             Table[
                                 With[{t0 = k/nSeg, t1 = (k + 1)/nSeg},
                                     {edgeColorAt[t0 + 0.5/nSeg], thick, Opacity[op],
-                                     Line[{(1-t0)*p1 + t0*p2, (1-t1)*p1 + t1*p2}]}],
+                                     Line[{pAt[t0], pAt[t1]}]}],
                                 {k, 0, nSeg - 1}],
                             {{GrayLevel[0.3], Opacity[op], Arrowheads[{{0.02, 1}}],
-                              Arrow[{0.35*p1 + 0.65*p2, 0.34*p1 + 0.66*p2}]}}
+                              Arrow[{pAt[0.45], pAt[0.55]}]}}
                         ]
                     ]
                 ]
