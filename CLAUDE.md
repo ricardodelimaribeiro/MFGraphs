@@ -34,8 +34,8 @@ wolframscript -version
 ```wolfram
 PrependTo[$Path, DirectoryName[$InputFileName]];
 BeginPackage["MFGraphs`", {"primitives`", "utilities`", "scenarioTools`", "examples`",
-                            "unknownsTools`", "systemTools`", "solversTools`",
-                            "orchestrationTools`", "graphicsTools`"}];
+                            "unknownsTools`", "systemTools`", "Tawaf`",
+                            "solversTools`", "orchestrationTools`", "graphicsTools`"}];
 EndPackage[]
 ```
 
@@ -45,7 +45,8 @@ Loading DAG (each file is an independent package with its own flat context):
 ```
 primitives`  →  utilities`      (shared helpers: mfgTypedQ, mfgData, mergeRules, etc.)
              →  scenarioTools`  →  examples`
-                                →  unknownsTools`  →  systemTools`  →  solversTools`
+                                →  unknownsTools`  →  systemTools`  →  Tawaf`
+                                                                    →  solversTools`
                                                                     →  orchestrationTools`
                                                                     →  graphicsTools`
 ```
@@ -103,6 +104,10 @@ Switching costs may be supplied as a List of 4-tuples or an Association with 3-t
 ### Example scenario factories (`examples``)
 - `getExampleScenario`
 - `gridScenario`, `cycleScenario`, `graphScenario`, `amScenario`
+
+### Tawaf scenario builder (`Tawaf``)
+- `makeTawafScenario[rounds, nodesPerRound, layers]` — unrolled circumambulation scenario; stores `{Rounds, NodesPerRound, Layers}` in `scenarioData[s, "Tawaf"]`
+- `makeTawafSystem[s]` (or `[s, unk]`) — calls `makeSystem`, then rewrites `EqGeneral` and `AltOptCond` so logical flows on the same physical edge (same position pair / direction / layer) share congestion. Returns `Failure` if Tawaf metadata is missing.
 
 ### Symbolic unknown/system kernels (`unknownsTools``, `systemTools``)
 - `symbolicUnknowns`, `symbolicUnknownsQ`, `symbolicUnknownsData`, `makeSymbolicUnknowns`
@@ -237,7 +242,7 @@ s = getExampleScenario[12, {{1, 100}}, {{4, 0}}];
 ## Testing
 
 Active suite (`Scripts/RunTests.wls`):
-- `fast`: `scenario-kernel.mt`, `symbolic-unknowns.mt`, `reduce-system.mt`, `scenario-consistency.mt`, `graphicsTools.mt`, `orchestration.mt`
+- `fast`: `scenario-kernel.mt`, `symbolic-unknowns.mt`, `reduce-system.mt`, `scenario-consistency.mt`, `graphicsTools.mt`, `orchestration.mt`, `dnf-reducer.mt`, `tawaf.mt`
 - `all`: alias for `fast`
 - `archive`: archived compatibility/legacy suites (explicit use only)
 - `full`: `fast + archive`

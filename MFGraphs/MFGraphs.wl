@@ -33,6 +33,7 @@ BeginPackage["MFGraphs`",
     "examples`",
     "unknownsTools`",
     "systemTools`",
+    "Tawaf`",
     "solversTools`",
     "orchestrationTools`",
     "graphicsTools`"
