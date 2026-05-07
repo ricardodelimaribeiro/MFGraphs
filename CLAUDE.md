@@ -33,7 +33,7 @@ wolframscript -version
 
 ```wolfram
 PrependTo[$Path, DirectoryName[$InputFileName]];
-BeginPackage["MFGraphs`", {"primitives`", "scenarioTools`", "examples`",
+BeginPackage["MFGraphs`", {"primitives`", "utilities`", "scenarioTools`", "examples`",
                             "unknownsTools`", "systemTools`", "solversTools`",
                             "orchestrationTools`", "graphicsTools`"}];
 EndPackage[]
@@ -43,10 +43,11 @@ EndPackage[]
 
 Loading DAG (each file is an independent package with its own flat context):
 ```
-primitives`  →  scenarioTools`  →  examples`
-                               →  unknownsTools`  →  systemTools`  →  solversTools`
-                                                                   →  orchestrationTools`
-                                                                   →  graphicsTools`
+primitives`  →  utilities`      (shared helpers: mfgTypedQ, mfgData, mergeRules, etc.)
+             →  scenarioTools`  →  examples`
+                                →  unknownsTools`  →  systemTools`  →  solversTools`
+                                                                    →  orchestrationTools`
+                                                                    →  graphicsTools`
 ```
 
 Archived/inactive modules live under `MFGraphs/archive/`.
@@ -288,7 +289,7 @@ wolframscript -file Scripts/ProfileDNFReduce.wls --case all --order all --timeou
 wolframscript -file Scripts/BenchmarkReduceSystem.wls
 ```
 
-Available bench cases: `chain-2v`, `chain-3v-1exit`, `chain-3v-2exit`, `example-7`, `chain-5v-1exit`, `grid-2x3`, `grid-3x2`, `example-12`.
+Available bench cases: `chain-2v`, `chain-3v-1exit`, `chain-3v-2exit`, `chain-3-midentry`, `chain-5v-1exit`, `grid-2x3`, `grid-3x2`, `example-12`.
 
 Benchmark results land in `Results/` as timestamped CSV + WL solution files and as latest files. Solutions store the full symbolic output per case alongside timing. `ProfileScenarioKernel.wls` prints diagnostics to stdout and does not write results.
 
