@@ -504,12 +504,6 @@ augChain1 = augmentAuxiliaryGraph[sys1Ex];
 
 Column[{
     DescribeOutput[
-        "Transition graph plot",
-        "Nodes represent network edges (pairs); edges represent transition flows (j[a,b,c]).",
-        mfgTransitionPlot[chain1Ex, sys1Ex, sol1Ex,
-            PlotLabel -> "Chain 1\[Rule]2\[Rule]3: transition graph"]
-    ],
-    DescribeOutput[
         "Augmented infrastructure helper",
         "augmentAuxiliaryGraph builds the road-traffic graph from AuxPairs and AuxTriples, with explicit j variables for every edge.",
         <|
@@ -520,10 +514,38 @@ Column[{
         |>
     ],
     DescribeOutput[
-        "Augmented infrastructure graph (Paper scheme)",
-        "Nodes are road-traffic edge-vertex states. Blue edges are j[a,b] flows; red edges are j[r,i,w] transitions.",
+        "Transition graph \[LongDash] gradient node coloring",
+        "mfgTransitionPlot now colors nodes on a Red\[Rule]Blue u-value gradient and draws edges as quadratic Bezier arcs. Anti-parallel arcs curve to opposite sides. A color bar legend is shown by default.",
+        mfgTransitionPlot[chain1Ex, sys1Ex, sol1Ex,
+            PlotLabel -> "Chain 1\[Rule]2\[Rule]3: transition graph"]
+    ],
+    DescribeOutput[
+        "Transition graph \[LongDash] BendFactor comparison",
+        "BendFactor controls arc curvature as a fraction of edge length. BendFactor\[Rule]0 gives straight edges; higher values increase the arc.",
+        Row[{
+            mfgTransitionPlot[chain1Ex, sys1Ex, sol1Ex,
+                PlotLabel -> "BendFactor \[Rule] 0 (straight)", ShowLegend -> False,
+                BendFactor -> 0, ImageSize -> 300],
+            mfgTransitionPlot[chain1Ex, sys1Ex, sol1Ex,
+                PlotLabel -> "BendFactor \[Rule] 0.15 (default)", ShowLegend -> False,
+                BendFactor -> 0.15, ImageSize -> 300],
+            mfgTransitionPlot[chain1Ex, sys1Ex, sol1Ex,
+                PlotLabel -> "BendFactor \[Rule] 0.35", ShowLegend -> False,
+                BendFactor -> 0.35, ImageSize -> 300]
+        }, Spacer[12]]
+    ],
+    DescribeOutput[
+        "Augmented infrastructure graph \[LongDash] with solution",
+        "Nodes are road-traffic edge-vertex states. Blue arcs are j[a,b] flows; red arcs are j[r,i,w] transitions. Anti-parallel flow arcs curve to opposite sides. Color gradient on nodes shows u-values.",
         mfgAugmentedPlot[chain1Ex, sys1Ex, sol1Ex,
-            PlotLabel -> "Chain 1\[Rule]2\[Rule]3: augmented infrastructure"]
+            PlotLabel -> "Chain 1\[Rule]2\[Rule]3: augmented infrastructure (solved)"]
+    ],
+    DescribeOutput[
+        "Augmented infrastructure graph \[LongDash] pre-solve with ShowBoundaryValues\[Rule]False",
+        "When ShowBoundaryValues\[Rule]False, boundary values are hidden but entry (green) and exit (red) nodes keep their category color. Internal nodes are gray until a solution is provided.",
+        mfgAugmentedPlot[chain1Ex, sys1Ex, <||>,
+            PlotLabel -> "Chain 1\[Rule]2\[Rule]3: structure only (ShowBoundaryValues\[Rule]False)",
+            ShowBoundaryValues -> False]
     ]
 }]
 
@@ -608,10 +630,11 @@ Column[{
             ImageSize -> Large]
     ],
     DescribeOutput[
-        "Jamaratv9 augmented road-traffic graph",
-        "mfgAugmentedPlot shows flow edges and transition edges without requiring a solved system.",
+        "Jamaratv9 augmented road-traffic graph (structure only)",
+        "ShowBoundaryValues\[Rule]False hides u-values but entry (green) and exit (red) nodes keep their category color so boundary topology remains readable.",
         mfgAugmentedPlot[jamaratScenario, jamaratSystem, <||>,
-            PlotLabel -> "Jamaratv9 augmented infrastructure",
+            PlotLabel -> "Jamaratv9 augmented infrastructure (structure only)",
+            ShowBoundaryValues -> False,
             ImageSize -> Large]
     ],
     DescribeOutput[
