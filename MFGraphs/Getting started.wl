@@ -151,7 +151,7 @@ EdgeModelPlot[s_?scenarioQ, sys_?mfgSystemQ, opts : OptionsPattern[]] :=
             modelEdges
         ];
         Graph[
-            scenarioTopologyPlot[s, sys, PlotLabel -> None,
+            rawNetworkPlot[s, sys, PlotLabel -> None,
                 GraphLayout -> OptionValue[GraphLayout],
                 ImageSize -> OptionValue[ImageSize]],
             EdgeLabels -> Normal[edgeLabels],
@@ -293,8 +293,8 @@ edgeModelSystem = makeSystem[edgeModelScenario];
 Column[{
     DescribeOutput[
         "Topology plot from graphicsTools",
-        "scenarioTopologyPlot shows the network while preserving entry/exit coloring.",
-        scenarioTopologyPlot[edgeModelScenario, edgeModelSystem,
+        "rawNetworkPlot shows the physical network. Vertices are gray; aux entry/exit vertices appear in their category colors when shown.",
+        rawNetworkPlot[edgeModelScenario, edgeModelSystem,
             PlotLabel -> "Example network for per-edge model parameters",
             ImageSize -> Large]
     ],
@@ -416,14 +416,14 @@ Column[{
 Column[{
     DescribeOutput[
         "Chain topology \[LongDash] no switching costs",
-        "Green = entry, red = exits, gray = internal.",
-        scenarioTopologyPlot[chain2ExNoSC, sysNoSC,
+        "All physical vertices gray. Add ShowAuxiliaryVertices -> True to also show auxiliary entry/exit nodes (blue/orange).",
+        rawNetworkPlot[chain2ExNoSC, sysNoSC,
             PlotLabel -> "Chain 1\[Rule]2\[Rule]3 (no SC)"]
     ],
     DescribeOutput[
         "Chain topology \[LongDash] with switching cost {1,2,3}=2.0",
         "Same topology; SC at vertex 2 penalises continuing from edge 1\[Rule]2 to 2\[Rule]3.",
-        scenarioTopologyPlot[chain2ExWithSC, sysWithSC,
+        rawNetworkPlot[chain2ExWithSC, sysWithSC,
             PlotLabel -> "Chain 1\[Rule]2\[Rule]3 (SC at 2)"]
     ]
 }]
@@ -465,15 +465,16 @@ Column[{
         isValidSystemSolution[sys1Ex, sol1Ex]
     ],
     DescribeOutput[
-        "Combined solution plot \[LongDash] chain 1\[Rule]2\[Rule]3, single exit",
-        "Directed edges show j-flow direction/magnitude; labels show both j and u. Auxiliary edges are included.",
-        mfgSolutionPlot[chain1Ex, sys1Ex, sol1Ex,
-            PlotLabel -> "Chain 1\[Rule]2\[Rule]3: combined solution (exit at 3, cost=0)"]
+        "Solution plot \[LongDash] chain 1\[Rule]2\[Rule]3, single exit",
+        "rawNetworkPlot with a solution shows directed edges by net flow with j-value labels. Combined views can be composed via GraphicsGrid using ShowValueLabels and ShowDensityLabels.",
+        rawNetworkPlot[chain1Ex, sys1Ex, sol1Ex,
+            PlotLabel -> "Chain 1\[Rule]2\[Rule]3: solution (exit at 3, cost=0)",
+            ShowAuxiliaryVertices -> True]
     ],
     DescribeOutput[
         "Flow-only plot \[LongDash] chain 1\[Rule]2\[Rule]3, single exit",
-        "Original vertices use one color. Edges have fixed width, and nearby labels show only j-flow values.",
-        mfgFlowPlot[chain1Ex, sys1Ex, sol1Ex,
+        "Same call without ShowValueLabels/ShowDensityLabels — only j-flow values appear on edges.",
+        rawNetworkPlot[chain1Ex, sys1Ex, sol1Ex,
             PlotLabel -> "Chain 1\[Rule]2\[Rule]3: flow values only"]
     ]
 }]
@@ -485,16 +486,18 @@ solNoSC = solveScenario[chain2ExNoSC];
 
 Column[{
     DescribeOutput[
-        "Combined solution plot \[LongDash] chain with two exits (no SC)",
-        "Edge {1,2} is directed 1\[Rule]2 (j[1,2]>0). Labels show j and u on real + auxiliary edges.",
-        mfgSolutionPlot[chain2ExNoSC, sysNoSC, solNoSC,
-            PlotLabel -> "Chain 1\[Rule]2\[Rule]3: combined solution (exits at 2 and 3)"]
+        "Solution plot \[LongDash] chain with two exits (no SC)",
+        "Edge {1,2} is directed 1\[Rule]2 (j[1,2]>0). rawNetworkPlot with ShowAuxiliaryVertices and ShowValueLabels overlays both flow and value information.",
+        rawNetworkPlot[chain2ExNoSC, sysNoSC, solNoSC,
+            PlotLabel -> "Chain 1\[Rule]2\[Rule]3: solution (exits at 2 and 3)",
+            ShowAuxiliaryVertices -> True, ShowValueLabels -> True]
     ],
     DescribeOutput[
         "Flow-only plot \[LongDash] chain with two exits (no SC)",
-        "Auxiliary entry/exit edges are included. Edges have fixed width, and nearby labels show only j-flow values.",
-        mfgFlowPlot[chain2ExNoSC, sysNoSC, solNoSC,
-            PlotLabel -> "Chain 1\[Rule]2\[Rule]3: flow values only (exits at 2 and 3)"]
+        "Auxiliary entry/exit edges are included via ShowAuxiliaryVertices. Edge labels show j-flow values only.",
+        rawNetworkPlot[chain2ExNoSC, sysNoSC, solNoSC,
+            PlotLabel -> "Chain 1\[Rule]2\[Rule]3: flow values only (exits at 2 and 3)",
+            ShowAuxiliaryVertices -> True]
     ]
 }]
 
@@ -515,36 +518,40 @@ Column[{
         |>
     ],
     DescribeOutput[
-        "Transition graph \[LongDash] gradient node coloring",
-        "mfgTransitionPlot now colors nodes on a Red\[Rule]Blue u-value gradient and draws edges as quadratic Bezier arcs. Anti-parallel arcs curve to opposite sides. A color bar legend is shown by default.",
-        mfgTransitionPlot[chain1Ex, sys1Ex, sol1Ex,
-            PlotLabel -> "Chain 1\[Rule]2\[Rule]3: transition graph"]
+        "Transition graph \[LongDash] richNetworkPlot[..., ShowFlowEdges -> False]",
+        "richNetworkPlot with ShowFlowEdges -> False suppresses j[a,b] flow arcs, leaving the transition graph (j[r,i,w]). Nodes are colored on a Red\[Rule]Blue u-value gradient when a solution is provided. A color bar legend is shown by default.",
+        richNetworkPlot[chain1Ex, sys1Ex, sol1Ex,
+            PlotLabel -> "Chain 1\[Rule]2\[Rule]3: transition graph",
+            ShowFlowEdges -> False]
     ],
     DescribeOutput[
         "Transition graph \[LongDash] BendFactor comparison",
         "BendFactor controls arc curvature as a fraction of edge length. BendFactor\[Rule]0 gives straight edges; higher values increase the arc.",
         Row[{
-            mfgTransitionPlot[chain1Ex, sys1Ex, sol1Ex,
-                PlotLabel -> "BendFactor \[Rule] 0 (straight)", ShowLegend -> False,
+            richNetworkPlot[chain1Ex, sys1Ex, sol1Ex,
+                PlotLabel -> "BendFactor \[Rule] 0 (straight)",
+                ShowFlowEdges -> False, ShowLegend -> False,
                 BendFactor -> 0, ImageSize -> 300],
-            mfgTransitionPlot[chain1Ex, sys1Ex, sol1Ex,
-                PlotLabel -> "BendFactor \[Rule] 0.15 (default)", ShowLegend -> False,
+            richNetworkPlot[chain1Ex, sys1Ex, sol1Ex,
+                PlotLabel -> "BendFactor \[Rule] 0.15 (default)",
+                ShowFlowEdges -> False, ShowLegend -> False,
                 BendFactor -> 0.15, ImageSize -> 300],
-            mfgTransitionPlot[chain1Ex, sys1Ex, sol1Ex,
-                PlotLabel -> "BendFactor \[Rule] 0.35", ShowLegend -> False,
+            richNetworkPlot[chain1Ex, sys1Ex, sol1Ex,
+                PlotLabel -> "BendFactor \[Rule] 0.35",
+                ShowFlowEdges -> False, ShowLegend -> False,
                 BendFactor -> 0.35, ImageSize -> 300]
         }, Spacer[12]]
     ],
     DescribeOutput[
         "Augmented infrastructure graph \[LongDash] with solution",
-        "Nodes are road-traffic edge-vertex states. Blue arcs are j[a,b] flows; red arcs are j[r,i,w] transitions. Anti-parallel flow arcs curve to opposite sides. Color gradient on nodes shows u-values.",
-        mfgAugmentedPlot[chain1Ex, sys1Ex, sol1Ex,
+        "richNetworkPlot shows the augmented state space. Blue arcs are j[a,b] flows; red arcs are j[r,i,w] transitions. Only nodes whose label position is an aux entry/exit vertex receive boundary colors.",
+        richNetworkPlot[chain1Ex, sys1Ex, sol1Ex,
             PlotLabel -> "Chain 1\[Rule]2\[Rule]3: augmented infrastructure (solved)"]
     ],
     DescribeOutput[
         "Augmented infrastructure graph \[LongDash] pre-solve with ShowBoundaryValues\[Rule]False",
-        "When ShowBoundaryValues\[Rule]False, boundary values are hidden but entry (green) and exit (red) nodes keep their category color. Internal nodes are gray until a solution is provided.",
-        mfgAugmentedPlot[chain1Ex, sys1Ex, <||>,
+        "When ShowBoundaryValues\[Rule]False, boundary values are hidden. Only nodes labeled \"in\"/\"out\" (label-position aux) keep their category color; all other state nodes are gray.",
+        richNetworkPlot[chain1Ex, sys1Ex,
             PlotLabel -> "Chain 1\[Rule]2\[Rule]3: structure only (ShowBoundaryValues\[Rule]False)",
             ShowBoundaryValues -> False]
     ]
@@ -585,8 +592,8 @@ Column[{
     ],
     DescribeOutput[
         "Figure 4-style augmented road-traffic graph",
-        "Blue edges are flow variables j[a,b]. Red edges are transition variables j[r,i,w].",
-        mfgAugmentedPlot[paperFig3Scenario, paperFig3System, <||>,
+        "richNetworkPlot draws blue flow arcs (j[a,b]) and red transition arcs (j[r,i,w]).",
+        richNetworkPlot[paperFig3Scenario, paperFig3System,
             PlotLabel -> "Paper-style augmented road-traffic graph",
             ShowBoundaryValues -> False]
     ],
@@ -626,15 +633,16 @@ Column[{
     ],
     DescribeOutput[
         "Jamaratv9 topology plot",
-        "scenarioTopologyPlot shows the original network with entry/exit coloring.",
-        scenarioTopologyPlot[jamaratScenario, jamaratSystem,
+        "rawNetworkPlot shows the physical network. ShowAuxiliaryVertices -> True adds the boundary aux nodes in their category colors.",
+        rawNetworkPlot[jamaratScenario, jamaratSystem,
             PlotLabel -> "Jamaratv9 topology",
+            ShowAuxiliaryVertices -> True,
             ImageSize -> Large]
     ],
     DescribeOutput[
         "Jamaratv9 augmented road-traffic graph (structure only)",
-        "ShowBoundaryValues\[Rule]False hides u-values but entry (green) and exit (red) nodes keep their category color so boundary topology remains readable.",
-        mfgAugmentedPlot[jamaratScenario, jamaratSystem, <||>,
+        "ShowBoundaryValues -> False hides u-values; only nodes whose label position is an aux entry/exit (\"in\"/\"out\" labels) keep their category color.",
+        richNetworkPlot[jamaratScenario, jamaratSystem,
             PlotLabel -> "Jamaratv9 augmented infrastructure (structure only)",
             ShowBoundaryValues -> False,
             ImageSize -> Large]

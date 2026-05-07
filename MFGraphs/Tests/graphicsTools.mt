@@ -1,19 +1,17 @@
-(* Tests for Graphics helpers *)
+(* Tests for the consolidated graphics surface: rawNetworkPlot, richNetworkPlot,
+   and augmentAuxiliaryGraph. *)
 
 Test[
-    NameQ["graphicsTools`scenarioTopologyPlot"] && NameQ["graphicsTools`mfgSolutionPlot"] &&
-    NameQ["graphicsTools`mfgFlowPlot"] && NameQ["graphicsTools`mfgValuePlot"] &&
-    NameQ["graphicsTools`mfgDensityPlot"] && NameQ["graphicsTools`mfgTransitionPlot"] &&
-    NameQ["graphicsTools`mfgAugmentedPlot"] && NameQ["graphicsTools`augmentAuxiliaryGraph"],
+    NameQ["graphicsTools`rawNetworkPlot"] &&
+    NameQ["graphicsTools`richNetworkPlot"] &&
+    NameQ["graphicsTools`augmentAuxiliaryGraph"],
     True,
     TestID -> "GraphicsTools: public symbols exist"
 ]
 
 Test[
     Module[{names, globalNames},
-        names = {"scenarioTopologyPlot", "mfgSolutionPlot", "mfgFlowPlot",
-            "mfgValuePlot", "mfgDensityPlot", "mfgTransitionPlot",
-            "mfgAugmentedPlot", "augmentAuxiliaryGraph"};
+        names = {"rawNetworkPlot", "richNetworkPlot", "augmentAuxiliaryGraph"};
         globalNames = ("Global`" <> #) & /@ names;
         Scan[If[NameQ[#], Remove[#]] &, globalNames];
         Needs["MFGraphs`"];
@@ -24,308 +22,287 @@ Test[
 ]
 
 Test[
-    Module[{s, sys, sol, topoPlot, solPlot, flowPlot},
+    Module[{names},
+        names = {"scenarioTopologyPlot", "mfgSolutionPlot", "mfgFlowPlot",
+                 "mfgValuePlot", "mfgDensityPlot", "mfgTransitionPlot",
+                 "mfgAugmentedPlot", "mfgAugmentedBoundaryPlot"};
+        AllTrue[names, !NameQ["graphicsTools`" <> #] &]
+    ],
+    True,
+    TestID -> "GraphicsTools: deprecated public symbols are removed"
+]
+
+Test[
+    Module[{s, sys, sol, plot},
         s = gridScenario[{3}, {{1, 120}}, {{2, 10}, {3, 0}}];
         sys = makeSystem[s];
         sol = solveScenario[s];
-        topoPlot = scenarioTopologyPlot[s, sys];
-        solPlot = mfgSolutionPlot[s, sys, sol];
-        flowPlot = mfgFlowPlot[s, sys, sol];
-        MatchQ[topoPlot, _Graph] && MatchQ[solPlot, _Graphics | _GraphicsGrid] &&
-        MatchQ[flowPlot, _Graph]
+        plot = rawNetworkPlot[s, sys, sol];
+        MatchQ[plot, _Graph | _Legended]
     ],
     True,
-    TestID -> "GraphicsTools: topology, solution grid, and flow plots return renderable expressions"
+    TestID -> "GraphicsTools: rawNetworkPlot returns renderable expression"
 ]
 
 Test[
-    Module[{s, sys, sol, edges},
+    Module[{s, sys, sol, plot},
         s = gridScenario[{3}, {{1, 120}}, {{2, 10}, {3, 0}}];
         sys = makeSystem[s];
         sol = solveScenario[s];
-        edges = EdgeList[mfgFlowPlot[s, sys, sol]];
-        MemberQ[edges, DirectedEdge[1, 2]]
+        plot = richNetworkPlot[s, sys, sol];
+        MatchQ[plot, _Graph | _Legended]
     ],
     True,
-    TestID -> "GraphicsTools: mfgFlowPlot positive j[1,2] displays as DirectedEdge[1,2]"
+    TestID -> "GraphicsTools: richNetworkPlot returns renderable expression"
 ]
 
 Test[
-    Module[{s, sys, sol, edges},
-        s = gridScenario[{3}, {{3, 120.0}}, {{1, 0.0}, {2, 10.0}}];
-        sys = makeSystem[s];
-        sol = {j[1, 2] -> 0, j[2, 1] -> 5};
-        edges = EdgeList[mfgFlowPlot[s, sys, sol]];
-        MemberQ[edges, DirectedEdge[2, 1]]
-    ],
-    True,
-    TestID -> "GraphicsTools: mfgFlowPlot negative net flow flips display direction to DirectedEdge[2,1]"
-]
-
-Test[
-    Module[{s, sys, sol, graph, edges},
+    Module[{s, sys, plot, vlist},
         s = gridScenario[{3}, {{1, 120}}, {{2, 10}, {3, 0}}];
         sys = makeSystem[s];
-        sol = solveScenario[s];
-        graph = mfgFlowPlot[s, sys, sol];
-        edges = EdgeList[graph];
-        AllTrue[edges, MatchQ[#, _DirectedEdge] &] &&
-        Length[edges] == Length[systemData[sys, "AuxEdges"]]
+        plot = rawNetworkPlot[s, sys];
+        vlist = VertexList[plot];
+        AllTrue[{1, 2, 3}, MemberQ[vlist, #] &] &&
+        AllTrue[vlist, NumericQ]
     ],
     True,
-    TestID -> "GraphicsTools: mfgFlowPlot displays every auxiliary edge as directed"
+    TestID -> "GraphicsTools: rawNetworkPlot without sol shows real vertices only"
 ]
 
 Test[
-    Module[{s, sys, sol, graph, labelText},
+    Module[{s, sys, plot, vlist},
         s = gridScenario[{3}, {{1, 120}}, {{2, 10}, {3, 0}}];
         sys = makeSystem[s];
-        sol = solveScenario[s];
-        graph = mfgFlowPlot[s, sys, sol];
-        labelText = ToString[InputForm[AbsoluteOptions[graph, EdgeLabels]]];
-        StringContainsQ[labelText, "EdgeLabels"] && !StringContainsQ[labelText, "u="]
+        plot = rawNetworkPlot[s, sys, ShowAuxiliaryVertices -> True];
+        vlist = VertexList[plot];
+        MemberQ[vlist, "auxEntry1"] && MemberQ[vlist, "auxExit2"] &&
+        MemberQ[vlist, "auxExit3"]
     ],
     True,
-    TestID -> "GraphicsTools: mfgFlowPlot edge labels omit value functions"
+    TestID -> "GraphicsTools: ShowAuxiliaryVertices includes auxiliary vertices"
 ]
 
 Test[
-    Module[{s, sys, sol, graph, edgeStyleText},
+    Module[{s, sys, plot, vlist},
         s = gridScenario[{3}, {{1, 120}}, {{2, 10}, {3, 0}}];
         sys = makeSystem[s];
-        sol = solveScenario[s];
-        graph = mfgFlowPlot[s, sys, sol];
-        edgeStyleText = ToString[InputForm[AbsoluteOptions[graph, EdgeStyle]]];
-        StringContainsQ[edgeStyleText, "AbsoluteThickness[2."]
+        (* ShowBoundaryData should force aux visibility *)
+        plot = rawNetworkPlot[s, sys, ShowBoundaryData -> True,
+                              ShowAuxiliaryVertices -> False];
+        vlist = VertexList[plot];
+        MemberQ[vlist, "auxEntry1"]
     ],
     True,
-    TestID -> "GraphicsTools: mfgFlowPlot uses fixed edge thickness"
+    TestID -> "GraphicsTools: ShowBoundaryData forces aux visibility"
 ]
 
 Test[
-    Module[{s, sys, topoPlot, solPlot},
+    Module[{s, sys, plot, styles, vstyle, entryColor, exitColor, internalColor},
         s = gridScenario[{3}, {{1, 120}}, {{2, 10}, {3, 0}}];
         sys = makeSystem[s];
-        topoPlot = scenarioTopologyPlot[s, sys, "Topology custom title"];
-        solPlot = mfgSolutionPlot[s, sys, <||>, "Solution custom title"];
-        !FreeQ[AbsoluteOptions[topoPlot, PlotLabel], "Topology custom title"] &&
-        !FreeQ[AbsoluteOptions[solPlot, PlotLabel], "Solution custom title"]
+        plot = rawNetworkPlot[s, sys];
+        vstyle = AbsoluteOptions[plot, VertexStyle][[1, 2]];
+        styles = Association[vstyle];
+        entryColor = Lookup[styles, 1, Missing[]];
+        exitColor = Lookup[styles, 2, Missing[]];
+        internalColor = Lookup[styles, 3, Missing[]];
+        (* All real vertices should be gray (GrayLevel) *)
+        MatchQ[entryColor, _GrayLevel] &&
+        MatchQ[exitColor, _GrayLevel] &&
+        MatchQ[internalColor, _GrayLevel]
     ],
     True,
-    TestID -> "GraphicsTools: custom titles propagate to PlotLabel"
+    TestID -> "GraphicsTools: rawNetworkPlot real vertices are gray (no solution)"
 ]
 
 Test[
-    Module[{s, sys, sol, plots},
+    Module[{s, sys, sol, plot, vstyle, styles, entryColor},
         s = gridScenario[{3}, {{1, 10}}, {{3, 0}}];
         sys = makeSystem[s];
         sol = solveScenario[s];
-        plots = {
-            scenarioTopologyPlot[s, sys, GraphLayout -> "LayeredDigraphEmbedding",
-                PlotLabel -> "Topology option", ImageSize -> Medium],
-            mfgSolutionPlot[s, sys, sol, GraphLayout -> "LayeredDigraphEmbedding",
-                PlotLabel -> "Solution option", ImageSize -> Medium],
-            mfgFlowPlot[s, sys, sol, GraphLayout -> "LayeredDigraphEmbedding",
-                PlotLabel -> "Flow option", ImageSize -> Medium],
-            mfgValuePlot[s, sys, sol, GraphLayout -> "LayeredDigraphEmbedding",
-                PlotLabel -> "Value option", ImageSize -> Medium],
-            mfgDensityPlot[s, sys, sol, GraphLayout -> "LayeredDigraphEmbedding",
-                PlotLabel -> "Density option", ImageSize -> Medium],
-            mfgTransitionPlot[s, sys, sol, GraphLayout -> "LayeredDigraphEmbedding",
-                PlotLabel -> "Transition option", ImageSize -> Medium,
-                ShowLegend -> False],
-            mfgAugmentedPlot[s, sys, sol, GraphLayout -> "LayeredDigraphEmbedding",
-                PlotLabel -> "Augmented option", ImageSize -> Medium,
-                ShowLegend -> False]
-        };
-        MatchQ[plots[[2]], _Graphics | _GraphicsGrid] &&
-        AllTrue[Delete[plots, 2], MatchQ[#, _Graph] &] &&
-        And @@ MapThread[
-            !FreeQ[AbsoluteOptions[#1, PlotLabel], #2] &,
-            {plots, {"Topology option", "Solution option", "Flow option",
-                "Value option", "Density option", "Transition option", "Augmented option"}}
-        ] &&
-        AllTrue[
-            Delete[plots, 2],
-            !FreeQ[AbsoluteOptions[#, GraphLayout], "LayeredDigraphEmbedding"] &
-        ]
+        plot = rawNetworkPlot[s, sys, sol];
+        vstyle = AbsoluteOptions[
+            Replace[plot, Legended[g_, _] :> g], VertexStyle][[1, 2]];
+        styles = Association[vstyle];
+        entryColor = Lookup[styles, 1, Missing[]];
+        (* Real vertex 1 must remain gray even with a solution *)
+        MatchQ[entryColor, _GrayLevel]
     ],
     True,
-    TestID -> "GraphicsTools: graph helpers accept PlotLabel GraphLayout and ImageSize options"
+    TestID -> "GraphicsTools: rawNetworkPlot real vertices stay gray with solution"
 ]
 
 Test[
-    Module[{s, sys, sol, plots},
-        s = gridScenario[{3}, {{1, 10}}, {{3, 0}}];
-        sys = makeSystem[s];
-        sol = solveScenario[s];
-        plots = {
-            scenarioTopologyPlot[s, sys, PlotLabel -> None],
-            mfgSolutionPlot[s, sys, sol, PlotLabel -> None],
-            mfgFlowPlot[s, sys, sol, PlotLabel -> None],
-            mfgValuePlot[s, sys, sol, PlotLabel -> None],
-            mfgDensityPlot[s, sys, sol, PlotLabel -> None],
-            mfgTransitionPlot[s, sys, sol, PlotLabel -> None, ShowLegend -> False],
-            mfgAugmentedPlot[s, sys, sol, PlotLabel -> None, ShowLegend -> False]
-        };
-        MatchQ[plots[[2]], _Graphics | _GraphicsGrid] &&
-        AllTrue[Delete[plots, 2], MatchQ[#, _Graph] &] &&
-        AllTrue[plots, FreeQ[AbsoluteOptions[#, PlotLabel], _Style] &]
-    ],
-    True,
-    TestID -> "GraphicsTools: PlotLabel -> None suppresses styled label for all plot helpers"
-]
-
-Test[
-    Module[{s, sys, sol, transitionPlot, augmentedPlot, transitionFile,
-            augmentedFile, transitionDims, augmentedDims},
-        s = gridScenario[{3}, {{1, 10}}, {{3, 0}}];
-        sys = makeSystem[s];
-        sol = solveScenario[s];
-        transitionPlot = mfgTransitionPlot[s, sys, sol,
-            GraphLayout -> "LayeredDigraphEmbedding"];
-        augmentedPlot = mfgAugmentedPlot[s, sys, sol,
-            GraphLayout -> "LayeredDigraphEmbedding"];
-        transitionFile = FileNameJoin[{$TemporaryDirectory, "mfg-transition-render-test.png"}];
-        augmentedFile = FileNameJoin[{$TemporaryDirectory, "mfg-augmented-render-test.png"}];
-        Export[transitionFile, transitionPlot];
-        Export[augmentedFile, augmentedPlot];
-        transitionDims = ImageDimensions @ Import[transitionFile];
-        augmentedDims = ImageDimensions @ Import[augmentedFile];
-        MatchQ[transitionPlot, _Graph | _Legended] &&
-        MatchQ[augmentedPlot, _Graph | _Legended] &&
-        Min[transitionDims] > 100 &&
-        Min[augmentedDims] > 100
-    ],
-    True,
-    TestID -> "GraphicsTools: transition and augmented plots render to nontrivial images"
-]
-
-Test[
-    Module[{s, sys, graph, labelText},
-        s = gridScenario[{3}, {{1, 10}}, {{3, 0}}];
-        sys = makeSystem[s];
-        graph = mfgValuePlot[s, sys, {u[1, 2] -> 0., u[2, 1] -> 4.}];
-        labelText = ToString[InputForm[AbsoluteOptions[graph, EdgeLabels]]];
-        MatchQ[graph, _Graph] &&
-        StringContainsQ[labelText, "1/2"] &&
-        StringContainsQ[labelText, "2."]
-    ],
-    True,
-    TestID -> "GraphicsTools: mfgValuePlot labels include interpolated midpoint values"
-]
-
-Test[
-    Module[{s, sys, graph, labelText},
-        s = gridScenario[{3}, {{1, 10}}, {{3, 0}}];
-        sys = makeSystem[s];
-        graph = mfgDensityPlot[s, sys, {j[1, 2] -> 0, j[2, 1] -> 0}];
-        labelText = ToString[InputForm[AbsoluteOptions[graph, EdgeLabels]]];
-        MatchQ[graph, _Graph] && StringContainsQ[labelText, "m="] &&
-        StringContainsQ[labelText, "0."]
-    ],
-    True,
-    TestID -> "GraphicsTools: mfgDensityPlot displays zero density for zero flow"
-]
-
-Test[
-    Module[{s, sys, graph, labelText},
-        s = makeScenario[<|"Model" -> <|
-            "Vertices" -> {1, 2},
-            "Adjacency" -> {{0, 1}, {1, 0}},
-            "Entries" -> {{1, 1}},
-            "Exits" -> {{2, 0}},
-            "Switching" -> {}
-        |>|>];
-        sys = makeSystem[s];
-        graph = mfgDensityPlot[s, sys, {j[1, 2] -> 2, j[2, 1] -> 0}];
-        labelText = ToString[InputForm[AbsoluteOptions[graph, EdgeLabels]]];
-        MatchQ[graph, _Graph] && StringContainsQ[labelText, "3."]
-    ],
-    True,
-    TestID -> "GraphicsTools: mfgDensityPlot solves positive density with default Hamiltonian"
-]
-
-Test[
-    Module[{s, sys, graph, labelText},
-        s = makeScenario[<|
-            "Model" -> <|
-                "Vertices" -> {1, 2},
-                "Adjacency" -> {{0, 1}, {1, 0}},
-                "Entries" -> {{1, 1}},
-                "Exits" -> {{2, 0}},
-                "Switching" -> {}
-            |>,
-            "Hamiltonian" -> <|
-                "Alpha" -> 1,
-                "V" -> -2,
-                "G" -> Function[z, -2/z]
-            |>
-        |>];
-        sys = makeSystem[s];
-        graph = mfgDensityPlot[s, sys, {j[1, 2] -> 2, j[2, 1] -> 0}];
-        labelText = ToString[InputForm[AbsoluteOptions[graph, EdgeLabels]]];
-        MatchQ[graph, _Graph] && StringContainsQ[labelText, "2."]
-    ],
-    True,
-    TestID -> "GraphicsTools: mfgDensityPlot uses scenario Hamiltonian defaults"
-]
-
-Test[
-    Module[{s, sBroken, sys, graph, labelText},
-        s = gridScenario[{2}, {{1, 10}}, {{2, 0}}];
-        sys = makeSystem[s];
-        sBroken = scenario[Join[scenarioData[s], <|"Hamiltonian" -> <||>|>]];
-        graph = mfgDensityPlot[sBroken, sys, {j[1, 2] -> 2, j[2, 1] -> 0}];
-        labelText = ToString[InputForm[AbsoluteOptions[graph, EdgeLabels]]];
-        MatchQ[graph, _Graph] && StringContainsQ[labelText, "?"]
-    ],
-    True,
-    TestID -> "GraphicsTools: mfgDensityPlot reports malformed Hamiltonian as unknown density"
-]
-
-Test[
-    Module[{s, sys, graph, labelText},
-        s = gridScenario[{3}, {{1, 10}}, {{3, 0}}];
-        sys = makeSystem[s];
-        graph = mfgDensityPlot[s, sys, <||>];
-        labelText = ToString[InputForm[AbsoluteOptions[graph, EdgeLabels]]];
-        MatchQ[graph, _Graph] && StringContainsQ[labelText, "?"]
-    ],
-    True,
-    TestID -> "GraphicsTools: mfgDensityPlot renders missing solution rules as unknown density"
-]
-
-Test[
-    Module[{s, sys, sol, rules},
+    Module[{s, sys, plot, vstyle, styles, entryColor, exitColor},
         s = gridScenario[{3}, {{1, 120}}, {{2, 10}, {3, 0}}];
         sys = makeSystem[s];
-        sol = solveScenario[s];
-        rules = Replace[sol, a_Association :> Lookup[a, "Rules", {}]];
-        MatchQ[mfgSolutionPlot[s, sys, rules], _Graphics | _GraphicsGrid] &&
-        MatchQ[mfgFlowPlot[s, sys, rules], _Graph] &&
-        MatchQ[mfgValuePlot[s, sys, rules], _Graph] &&
-        MatchQ[mfgDensityPlot[s, sys, rules], _Graph]
+        plot = rawNetworkPlot[s, sys, ShowAuxiliaryVertices -> True];
+        vstyle = AbsoluteOptions[plot, VertexStyle][[1, 2]];
+        styles = Association[vstyle];
+        entryColor = Lookup[styles, "auxEntry1", Missing[]];
+        exitColor = Lookup[styles, "auxExit3", Missing[]];
+        MatchQ[entryColor, _RGBColor] && MatchQ[exitColor, _RGBColor]
     ],
     True,
-    TestID -> "GraphicsTools: solution panels accept raw rule list solution"
+    TestID -> "GraphicsTools: aux vertices receive category colors when shown"
 ]
 
 Test[
-    Module[{s, sys, graph, flowGraph, valueGraph, densityGraph},
-        s = gridScenario[{3}, {{1, 120}}, {{2, 10}, {3, 0}}];
+    Module[{s, sys, sol, ruleList, assoc, plotA, plotB},
+        s = gridScenario[{3}, {{1, 10}}, {{3, 0}}];
         sys = makeSystem[s];
-        graph = mfgSolutionPlot[s, sys, <||>];
-        flowGraph = mfgFlowPlot[s, sys, <||>];
-        valueGraph = mfgValuePlot[s, sys, <||>];
-        densityGraph = mfgDensityPlot[s, sys, <||>];
-        MatchQ[graph, _Graphics | _GraphicsGrid] &&
-        MatchQ[flowGraph, _Graph] && Length[EdgeList[flowGraph]] > 0 &&
-        MatchQ[valueGraph, _Graph] && Length[EdgeList[valueGraph]] > 0 &&
-        MatchQ[densityGraph, _Graph] && Length[EdgeList[densityGraph]] > 0
+        sol = solveScenario[s];
+        ruleList = Replace[sol, a_Association :> Lookup[a, "Rules", {}]];
+        assoc = <|"Rules" -> ruleList, "Residual" -> True|>;
+        plotA = rawNetworkPlot[s, sys, ruleList];
+        plotB = rawNetworkPlot[s, sys, assoc];
+        MatchQ[plotA, _Graph | _Legended] && MatchQ[plotB, _Graph | _Legended]
     ],
     True,
-    TestID -> "GraphicsTools: solution panels handle missing Rules association without failure"
+    TestID -> "GraphicsTools: rawNetworkPlot accepts rule list and association forms"
+]
+
+Test[
+    Module[{s, sys, plot, edges},
+        s = gridScenario[{3}, {{1, 10}}, {{3, 0}}];
+        sys = makeSystem[s];
+        plot = richNetworkPlot[s, sys];
+        edges = EdgeList[Replace[plot, Legended[g_, _] :> g]];
+        MemberQ[edges, DirectedEdge[{1, "auxEntry1"}, {"auxEntry1", 1}]] &&
+        MemberQ[edges, DirectedEdge[{"auxEntry1", 1}, {2, 1}]]
+    ],
+    True,
+    TestID -> "GraphicsTools: richNetworkPlot includes flow and transition edges by default"
+]
+
+Test[
+    Module[{s, sys, plot, edges, kinds},
+        s = gridScenario[{3}, {{1, 10}}, {{3, 0}}];
+        sys = makeSystem[s];
+        plot = richNetworkPlot[s, sys, ShowFlowEdges -> False];
+        edges = EdgeList[Replace[plot, Legended[g_, _] :> g]];
+        (* Without flow edges, the entry-flow self-loop arc should not appear *)
+        !MemberQ[edges, DirectedEdge[{1, "auxEntry1"}, {"auxEntry1", 1}]] &&
+        Length[edges] > 0
+    ],
+    True,
+    TestID -> "GraphicsTools: richNetworkPlot ShowFlowEdges->False yields transition-only graph"
+]
+
+Test[
+    Module[{s, sys, plot, vstyle, styles, inNode, otherNode},
+        s = gridScenario[{3}, {{1, 10}}, {{3, 0}}];
+        sys = makeSystem[s];
+        plot = richNetworkPlot[s, sys];
+        vstyle = AbsoluteOptions[
+            Replace[plot, Legended[g_, _] :> g], VertexStyle][[1, 2]];
+        styles = Association[vstyle];
+        (* {realV, auxEntry} is the "in" node — should be green RGBColor *)
+        inNode = Lookup[styles, Key[{1, "auxEntry1"}], Missing[]];
+        (* {auxEntry, realV} has aux at position 1 — should be gray *)
+        otherNode = Lookup[styles, Key[{"auxEntry1", 1}], Missing[]];
+        MatchQ[inNode, _RGBColor] && MatchQ[otherNode, _GrayLevel]
+    ],
+    True,
+    TestID -> "GraphicsTools: richNetworkPlot only colors label-position aux nodes"
+]
+
+Test[
+    Module[{s, sys, sol, plot, ruleList},
+        s = gridScenario[{3}, {{1, 10}}, {{3, 0}}];
+        sys = makeSystem[s];
+        sol = solveScenario[s];
+        ruleList = Replace[sol, a_Association :> Lookup[a, "Rules", {}]];
+        plot = richNetworkPlot[s, sys, ruleList];
+        MatchQ[plot, _Graph | _Legended]
+    ],
+    True,
+    TestID -> "GraphicsTools: richNetworkPlot accepts rule list solution"
+]
+
+Test[
+    Module[{s, sys, plotA, plotB},
+        s = gridScenario[{3}, {{1, 10}}, {{3, 0}}];
+        sys = makeSystem[s];
+        plotA = rawNetworkPlot[s, sys, "Custom raw title"];
+        plotB = richNetworkPlot[s, sys, "Custom rich title"];
+        !FreeQ[AbsoluteOptions[Replace[plotA, Legended[g_, _] :> g], PlotLabel],
+               "Custom raw title"] &&
+        !FreeQ[AbsoluteOptions[Replace[plotB, Legended[g_, _] :> g], PlotLabel],
+               "Custom rich title"]
+    ],
+    True,
+    TestID -> "GraphicsTools: positional title argument propagates to PlotLabel"
+]
+
+Test[
+    Module[{s, sys, sol, plot},
+        s = gridScenario[{3}, {{1, 10}}, {{3, 0}}];
+        sys = makeSystem[s];
+        sol = solveScenario[s];
+        plot = rawNetworkPlot[s, sys, sol,
+            GraphLayout -> "LayeredDigraphEmbedding",
+            PlotLabel -> "Layout test",
+            ImageSize -> Medium,
+            ShowLegend -> False];
+        !FreeQ[AbsoluteOptions[Replace[plot, Legended[g_, _] :> g], GraphLayout],
+               "LayeredDigraphEmbedding"]
+    ],
+    True,
+    TestID -> "GraphicsTools: GraphLayout / PlotLabel / ImageSize options propagate"
+]
+
+Test[
+    Module[{s, sys, plot},
+        s = gridScenario[{3}, {{1, 10}}, {{3, 0}}];
+        sys = makeSystem[s];
+        plot = rawNetworkPlot[s, sys, PlotLabel -> None];
+        FreeQ[AbsoluteOptions[plot, PlotLabel], _Style]
+    ],
+    True,
+    TestID -> "GraphicsTools: PlotLabel -> None suppresses styled label"
+]
+
+Test[
+    Module[{s, sys, plot, file, dims},
+        s = gridScenario[{3}, {{1, 10}}, {{3, 0}}];
+        sys = makeSystem[s];
+        plot = richNetworkPlot[s, sys, GraphLayout -> "LayeredDigraphEmbedding"];
+        file = FileNameJoin[{$TemporaryDirectory, "rich-render-test.png"}];
+        Export[file, plot];
+        dims = ImageDimensions @ Import[file];
+        Min[dims] > 100
+    ],
+    True,
+    TestID -> "GraphicsTools: richNetworkPlot renders to nontrivial image"
+]
+
+Test[
+    Module[{s, sys, plot, labelText},
+        s = gridScenario[{3}, {{1, 10}}, {{3, 0}}];
+        sys = makeSystem[s];
+        plot = rawNetworkPlot[s, sys, {u[1, 2] -> 0., u[2, 1] -> 4.},
+                              ShowFlowLabels -> False, ShowValueLabels -> True];
+        labelText = ToString[InputForm[
+            AbsoluteOptions[Replace[plot, Legended[g_, _] :> g], EdgeLabels]]];
+        StringContainsQ[labelText, "1/2"]
+    ],
+    True,
+    TestID -> "GraphicsTools: rawNetworkPlot ShowValueLabels shows interpolated u midpoints"
+]
+
+Test[
+    Module[{s, sys, plot, labelText},
+        s = gridScenario[{3}, {{1, 10}}, {{3, 0}}];
+        sys = makeSystem[s];
+        plot = rawNetworkPlot[s, sys, {j[1, 2] -> 0, j[2, 1] -> 0},
+                              ShowFlowLabels -> False, ShowDensityLabels -> True];
+        labelText = ToString[InputForm[
+            AbsoluteOptions[Replace[plot, Legended[g_, _] :> g], EdgeLabels]]];
+        StringContainsQ[labelText, "m="]
+    ],
+    True,
+    TestID -> "GraphicsTools: rawNetworkPlot ShowDensityLabels shows m= prefix"
 ]
 
 Test[
@@ -392,19 +369,4 @@ Test[
     ],
     True,
     TestID -> "GraphicsTools: augmentAuxiliaryGraph records flow and transition edge kinds"
-]
-
-Test[
-    Module[{s, sys, graph, edges},
-        s = gridScenario[{3}, {{1, 10}}, {{3, 0}}];
-        sys = makeSystem[s];
-        graph = mfgAugmentedPlot[s, sys, <||>, ShowBoundaryValues -> False];
-        edges = EdgeList[graph];
-        MatchQ[graph, _Graph] &&
-        MemberQ[edges, DirectedEdge[{1, "auxEntry1"}, {"auxEntry1", 1}]] &&
-        MemberQ[edges, DirectedEdge[{"auxEntry1", 1}, {2, 1}]] &&
-        !MemberQ[edges, DirectedEdge[{1, "auxEntry1"}, {1, 2}]]
-    ],
-    True,
-    TestID -> "GraphicsTools: mfgAugmentedPlot uses augmented road-traffic graph"
 ]

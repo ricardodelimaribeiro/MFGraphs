@@ -66,6 +66,126 @@ TawafCouplingPreview[sys_?mfgSystemQ, maxEqs_:8] :=
         Take[eqs, UpTo[maxEqs]]
     ];
 
+ClearAll[tawafHelixPlot];
+
+Options[tawafHelixPlot] = {
+    "ShowEquivalenceLinks" -> True,
+    "ShowVertexLabels"     -> Automatic,
+    "Pitch"                -> 0.6,
+    "Radius"               -> 3.0,
+    "LayerGap"             -> 1.2,
+    "ColorByRound"         -> True,
+    "EdgeThicknessByFlow"  -> True,
+    PlotLabel              -> Automatic,
+    ImageSize              -> Large
+};
+
+(* 3D helix visualization for a Tawaf scenario.
+   Rounds stack vertically (one full turn of angular advance per round, height
+   advancing one tick per position-step), so equivalent (round-shifted) nodes
+   sit directly above each other. Layers become concentric helices. *)
+tawafHelixPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_:<||>, opts:OptionsPattern[]] :=
+    Module[{meta, rounds, npr, layers, dz, r0, dr, showLinks, showLabels,
+            colorByR, thickByJ, encode, coord, modelEdges, integerEdges,
+            equivEdges, vertexCoords, ruleList, flowVals, jMax, thicknessFor,
+            edgeStyleRules, vertexStyles, vertices, plotLabel, imgSize,
+            roundColor, totalNodes},
+        meta   = scenarioData[s, "Tawaf"];
+        If[!AssociationQ[meta],
+            Return[Failure["tawafHelixPlot",
+                <|"MessageTemplate" -> "Scenario lacks Tawaf metadata."|>]]];
+        rounds = meta["Rounds"]; npr = meta["NodesPerRound"]; layers = meta["Layers"];
+        totalNodes = rounds * npr * layers;
+
+        dz        = OptionValue["Pitch"];
+        r0        = OptionValue["Radius"];
+        dr        = OptionValue["LayerGap"];
+        showLinks = TrueQ[OptionValue["ShowEquivalenceLinks"]];
+        showLabels = Replace[OptionValue["ShowVertexLabels"],
+            Automatic :> (totalNodes <= 24)];
+        colorByR  = TrueQ[OptionValue["ColorByRound"]];
+        thickByJ  = TrueQ[OptionValue["EdgeThicknessByFlow"]];
+        plotLabel = Replace[OptionValue[PlotLabel], Automatic ->
+            StringTemplate["Tawaf helix ``\[Times]``\[Times]``"][rounds, npr, layers]];
+        imgSize   = OptionValue[ImageSize];
+
+        encode[r_, p_, l_] := (l - 1)*rounds*npr + (r - 1)*npr + p;
+        coord[r_, p_, l_]  := {
+            (r0 + (l - 1) dr) Cos[2 Pi (p - 1)/npr],
+            (r0 + (l - 1) dr) Sin[2 Pi (p - 1)/npr],
+            ((r - 1) npr + (p - 1)) dz
+        };
+
+        vertices = Flatten @ Table[encode[r, p, l],
+            {l, layers}, {r, rounds}, {p, npr}];
+
+        vertexCoords = Flatten[
+            Table[encode[r, p, l] -> coord[r, p, l],
+                {l, layers}, {r, rounds}, {p, npr}],
+            2];
+
+        modelEdges = EdgeList[scenarioData[s, "Model"]["Graph"]];
+        integerEdges = Select[modelEdges,
+            IntegerQ[#[[1]]] && IntegerQ[#[[2]]] &];
+
+        equivEdges = If[showLinks && rounds >= 2,
+            Flatten @ Table[
+                UndirectedEdge[encode[r, p, l], encode[r + 1, p, l]],
+                {l, layers}, {p, npr}, {r, rounds - 1}],
+            {}];
+
+        ruleList = Which[
+            sol === <||> || sol === {}, {},
+            AssociationQ[sol], Lookup[sol, "Rules", {}],
+            ListQ[sol], sol,
+            True, {}
+        ];
+
+        flowVals = If[ruleList === {}, <||>,
+            Association @ Cases[ruleList,
+                HoldPattern[j[a_Integer, b_Integer] -> v_?NumericQ] :>
+                    ({a, b} -> Abs[N[v]])]
+        ];
+        jMax = If[Length[flowVals] === 0, 1, Max[Values[flowVals], 1]];
+
+        thicknessFor[edge_] := With[{key = {edge[[1]], edge[[2]]}},
+            If[thickByJ && KeyExistsQ[flowVals, key],
+                AbsoluteThickness[1 + 5 flowVals[key]/jMax],
+                AbsoluteThickness[1.2]]];
+
+        edgeStyleRules = Join[
+            Map[Function[e,
+                e -> Directive[RGBColor[0.20, 0.40, 0.75], thicknessFor[e]]],
+                integerEdges],
+            Map[Function[e,
+                e -> Directive[GrayLevel[0.65], Dashed, AbsoluteThickness[0.6]]],
+                equivEdges]
+        ];
+
+        roundColor[r_] := Blend[
+            {RGBColor[0.85, 0.25, 0.25], RGBColor[0.25, 0.35, 0.85]},
+            If[rounds === 1, 0.5, (r - 1)/(rounds - 1)]];
+
+        vertexStyles = Flatten @ Table[
+            encode[r, p, l] -> If[colorByR, roundColor[r], GrayLevel[0.5]],
+            {l, layers}, {r, rounds}, {p, npr}];
+
+        Graph3D[
+            vertices,
+            Join[integerEdges, equivEdges],
+            VertexCoordinates -> vertexCoords,
+            VertexStyle       -> vertexStyles,
+            VertexSize        -> 0.18,
+            VertexLabels      -> If[showLabels,
+                                    Placed[Automatic, Center],
+                                    None],
+            EdgeStyle         -> edgeStyleRules,
+            PlotLabel         -> plotLabel,
+            ImageSize         -> imgSize,
+            Boxed             -> False
+        ]
+    ];
+
 
 (* ::Subsection:: *)
 (*Smallest coupled case: 2 rounds, 3 nodes per round, 1 layer*)
@@ -89,7 +209,7 @@ DescribeOutput[
 DescribeOutput[
     "2\[Times]3\[Times]1 physical network",
     "Six logical nodes arranged as two rounds. Entry at vertex 1, exit at vertex 6.",
-    scenarioTopologyPlot[tawaf2x3, tawaf2x3System,
+    rawNetworkPlot[tawaf2x3, tawaf2x3System,
         PlotLabel -> "Tawaf 2\[Times]3\[Times]1 \[LongDash] physical topology",
         ImageSize -> Medium]
 ]
@@ -98,7 +218,7 @@ DescribeOutput[
 DescribeOutput[
     "2\[Times]3\[Times]1 augmented infrastructure (structure only)",
     "Augmented road-traffic graph before solving. Anti-parallel arcs separate so both directions are visible.",
-    mfgAugmentedPlot[tawaf2x3, tawaf2x3System, <||>,
+    richNetworkPlot[tawaf2x3, tawaf2x3System,
         PlotLabel -> "Tawaf 2\[Times]3\[Times]1 \[LongDash] augmented (structure)",
         ShowBoundaryValues -> False,
         ImageSize -> Large]
@@ -125,7 +245,7 @@ DescribeOutput[
 DescribeOutput[
     "2\[Times]3\[Times]1 augmented infrastructure with solved flows",
     "Blue arcs are flow variables j[a,b]; red arcs are transition flows j[r,i,w]. Node colors show u-values on a Red\[Rule]Blue gradient.",
-    mfgAugmentedPlot[tawaf2x3, tawaf2x3System, tawaf2x3Sol,
+    richNetworkPlot[tawaf2x3, tawaf2x3System, tawaf2x3Sol,
         PlotLabel -> "Tawaf 2\[Times]3\[Times]1 \[LongDash] solved",
         ImageSize -> Large]
 ]
@@ -134,9 +254,26 @@ DescribeOutput[
 DescribeOutput[
     "2\[Times]3\[Times]1 flow plot",
     "Real network with auxiliary entry/exit; edge labels show solved j-values.",
-    mfgFlowPlot[tawaf2x3, tawaf2x3System, tawaf2x3Sol,
+    rawNetworkPlot[tawaf2x3, tawaf2x3System, tawaf2x3Sol,
+        ShowAuxiliaryVertices -> True,
         PlotLabel -> "Tawaf 2\[Times]3\[Times]1 \[LongDash] flow values",
         ImageSize -> Large]
+]
+
+
+DescribeOutput[
+    "2\[Times]3\[Times]1 helix view (structure, with equivalence links)",
+    "3D layout: angle = position, height = (round, position) in flattened sequence. Dashed gray edges connect equivalent (same position, different round) nodes.",
+    tawafHelixPlot[tawaf2x3, tawaf2x3System, <||>,
+        PlotLabel -> "Tawaf 2\[Times]3\[Times]1 \[LongDash] helix (structure)"]
+]
+
+
+DescribeOutput[
+    "2\[Times]3\[Times]1 helix view with solved flows",
+    "Edge thickness encodes |j[a,b]|; round is encoded by the red\[Rule]blue node gradient.",
+    tawafHelixPlot[tawaf2x3, tawaf2x3System, tawaf2x3Sol,
+        PlotLabel -> "Tawaf 2\[Times]3\[Times]1 \[LongDash] helix (solved)"]
 ]
 
 
@@ -161,7 +298,7 @@ DescribeOutput[
 DescribeOutput[
     "3\[Times]4\[Times]1 augmented infrastructure (structure only)",
     "Pre-solve augmented graph.",
-    mfgAugmentedPlot[tawaf3x4, tawaf3x4System, <||>,
+    richNetworkPlot[tawaf3x4, tawaf3x4System,
         PlotLabel -> "Tawaf 3\[Times]4\[Times]1 \[LongDash] augmented (structure)",
         ShowBoundaryValues -> False,
         ImageSize -> Large]
@@ -182,9 +319,17 @@ DescribeOutput[
 DescribeOutput[
     "3\[Times]4\[Times]1 augmented infrastructure with solved flows",
     "u-value gradient and flow-magnitude edge thickness reveal where congestion concentrates.",
-    mfgAugmentedPlot[tawaf3x4, tawaf3x4System, tawaf3x4Sol,
+    richNetworkPlot[tawaf3x4, tawaf3x4System, tawaf3x4Sol,
         PlotLabel -> "Tawaf 3\[Times]4\[Times]1 \[LongDash] solved",
         ImageSize -> Large]
+]
+
+
+DescribeOutput[
+    "3\[Times]4\[Times]1 helix view with solved flows",
+    "Three rounds, four positions per round. Dashed equivalence links climb vertically through each angular column.",
+    tawafHelixPlot[tawaf3x4, tawaf3x4System, tawaf3x4Sol,
+        PlotLabel -> "Tawaf 3\[Times]4\[Times]1 \[LongDash] helix (solved)"]
 ]
 
 
@@ -209,7 +354,7 @@ DescribeOutput[
 DescribeOutput[
     "2\[Times]3\[Times]2 augmented infrastructure (structure only)",
     "Pre-solve augmented graph for the multi-layer case.",
-    mfgAugmentedPlot[tawaf2x3x2, tawaf2x3x2System, <||>,
+    richNetworkPlot[tawaf2x3x2, tawaf2x3x2System,
         PlotLabel -> "Tawaf 2\[Times]3\[Times]2 \[LongDash] augmented (structure)",
         ShowBoundaryValues -> False,
         ImageSize -> Large]
@@ -224,11 +369,21 @@ If[Head[tawaf2x3x2Sol] =!= Symbol || tawaf2x3x2Sol =!= $TimedOut,
     DescribeOutput[
         "2\[Times]3\[Times]2 augmented infrastructure with solved flows",
         "Multi-layer solved system. Radial coupling distinguishes outward vs inward.",
-        mfgAugmentedPlot[tawaf2x3x2, tawaf2x3x2System, tawaf2x3x2Sol,
+        richNetworkPlot[tawaf2x3x2, tawaf2x3x2System, tawaf2x3x2Sol,
             PlotLabel -> "Tawaf 2\[Times]3\[Times]2 \[LongDash] solved",
             ImageSize -> Large]
     ],
     Print["2\[Times]3\[Times]2 solve timed out; skipping solved plot."]
+]
+
+
+DescribeOutput[
+    "2\[Times]3\[Times]2 helix view (concentric helices for layers)",
+    "Two concentric helices (one per layer). Radial edges connect adjacent layers at matching (round, position).",
+    tawafHelixPlot[tawaf2x3x2, tawaf2x3x2System,
+        If[Head[tawaf2x3x2Sol] === Symbol && tawaf2x3x2Sol === $TimedOut,
+            <||>, tawaf2x3x2Sol],
+        PlotLabel -> "Tawaf 2\[Times]3\[Times]2 \[LongDash] helix"]
 ]
 
 
@@ -254,10 +409,19 @@ DescribeOutput[
 DescribeOutput[
     "7\[Times]8\[Times]1 augmented infrastructure (structure only)",
     "Pre-solve augmented graph for the canonical case.",
-    mfgAugmentedPlot[tawaf7x8, tawaf7x8System, <||>,
+    richNetworkPlot[tawaf7x8, tawaf7x8System,
         PlotLabel -> "Tawaf 7\[Times]8\[Times]1 \[LongDash] augmented (structure)",
         ShowBoundaryValues -> False,
         ImageSize -> Large]
+]
+
+
+DescribeOutput[
+    "7\[Times]8\[Times]1 helix view (structure only)",
+    "Canonical 7-turn helix; equivalence links disabled to reduce clutter at 56 nodes.",
+    tawafHelixPlot[tawaf7x8, tawaf7x8System, <||>,
+        "ShowEquivalenceLinks" -> False,
+        PlotLabel -> "Tawaf 7\[Times]8\[Times]1 \[LongDash] helix (structure)"]
 ]
 
 
@@ -267,7 +431,7 @@ DescribeOutput[
 
 (* If you computed tawaf7x8Sol above and it is not $TimedOut, render with: *)
 (*
-mfgAugmentedPlot[tawaf7x8, tawaf7x8System, tawaf7x8Sol,
+richNetworkPlot[tawaf7x8, tawaf7x8System, tawaf7x8Sol,
     PlotLabel -> "Tawaf 7\[Times]8\[Times]1 \[LongDash] solved",
     ImageSize -> Large]
 *)

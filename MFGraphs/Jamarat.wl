@@ -243,7 +243,7 @@ Column[{
     DescribeOutput[
         "Simplified Jamarat augmented infrastructure",
         "Augmented graph before solving \[LongDash] structure only.",
-        mfgAugmentedPlot[jamaratEnd, jamaratEndSystem, <||>,
+        richNetworkPlot[jamaratEnd, jamaratEndSystem, <||>,
             PlotLabel -> "Simplified Jamarat infrastructure",
             ImageSize -> Large,
             ShowBoundaryValues -> False]
@@ -251,7 +251,7 @@ Column[{
     DescribeOutput[
         "Simplified Jamarat augmented solution",
         "Augmented graph with solved flow, transition, and u values.",
-        mfgAugmentedPlot[jamaratEnd, jamaratEndSystem, jamaratEndSol,
+        richNetworkPlot[jamaratEnd, jamaratEndSystem, jamaratEndSol,
             PlotLabel -> "Simplified Jamarat solution",
             ImageSize -> Large]
     ]
@@ -282,7 +282,7 @@ Column[{
     DescribeOutput[
         "Simplified Jamarat augmented infrastructure",
         "Augmented graph before solving \[LongDash] structure only.",
-        mfgAugmentedPlot[jamaratEnd, jamaratEndSystem, <||>,
+        richNetworkPlot[jamaratEnd, jamaratEndSystem, <||>,
             PlotLabel -> "Simplified Jamarat infrastructure",
             ImageSize -> Large,
             ShowBoundaryValues -> False]
@@ -290,7 +290,7 @@ Column[{
     DescribeOutput[
         "Simplified Jamarat augmented solution",
         "Augmented graph with solved flow, transition, and u values.",
-        mfgAugmentedPlot[jamaratEnd, jamaratEndSystem, jamaratEndSol,
+        richNetworkPlot[jamaratEnd, jamaratEndSystem, jamaratEndSol,
             PlotLabel -> "Simplified Jamarat solution",
             ImageSize -> Large]
     ]
@@ -326,7 +326,7 @@ Column[{
     DescribeOutput[
         "Jamaratv9 augmented road-traffic graph",
         "Augmented graph showing flow and transition edges before solving.",
-        mfgAugmentedPlot[jamaratScenario, jamaratSystem, <||>,
+        richNetworkPlot[jamaratScenario, jamaratSystem, <||>,
             PlotLabel -> "Jamaratv9 augmented infrastructure",
             ImageSize -> Large,
             ShowBoundaryValues -> False]
@@ -364,7 +364,7 @@ If[Head[jamaratSol] =!= Association, jamaratSol = <|"Rules" -> jamaratSol, "Resi
     DescribeOutput[
         "Jamaratv9 augmented infrastructure",
         "Augmented graph showing flow and transition edges before solving.",
-        mfgAugmentedPlot[
+        richNetworkPlot[
             jamaratScenario,
             jamaratSystem,
             <||>,
@@ -400,7 +400,7 @@ Column[{
     DescribeOutput[
         "Jamaratv9 higher-entry-flow augmented graph",
         "Augmented graph \[LongDash] same shape as before, only boundary data changes.",
-        mfgAugmentedPlot[
+        richNetworkPlot[
             jamaratHighEntryScenario,
             jamaratHighEntrySystem,
             <||>,
@@ -444,7 +444,7 @@ jamaratHighEntryScenario
 DescribeOutput[
         "Jamarat (High) augmented solution",
         "Augmented graph with solved flow, transition, and u values.",
-        mfgAugmentedPlot[jamaratHighEntryScenario, jamaratHighEntrySystem, jamaratHighEntryTimedSol,
+        richNetworkPlot[jamaratHighEntryScenario, jamaratHighEntrySystem, jamaratHighEntryTimedSol,
             PlotLabel -> "Jamarat solution",
             ImageSize -> Large]
     ]
@@ -475,7 +475,7 @@ Column[{
     DescribeOutput[
         "Jamaratv9 augmented road-traffic graph",
         "Augmented graph showing flow and transition edges before solving.",
-        mfgAugmentedPlot[jamaratScenario, jamaratSystem, <||>,
+        richNetworkPlot[jamaratScenario, jamaratSystem, <||>,
             PlotLabel -> "Jamaratv9 augmented infrastructure",
             ImageSize -> Large]
     ],
