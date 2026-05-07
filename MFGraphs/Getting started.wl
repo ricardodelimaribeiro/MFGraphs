@@ -1,5 +1,8 @@
 (* ::Package:: *)
 
+(*Quit[]*)
+
+
 (* Notebook-friendly MFGraphs workbook covering the typed scenario kernels
    and the solversTools solver. *)
 
@@ -562,8 +565,8 @@ paperFig3System = makeSystem[paperFig3Scenario];
 paperFig3Augmented = augmentAuxiliaryGraph[paperFig3System];
 
 paperFig3AuxGraph = Graph[
-    VertexList @ systemData[paperFig3System, "AuxiliaryGraph"],
-    EdgeList @ systemData[paperFig3System, "AuxiliaryGraph"],
+    systemData[paperFig3System, "AuxVertices"],
+    systemData[paperFig3System, "AuxEdges"],
     VertexLabels -> Placed["Name", Center],
     VertexStyle -> Normal @ Join[
         AssociationThread[scenarioData[paperFig3Scenario, "Model"]["Vertices"], GrayLevel[0.72]],
