@@ -375,7 +375,7 @@ rawNetworkPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, title_String, opts : Options
 rawNetworkPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, opts : OptionsPattern[]] :=
     Module[{rules, model, realV, auxEntryV, auxExitV, auxV, showAux, showBoundary,
             showFlow, showValues, showDensity, showLegend, colorFn,
-            edges, vertices, edgeLabels, dispEdges,
+            edges, vertices, edgeLabels, dispEdges, vertexCoords,
             entryDataAssoc, inAuxEntryPairs, exitCosts, entryEdgeMap,
             uValues, numericU, uMin, uMax,
             baseStyleMap, gradientStyle, vertexStyle, vertexLabels,
@@ -406,6 +406,18 @@ rawNetworkPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, opts : OptionsPattern[]] :=
             edges = systemData[sys, "Edges"];
             auxV = {};
             vertices = realV
+        ];
+
+        (* Pin real-vertex coordinates to the layout the real-only subgraph
+           would have on its own, so adding aux vertices doesn't perturb the
+           embedding (which can introduce spurious edge crossings). Aux vertices
+           are left to the automatic layout. *)
+        vertexCoords = If[showAux,
+            With[{realGraph = Graph[realV, systemData[sys, "Edges"],
+                                    GraphLayout -> OptionValue[GraphLayout]]},
+                Thread[realV -> GraphEmbedding[realGraph]]
+            ],
+            Automatic
         ];
 
         (* Direct edges by net flow when flow info is being shown; else keep undirected. *)
@@ -497,6 +509,7 @@ rawNetworkPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, opts : OptionsPattern[]] :=
                 AssociationThread[realV, 0.38],
                 AssociationThread[auxV, 0.28]
             ],
+            VertexCoordinates -> vertexCoords,
             EdgeStyle    -> edgeStyle,
             EdgeLabels   -> Normal[edgeLabels],
             GraphLayout  -> OptionValue[GraphLayout],
