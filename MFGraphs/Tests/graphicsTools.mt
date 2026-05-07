@@ -132,7 +132,8 @@ Test[
             mfgDensityPlot[s, sys, sol, GraphLayout -> "LayeredDigraphEmbedding",
                 PlotLabel -> "Density option", ImageSize -> Medium],
             mfgTransitionPlot[s, sys, sol, GraphLayout -> "LayeredDigraphEmbedding",
-                PlotLabel -> "Transition option", ImageSize -> Medium],
+                PlotLabel -> "Transition option", ImageSize -> Medium,
+                ShowLegend -> False],
             mfgAugmentedPlot[s, sys, sol, GraphLayout -> "LayeredDigraphEmbedding",
                 PlotLabel -> "Augmented option", ImageSize -> Medium,
                 ShowLegend -> False]
@@ -164,7 +165,7 @@ Test[
             mfgFlowPlot[s, sys, sol, PlotLabel -> None],
             mfgValuePlot[s, sys, sol, PlotLabel -> None],
             mfgDensityPlot[s, sys, sol, PlotLabel -> None],
-            mfgTransitionPlot[s, sys, sol, PlotLabel -> None],
+            mfgTransitionPlot[s, sys, sol, PlotLabel -> None, ShowLegend -> False],
             mfgAugmentedPlot[s, sys, sol, PlotLabel -> None, ShowLegend -> False]
         };
         MatchQ[plots[[2]], _Graphics | _GraphicsGrid] &&
@@ -191,7 +192,7 @@ Test[
         Export[augmentedFile, augmentedPlot];
         transitionDims = ImageDimensions @ Import[transitionFile];
         augmentedDims = ImageDimensions @ Import[augmentedFile];
-        MatchQ[transitionPlot, _Graph] &&
+        MatchQ[transitionPlot, _Graph | _Legended] &&
         MatchQ[augmentedPlot, _Graph | _Legended] &&
         Min[transitionDims] > 100 &&
         Min[augmentedDims] > 100
