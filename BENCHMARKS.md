@@ -144,6 +144,26 @@ as `dnfReduceSystem`.
 DNF-first benchmark entries from `Scripts/BenchmarkSystemSolver.wls` are appended
 here when the script is run with `--tag`.
 
+### 2026-05-07 - post-PR-192
+
+**Commit:** `f0a4530`  
+**Environment:** local `wolframscript`, `$MFGraphsVerbose=False`  
+**Solver:** `dnf`  
+**Timeout per case:** 60s  
+**Solutions file:** `Results/system_solver_dnf_solutions_20260507-005846.wl`
+
+| Case | Solver | Build (ms) | Warmup (ms) | Repeat (ms) | Status | Kind | Transition flows | Residual Jts | Valid |
+|------|--------|-----------|------------|--------------|--------|------|------------------|--------------|-------|
+| chain-2v | dnf | 9.8 | 24.73 | 0.67 | OK | Rules | Unique | 0 | True |
+| chain-3v-1exit | dnf | 2.57 | 0.93 | 0.88 | OK | Rules | Unique | 0 | True |
+| chain-3v-2exit | dnf | 2.31 | 7.54 | 2.69 | OK | Underdetermined | Unique | 0 | True |
+| example-7 | dnf | 3.63 | 4.82 | 4.67 | OK | Rules | Unique | 0 | True |
+| chain-5v-1exit | dnf | 4.47 | 1.89 | 1.6 | OK | Rules | Unique | 0 | True |
+| grid-2x3 | dnf | 12.54 | 7.79 | 7.01 | OK | Rules | Unique | 0 | True |
+| grid-3x2 | dnf | 11.27 | 7.07 | 6.74 | OK | Rules | Unique | 0 | True |
+| example-12 | dnf | 5.09 | 8.51 | 8.38 | OK | Rules | Unique | 0 | True |
+---
+
 ### 2026-05-05 - unconditional EqGeneral
 
 **Commit:** `4648fac`  

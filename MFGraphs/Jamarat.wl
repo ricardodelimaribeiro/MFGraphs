@@ -245,7 +245,8 @@ Column[{
         "Augmented graph before solving \[LongDash] structure only.",
         mfgAugmentedPlot[jamaratEnd, jamaratEndSystem, <||>,
             PlotLabel -> "Simplified Jamarat infrastructure",
-            ImageSize -> Large]
+            ImageSize -> Large,
+            ShowBoundaryValues -> False]
     ],
     DescribeOutput[
         "Simplified Jamarat augmented solution",
@@ -260,7 +261,7 @@ Column[{
 jamaratEndSol
 
 
-(* ::Subsubsection::Closed:: *)
+(* ::Subsubsection:: *)
 (*Simplified Jamarat end*)
 
 
@@ -268,7 +269,7 @@ jamaratEndSol
 (*This is a shorter version of the Jamarat example for when the flows are at the last pillar. *)
 
 
-jamaratEnd=cycleScenario[5, {{1,200},{2,100}},{{3,10},{4,0},{5,10}}];
+jamaratEnd=cycleScenario[5, {{1,100},{2,100}},{{3,0},{4,10},{5,0}}];
 
 
 jamaratEndSystem = makeSystem[jamaratEnd];
@@ -283,7 +284,8 @@ Column[{
         "Augmented graph before solving \[LongDash] structure only.",
         mfgAugmentedPlot[jamaratEnd, jamaratEndSystem, <||>,
             PlotLabel -> "Simplified Jamarat infrastructure",
-            ImageSize -> Large]
+            ImageSize -> Large,
+            ShowBoundaryValues -> False]
     ],
     DescribeOutput[
         "Simplified Jamarat augmented solution",
@@ -303,7 +305,7 @@ Column[{
 
 jamaratScenario = getExampleScenario[
     "Jamaratv9",
-    {{1, 40}, {2, 50}},
+    {{1, 40}, {2, 45}},
     {{7, 3}, {8, 4}, {9, 2}}
 ];
 
@@ -326,7 +328,8 @@ Column[{
         "Augmented graph showing flow and transition edges before solving.",
         mfgAugmentedPlot[jamaratScenario, jamaratSystem, <||>,
             PlotLabel -> "Jamaratv9 augmented infrastructure",
-            ImageSize -> Large]
+            ImageSize -> Large,
+            ShowBoundaryValues -> False]
     ],
     DescribeOutput[
         "Jamaratv9 augmented graph metadata",
@@ -358,59 +361,6 @@ AbsoluteTiming[jamaratSol=solveScenario[jamaratScenario]]
 If[Head[jamaratSol] =!= Association, jamaratSol = <|"Rules" -> jamaratSol, "Residual" -> True|>]
 
 
-jamaratSolutionSummary = <|
-    "CapturedSolutionQ" -> AssociationQ[jamaratSol],
-    "ResultKind" -> solversTools`Private`solutionResultKind[jamaratSol],
-    "RuleCount" -> Length[Lookup[jamaratSol, "Rules", {}]],
-    "ResidualLeafCount" -> LeafCount[jamaratEquations],
-    "EntryVariables" -> EntryCostData[jamaratScenario, jamaratSystem]["Variables"],
-    "EntryValuesAfterRules" -> Simplify[
-        EntryCostData[jamaratScenario, jamaratSystem]["Variables"] /. Lookup[jamaratSol, "Rules", {}]
-    ]
-|>;
-
-DescribeOutput[
-    "Captured Jamarat solution",
-    "The large commented jamaratSol block above is loaded without rerunning solveScenario.",
-    jamaratSolutionSummary
-]
-
-
-jamaratBranchRanking = RankSolutionBranches[
-    jamaratScenario,
-    jamaratSystem,
-    jamaratSol,
-    Infinity,
-    60,
-    10
-];
-
-DescribeOutput[
-    "Jamarat residual branches ranked by entry cost",
-    "The score is the fixed-flow weighted entry value: 10 u[auxEntry1,1] + 50 u[auxEntry2,2].",
-    <|
-        "Status" -> jamaratBranchRanking["Status"],
-        "BranchCount" -> jamaratBranchRanking["BranchCount"],
-        "AnalyzedBranchCount" -> jamaratBranchRanking["AnalyzedBranchCount"],
-        "BestBranches" -> Take[jamaratBranchRanking["RankedBranches"], UpTo[10]]
-    |>
-]
-
-
-jamaratBestBranchRules = Replace[
-    First[Lookup[First[jamaratBranchRanking["RankedBranches"]], "MinimizeResult", {$Failed, {}}]],
-    {
-        _?NumericQ :> Last[First[jamaratBranchRanking["RankedBranches"]]["MinimizeResult"]],
-        _ :> {}
-    }
-];
-
-jamaratBestBranchSol = <|
-    "Rules" -> Join[Lookup[jamaratSol, "Rules", {}], jamaratBestBranchRules],
-    "Residual" -> True
-|>;
-
-Column[{
     DescribeOutput[
         "Jamaratv9 augmented infrastructure",
         "Augmented graph showing flow and transition edges before solving.",
@@ -419,26 +369,11 @@ Column[{
             jamaratSystem,
             <||>,
             PlotLabel -> "Jamaratv9 augmented infrastructure",
-            ImageSize -> Large
+            ImageSize -> Large,
+            ShowBoundaryValues -> False
         ]
-    ],
-    DescribeOutput[
-        "Jamaratv9 captured solution, augmented",
-        "Augmented graph with solved flow, transition, and u values for the best ranked branch.",
-        mfgAugmentedPlot[
-            jamaratScenario,
-            jamaratSystem,
-            jamaratBestBranchSol,
-            PlotLabel -> "Jamaratv9 augmented solution, best ranked branch",
-            ImageSize -> Large
-        ]
-    ],
-    DescribeOutput[
-        "Jamaratv9 captured solution validation",
-        "The original captured branched solution remains the solver output being validated.",
-        isValidSystemSolution[jamaratSystem, jamaratSol]
     ]
-}]
+
 
 
 (* --- 2. Jamaratv9 higher-entry-flow run --- *)
@@ -470,7 +405,8 @@ Column[{
             jamaratHighEntrySystem,
             <||>,
             PlotLabel -> "Jamaratv9 augmented infrastructure, entries {20,50}",
-            ImageSize -> Large
+            ImageSize -> Large,
+            ShowBoundaryValues -> False
         ]
     ]
 }]
@@ -485,7 +421,7 @@ jamaratHighEntryRun[timeout_:Infinity] :=
         ]
     ];
 
-(* Example:
+ Example:
 jamaratHighEntryTimedSol = jamaratHighEntryRun[3600];
 jamaratHighEntrySol = Last[jamaratHighEntryTimedSol];
 jamaratHighEntryBranchRanking = If[
@@ -493,7 +429,25 @@ jamaratHighEntryBranchRanking = If[
     RankSolutionBranches[jamaratHighEntryScenario, jamaratHighEntrySystem, jamaratHighEntrySol, Infinity, 60, 10],
     Missing["NoSolution", jamaratHighEntrySol]
 ];
-*)
+
+
+
+jamaratHighEntryTimedSol
+
+
+jamaratHighEntrySystem
+
+
+jamaratHighEntryScenario
+
+
+DescribeOutput[
+        "Jamarat (High) augmented solution",
+        "Augmented graph with solved flow, transition, and u values.",
+        mfgAugmentedPlot[jamaratHighEntryScenario, jamaratHighEntrySystem, jamaratHighEntryTimedSol,
+            PlotLabel -> "Jamarat solution",
+            ImageSize -> Large]
+    ]
 
 
 (* --- 1. Captured Jamaratv9 run from the named scenario registry --- *)
