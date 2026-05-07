@@ -22,7 +22,7 @@ mfgTransitionPlot::usage =
 "mfgTransitionPlot[s, sys, sol, opts] plots the transition graph. Nodes are AuxPair states {r,i}; directed edges represent transition flows j[r,i,w] labeled with their solved value. Nodes are labeled with internal values u where available. Options: PlotLabel (default Automatic), GraphLayout (default Automatic), ImageSize (default Large).";
 
 mfgAugmentedPlot::usage =
-"mfgAugmentedPlot[s, sys, sol, opts] plots the augmented infrastructure graph. Blue arcs are flow variables j[a,b]; red arcs are transition variables j[r,i,w]. Anti-parallel flow arcs curve to opposite sides so both directions are visible. Node colors show u-values on a gradient when a solution is provided; zero-flow arcs are invisible (Opacity 0). Options: PlotLabel (default Automatic), GraphLayout (default Automatic), ImageSize (default Large), ColorFunction (default Automatic, a Red\[Rule]Blue blend applied to u-values), ShowBoundaryValues (default True, shows entry/exit u-values on boundary nodes), ShowLegend (default True, shows color bar when u-values are numeric).";
+"mfgAugmentedPlot[s, sys, sol, opts] plots the augmented infrastructure graph. Blue arcs are flow variables j[a,b]; red arcs are transition variables j[r,i,w]. Anti-parallel flow arcs curve to opposite sides so both directions are visible. Node colors show u-values on a gradient when a solution is provided; zero-flow arcs are invisible (Opacity 0). Options: PlotLabel (default Automatic), GraphLayout (default Automatic), ImageSize (default Large), ColorFunction (default Automatic, a Red\[Rule]Blue blend applied to u-values), ShowBoundaryValues (default True, shows entry/exit u-values on boundary nodes), ShowLegend (default True, shows color bar when u-values are numeric), BendFactor (default 0.15, controls arc curvature as a fraction of edge length; 0 gives straight edges).";
 
 mfgAugmentedBoundaryPlot::usage =
 "mfgAugmentedBoundaryPlot[s, sys, sol, opts] plots the augmented infrastructure graph with boundary data overlaid. In the augmented representation, edges correspond to flow and transition flow variables; vertices correspond to value variables. Entry flow edges are labeled with their fixed supply from boundary data; exit source vertices {exN,N} are annotated with their exit cost bound. Use PlotLabel, GraphLayout, and ImageSize options to control display.";
@@ -56,7 +56,7 @@ Options[mfgTransitionPlot] = {
     ImageSize -> Large
 };
 
-Options[mfgAugmentedPlot] = Join[Options[mfgTransitionPlot], {ColorFunction -> Automatic, ShowBoundaryValues -> True, ShowLegend -> True}];
+Options[mfgAugmentedPlot] = Join[Options[mfgTransitionPlot], {ColorFunction -> Automatic, ShowBoundaryValues -> True, ShowLegend -> True, BendFactor -> 0.15}];
 
 Options[mfgAugmentedBoundaryPlot] = Options[mfgTransitionPlot];
 
@@ -694,7 +694,7 @@ mfgAugmentedPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, opts : OptionsPattern[]] :
                     },
                         d    = p2 - p1;
                         perp = With[{len = Norm[d]}, If[len > 0, {-d[[2]], d[[1]]} / len, {0, 1}]];
-                        ctrl = 0.5*(p1 + p2) + 0.15*Norm[d]*perp;
+                        ctrl = 0.5*(p1 + p2) + OptionValue[BendFactor]*Norm[d]*perp;
                         (* Quadratic Bezier curves each edge to the left of its direction;
                            anti-parallel pairs curve to opposite sides and appear as distinct arcs. *)
                         pAt  = Function[t, (1-t)^2*p1 + 2*(1-t)*t*ctrl + t^2*p2];
