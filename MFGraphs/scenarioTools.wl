@@ -225,7 +225,7 @@ boundaryVerticesPresentQ[model_Association] :=
    canonical positive infinity value; other directed infinities are intentionally
    not accepted as switching costs. *)
 switchingCostValueQ[value_] :=
-    NumericQ[value] || value === Infinity;
+    NumericQ[value] || value === Infinity || MatchQ[value, _Function];
 
 switchingCostsNumericQ[model_Association] :=
     Module[{switching},
@@ -253,6 +253,68 @@ disjointBoundaryVerticesQ[model_Association] :=
 normalizeSwitchingCosts[sc_Association] := sc;
 normalizeSwitchingCosts[sc_List] :=
     If[sc === {}, <||>, AssociationThread[Most /@ sc, Last /@ sc]];
+
+expandEdgeEntryTolls[model_Association] :=
+    Module[{tolls, g, adj, vertices, expanded},
+        tolls = Lookup[model, "edgeEntryTolls", <||>];
+        If[tolls === <||>, Return[<||>, Module]];
+
+        g = Lookup[model, "Graph"];
+        vertices = Lookup[model, "Vertices"];
+        adj = Lookup[model, "Adjacency"];
+        
+        (* If we don't have a graph yet, we can't expand tolls. 
+           But makeScenario normalizes the model first, so we should have it. *)
+        If[!MatchQ[g, _Graph], Return[<||>, Module]];
+
+        expanded = KeyValueMap[
+            Function[{edge, toll},
+                Module[{targetV = edge[[1]], nextV = edge[[2]], incoming},
+                    incoming = AdjacencyList[g, targetV];
+                    Association @ Table[
+                        {r, targetV, nextV} -> If[MatchQ[toll, _Function], toll, toll &],
+                        {r, incoming}
+                    ]
+                ]
+            ],
+            tolls
+        ];
+        Merge[expanded, First]
+    ];
+
+metricClosureSwitchingCosts[sc_Association] :=
+    Module[{byVertex, closedByVertex},
+        If[sc === <||>, Return[<||>, Module]];
+        byVertex = GroupBy[Keys[sc], #[[2]] &];
+        closedByVertex = KeyValueMap[
+            Function[{v, triples},
+                Module[{numericTriples, nonNumericTriples, g, nodes},
+                    numericTriples = Select[triples, NumericQ[sc[#]] &];
+                    nonNumericTriples = Complement[triples, numericTriples];
+                    
+                    If[numericTriples === {}, 
+                        AssociationThread[triples, sc /@ triples],
+                        g = Graph[
+                            DirectedEdge[#[[1]], #[[3]], sc[#]] & /@ numericTriples,
+                            EdgeWeight -> (sc /@ numericTriples)
+                        ];
+                        nodes = VertexList[g];
+                        Join[
+                            AssociationThread[nonNumericTriples, sc /@ nonNumericTriples],
+                            Association @ Flatten @ Table[
+                                With[{dist = GraphDistance[g, r, w]},
+                                    {r, v, w} -> If[IntegerQ[dist] || (NumericQ[dist] && dist == Round[dist]), Round[dist], dist]
+                                ],
+                                {r, nodes}, {w, nodes}
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            byVertex
+        ];
+        Association[Flatten[Normal /@ closedByVertex]]
+    ];
 
 integerVertexLabelsQ[model_Association] :=
     With[{vertices = Lookup[model, "Vertices", Missing[]]},
@@ -445,6 +507,10 @@ validateScenario[s_scenario] :=
                 scenarioFailure["\"Model\" value must be an Association."],
             True,
                 missing = Select[$RequiredModelKeys, !KeyExistsQ[model, #] &];
+                (* Relax: Switching is optional if edgeEntryTolls is present *)
+                If[MemberQ[missing, "Switching"] && KeyExistsQ[model, "edgeEntryTolls"],
+                    missing = DeleteCases[missing, "Switching"]
+                ];
                 If[missing === {},
                     s,
                     scenarioFailure[
@@ -511,6 +577,10 @@ completeScenario[x_] := (Message[completeScenario::notscenario, x]; x);
 makeScenario[rawAssoc_Association] :=
     Module[{rawModel, normalizedAssoc, validated, validatedAssoc, model, topology, hamiltonian},
         rawModel = Lookup[rawAssoc, "Model", Missing["KeyAbsent", "Model"]];
+        (* Ensure Switching key exists for validation even if it will be overwritten later *)
+        If[AssociationQ[rawModel] && !KeyExistsQ[rawModel, "Switching"] && KeyExistsQ[rawModel, "edgeEntryTolls"],
+            rawModel = Join[rawModel, <|"Switching" -> <||>|>]
+        ];
         normalizedAssoc = If[AssociationQ[rawModel],
             Join[rawAssoc, <|"Model" -> normalizeScenarioModel[rawModel]|>],
             rawAssoc
@@ -536,12 +606,21 @@ makeScenario[rawAssoc_Association] :=
             Return[scenarioFailure["Boundary values must be numeric."], Module]];
         If[!boundaryVerticesPresentQ[model],
             Return[scenarioFailure["Entry and exit vertices must belong to \"Vertices\"."], Module]];
-        If[!switchingCostsNumericQ[model],
-            Return[scenarioFailure["Switching cost values must be numeric."], Module]];
         If[!disjointBoundaryVerticesQ[model],
             Return[scenarioFailure["Entry and exit vertices must be disjoint."], Module]];
 
-        model = Join[model, <|"Switching" -> normalizeSwitchingCosts[model["Switching"]]|>];
+        (* Validate switching well-formedness before transformation *)
+        If[!switchingCostsNumericQ[model],
+            Return[scenarioFailure["Switching cost values must be valid (numeric, infinity, or function)."], Module]];
+
+        (* Expand tolls and join with explicit Switching *)
+        Module[{explicitSC, expandedTolls, combinedSC, closedSC},
+            explicitSC = normalizeSwitchingCosts[Lookup[model, "Switching", <||>]];
+            expandedTolls = expandEdgeEntryTolls[model];
+            combinedSC = Join[expandedTolls, explicitSC];
+            closedSC = metricClosureSwitchingCosts[combinedSC];
+            model = Join[model, <|"Switching" -> closedSC|>];
+        ];
 
         hamiltonian = normalizeHamiltonianSpec[Lookup[validatedAssoc, "Hamiltonian", <||>], model];
         If[FailureQ[hamiltonian], Return[hamiltonian, Module]];

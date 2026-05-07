@@ -84,8 +84,6 @@ getKirchhoffLinearSystem::usage = "getKirchhoffLinearSystem[sys] returns the ent
 
 getKirchhoffMatrix::usage = "getKirchhoffMatrix[sys] returns the entry current vector, Kirchhoff matrix, (critical congestion) cost function placeholder, and the variables in the order corresponding to the Kirchhoff matrix. The third slot is retained for backward compatibility.";
 
-isSwitchingCostConsistent::usage = "isSwitchingCostConsistent[List of switching costs] is True if all switching costs satisfy the triangle inequality. If some switching costs are symbolic, then it returns the consistency conditions."
-
 altFlowOp::usage = "altFlowOp[j][list] returns the alternative: j@@list ==0 || j@@Reverse@list ==0.";
 
 flowSplitting::usage = "flowSplitting[AT][UndirectedEdge[a, b]] returns the splitting that start with {a,b}.";
@@ -97,12 +95,10 @@ switchingCostLookup::usage =
 for the transition from e_{r,i} to e_{i,w}, defaulting to 0 if absent.";
 
 ineqSwitch::usage = "ineqSwitch[u, switchingCosts][r, i, w] returns the optimality condition at junction i for the transition from r to w. Namely,
-u[w, i] + switchingCosts[r, i, w] - u[r, i] >= 0
-where switchingCosts[r, i, w] is the minimal cost of transitioning from edge e_{r,i} to edge e_{i,w}; minimal because when switching costs are inconsistent the broader alternative-transition-flow conditions (j[j,i,l]==0 || j[l,i,k]==0) for all v_j, v_l, v_k adjacent to v_i are added to the system (this generalizes the condition for j=k already present in the system)."
+u[w, i] + switchingCosts[r, i, w] - u[r, i] >= 0.";
 
 altSwitch::usage = "altSwitch[j, u, switchingCosts][r, i, w] returns the complementarity condition at junction i for the transition from r to w:
-(j[r, i, w] == 0) || (u[w, i] + switchingCosts[r, i, w] - u[r, i] == 0)
-where switchingCosts[r, i, w] is the minimal cost of transitioning from edge e_{r,i} to edge e_{i,w}; minimal because when switching costs are inconsistent the broader alternative-transition-flow conditions (j[j,i,l]==0 || j[l,i,k]==0) for all v_j, v_l, v_k adjacent to v_i are added to the system (this generalizes the condition for j=k already present in the system)."
+(j[r, i, w] == 0) || (u[w, i] + switchingCosts[r, i, w] - u[r, i] == 0).";
 
 (* The following function is declared and implemented in utilities.wl:
    - roundValues
@@ -121,30 +117,6 @@ does not involve any auxiliary entry or exit vertices.";
 
 (* --- Structural Helpers Implementation --- *)
 
-isSwitchingCostConsistent[switchingCosts_Association] :=
-    Module[{triples, groupByAB, checkCost},
-        triples = Keys[switchingCosts];
-        groupByAB = GroupBy[triples, #[[;; 2]] &];
-        checkCost[trip:{a_, b_, c_}] :=
-            Module[{S = switchingCosts[trip], originTriples, conds},
-                originTriples = DeleteCases[Lookup[groupByAB, Key[{a, b}], {}], trip];
-                If[originTriples === {},
-                    True,
-                    conds = Table[
-                        With[{leg2 = Lookup[switchingCosts, Key[{trip2[[3]], b, c}], Missing["Impossible"]]},
-                            If[MissingQ[leg2], True, S <= switchingCosts[trip2] + leg2]
-                        ],
-                        {trip2, originTriples}
-                    ];
-                    And @@ conds
-                ]
-            ];
-        And @@ Simplify[checkCost /@ triples]
-    ];
-
-isSwitchingCostConsistent[switchingCosts_List] :=
-    isSwitchingCostConsistent[Association[switchingCosts]];
-
 altFlowOp[j_][list_] :=
     j @@ list == 0 || j @@ Reverse @ list == 0;
 
@@ -157,10 +129,14 @@ flowGathering[auxTriples_List][x_] :=
 switchingCostLookup[sc_Association][r_, i_, w_] := Lookup[sc, Key[{r, i, w}], 0]
 
 ineqSwitch[u_, switching_][r_, i_, w_] :=
-    u[w, i] + switching[r, i, w] - u[r, i] >= 0;
+    Module[{cost = switching[r, i, w]},
+        u[w, i] + If[MatchQ[cost, _Function], cost[j[r, i, w]], cost] - u[r, i] >= 0
+    ];
 
 altSwitch[j_, u_, switching_][r_, i_, w_] :=
-    (j[r, i, w] == 0) || (u[w, i] + switching[r, i, w] - u[r, i] == 0);
+    Module[{cost = switching[r, i, w]},
+        (j[r, i, w] == 0) || (u[w, i] + If[MatchQ[cost, _Function], cost[j[r, i, w]], cost] - u[r, i] == 0)
+    ];
 
 interiorTripleQ[triple:{r_, _, w_}, auxEntrySet_, auxExitSet_] :=
     !KeyExistsQ[auxEntrySet, r] && !KeyExistsQ[auxExitSet, w] &&
@@ -322,38 +298,14 @@ buildComplementarityData[s_?scenarioQ, topology_Association, unk_?symbolicUnknow
         auxEntrySet = AssociationThread[topology["AuxEntryVertices"], True];
         auxExitSet  = AssociationThread[topology["AuxExitVertices"],  True];
 
-        consistCosts = isSwitchingCostConsistent[Normal @ switchingCosts];
-
-        If[consistCosts === False, Message[mfgSystem::switchingcosts]];
+        (* Switching Costs are enforced consistent during makeScenario *)
+        consistCosts = True;
 
         altFlows = altFlowOp[j] /@ halfPairs;
 
         altTransitionFlows =
-            If[consistCosts === False,
-                DeleteDuplicates[
-                    Sort /@ Flatten @ KeyValueMap[
-                        Function[{k, trips},
-                            Module[{bySource, byTarget},
-                                bySource = GroupBy[trips, First];
-                                byTarget = GroupBy[trips, Last];
-                                KeyValueMap[
-                                    Function[{v, t1s},
-                                        Table[
-                                            j @@ t1 == 0 || j @@ t2 == 0,
-                                            {t1, t1s},
-                                            {t2, Lookup[bySource, v, {}]}
-                                        ]
-                                    ],
-                                    byTarget
-                                ]
-                            ]
-                        ],
-                        GroupBy[auxTriples, #[[2]] &]
-                    ]
-                ],
-                altFlowOp[j] /@
-                    Select[auxTriples, interiorTripleQ[#, auxEntrySet, auxExitSet] && OrderedQ[{First[#], Last[#]}]&]
-            ];
+            altFlowOp[j] /@
+                Select[auxTriples, interiorTripleQ[#, auxEntrySet, auxExitSet] && OrderedQ[{First[#], Last[#]}]&];
 
         activeTriples = auxTriples;
         auxTriplesByMiddle = GroupBy[auxTriples, #[[2]] &];

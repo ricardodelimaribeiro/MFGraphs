@@ -586,7 +586,8 @@ Column[{
         "Figure 4-style augmented road-traffic graph",
         "Blue edges are flow variables j[a,b]. Red edges are transition variables j[r,i,w].",
         mfgAugmentedPlot[paperFig3Scenario, paperFig3System, <||>,
-            PlotLabel -> "Paper-style augmented road-traffic graph"]
+            PlotLabel -> "Paper-style augmented road-traffic graph",
+            ShowBoundaryValues -> False]
     ],
     DescribeOutput[
         "Augmented graph metadata",
@@ -604,7 +605,7 @@ Column[{
 
 jamaratScenario = getExampleScenario[
     "Jamaratv9",
-    {{1, 100}, {3, 50}},
+    {{1, 100}, {2, 50}},
     {{7, 0}, {8, 0}, {9, 0}}
 ];
 

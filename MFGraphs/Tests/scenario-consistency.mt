@@ -23,13 +23,13 @@ Test[
 Test[
     Module[{s, sys},
         s = getExampleScenario["Inconsistent Y shortcut", $entriesY, $exitsY, Automatic];
-        sys = Quiet[makeSystem[s], {mfgSystem::switchingcosts}];
-        systemData[sys, "ConsistentCosts"] === False
+        sys = makeSystem[s];
+        systemData[sys, "ConsistentCosts"] === True
     ]
     ,
     True
     ,
-    TestID -> "Scenario consistency: Inconsistent Y shortcut is detected"
+    TestID -> "Scenario consistency: Inconsistent Y shortcut is enforced consistent"
 ]
 
 Test[
@@ -46,17 +46,15 @@ Test[
 ]
 
 Test[
-    Module[{s, sys, result},
+    Module[{s, result},
         s = getExampleScenario["Inconsistent Y shortcut", $entriesY, $exitsY, Automatic];
-        sys = Quiet[makeSystem[s], {mfgSystem::switchingcosts}];
-        result = Quiet[solveScenario[s], {mfgSystem::switchingcosts}];
-        (* Solver should still return a result, even if inconsistent, but this specific case is feasible *)
-        AssociationQ[result] && result["Rules"] =!= {}
+        result = solveScenario[s];
+        ListQ[result] && result =!= {}
     ]
     ,
     True
     ,
-    TestID -> "Scenario consistency: Inconsistent Y shortcut solver execution"
+    TestID -> "Scenario consistency: Inconsistent Y shortcut solver execution (enforced consistent)"
 ]
 
 (* Test[
