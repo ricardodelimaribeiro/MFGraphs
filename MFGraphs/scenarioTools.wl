@@ -255,15 +255,13 @@ normalizeSwitchingCosts[sc_List] :=
     If[sc === {}, <||>, AssociationThread[Most /@ sc, Last /@ sc]];
 
 expandEdgeEntryTolls[model_Association] :=
-    Module[{tolls, g, adj, vertices, expanded},
+    Module[{tolls, g, expanded},
         tolls = Lookup[model, "edgeEntryTolls", <||>];
         If[tolls === <||>, Return[<||>, Module]];
 
         g = Lookup[model, "Graph"];
-        vertices = Lookup[model, "Vertices"];
-        adj = Lookup[model, "Adjacency"];
-        
-        (* If we don't have a graph yet, we can't expand tolls. 
+
+        (* If we don't have a graph yet, we can't expand tolls.
            But makeScenario normalizes the model first, so we should have it. *)
         If[!MatchQ[g, _Graph], Return[<||>, Module]];
 
@@ -288,24 +286,23 @@ metricClosureSwitchingCosts[sc_Association] :=
         byVertex = GroupBy[Keys[sc], #[[2]] &];
         closedByVertex = KeyValueMap[
             Function[{v, triples},
-                Module[{numericTriples, nonNumericTriples, g, nodes},
+                Module[{numericTriples, nonNumericTriples, g},
                     numericTriples = Select[triples, NumericQ[sc[#]] &];
                     nonNumericTriples = Complement[triples, numericTriples];
-                    
-                    If[numericTriples === {}, 
+
+                    If[numericTriples === {},
                         AssociationThread[triples, sc /@ triples],
                         g = Graph[
                             DirectedEdge[#[[1]], #[[3]], sc[#]] & /@ numericTriples,
                             EdgeWeight -> (sc /@ numericTriples)
                         ];
-                        nodes = VertexList[g];
                         Join[
                             AssociationThread[nonNumericTriples, sc /@ nonNumericTriples],
-                            Association @ Flatten @ Table[
-                                With[{dist = GraphDistance[g, r, w]},
-                                    {r, v, w} -> If[IntegerQ[dist] || (NumericQ[dist] && dist == Round[dist]), Round[dist], dist]
-                                ],
-                                {r, nodes}, {w, nodes}
+                            Association @ Map[
+                                With[{dist = GraphDistance[g, #[[1]], #[[3]]]},
+                                    # -> If[IntegerQ[dist] || (NumericQ[dist] && dist == Round[dist]), Round[dist], dist]
+                                ] &,
+                                numericTriples
                             ]
                         ]
                     ]

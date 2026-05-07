@@ -32,7 +32,6 @@ mfgComplementarityData::usage =
 mfgHamiltonianData::usage =
 "mfgHamiltonianData[assoc] is a typed record for Hamiltonian residuals and general equations.";
 
-mfgSystem::switchingcosts = "Switching costs are inconsistent.";
 
 mfgSystemQ::usage =
 "mfgSystemQ[x] returns True if x is a typed mfgSystem[assoc_Association] object, \

@@ -353,9 +353,7 @@ systemSummary = <|
     "# js" -> Length @ systemData[exampleSystem, "Js"],
     "# jts" -> Length @ systemData[exampleSystem, "Jts"],
     "# us" -> Length @ systemData[exampleSystem, "Us"],
-    "Switching-cost consistency" -> isSwitchingCostConsistent[
-        Normal @ systemData[exampleSystem, "SwitchingCosts"]
-    ]
+    "Switching-cost consistency" -> systemData[exampleSystem, "ConsistentCosts"]
 |>;
 
 DescribeOutput[
