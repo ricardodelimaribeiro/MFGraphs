@@ -3,12 +3,44 @@
 Quit[]
 
 
+(* ::Title:: *)
+(*MFGraphs Capabilities Tour \[LongDash] the Tawaf scenario*)
+
+
+(* ::Subsection:: *)
+(*Overview*)
+
+
+(* ::Text:: *)
+(*This document presents the MFGraphs package by following one scenario family \[LongDash] Tawaf circumambulation \[LongDash] through the full pipeline. Each section names the package capability it demonstrates so the reader can see what MFGraphs offers without leaving the workbook.*)
+
+
+(* ::Text:: *)
+(*Capabilities demonstrated, in order:*)
+(*	1. Typed scenario construction with metadata storage (makeTawafScenario, scenarioQ, scenarioData)*)
+(*	2. Symbolic unknown bundle and structural system (makeSystem behind makeTawafSystem; symbolicUnknowns; mfgSystem)*)
+(*	3. Tawaf-specific physical-edge coupling \[LongDash] the package's specialised builder pattern (makeTawafSystem rewrites EqGeneral and AltOptCond on top of an ordinary mfgSystem)*)
+(*	4. Symbolic solving via the DNF-first default (solveScenario \[Rule] dnfReduceSystem)*)
+(*	5. Solution validation (isValidSystemSolution)*)
+(*	6. Visualisation surface (rawNetworkPlot, richNetworkPlot, plus a custom 3D helix view defined locally)*)
+(*	7. Scaling from a 6-node smoke test through 12, 12, and 56 nodes*)
+
+
+(* ::Text:: *)
+(*Ritual context, the "unroll then couple" modelling idea, the scope of the coupling rewrite, and the parameter provenance (Black Stone potential, layer interpretation, entry flow) live in docs/research/notes/tawaf-model.md. This document focuses on the package-side surface; that note focuses on what the model actually represents.*)
+
+
+(* ::Subsubsection:: *)
+(*How to read this document*)
+
+
+(* ::Text:: *)
+(*Evaluate cells one at a time or section by section \[LongDash] do not evaluate the entire file at once. The Quit[] at the top is a safety device; if it fires, evaluation stops cleanly. Larger scenarios (3\[Times]4 and 2\[Times]3\[Times]2) are wrapped or noted as expensive; the canonical 7\[Times]8 case ships with its solve commented out.*)
+
+
 (* ::Subsection:: *)
 (*Initialization*)
 
-
-(* Notebook-friendly MFGraphs workbook for Tawaf scenarios. *)
-(* Evaluate cells one at a time or section by section \[LongDash] do not evaluate the entire file at once. *)
 
 (* This file lives alongside MFGraphs.wl in the same directory. *)
 mfgDir = If[$InputFileName === "",
@@ -24,6 +56,15 @@ mfgParentDir = ParentDirectory[mfgDir];
 If[!MemberQ[$Path, mfgParentDir], PrependTo[$Path, mfgParentDir]];
 Needs["MFGraphs`"];
 
+
+(* ::Subsection:: *)
+(*Presentation helpers*)
+
+
+(* ::Text:: *)
+(*DescribeOutput wraps any expression with a title and a one-line description so each cell reads as a slide. TawafScenarioSummary, TawafCouplingPreview, and TawafCouplingComparison surface the package's structural data; tawafHelixPlot is a custom 3D layout that takes advantage of the fact that the unrolled rounds stack vertically into a helix. None of these are part of the package surface \[LongDash] they are presentation helpers defined locally.*)
+
+
 ClearAll[DescribeOutput];
 DescribeOutput[title_String, description_String, expr_] :=
     Column[
@@ -36,7 +77,7 @@ DescribeOutput[title_String, description_String, expr_] :=
         Spacings -> {0.2, 0.7}
     ];
 
-ClearAll[TawafScenarioSummary, TawafCouplingPreview];
+ClearAll[TawafScenarioSummary, TawafCouplingPreview, TawafCouplingComparison];
 
 (* Construction parameters and topology counts at a glance. *)
 TawafScenarioSummary[s_?scenarioQ, sys_?mfgSystemQ] :=
@@ -66,6 +107,37 @@ TawafCouplingPreview[sys_?mfgSystemQ, maxEqs_:8] :=
         Take[eqs, UpTo[maxEqs]]
     ];
 
+(* Side-by-side comparison: the same EqGeneral equations before and after
+   the Tawaf coupling rewrite. The "before" column comes from the bare
+   makeSystem; the "after" column from makeTawafSystem. The contrast is
+   the central package novelty for this scenario family. *)
+TawafCouplingComparison[s_?scenarioQ, maxEqs_:4] :=
+    Module[{rawSys, coupledSys, rawEqs, coupledEqs, n, rows},
+        rawSys     = makeSystem[s];
+        coupledSys = makeTawafSystem[s];
+        rawEqs     = systemData[rawSys,     "EqGeneral"];
+        coupledEqs = systemData[coupledSys, "EqGeneral"];
+        n = Min[maxEqs, Length[rawEqs], Length[coupledEqs]];
+        rows = Table[
+            {i, rawEqs[[i]], coupledEqs[[i]]},
+            {i, n}
+        ];
+        Grid[
+            Prepend[rows,
+                Style[#, Bold, GrayLevel[0.3]] & /@
+                    {"index", "before coupling (makeSystem)", "after coupling (makeTawafSystem)"}],
+            Frame    -> All,
+            Alignment -> {{Center, Left, Left}, Top},
+            Background -> {None, {RGBColor[0.95, 0.95, 0.97], None}},
+            Spacings -> {1.2, 0.8}
+        ]
+    ];
+
+
+(* ::Subsubsection:: *)
+(*Helix plot helper*)
+
+
 ClearAll[tawafHelixPlot];
 
 Options[tawafHelixPlot] = {
@@ -83,7 +155,10 @@ Options[tawafHelixPlot] = {
 (* 3D helix visualization for a Tawaf scenario.
    Rounds stack vertically (one full turn of angular advance per round, height
    advancing one tick per position-step), so equivalent (round-shifted) nodes
-   sit directly above each other. Layers become concentric helices. *)
+   sit directly above each other. Layers become concentric helices.
+
+   Defined locally in this presentation workbook; could be promoted into
+   graphicsTools` if the helix view becomes a recurring need. *)
 tawafHelixPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_:<||>, opts:OptionsPattern[]] :=
     Module[{meta, rounds, npr, layers, dz, r0, dr, showLinks, showLabels,
             colorByR, thickByJ, encode, coord, modelEdges, integerEdges,
@@ -188,27 +263,85 @@ tawafHelixPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_:<||>, opts:OptionsPattern[]] 
 
 
 (* ::Subsection:: *)
-(*Smallest coupled case: 2 rounds, 3 nodes per round, 1 layer*)
+(*Section 1 \[LongDash] Smallest coupled case (2\[Times]3\[Times]1): a guided tour*)
 
 
 (* ::Text:: *)
-(*Six logical nodes: round 1 = {1, 2, 3}, round 2 = {4, 5, 6}.*)
-(*Tangential forward edges 1\[Rule]2 and 4\[Rule]5 share the physical segment "position 1\[Rule]2"; coupling rewrites either flow as their sum.*)
+(*Two rounds of three positions, one layer. The smallest scenario where coupling has anything to do: tangential forward edges 1\[Rule]2 and 4\[Rule]5 share the physical segment "position 1\[Rule]2", so the package rewrites either flow as their sum.*)
+
+
+(* ::Subsubsection:: *)
+(*1.1 Building the typed scenario*)
+
+
+(* ::Text:: *)
+(*Capability: makeTawafScenario constructs a typed scenario object that downstream kernels accept without further conversion. Construction parameters are stored in scenarioData[s, "Tawaf"] for later builders to read.*)
 
 
 tawaf2x3 = makeTawafScenario[2, 3, 1];
 tawaf2x3System = makeTawafSystem[tawaf2x3];
 
 DescribeOutput[
+    "Scenario object and metadata",
+    "scenarioQ confirms the typed wrapper. scenarioData[\"Tawaf\"] retrieves the construction parameters that makeTawafSystem reads later.",
+    <|
+        "scenarioQ"            -> scenarioQ[tawaf2x3],
+        "Tawaf metadata"       -> scenarioData[tawaf2x3, "Tawaf"],
+        "Hamiltonian metadata" -> scenarioData[tawaf2x3, "Hamiltonian"]
+    |>
+]
+
+
+(* ::Subsubsection:: *)
+(*1.2 Inspecting structural data*)
+
+
+(* ::Text:: *)
+(*Capability: typed accessors (scenarioData, systemData) and a flattened topology summary. The 2\[Times]3\[Times]1 case has 6 logical vertices, 5 directed tangential edges (last position of round 2 has no outgoing tangential edge \[LongDash] that is the exit), and an entry-flow total of 100.*)
+
+
+DescribeOutput[
     "2\[Times]3\[Times]1 scenario summary",
-    "Smallest coupled Tawaf system. Two rounds of 3 positions; 5 directed tangential edges (last position of round 2 is the exit).",
+    "TawafScenarioSummary reads scenarioData and systemData and assembles a one-glance view of the construction.",
     TawafScenarioSummary[tawaf2x3, tawaf2x3System]
 ]
 
 
+(* ::Subsubsection:: *)
+(*1.3 The Black Stone potential*)
+
+
+(* ::Text:: *)
+(*Capability: per-edge Hamiltonian metadata via Hamiltonian["EdgeV"]. The Tawaf builder sets V = -5.0 on every edge originating from a position-1 node (the Black Stone), 0.0 elsewhere. The negative sign is attractive in the Hamilton-Jacobi formulation and biases trajectories toward saluting the Black Stone on every pass.*)
+
+
 DescribeOutput[
-    "2\[Times]3\[Times]1 physical network",
-    "Six logical nodes arranged as two rounds. Entry at vertex 1, exit at vertex 6.",
+    "EdgeV distribution on the 2\[Times]3\[Times]1 scenario",
+    "Two of the five tangential edges originate at a position-1 node (vertex 1 in round 1; vertex 4 in round 2) and carry V = -5.0; the remaining three carry V = 0.0.",
+    Module[{ham, edgeV},
+        ham   = scenarioData[tawaf2x3, "Hamiltonian"];
+        edgeV = ham["EdgeV"];
+        <|
+            "Total edges with V" -> Length[edgeV],
+            "Edges with V == -5" -> Count[Values[edgeV], -5.0],
+            "Edges with V == 0"  -> Count[Values[edgeV], 0.0],
+            "All EdgeV pairs"    -> edgeV
+        |>
+    ]
+]
+
+
+(* ::Subsubsection:: *)
+(*1.4 Visualising the unrolled topology*)
+
+
+(* ::Text:: *)
+(*Capability: rawNetworkPlot for the physical/logical network, richNetworkPlot for the augmented state-space graph. Both are pre-solve here; identical calls with a solution argument later produce the solved views.*)
+
+
+DescribeOutput[
+    "2\[Times]3\[Times]1 physical network (rawNetworkPlot)",
+    "Six logical vertices arranged as two rounds. Entry at vertex 1, exit at vertex 6.",
     rawNetworkPlot[tawaf2x3, tawaf2x3System,
         PlotLabel -> "Tawaf 2\[Times]3\[Times]1 \[LongDash] physical topology",
         ImageSize -> Medium]
@@ -216,7 +349,7 @@ DescribeOutput[
 
 
 DescribeOutput[
-    "2\[Times]3\[Times]1 augmented infrastructure (structure only)",
+    "2\[Times]3\[Times]1 augmented infrastructure (richNetworkPlot, structure only)",
     "Augmented road-traffic graph before solving. Anti-parallel arcs separate so both directions are visible.",
     richNetworkPlot[tawaf2x3, tawaf2x3System,
         PlotLabel -> "Tawaf 2\[Times]3\[Times]1 \[LongDash] augmented (structure)",
@@ -225,26 +358,65 @@ DescribeOutput[
 ]
 
 
+(* ::Subsubsection:: *)
+(*1.5 The coupling rewrite (the unique Tawaf capability)*)
+
+
+(* ::Text:: *)
+(*Capability: makeTawafSystem builds an ordinary mfgSystem via makeSystem, then rewrites EqGeneral and AltOptCond so logical flows on the same physical segment share congestion. The contrast below is the central novelty for the Tawaf scenario family. The "before" column is the raw makeSystem output; the "after" column is the makeTawafSystem rewrite \[LongDash] notice that occurrences of j[1,2] in any equation become j[1,2] + j[4,5], because both flows traverse the same physical "position 1\[Rule]2" segment.*)
+
+
 DescribeOutput[
-    "2\[Times]3\[Times]1 EqGeneral preview (after coupling)",
-    "Equations that share the same physical position should reference the coupled flow sum. For 2\[Times]3, j[1,2] and j[4,5] are paired (both are forward 1\[Rule]2 segments).",
-    TawafCouplingPreview[tawaf2x3System, 6]
+    "EqGeneral before vs after the coupling rewrite",
+    "First four Hamilton-Jacobi equations from each side. Where the same physical segment appears, the rewritten equation references the coupled flow sum.",
+    TawafCouplingComparison[tawaf2x3, 4]
 ]
+
+
+DescribeOutput[
+    "All EqGeneral entries from the coupled system",
+    "The rewrite is local: only EqGeneral and AltOptCond change. Other system blocks (balance, complementarity, switching margins) keep the logical-flow form deliberately \[LongDash] each logical node has its own balance and complementarity. See the modelling note's 'Scope of coupling' table.",
+    TawafCouplingPreview[tawaf2x3System, Length[systemData[tawaf2x3System, "EqGeneral"]]]
+]
+
+
+(* ::Subsubsection:: *)
+(*1.6 Solving symbolically*)
+
+
+(* ::Text:: *)
+(*Capability: solveScenario delegates to dnfReduceSystem (the DNF-first default). On the 2\[Times]3\[Times]1 case it returns a fully-determined rule list in well under a second.*)
 
 
 AbsoluteTiming[tawaf2x3Sol = solveScenario[tawaf2x3];]
 
 
+(* ::Subsubsection:: *)
+(*1.7 Validating the solution*)
+
+
+(* ::Text:: *)
+(*Capability: isValidSystemSolution substitutes the solved rules into every block of the structural system and checks consistency within a numerical tolerance. On a Tawaf-rewritten system it validates the post-rewrite EqGeneral and AltOptCond automatically \[LongDash] no Tawaf-specific code path needed.*)
+
+
 DescribeOutput[
     "2\[Times]3\[Times]1 solution validity",
-    "isValidSystemSolution checks the solver output against the structural constraints.",
+    "isValidSystemSolution returns True iff every structural constraint holds.",
     isValidSystemSolution[tawaf2x3System, tawaf2x3Sol]
 ]
 
 
+(* ::Subsubsection:: *)
+(*1.8 Visualising the solved flow field*)
+
+
+(* ::Text:: *)
+(*Capability: the same rawNetworkPlot and richNetworkPlot used for structure also accept a solution argument and render edge thickness, flow values, value-function gradients, and density labels. The custom 3D helix view (tawafHelixPlot, defined above) takes advantage of the unrolled topology: rounds stack vertically so equivalent positions sit on top of each other.*)
+
+
 DescribeOutput[
-    "2\[Times]3\[Times]1 augmented infrastructure with solved flows",
-    "Blue arcs are flow variables j[a,b]; red arcs are transition flows j[r,i,w]. Node colors show u-values on a Red\[Rule]Blue gradient.",
+    "2\[Times]3\[Times]1 augmented infrastructure with solved flows (richNetworkPlot)",
+    "Blue arcs are flow variables j[a,b]; red arcs are transition flows j[r,i,w]. Node colours show u-values on a Red\[Rule]Blue gradient.",
     richNetworkPlot[tawaf2x3, tawaf2x3System, tawaf2x3Sol,
         PlotLabel -> "Tawaf 2\[Times]3\[Times]1 \[LongDash] solved",
         ImageSize -> Large]
@@ -252,7 +424,7 @@ DescribeOutput[
 
 
 DescribeOutput[
-    "2\[Times]3\[Times]1 flow plot",
+    "2\[Times]3\[Times]1 flow plot (rawNetworkPlot)",
     "Real network with auxiliary entry/exit; edge labels show solved j-values.",
     rawNetworkPlot[tawaf2x3, tawaf2x3System, tawaf2x3Sol,
         ShowAuxiliaryVertices -> True,
@@ -263,7 +435,7 @@ DescribeOutput[
 
 DescribeOutput[
     "2\[Times]3\[Times]1 helix view (structure, with equivalence links)",
-    "3D layout: angle = position, height = (round, position) in flattened sequence. Dashed gray edges connect equivalent (same position, different round) nodes.",
+    "3D layout: angle = position, height = (round, position) in flattened sequence. Dashed gray edges connect equivalent (same position, different round) nodes \[LongDash] visualising the unroll-then-couple idea directly.",
     tawafHelixPlot[tawaf2x3, tawaf2x3System, <||>,
         PlotLabel -> "Tawaf 2\[Times]3\[Times]1 \[LongDash] helix (structure)"]
 ]
@@ -278,11 +450,11 @@ DescribeOutput[
 
 
 (* ::Subsection:: *)
-(*Mid case: 3 rounds, 4 nodes per round, 1 layer*)
+(*Section 2 \[LongDash] Mid case 3\[Times]4\[Times]1: scaling the coupling*)
 
 
 (* ::Text:: *)
-(*Twelve logical nodes; coupling groups have up to 3 logical flows per physical segment.*)
+(*Twelve logical nodes; coupling groups have up to 3 logical flows per physical segment (one per round). Each forward tangential segment is shared across all three rounds. Same capabilities as Section 1, exercised at a slightly larger scale.*)
 
 
 tawaf3x4 = makeTawafScenario[3, 4, 1];
@@ -290,14 +462,14 @@ tawaf3x4System = makeTawafSystem[tawaf3x4];
 
 DescribeOutput[
     "3\[Times]4\[Times]1 scenario summary",
-    "Three rounds of 4 positions. Each forward tangential segment (1\[Rule]2, 2\[Rule]3, 3\[Rule]4, 4\[Rule]1) is shared across all three rounds.",
+    "Three rounds of four positions. Each forward tangential segment (1\[Rule]2, 2\[Rule]3, 3\[Rule]4, 4\[Rule]1) is shared across all three rounds.",
     TawafScenarioSummary[tawaf3x4, tawaf3x4System]
 ]
 
 
 DescribeOutput[
     "3\[Times]4\[Times]1 augmented infrastructure (structure only)",
-    "Pre-solve augmented graph.",
+    "Pre-solve augmented graph. Compare visual density to the 2\[Times]3 case to see the cost-of-scaling.",
     richNetworkPlot[tawaf3x4, tawaf3x4System,
         PlotLabel -> "Tawaf 3\[Times]4\[Times]1 \[LongDash] augmented (structure)",
         ShowBoundaryValues -> False,
@@ -311,7 +483,7 @@ AbsoluteTiming[tawaf3x4Sol = solveScenario[tawaf3x4];]
 
 DescribeOutput[
     "3\[Times]4\[Times]1 solution validity",
-    "Validation against the structural constraints.",
+    "Same isValidSystemSolution call; the Tawaf rewrite is transparent to the validator.",
     isValidSystemSolution[tawaf3x4System, tawaf3x4Sol]
 ]
 
@@ -334,11 +506,11 @@ DescribeOutput[
 
 
 (* ::Subsection:: *)
-(*Multi-layer case: 2 rounds, 3 nodes per round, 2 layers*)
+(*Section 3 \[LongDash] Multi-layer 2\[Times]3\[Times]2: radial coupling*)
 
 
 (* ::Text:: *)
-(*Twelve nodes; radial edges connect adjacent layers in both directions, so radial flows have outward/inward grouping in addition to tangential.*)
+(*Twelve nodes split into two concentric rings (one per layer); radial edges connect adjacent layers in both directions. Demonstrates that the same builder pattern extends to multi-lane topologies. The solve is wrapped in TimeConstrained because the multi-layer search space is larger.*)
 
 
 tawaf2x3x2 = makeTawafScenario[2, 3, 2];
@@ -346,14 +518,14 @@ tawaf2x3x2System = makeTawafSystem[tawaf2x3x2];
 
 DescribeOutput[
     "2\[Times]3\[Times]2 scenario summary",
-    "Two layers; radial edges connect each (round, position) across layers in both directions.",
+    "Two layers; radial edges connect each (round, position) across layers in both directions. Entry flow is split uniformly across layers.",
     TawafScenarioSummary[tawaf2x3x2, tawaf2x3x2System]
 ]
 
 
 DescribeOutput[
     "2\[Times]3\[Times]2 augmented infrastructure (structure only)",
-    "Pre-solve augmented graph for the multi-layer case.",
+    "Pre-solve augmented graph for the multi-layer case. The radial edges are visible as the additional connections between concentric clusters.",
     richNetworkPlot[tawaf2x3x2, tawaf2x3x2System,
         PlotLabel -> "Tawaf 2\[Times]3\[Times]2 \[LongDash] augmented (structure)",
         ShowBoundaryValues -> False,
@@ -389,12 +561,11 @@ DescribeOutput[
 
 
 (* ::Subsection:: *)
-(*Canonical Tawaf: 7 rounds, 8 nodes per round (expensive)*)
+(*Section 4 \[LongDash] Canonical Tawaf 7\[Times]8\[Times]1: structure at scale*)
 
 
 (* ::Text:: *)
-(*Mirrors the canonical Tawaf reference (seven counter-clockwise circumambulations of an 8-station circuit).*)
-(*Solve is expensive; the cell wraps the call in TimeConstrained so it can be aborted safely.*)
+(*Mirrors the canonical Tawaf reference: seven counter-clockwise circumambulations of an 8-station circuit. Fifty-six logical nodes; each forward segment is shared by 7 rounds. The full symbolic solve is expensive; the cell that performs it is commented out by default. Structure-only views complete in seconds and showcase how the package's visualisation surface scales.*)
 
 
 tawaf7x8 = makeTawafScenario[7, 8, 1];
@@ -436,3 +607,35 @@ richNetworkPlot[tawaf7x8, tawaf7x8System, tawaf7x8Sol,
     PlotLabel -> "Tawaf 7\[Times]8\[Times]1 \[LongDash] solved",
     ImageSize -> Large]
 *)
+
+
+(* ::Subsection:: *)
+(*Summary \[LongDash] capabilities demonstrated*)
+
+
+(* ::Text:: *)
+(*By following one scenario family through this document the reader has now seen, in concrete form, every layer of the MFGraphs package surface that the core scenario-kernel phase exposes:*)
+
+
+(* ::Text:: *)
+(*Typed scenario kernel. makeTawafScenario, scenarioQ, scenarioData were demonstrated for one-, two-, and three-dimensional scenarios. Construction parameters survive intact in scenarioData[s, "Tawaf"] for downstream builders to consume.*)
+
+
+(* ::Text:: *)
+(*Specialised builder pattern. makeTawafSystem layers a scenario-specific symbolic rewrite on top of the generic makeSystem output, modifying only the blocks where physical-edge sharing matters (EqGeneral, AltOptCond) and leaving the rest in logical form. The before/after comparison in section 1.5 makes the rewrite visible.*)
+
+
+(* ::Text:: *)
+(*Symbolic system construction and solving. makeSystem, dnfReduceSystem (via solveScenario), and isValidSystemSolution apply unchanged to the Tawaf-rewritten system. No code path knows about Tawaf.*)
+
+
+(* ::Text:: *)
+(*Visualisation surface. rawNetworkPlot and richNetworkPlot accept any mfgSystem and (optionally) a solution; the Tawaf workbook combines them with a scenario-specific 3D helix view to show how a custom plot can sit naturally on top of the shared graphics primitives.*)
+
+
+(* ::Text:: *)
+(*Scaling. The pipeline ran end-to-end on 6, 12, and 12 logical nodes and rendered structure for the canonical 56-node case. The expensive solve at 56 nodes is left as an optional cell.*)
+
+
+(* ::Text:: *)
+(*Pointers: package-side API in CLAUDE.md \[Section] "Tawaf scenario builder" and the auto-generated API_REFERENCE.md. Modelling context (what the scenario represents, why the construction is shaped this way) in docs/research/notes/tawaf-model.md.*)
