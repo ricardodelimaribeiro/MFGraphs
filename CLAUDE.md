@@ -152,14 +152,9 @@ All public solver entrypoints share a common preprocessing pipeline (`buildSolve
 - `SolveMFG` — compatibility wrapper for raw association input, delegated through `solveScenario`
 
 ### Graphics (`graphicsTools`)
-- `scenarioTopologyPlot` — entry/exit/internal vertex coloring
-- `mfgSolutionPlot` — coordinated grid of flow, value, and density views
-- `mfgFlowPlot` — flow-only network plot with directed real and auxiliary edges
-- `mfgValuePlot` — real-edge endpoint and interpolated interior value labels
-- `mfgDensityPlot` — real-edge inferred agent density labels and styling
-- `mfgTransitionPlot` — transition graph (nodes = edges, edges = j[a,b,c])
-- `augmentAuxiliaryGraph` — road-traffic graph derived from AuxPairs/AuxTriples
-- `mfgAugmentedPlot` — paper infrastructure graph (nodes = (e,v) pairs)
+- `rawNetworkPlot[s, sys]` / `rawNetworkPlot[s, sys, sol]` — physical-network plot used for both pre-solve and post-solve diagnostics; auxiliary vertices and boundary data are opt-in via `ShowAuxiliaryVertices` / `ShowBoundaryData`, flow/value/density labels via `ShowFlowLabels` / `ShowValueLabels` / `ShowDensityLabels`
+- `richNetworkPlot[s, sys]` / `richNetworkPlot[s, sys, sol]` — augmented state-space plot whose nodes are oriented edge states and whose edges are flow arcs `j[a,b]` and transition arcs `j[r,i,w]`, drawn as Bezier curves so anti-parallel pairs separate
+- `augmentAuxiliaryGraph[sys]` — road-traffic augmented infrastructure graph derived from `AuxPairs`/`AuxTriples`; returns an association with `Graph`, `Vertices`, `FlowEdges`, `TransitionEdges`, `EdgeVariables`, `EdgeKinds`
 
 ### Runtime flags
 
