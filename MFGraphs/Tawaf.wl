@@ -1,6 +1,11 @@
 (* Wolfram Language package *)
 (* Tawaf: specialized scenario builder for Tawaf circumambulation with shared
-   physical-edge congestion across rounds. *)
+   physical-edge congestion across rounds.
+
+   Modelling note: docs/research/notes/tawaf-model.md
+   - ritual context, "unroll then couple" idea, scope of coupling
+     (which system blocks are rewritten and why), parameter provenance
+     (Black Stone potential, entry flow, layer interpretation). *)
 
 BeginPackage["Tawaf`",
     {"primitives`", "utilities`", "scenarioTools`",

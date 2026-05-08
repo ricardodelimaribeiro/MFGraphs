@@ -109,6 +109,8 @@ Switching costs may be supplied as a List of 4-tuples or an Association with 3-t
 - `makeTawafScenario[rounds, nodesPerRound, layers]` — unrolled circumambulation scenario; stores `{Rounds, NodesPerRound, Layers}` in `scenarioData[s, "Tawaf"]`
 - `makeTawafSystem[s]` (or `[s, unk]`) — calls `makeSystem`, then rewrites `EqGeneral` and `AltOptCond` so logical flows on the same physical edge (same position pair / direction / layer) share congestion. Returns `Failure` if Tawaf metadata is missing.
 
+See `docs/research/notes/tawaf-model.md` for the modelling note (ritual context, why "unrolled," scope of coupling, parameter provenance).
+
 ### Symbolic unknown/system kernels (`unknownsTools``, `systemTools``)
 - `symbolicUnknowns`, `symbolicUnknownsQ`, `symbolicUnknownsData`, `makeSymbolicUnknowns`
 - `mfgSystem`, `mfgSystemQ`, `systemData`, `systemDataFlatten`, `makeSystem`
