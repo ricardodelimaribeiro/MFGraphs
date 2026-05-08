@@ -231,8 +231,8 @@ exGrid = getExampleScenario[
 
 Column[{
     DescribeOutput[
-        "Named example (7)",
-        "Factory-backed scenario with canonical topology and defaults.",
+        "Three-vertex chain with mid-entry",
+        "Custom gridScenario: entry at vertex 2, exits at 1 (cost 0) and 3 (cost 10).",
         exY
     ],
     DescribeOutput[
@@ -435,28 +435,30 @@ Column[{
    All variables are uniquely determined. *)
 chain1Ex = gridScenario[{3}, {{1, 10}}, {{3, 0}}];
 sys1Ex   = makeSystem[chain1Ex];
-
-DescribeOutput[
-    "solveScenario \[LongDash] chain with one exit",
-    "Unique solution: all j and u values pinned by flow balance + HJ + complementarity.",
-    solveScenario[chain1Ex]
-]
-
+sol1Ex   = solveScenario[chain1Ex];
 
 (* Chain 1->2->3, two exits at {2,0} and {3,10}, entry flow=120.
-   Flow split between exits is under-determined; the solver returns a parametric solution. *)
-DescribeOutput[
-    "solveScenario \[LongDash] chain with two exits (no switching costs)",
-    "Parametric solution: one free variable governs how flow splits between exits.",
-    solveScenario[chain2ExNoSC]
-]
+   Flow split between exits is under-determined; the solver returns a parametric solution.
+   chain2ExNoSC and sysNoSC come from section 7. *)
+solNoSC = solveScenario[chain2ExNoSC];
+
+Column[{
+    DescribeOutput[
+        "solveScenario \[LongDash] chain with one exit",
+        "Unique solution: all j and u values pinned by flow balance + HJ + complementarity.",
+        sol1Ex
+    ],
+    DescribeOutput[
+        "solveScenario \[LongDash] chain with two exits (no switching costs)",
+        "Parametric solution: one free variable governs how flow splits between exits.",
+        solNoSC
+    ]
+}]
 
 
 (* --- 10. Visualize solveScenario solutions (from MFGraphs`graphicsTools`) --- *)
 
-(* --- Apply to chain with one exit --- *)
-
-sol1Ex = solveScenario[chain1Ex];
+(* --- Apply to chain with one exit (sol1Ex from section 9) --- *)
 
 Column[{
     DescribeOutput[
@@ -480,9 +482,7 @@ Column[{
 }]
 
 
-(* --- Apply to chain with two exits (partial rules from underdetermined solution) --- *)
-
-solNoSC = solveScenario[chain2ExNoSC];
+(* --- Apply to chain with two exits (solNoSC from section 9) --- *)
 
 Column[{
     DescribeOutput[

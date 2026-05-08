@@ -12,8 +12,6 @@ makeTawafScenario::usage =
 makeTawafSystem::usage =
 "makeTawafSystem[s] and makeTawafSystem[s, unk] build an mfgSystem and rewrite EqGeneral and AltOptCond so that flows on the same physical edge (same position-pair-and-direction) share congestion. Construction dimensions are read from scenarioData[s, \"Tawaf\"]; returns a Failure if that metadata is missing.";
 
-makeTawafSystem::missingmeta = "Scenario does not carry Tawaf metadata; cannot derive (rounds, nodesPerRound, layers).";
-
 Begin["`Private`"];
 
 (* ============================================================

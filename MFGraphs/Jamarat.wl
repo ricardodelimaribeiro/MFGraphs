@@ -369,33 +369,31 @@ AbsoluteTiming[jamaratSol=solveScenario[jamaratScenario]]
 If[Head[jamaratSol] =!= Association, jamaratSol = <|"Rules" -> jamaratSol, "Residual" -> True|>]
 
 
-    DescribeOutput[
-        "Jamaratv9 augmented infrastructure",
-        "Augmented graph showing flow and transition edges before solving.",
-        richNetworkPlot[
-            jamaratScenario,
-            jamaratSystem,
-            <||>,
-            PlotLabel -> "Jamaratv9 augmented infrastructure",
-            ImageSize -> Large,
-            ShowBoundaryValues -> False
-        ]
+DescribeOutput[
+    "Jamaratv9 augmented infrastructure",
+    "Augmented graph showing flow and transition edges before solving.",
+    richNetworkPlot[
+        jamaratScenario,
+        jamaratSystem,
+        <||>,
+        PlotLabel -> "Jamaratv9 augmented infrastructure",
+        ImageSize -> Large,
+        ShowBoundaryValues -> False
     ]
-
+]
 
 
 DescribeOutput[
-        "Jamaratv9 infrastructure",
-        "Graph showing flow and transition edges before solving.",
-        rawNetworkPlot[
-            jamaratScenario,
-            jamaratSystem,
-            jamaratSol,
-            PlotLabel -> "Jamaratv9 infrastructure",
-            ImageSize -> Large
-            
-        ]
+    "Jamaratv9 infrastructure",
+    "Graph showing flow and transition edges before solving.",
+    rawNetworkPlot[
+        jamaratScenario,
+        jamaratSystem,
+        jamaratSol,
+        PlotLabel -> "Jamaratv9 infrastructure",
+        ImageSize -> Large
     ]
+]
 
 
 (* --- 2. Jamaratv9 higher-entry-flow run --- *)
@@ -443,7 +441,7 @@ jamaratHighEntryRun[timeout_:Infinity] :=
         ]
     ];
 
- Example:
+(* Example: *)
 jamaratHighEntryTimedSol = jamaratHighEntryRun[3600];
 jamaratHighEntrySol = Last[jamaratHighEntryTimedSol];
 jamaratHighEntryBranchRanking = If[
@@ -513,6 +511,3 @@ Column[{
         |>
     ]
 }]
-
-
-jamaratRun[]
