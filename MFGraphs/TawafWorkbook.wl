@@ -177,7 +177,7 @@ tawafHelixPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_:<||>, opts:OptionsPattern[]] 
             VertexStyle       -> vertexStyles,
             VertexSize        -> 0.18,
             VertexLabels      -> If[showLabels,
-                                    Placed[Automatic, Center],
+                                    Placed["Name", Center],
                                     None],
             EdgeStyle         -> edgeStyleRules,
             PlotLabel         -> plotLabel,
@@ -365,7 +365,7 @@ AbsoluteTiming[tawaf2x3x2Sol = TimeConstrained[solveScenario[tawaf2x3x2], 120, $
 
 
 (* If the solve completes in time, render the solved augmented plot. *)
-If[Head[tawaf2x3x2Sol] =!= Symbol || tawaf2x3x2Sol =!= $TimedOut,
+If[AssociationQ[tawaf2x3x2Sol] || ListQ[tawaf2x3x2Sol],
     DescribeOutput[
         "2\[Times]3\[Times]2 augmented infrastructure with solved flows",
         "Multi-layer solved system. Radial coupling distinguishes outward vs inward.",
@@ -373,7 +373,8 @@ If[Head[tawaf2x3x2Sol] =!= Symbol || tawaf2x3x2Sol =!= $TimedOut,
             PlotLabel -> "Tawaf 2\[Times]3\[Times]2 \[LongDash] solved",
             ImageSize -> Large]
     ],
-    Print["2\[Times]3\[Times]2 solve timed out; skipping solved plot."]
+    Print["2\[Times]3\[Times]2 solve did not return a solution (",
+        tawaf2x3x2Sol, "); skipping solved plot."]
 ]
 
 
@@ -381,8 +382,8 @@ DescribeOutput[
     "2\[Times]3\[Times]2 helix view (concentric helices for layers)",
     "Two concentric helices (one per layer). Radial edges connect adjacent layers at matching (round, position).",
     tawafHelixPlot[tawaf2x3x2, tawaf2x3x2System,
-        If[Head[tawaf2x3x2Sol] === Symbol && tawaf2x3x2Sol === $TimedOut,
-            <||>, tawaf2x3x2Sol],
+        If[AssociationQ[tawaf2x3x2Sol] || ListQ[tawaf2x3x2Sol],
+            tawaf2x3x2Sol, <||>],
         PlotLabel -> "Tawaf 2\[Times]3\[Times]2 \[LongDash] helix"]
 ]
 
