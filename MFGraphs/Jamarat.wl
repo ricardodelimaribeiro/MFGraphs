@@ -224,7 +224,7 @@ JamaratScenarioSummary[s_?scenarioQ, sys_?mfgSystemQ] :=
 $MFGraphsVerbose = False;
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Simplified Jamarat cycle*)
 
 
@@ -261,7 +261,7 @@ Column[{
 jamaratEndSol
 
 
-(* ::Subsubsection:: *)
+(* ::Subsubsection::Closed:: *)
 (*Simplified Jamarat end*)
 
 
@@ -341,6 +341,14 @@ Column[{
             "First flow edges" -> Take[jamaratAugmented["FlowEdges"], UpTo[8]],
             "First transition edges" -> Take[jamaratAugmented["TransitionEdges"], UpTo[8]]
         |>
+    ],
+    DescribeOutput[
+        "Jamaratv9 augmented road-traffic graph",
+        "Augmented graph showing flow and transition edges before solving.",
+        rawNetworkPlot[jamaratScenario, jamaratSystem, <||>,
+            PlotLabel -> "Jamaratv9 augmented infrastructure",
+            ImageSize -> Large,
+            ShowBoundaryData -> True]
     ]
 }]
 
@@ -361,19 +369,31 @@ AbsoluteTiming[jamaratSol=solveScenario[jamaratScenario]]
 If[Head[jamaratSol] =!= Association, jamaratSol = <|"Rules" -> jamaratSol, "Residual" -> True|>]
 
 
-    DescribeOutput[
-        "Jamaratv9 augmented infrastructure",
-        "Augmented graph showing flow and transition edges before solving.",
-        richNetworkPlot[
-            jamaratScenario,
-            jamaratSystem,
-            <||>,
-            PlotLabel -> "Jamaratv9 augmented infrastructure",
-            ImageSize -> Large,
-            ShowBoundaryValues -> False
-        ]
+DescribeOutput[
+    "Jamaratv9 augmented infrastructure",
+    "Augmented graph showing flow and transition edges before solving.",
+    richNetworkPlot[
+        jamaratScenario,
+        jamaratSystem,
+        <||>,
+        PlotLabel -> "Jamaratv9 augmented infrastructure",
+        ImageSize -> Large,
+        ShowBoundaryValues -> False
     ]
+]
 
+
+DescribeOutput[
+    "Jamaratv9 infrastructure",
+    "Graph showing flow and transition edges before solving.",
+    rawNetworkPlot[
+        jamaratScenario,
+        jamaratSystem,
+        jamaratSol,
+        PlotLabel -> "Jamaratv9 infrastructure",
+        ImageSize -> Large
+    ]
+]
 
 
 (* --- 2. Jamaratv9 higher-entry-flow run --- *)
@@ -421,7 +441,7 @@ jamaratHighEntryRun[timeout_:Infinity] :=
         ]
     ];
 
- Example:
+(* Example: *)
 jamaratHighEntryTimedSol = jamaratHighEntryRun[3600];
 jamaratHighEntrySol = Last[jamaratHighEntryTimedSol];
 jamaratHighEntryBranchRanking = If[
@@ -491,6 +511,3 @@ Column[{
         |>
     ]
 }]
-
-
-jamaratRun[]

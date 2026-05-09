@@ -109,6 +109,8 @@ Switching costs may be supplied as a List of 4-tuples or an Association with 3-t
 - `makeTawafScenario[rounds, nodesPerRound, layers]` — unrolled circumambulation scenario; stores `{Rounds, NodesPerRound, Layers}` in `scenarioData[s, "Tawaf"]`
 - `makeTawafSystem[s]` (or `[s, unk]`) — calls `makeSystem`, then rewrites `EqGeneral` and `AltOptCond` so logical flows on the same physical edge (same position pair / direction / layer) share congestion. Returns `Failure` if Tawaf metadata is missing.
 
+See `docs/research/notes/tawaf-model.md` for the modelling note (ritual context, why "unrolled," scope of coupling, parameter provenance).
+
 ### Symbolic unknown/system kernels (`unknownsTools``, `systemTools``)
 - `symbolicUnknowns`, `symbolicUnknownsQ`, `symbolicUnknownsData`, `makeSymbolicUnknowns`
 - `mfgSystem`, `mfgSystemQ`, `systemData`, `systemDataFlatten`, `makeSystem`
@@ -152,14 +154,9 @@ All public solver entrypoints share a common preprocessing pipeline (`buildSolve
 - `SolveMFG` — compatibility wrapper for raw association input, delegated through `solveScenario`
 
 ### Graphics (`graphicsTools`)
-- `scenarioTopologyPlot` — entry/exit/internal vertex coloring
-- `mfgSolutionPlot` — coordinated grid of flow, value, and density views
-- `mfgFlowPlot` — flow-only network plot with directed real and auxiliary edges
-- `mfgValuePlot` — real-edge endpoint and interpolated interior value labels
-- `mfgDensityPlot` — real-edge inferred agent density labels and styling
-- `mfgTransitionPlot` — transition graph (nodes = edges, edges = j[a,b,c])
-- `augmentAuxiliaryGraph` — road-traffic graph derived from AuxPairs/AuxTriples
-- `mfgAugmentedPlot` — paper infrastructure graph (nodes = (e,v) pairs)
+- `rawNetworkPlot[s, sys]` / `rawNetworkPlot[s, sys, sol]` — physical-network plot used for both pre-solve and post-solve diagnostics; auxiliary vertices and boundary data are opt-in via `ShowAuxiliaryVertices` / `ShowBoundaryData`, flow/value/density labels via `ShowFlowLabels` / `ShowValueLabels` / `ShowDensityLabels`
+- `richNetworkPlot[s, sys]` / `richNetworkPlot[s, sys, sol]` — augmented state-space plot whose nodes are oriented edge states and whose edges are flow arcs `j[a,b]` and transition arcs `j[r,i,w]`, drawn as Bezier curves so anti-parallel pairs separate
+- `augmentAuxiliaryGraph[sys]` — road-traffic augmented infrastructure graph derived from `AuxPairs`/`AuxTriples`; returns an association with `Graph`, `Vertices`, `FlowEdges`, `TransitionEdges`, `EdgeVariables`, `EdgeKinds`
 
 ### Runtime flags
 
