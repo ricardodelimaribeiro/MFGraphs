@@ -54,7 +54,10 @@ mfgData[head_[assoc_Association], key_] := Lookup[assoc, key, Missing["KeyAbsent
 (* --- Rule Management --- *)
 
 mergeRules[oldRules_List, newRules_List] :=
-    Reverse @ DeleteDuplicatesBy[Reverse @ Join[oldRules, newRules], First];
+    (* Association merge: Join keeps the last value per key, matching the
+       "newRules wins per LHS" semantics that the prior double-Reverse encoded.
+       O(n) instead of O(n log n) and avoids two list reversals. *)
+    Normal @ Join[Association @ oldRules, Association @ newRules];
 
 normalizeRules[rules_List] :=
     Map[Rule[First[#], ReplaceRepeated[Last[#], rules]] &, rules];

@@ -164,22 +164,27 @@ Test[
 ]
 
 Test[
-    Module[{result},
+    Module[{result, rules},
         result = solversTools`Private`branchStateReduceResult[x + y == 1, {x, y}];
-        AssociationQ[result] &&
-        Lookup[result, "Rules", Missing["Rules"]] === {} &&
-        !FreeQ[Lookup[result, "Residual", True], x + y == 1]
+        rules  = If[ListQ[result], result, Lookup[result, "Rules", {}]];
+        (* Underdetermined linear equation in two vars yields one parametric
+           rule that reproduces x + y == 1 under back-substitution. The package
+           treats parametric rules as first-class (cf. RuleBalanceGatheringFlows
+           in systemTools.wl) so this is the canonical solved form. *)
+        Length[rules] === 1 &&
+        MatchQ[First[rules], (x | y) -> _] &&
+        Simplify[(x + y == 1) /. rules] === True
     ],
     True,
-    TestID -> "branchStateReduceResult: symbolic RHS remains residual"
+    TestID -> "branchStateReduceResult: parametric equation becomes a parametric rule"
 ]
 
 Test[
     solversTools`Private`solutionResultKind[
         solversTools`Private`branchStateReduceResult[x + y == 1, {x, y}]
     ],
-    "ResidualLogic",
-    TestID -> "solutionResultKind: symbolic RHS branch-state result is residual"
+    "Rules",
+    TestID -> "solutionResultKind: parametric branch-state result is rules"
 ]
 
 Test[
@@ -658,7 +663,11 @@ Test[
         result = activeSetReduceSystem[sys];
         rules = If[ListQ[result], result, Lookup[result, "Rules", {}]];
         residual = If[AssociationQ[result], Lookup[result, "Residual", True], True];
-        AssociationQ[result] &&
+        (* Either return shape is accepted: an Association {Rules, Residual} when
+           the solver leaves an exact parametric family, or a flat rule list when
+           the dnfReduce path grinds the residual to ground. Both must be exact
+           (no Real coefficients) and valid. *)
+        (AssociationQ[result] || ListQ[result]) &&
         FreeQ[rules, _Real] &&
         FreeQ[residual, _Real] &&
         isValidSystemSolution[sys, result]

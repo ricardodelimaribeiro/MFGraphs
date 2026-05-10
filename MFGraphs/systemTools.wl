@@ -362,18 +362,15 @@ buildComplementarityData[s_?scenarioQ, topology_Association, unk_?symbolicUnknow
 
 buildHamiltonianData[s_?scenarioQ, topology_Association, flowData_mfgFlowData] :=
     Module[{halfPairs, signedFlows, nlhs, eqGeneral},
-        (* Critical-congestion-only path: solvers reject Alpha != 1 systems via
-           withCriticalCongestionGuard, so the per-edge alpha branching, the
-           cpf placeholder symbols, the Nrhs vector (= 0 under Alpha == 1), and
-           the CostFlows field were removed as dead under that guarantee.
-           Restore them if the package ever supports non-critical congestion.
-
-           The Hamiltonian equation u[a,b]-u[b,a]+j[a,b]-j[b,a] == 0 is enforced
-           unconditionally. The earlier (j[a,b]-j[b,a]==0) || ... disjunct was
-           dropped: on zero-flow edges it fired True, leaving u[a,b]/u[b,a]
+        (* The Hamiltonian equation u[a,b]-u[b,a]+j[a,b]-j[b,a] == 0 is enforced
+           unconditionally. The (j[a,b]-j[b,a]==0) || ... disjunct must NOT be
+           reintroduced: on zero-flow edges it fires True, leaving u[a,b]/u[b,a]
            unconstrained and producing parametric solutions with free value
            variables at unused exits. Without it, zero net flow forces
-           u[a,b]==u[b,a], and switching inequalities propagate the value pin. *)
+           u[a,b]==u[b,a], and switching inequalities propagate the value pin.
+           Critical-congestion-only: under withCriticalCongestionGuard the per-edge
+           alpha branching collapses to nlhs == 0; revisit if Alpha != 1 is ever
+           supported. *)
         halfPairs   = topology["HalfPairs"];
         signedFlows = First[flowData]["SignedFlows"];
         nlhs = Flatten[u @@ # - u @@ Reverse @ # + signedFlows[#]& /@ halfPairs];

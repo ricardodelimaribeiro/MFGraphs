@@ -144,6 +144,146 @@ as `dnfReduceSystem`.
 DNF-first benchmark entries from `Scripts/BenchmarkSystemSolver.wls` are appended
 here when the script is run with `--tag`.
 
+### 2026-05-10 - post-threshold-0
+
+**Commit:** `91ef016`  
+**Environment:** local `wolframscript`, `$MFGraphsVerbose=False`  
+**Solver:** `activeset`  
+**Timeout per case:** 60s  
+**Solutions file:** `Results/system_solver_activeset_solutions_20260510-173456.wl`
+
+| Case | Solver | Build (ms) | Warmup (ms) | Repeat (ms) | Status | Kind | Transition flows | Residual Jts | Valid |
+|------|--------|-----------|------------|--------------|--------|------|------------------|--------------|-------|
+| chain-2v | activeset | 9.17 | 3.67 | 1.26 | OK | Rules | Unique | 0 | True |
+| chain-3v-1exit | activeset | 2.9 | 3.9 | 1.4 | OK | Rules | Unique | 0 | True |
+| chain-3v-2exit | activeset | 2.59 | 31.69 | 3.48 | OK | Underdetermined | Unique | 0 | True |
+| chain-3-midentry | activeset | 3.6 | 4.32 | 3.68 | OK | Rules | Unique | 0 | True |
+| chain-5v-1exit | activeset | 4.07 | 2.53 | 2.05 | OK | Rules | Unique | 0 | True |
+| grid-2x3 | activeset | 12.48 | 7.55 | 7.23 | OK | Rules | Unique | 0 | True |
+| grid-3x2 | activeset | 11.58 | 6.92 | 6.84 | OK | Rules | Unique | 0 | True |
+| example-12 | activeset | 7.57 | 9.1 | 9.96 | OK | Rules | Unique | 0 | True |
+---
+
+### 2026-05-10 - post-threshold-0
+
+**Commit:** `91ef016`  
+**Environment:** local `wolframscript`, `$MFGraphsVerbose=False`  
+**Solver:** `optimizeddnf`  
+**Timeout per case:** 60s  
+**Solutions file:** `Results/system_solver_optimizeddnf_solutions_20260510-173452.wl`
+
+| Case | Solver | Build (ms) | Warmup (ms) | Repeat (ms) | Status | Kind | Transition flows | Residual Jts | Valid |
+|------|--------|-----------|------------|--------------|--------|------|------------------|--------------|-------|
+| chain-2v | optimizeddnf | 13.49 | 1.12 | 0.93 | OK | Rules | Unique | 0 | True |
+| chain-3v-1exit | optimizeddnf | 3.43 | 1.3 | 1.16 | OK | Rules | Unique | 0 | True |
+| chain-3v-2exit | optimizeddnf | 2.98 | 38.81 | 3.3 | OK | Underdetermined | Unique | 0 | True |
+| chain-3-midentry | optimizeddnf | 3.55 | 4.08 | 3.53 | OK | Rules | Unique | 0 | True |
+| chain-5v-1exit | optimizeddnf | 3.77 | 1.73 | 1.46 | OK | Rules | Unique | 0 | True |
+| grid-2x3 | optimizeddnf | 12.83 | 8.61 | 7.96 | OK | Rules | Unique | 0 | True |
+| grid-3x2 | optimizeddnf | 11.41 | 8.01 | 7.46 | OK | Rules | Unique | 0 | True |
+| example-12 | optimizeddnf | 7.66 | 9.52 | 9.57 | OK | Rules | Unique | 0 | True |
+---
+
+### 2026-05-10 - post-threshold-4
+
+**Commit:** `91ef016`  
+**Environment:** local `wolframscript`, `$MFGraphsVerbose=False`  
+**Solver:** `optimizeddnf`  
+**Timeout per case:** 60s  
+**Solutions file:** `Results/system_solver_optimizeddnf_solutions_20260510-164843.wl`
+
+| Case | Solver | Build (ms) | Warmup (ms) | Repeat (ms) | Status | Kind | Transition flows | Residual Jts | Valid |
+|------|--------|-----------|------------|--------------|--------|------|------------------|--------------|-------|
+| chain-2v | optimizeddnf | 9.06 | 1. | 0.69 | OK | Rules | Unique | 0 | True |
+| chain-3v-1exit | optimizeddnf | 2.6 | 1.02 | 0.9 | OK | Rules | Unique | 0 | True |
+| chain-3v-2exit | optimizeddnf | 2.47 | 30.46 | 3.92 | OK | Underdetermined | Underdetermined | 1 | True |
+| chain-3-midentry | optimizeddnf | 5.05 | 28.78 | 3.42 | OK | Rules | Unique | 0 | True |
+| chain-5v-1exit | optimizeddnf | 3.67 | 1.49 | 1.39 | OK | Rules | Unique | 0 | True |
+| grid-2x3 | optimizeddnf | 10.79 | 7.62 | 7.24 | OK | Rules | Unique | 0 | True |
+| grid-3x2 | optimizeddnf | 11.12 | 7.56 | 7.12 | OK | Rules | Unique | 0 | True |
+| example-12 | optimizeddnf | 8.23 | 9.14 | 8.83 | OK | Rules | Unique | 0 | True |
+---
+
+### 2026-05-10 - post-tier-a
+
+**Commit:** `91ef016`  
+**Environment:** local `wolframscript`, `$MFGraphsVerbose=False`  
+**Solver:** `optimizeddnf`  
+**Timeout per case:** 60s  
+**Solutions file:** `Results/system_solver_optimizeddnf_solutions_20260510-162233.wl`
+
+| Case | Solver | Build (ms) | Warmup (ms) | Repeat (ms) | Status | Kind | Transition flows | Residual Jts | Valid |
+|------|--------|-----------|------------|--------------|--------|------|------------------|--------------|-------|
+| chain-2v | optimizeddnf | 10.24 | 0.99 | 0.69 | OK | Rules | Unique | 0 | True |
+| chain-3v-1exit | optimizeddnf | 2.58 | 1.05 | 0.9 | OK | Rules | Unique | 0 | True |
+| chain-3v-2exit | optimizeddnf | 2.5 | 43.69 | 3.73 | OK | Underdetermined | Underdetermined | 1 | True |
+| chain-3-midentry | optimizeddnf | 3.23 | 5.99 | 4.07 | OK | Underdetermined | Underdetermined | 1 | True |
+| chain-5v-1exit | optimizeddnf | 3.59 | 1.42 | 1.28 | OK | Rules | Unique | 0 | True |
+| grid-2x3 | optimizeddnf | 11.3 | 9.53 | 6.83 | OK | Rules | Unique | 0 | True |
+| grid-3x2 | optimizeddnf | 11.02 | 7.1 | 6.82 | OK | Rules | Unique | 0 | True |
+| example-12 | optimizeddnf | 7.25 | 8.48 | 7.99 | OK | Rules | Unique | 0 | True |
+---
+
+### 2026-05-10 - post-tier-a
+
+**Commit:** `91ef016`  
+**Environment:** local `wolframscript`, `$MFGraphsVerbose=False`  
+**Solver:** `dnf`  
+**Timeout per case:** 60s  
+**Solutions file:** `Results/system_solver_dnf_solutions_20260510-162203.wl`
+
+| Case | Solver | Build (ms) | Warmup (ms) | Repeat (ms) | Status | Kind | Transition flows | Residual Jts | Valid |
+|------|--------|-----------|------------|--------------|--------|------|------------------|--------------|-------|
+| chain-2v | dnf | 9.64 | 0.97 | 0.64 | OK | Rules | Unique | 0 | True |
+| chain-3v-1exit | dnf | 2.47 | 1. | 0.96 | OK | Rules | Unique | 0 | True |
+| chain-3v-2exit | dnf | 2.44 | 32.12 | 2.74 | OK | Underdetermined | Unique | 0 | True |
+| chain-3-midentry | dnf | 2.98 | 3.74 | 3.03 | OK | Rules | Unique | 0 | True |
+| chain-5v-1exit | dnf | 3.3 | 1.58 | 1.73 | OK | Rules | Unique | 0 | True |
+| grid-2x3 | dnf | 12.7 | 7.71 | 7.57 | OK | Rules | Unique | 0 | True |
+| grid-3x2 | dnf | 12.12 | 6.98 | 6.63 | OK | Rules | Unique | 0 | True |
+| example-12 | dnf | 7.27 | 8.04 | 8.15 | OK | Rules | Unique | 0 | True |
+---
+
+### 2026-05-10 - post-collect-opt
+
+**Commit:** `91ef016`  
+**Environment:** local `wolframscript`, `$MFGraphsVerbose=False`  
+**Solver:** `optimizeddnf`  
+**Timeout per case:** 60s  
+**Solutions file:** `Results/system_solver_optimizeddnf_solutions_20260510-154802.wl`
+
+| Case | Solver | Build (ms) | Warmup (ms) | Repeat (ms) | Status | Kind | Transition flows | Residual Jts | Valid |
+|------|--------|-----------|------------|--------------|--------|------|------------------|--------------|-------|
+| chain-2v | optimizeddnf | 8.34 | 0.98 | 0.75 | OK | Rules | Unique | 0 | True |
+| chain-3v-1exit | optimizeddnf | 2.58 | 1.01 | 0.87 | OK | Rules | Unique | 0 | True |
+| chain-3v-2exit | optimizeddnf | 2.31 | 28.02 | 4.22 | OK | Underdetermined | Underdetermined | 1 | True |
+| chain-3-midentry | optimizeddnf | 3.01 | 6.89 | 5.16 | OK | Underdetermined | Underdetermined | 1 | True |
+| chain-5v-1exit | optimizeddnf | 3.34 | 1.49 | 1.48 | OK | Rules | Unique | 0 | True |
+| grid-2x3 | optimizeddnf | 10.9 | 8.47 | 7.95 | OK | Rules | Unique | 0 | True |
+| grid-3x2 | optimizeddnf | 10.94 | 7.23 | 6.91 | OK | Rules | Unique | 0 | True |
+| example-12 | optimizeddnf | 6.97 | 8.84 | 8.2 | OK | Rules | Unique | 0 | True |
+---
+
+### 2026-05-10 - post-collect
+
+**Commit:** `91ef016`  
+**Environment:** local `wolframscript`, `$MFGraphsVerbose=False`  
+**Solver:** `dnf`  
+**Timeout per case:** 60s  
+**Solutions file:** `Results/system_solver_dnf_solutions_20260510-154759.wl`
+
+| Case | Solver | Build (ms) | Warmup (ms) | Repeat (ms) | Status | Kind | Transition flows | Residual Jts | Valid |
+|------|--------|-----------|------------|--------------|--------|------|------------------|--------------|-------|
+| chain-2v | dnf | 8.43 | 1.06 | 0.72 | OK | Rules | Unique | 0 | True |
+| chain-3v-1exit | dnf | 2.52 | 1.13 | 1.21 | OK | Rules | Unique | 0 | True |
+| chain-3v-2exit | dnf | 2.65 | 29.95 | 3.28 | OK | Underdetermined | Unique | 0 | True |
+| chain-3-midentry | dnf | 3.18 | 3.69 | 2.9 | OK | Rules | Unique | 0 | True |
+| chain-5v-1exit | dnf | 3.47 | 1.46 | 1.39 | OK | Rules | Unique | 0 | True |
+| grid-2x3 | dnf | 10.9 | 7.39 | 7.67 | OK | Rules | Unique | 0 | True |
+| grid-3x2 | dnf | 10.93 | 7.26 | 6.78 | OK | Rules | Unique | 0 | True |
+| example-12 | dnf | 7.03 | 8.68 | 8.14 | OK | Rules | Unique | 0 | True |
+---
+
 ### 2026-05-10 - post-cache
 
 **Commit:** `bf53e8f`  
