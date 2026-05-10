@@ -34,17 +34,18 @@ If[!DirectoryQ[outDir], CreateDirectory[outDir]];
    presentation legibility. The package hardcodes Style[..., 9] / Style[..., 8]
    for vertex/edge labels and VertexSize -> 0.58 inside the Graph. *)
 beautify[Legended[g_Graph, lg_]] := Legended[beautify[g], lg];
-beautify[g_Graph] := Module[{updated},
-    updated = g /. {
-        Style[expr_, 9, rest___]      :> Style[expr, 14, FontFamily -> "Helvetica", rest],
-        Style[expr_, 8, rest___]      :> Style[expr, 13, FontFamily -> "Helvetica", rest],
-        Style[expr_, 14, Bold]        :> Style[expr, 22, Bold, FontFamily -> "Helvetica"]
-    };
-    Graph[updated,
-        VertexSize -> 0.85,
-        VertexLabelStyle -> Directive[FontSize -> 14, FontFamily -> "Helvetica"]
-    ]
+beautify[g_Graph] := Graph[
+    g /. {
+        Style[expr_, 9, rest___] :> Style[expr, 14, FontFamily -> "Helvetica", rest],
+        Style[expr_, 8, rest___] :> Style[expr, 13, FontFamily -> "Helvetica", rest],
+        Style[expr_, 14, Bold]   :> Style[expr, 22, Bold, FontFamily -> "Helvetica"]
+    },
+    VertexSize -> 0.85,
+    VertexLabelStyle -> Directive[FontSize -> 14, FontFamily -> "Helvetica"]
 ];
+
+retitle[Legended[g_Graph, lg_], label_] := Legended[retitle[g, label], lg];
+retitle[g_Graph, label_] := Graph[g, PlotLabel -> label];
 
 exportPdf[stem_String, plot_] := Module[{path, decorated},
     path = FileNameJoin[{outDir, stem <> ".pdf"}];
@@ -53,50 +54,38 @@ exportPdf[stem_String, plot_] := Module[{path, decorated},
     Print["Wrote ", path]
 ];
 
+renderPair[stem_String, plotLabeled_] := (
+    exportPdf[stem <> "_labeled", plotLabeled];
+    exportPdf[stem, retitle[plotLabeled, None]];
+);
+
 (* ---- Figure 1: augmented infrastructure (no solution) ---- *)
-fig1Labeled = richNetworkPlot[
-    jamaratScenario, jamaratSystem, <||>,
-    PlotLabel -> "Jamarat augmented infrastructure",
-    ImageSize -> 1400,
-    ShowBoundaryValues -> False
+renderPair["fig1_infrastructure",
+    richNetworkPlot[
+        jamaratScenario, jamaratSystem, <||>,
+        PlotLabel -> "Jamarat augmented infrastructure",
+        ImageSize -> 1400,
+        ShowBoundaryValues -> False
+    ]
 ];
-fig1Plain = richNetworkPlot[
-    jamaratScenario, jamaratSystem, <||>,
-    PlotLabel -> None,
-    ImageSize -> 1400,
-    ShowBoundaryValues -> False
-];
-exportPdf["fig1_infrastructure_labeled", fig1Labeled];
-exportPdf["fig1_infrastructure", fig1Plain];
 
 (* ---- Figure 2: equilibrium ---- *)
-fig2Labeled = richNetworkPlot[
-    jamaratScenario, jamaratSystem, jamaratSol,
-    PlotLabel -> "Jamarat: equilibrium",
-    ImageSize -> 1400
+renderPair["fig2_equilibrium",
+    richNetworkPlot[
+        jamaratScenario, jamaratSystem, jamaratSol,
+        PlotLabel -> "Jamarat: equilibrium",
+        ImageSize -> 1400
+    ]
 ];
-fig2Plain = richNetworkPlot[
-    jamaratScenario, jamaratSystem, jamaratSol,
-    PlotLabel -> None,
-    ImageSize -> 1400
-];
-exportPdf["fig2_equilibrium_labeled", fig2Labeled];
-exportPdf["fig2_equilibrium", fig2Plain];
 
 (* ---- Figure 3: equilibrium with value-color function ---- *)
-fig3Labeled = richNetworkPlot[
-    jamaratScenario, jamaratSystem, jamaratSol,
-    PlotLabel -> "Jamarat equilibrium: value colors",
-    ImageSize -> 1400,
-    UseColorFunction -> True
+renderPair["fig3_value_colors",
+    richNetworkPlot[
+        jamaratScenario, jamaratSystem, jamaratSol,
+        PlotLabel -> "Jamarat equilibrium: value colors",
+        ImageSize -> 1400,
+        UseColorFunction -> True
+    ]
 ];
-fig3Plain = richNetworkPlot[
-    jamaratScenario, jamaratSystem, jamaratSol,
-    PlotLabel -> None,
-    ImageSize -> 1400,
-    UseColorFunction -> True
-];
-exportPdf["fig3_value_colors_labeled", fig3Labeled];
-exportPdf["fig3_value_colors", fig3Plain];
 
 Print["Done. ", Length[FileNames["*.pdf", outDir]], " PDFs in ", outDir];

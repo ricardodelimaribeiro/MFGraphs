@@ -126,6 +126,9 @@ formatBoundaryExitLabel[state_, val_, cost_] :=
 (* Solution rules — accepts {rules}, <|"Rules" -> rules, ...|>, or <||> *)
 extractSolutionRules[sol_] := extractRules[sol];
 
+resolveAutomaticOption[val_, autoCondition_] :=
+    Replace[val, {Automatic :> autoCondition, x_ :> TrueQ[x]}];
+
 (* ===========================================================
    Edge-data helpers
    =========================================================== *)
@@ -473,9 +476,8 @@ rawNetworkPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, opts : OptionsPattern[]] :=
         showBoundary = TrueQ[OptionValue[ShowBoundaryData]];
         showBoundaryValues = TrueQ[OptionValue[ShowBoundaryValues]];
         showAux = TrueQ[OptionValue[ShowAuxiliaryVertices]] || showBoundary;
-        showFlow = Replace[OptionValue[ShowFlowLabels], Automatic :> rules =!= {}];
-        showValues = Replace[OptionValue[ShowValueLabels],
-            {Automatic :> rules =!= {}, x_ :> TrueQ[x]}];
+        showFlow = resolveAutomaticOption[OptionValue[ShowFlowLabels], rules =!= {}];
+        showValues = resolveAutomaticOption[OptionValue[ShowValueLabels], rules =!= {}];
         showDensity = TrueQ[OptionValue[ShowDensityLabels]];
         showLegend = TrueQ[OptionValue[ShowLegend]];
         colorFn = Replace[OptionValue[ColorFunction], Automatic -> (Blend[{Red, Blue}, #] &)];
@@ -660,9 +662,8 @@ richNetworkPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, opts : OptionsPattern[]] :=
         showFlowEdges = TrueQ[OptionValue[ShowFlowEdges]];
         showBoundary = TrueQ[OptionValue[ShowBoundaryData]];
         showBoundaryValues = TrueQ[OptionValue[ShowBoundaryValues]];
-        showFlowLabels = Replace[OptionValue[ShowFlowLabels], Automatic :> rules =!= {}];
-        showValueLabels = Replace[OptionValue[ShowValueLabels],
-            {Automatic :> rules =!= {}, x_ :> TrueQ[x]}];
+        showFlowLabels = resolveAutomaticOption[OptionValue[ShowFlowLabels], rules =!= {}];
+        showValueLabels = resolveAutomaticOption[OptionValue[ShowValueLabels], rules =!= {}];
         useColorFunction = TrueQ[OptionValue[UseColorFunction]];
         showLegend = TrueQ[OptionValue[ShowLegend]];
         colorFn = Replace[OptionValue[ColorFunction], Automatic -> (Blend[{Red, Blue}, #] &)];

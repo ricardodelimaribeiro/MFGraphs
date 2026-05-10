@@ -44,14 +44,10 @@ canonicalBranches[expr_] := Module[{branches},
     ]
 ];
 
-equivalentDNF[a_, b_] := canonicalBranches[a] === canonicalBranches[b];
-
-branchCount[expr_] := Length[canonicalBranches[expr]];
-
 (* --- run a single case --- *)
 runCase[name_String, builder_] := Module[
     {scenario, sys, inputs, constraints, allVars, tRec, resRec, tProc, resProc,
-     match, recBranches, procBranches},
+     match, recCan, procCan, recBranches, procBranches},
     Print["[", name, "] building scenario..."];
     scenario = builder[];
     sys = makeSystem[scenario];
@@ -79,19 +75,14 @@ runCase[name_String, builder_] := Module[
     Print["  procedural: ", tProc, "s",
           If[resProc === $Aborted, " (TIMEOUT)", ""]];
 
-    Which[
-        resRec === $Aborted || resProc === $Aborted,
-            match = "TIMEOUT";
-            recBranches = If[resRec === $Aborted, "?", branchCount[resRec]];
-            procBranches = If[resProc === $Aborted, "?", branchCount[resProc]],
-        equivalentDNF[resRec, resProc],
-            match = "OK";
-            recBranches = branchCount[resRec];
-            procBranches = branchCount[resProc],
-        True,
-            match = "MISMATCH";
-            recBranches = branchCount[resRec];
-            procBranches = branchCount[resProc]
+    recCan       = If[resRec === $Aborted, $Aborted, canonicalBranches[resRec]];
+    procCan      = If[resProc === $Aborted, $Aborted, canonicalBranches[resProc]];
+    recBranches  = If[resRec === $Aborted, "?", Length[recCan]];
+    procBranches = If[resProc === $Aborted, "?", Length[procCan]];
+    match = Which[
+        resRec === $Aborted || resProc === $Aborted, "TIMEOUT",
+        recCan === procCan,                          "OK",
+        True,                                        "MISMATCH"
     ];
 
     Print["  verdict: ", match];
