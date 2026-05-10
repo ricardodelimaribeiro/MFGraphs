@@ -5,19 +5,27 @@
    Three solvers share a common preprocessing pipeline (buildSolverInputs):
    collect structural equations, apply exit-value rules, eliminate equalities
    via accumulateEqualityRules. They differ only in the final step:
-     reduceSystem         -- Reduce[constraints, allVars, Reals]
-     dnfReduceSystem      -- dnfReduce[True, constraints]
+     reduceSystem         -- Wolfram Reduce over Reals (CAD/real
+                             quantifier-elimination backend for polynomial
+                             systems)
+     dnfReduceSystem      -- package recursive DNF reducer:
+                             equality substitution + disjunction expansion
      optimizedDNFReduceSystem
-                          -- branch-state exact DNF reduction
+                          -- package branch-state exact DNF reduction,
+                             falling back to dnfReduce
      activeSetReduceSystem
-                          -- branch-state exact active-set reduction
-     booleanReduceSystem  -- BooleanConvert to DNF, Reduce per disjunct
+                          -- package active-set/complementarity branch
+                             enumeration, falling back to dnfReduce
+     booleanReduceSystem  -- Wolfram BooleanConvert to DNF, then Reduce per
+                             disjunct
      booleanMinimizeSystem
-                          -- BooleanMinimize to DNF, Reduce per disjunct
+                          -- Wolfram BooleanMinimize to minimal DNF, then
+                             Reduce per disjunct
      booleanMinimizeReduceSystem
-                          -- arm-prune + component decompose, BooleanMinimize per
-                             component, Reduce per disjunct
-     findInstanceSystem   -- FindInstance[constraints, allVars, Reals]
+                          -- package arm-prune + component decomposition,
+                             BooleanMinimize per component, Reduce per
+                             disjunct
+     findInstanceSystem   -- Wolfram FindInstance over Reals
 *)
 
 BeginPackage["solversTools`", {"primitives`", "utilities`", "systemTools`"}];
@@ -25,7 +33,8 @@ BeginPackage["solversTools`", {"primitives`", "utilities`", "systemTools`"}];
 reduceSystem::usage =
 "reduceSystem[sys] reduces the structural equations, flow balance, \
 non-negativity constraints, and complementarity conditions of the \
-mfgSystem sys using Reduce over the Reals. Includes AltOptCond \
+mfgSystem sys using Wolfram Reduce over the Reals; for polynomial real \
+systems this is the CAD/real quantifier-elimination backend. Includes AltOptCond \
 (switching-cost optimality complementarity) and \
 IneqSwitchingByVertex (switching-cost optimality inequalities). \
 Fails for non-critical congestion systems where Alpha != 1 on any edge. \
@@ -86,8 +95,9 @@ non-critical congestion systems where Alpha != 1 on any edge.";
 booleanReduceSystem::usage =
 "booleanReduceSystem[sys] solves the mfgSystem sys by converting the \
 preprocessed constraint system to DNF via BooleanConvert, then calling \
-Reduce independently on each disjunct. Each disjunct is a pure conjunction \
-(no Or), so Reduce avoids case-splitting. Non-False results are collected; \
+Reduce independently on each disjunct. This is DNF conversion followed by \
+real quantifier elimination / CAD-style solving per pure conjunction. Each \
+disjunct has no Or, so Reduce avoids case-splitting. Non-False results are collected; \
 if the system has a unique equilibrium all non-False results are equivalent. \
 Returns a list of rules when fully determined, or \
 <|\"Rules\" -> rules, \"Residual\" -> residual|> when underdetermined. \
@@ -102,10 +112,14 @@ Returning first; use \"ReturnAll\" -> True to inspect all results.";
 booleanMinimizeSystem::usage =
 "booleanMinimizeSystem[sys] is a head-to-head variant of booleanReduceSystem \
 that calls BooleanMinimize[constraints, \"DNF\"] in place of \
-BooleanConvert[constraints, \"DNF\"]. Same preprocessing, same per-disjunct \
-Reduce, same return shape. Use to compare the two Boolean-stage operations on \
-identical input. Fails for non-critical congestion systems where Alpha != 1 \
-on any edge. Options: \"DisjunctTimeout\" (default 30s per Reduce call), \
+BooleanConvert[constraints, \"DNF\"]. This is exact minimal-DNF Boolean \
+minimization, analogous to classical two-level SOP minimization such as \
+Quine-McCluskey/Petrick-style methods, followed by Reduce per disjunct. \
+Wolfram does not document BooleanMinimize as a specific QMC/Petrick \
+implementation. Same preprocessing and return shape as booleanReduceSystem. \
+Use to compare the two Boolean-stage operations on identical input. Fails for \
+non-critical congestion systems where Alpha != 1 on any edge. Options: \
+\"DisjunctTimeout\" (default 30s per Reduce call), \
 \"ReturnAll\" (default False).";
 
 booleanMinimizeSystem::multisol =
@@ -118,7 +132,7 @@ disjunctive structure of the preprocessed constraint system before DNF \
 expansion. It (1) prunes individual complementarity arms that are infeasible \
 against the linear part via FindInstance; (2) decomposes the surviving \
 disjunctive atoms into connected components by shared variables; \
-(3) BooleanMinimizes each component to DNF and Reduces per disjunct. \
+(3) BooleanMinimizes each component to minimal DNF and Reduces per disjunct. \
 Returns the same rule/residual shape as booleanReduceSystem. Fails for \
 non-critical congestion systems where Alpha != 1 on any edge. \
 Options: \"ArmTimeout\" (default 2s per FindInstance arm check), \
@@ -132,7 +146,8 @@ differing rules. Returning first; use \"ReturnAll\" -> True to inspect all resul
 findInstanceSystem::usage =
 "findInstanceSystem[sys] solves the mfgSystem sys by collecting and \
 linearly preprocessing constraints, then calling FindInstance over the \
-remaining variables. Returns one feasible list of rules. If no instance is \
+remaining real variables. This is real satisfiability / instance finding using \
+Wolfram's real-system solver backend. Returns one feasible list of rules. If no instance is \
 found or the final solve times out, returns \
 <|\"Rules\" -> accumulatedRules, \"Residual\" -> False|>. \
 Fails for non-critical congestion systems where Alpha != 1 on any edge. \

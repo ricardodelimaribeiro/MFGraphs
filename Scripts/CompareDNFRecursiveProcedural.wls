@@ -14,6 +14,9 @@ $MFGraphsVerbose = False;
 $HistoryLength = 0;
 
 $Timeout = 300;
+$BoolConvertTimeout = 60;
+$BMTimeout = 60;
+$BMRTimeout = 60;
 
 $Cases = {
     {"grid-2x2", Function[gridScenario[{2, 2}, {{1, 100}}, {{4, 0}}]]},
@@ -47,7 +50,9 @@ canonicalBranches[expr_] := Module[{branches},
 (* --- run a single case --- *)
 runCase[name_String, builder_] := Module[
     {scenario, sys, inputs, constraints, allVars, tRec, resRec, tProc, resProc,
-     match, recCan, procCan, recBranches, procBranches},
+     match, recCan, procCan, recBranches, procBranches,
+     tBool, resBool, boolVerdict, boolBranches,
+     tBM, resBM, bmVerdict, tBMR, resBMR, bmrVerdict},
     Print["[", name, "] building scenario..."];
     scenario = builder[];
     sys = makeSystem[scenario];
@@ -87,6 +92,55 @@ runCase[name_String, builder_] := Module[
 
     Print["  verdict: ", match];
 
+    (* Stage 1 only: BooleanConvert to DNF, no Reduce yet. *)
+    {tBool, resBool} = AbsoluteTiming[
+        TimeConstrained[
+            BooleanConvert[constraints, "DNF"],
+            $BoolConvertTimeout, $Aborted
+        ]
+    ];
+    Print["  BooleanConvert: ", tBool, "s",
+          If[resBool === $Aborted, " (TIMEOUT)", ""]];
+
+    boolVerdict = If[resBool === $Aborted, "TIMEOUT", "OK"];
+    boolBranches = Which[
+        resBool === $Aborted,         "?",
+        Head[resBool] === Or,         ToString[Length[resBool]],
+        True,                         "1"
+    ];
+    Print["  BooleanConvert verdict: ", boolVerdict, "  disjuncts: ", boolBranches];
+
+    (* booleanMinimizeSystem (plain): BooleanMinimize -> Reduce per disjunct. *)
+    {tBM, resBM} = AbsoluteTiming[
+        TimeConstrained[
+            Quiet[booleanMinimizeSystem[sys, "DisjunctTimeout" -> 10],
+                  {booleanMinimizeSystem::multisol}],
+            $BMTimeout, $Aborted
+        ]
+    ];
+    bmVerdict = Which[
+        resBM === $Aborted,                              "TIMEOUT",
+        ListQ[resBM] || AssociationQ[resBM],             "OK",
+        True,                                            "FAIL"
+    ];
+    Print["  BooleanMinimize: ", tBM, "s  verdict: ", bmVerdict];
+
+    (* booleanMinimizeReduceSystem (levered). *)
+    {tBMR, resBMR} = AbsoluteTiming[
+        TimeConstrained[
+            Quiet[booleanMinimizeReduceSystem[sys,
+                  "ArmTimeout" -> 2, "DisjunctTimeout" -> 10],
+                  {booleanMinimizeReduceSystem::multisol}],
+            $BMRTimeout, $Aborted
+        ]
+    ];
+    bmrVerdict = Which[
+        resBMR === $Aborted,                             "TIMEOUT",
+        ListQ[resBMR] || AssociationQ[resBMR],           "OK",
+        True,                                            "FAIL"
+    ];
+    Print["  BooleanMinimizeReduce: ", tBMR, "s  verdict: ", bmrVerdict];
+
     <|
         "Case"            -> name,
         "Vars"            -> Length[allVars],
@@ -94,7 +148,14 @@ runCase[name_String, builder_] := Module[
         "RecBranches"     -> recBranches,
         "ProcBranches"    -> procBranches,
         "RecSeconds"      -> N[tRec],
-        "ProcSeconds"     -> N[tProc]
+        "ProcSeconds"     -> N[tProc],
+        "BoolVerdict"     -> boolVerdict,
+        "BoolBranches"    -> boolBranches,
+        "BoolSeconds"     -> N[tBool],
+        "BMVerdict"       -> bmVerdict,
+        "BMSeconds"       -> N[tBM],
+        "BMRVerdict"      -> bmrVerdict,
+        "BMRSeconds"      -> N[tBMR]
     |>
 ];
 
@@ -112,10 +173,15 @@ reportLines = Join[
         "",
         "Equivalence rule: each output is canonicalized to a sorted set of `And`-branches (order-insensitive within each branch and across branches). `OK` means both procedures produce the same DNF up to ordering.",
         "",
-        "Timeout per call: " <> ToString[$Timeout] <> "s.",
+        "Timeouts: " <> ToString[$Timeout] <> "s for dnfReduce / dnfReduceProcedural; "
+            <> ToString[$BoolConvertTimeout] <> "s for BooleanConvert; "
+            <> ToString[$BMTimeout] <> "s wall-clock for booleanMinimizeSystem (DisjunctTimeout 10s); "
+            <> ToString[$BMRTimeout] <> "s wall-clock for booleanMinimizeReduceSystem (ArmTimeout 2s, DisjunctTimeout 10s).",
         "",
-        "| Case | Vars | Verdict | Recursive branches | Procedural branches | Recursive (s) | Procedural (s) |",
-        "|---|---|---|---|---|---|---|"
+        "Stage 1 of `booleanReduceSystem` is `BooleanConvert[constraints, \"DNF\"]` — we time only that step here (no per-disjunct Reduce) to see whether the DNF materialization itself is the bottleneck. The two rightmost columns are the full `booleanMinimizeSystem` (plain BooleanMinimize -> Reduce-per-disjunct) and `booleanMinimizeReduceSystem` (arm-prune + component decompose + per-component BooleanMinimize -> Reduce).",
+        "",
+        "| Case | Vars | Verdict | Rec br | Proc br | Rec (s) | Proc (s) | BC verdict | BC disj | BC (s) | BM verdict | BM (s) | BMR verdict | BMR (s) |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"
     },
     Map[
         Function[r,
@@ -127,6 +193,13 @@ reportLines = Join[
                 " | ", ToString[r["ProcBranches"]],
                 " | ", fmtNum[r["RecSeconds"]],
                 " | ", fmtNum[r["ProcSeconds"]],
+                " | ", r["BoolVerdict"],
+                " | ", r["BoolBranches"],
+                " | ", fmtNum[r["BoolSeconds"]],
+                " | ", r["BMVerdict"],
+                " | ", fmtNum[r["BMSeconds"]],
+                " | ", r["BMRVerdict"],
+                " | ", fmtNum[r["BMRSeconds"]],
                 " |"
             ]
         ],
