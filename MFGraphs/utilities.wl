@@ -35,6 +35,10 @@ withCriticalCongestionSolver::usage =
 "withCriticalCongestionSolver[sys, solverName, bodyFunc] handles validation, input building, \
 and rule attachment for critical-congestion structural solvers.";
 
+withCriticalCongestionGuard::usage =
+"withCriticalCongestionGuard[sys, solverName, body] evaluates body only when sys is a \
+critical-congestion system; otherwise emits MFGraphs::noncritical and returns a Failure.";
+
 MFGraphs::noncritical = "`1` supports only critical congestion systems with Alpha == 1 on every edge.";
 
 Begin["`Private`"]
@@ -110,26 +114,25 @@ criticalCongestionSystemQ[sys_] :=
         alphaDefault === 1 && AllTrue[halfPairs, alphaAtEdge[#] === 1 &]
     ];
 
+SetAttributes[withCriticalCongestionGuard, HoldRest];
+withCriticalCongestionGuard[sys_, solverName_String, body_] :=
+    If[!criticalCongestionSystemQ[sys],
+        Message[MFGraphs::noncritical, solverName];
+        Failure[solverName, <|"Message" -> solverName <> " supports only critical congestion systems with Alpha == 1 on every edge."|>],
+        body
+    ];
+
 withCriticalCongestionSolver[sys_, solverName_String, bodyFunc_, buildInputsFunc_, attachRulesFunc_] :=
-    Module[{inputs, constraints, allVars, rulesAcc, result},
-        (* 1. Validation *)
-        If[!criticalCongestionSystemQ[sys],
-            Message[MFGraphs::noncritical, solverName];
-            Return[Failure[solverName, <|"Message" -> solverName <> " supports only critical congestion systems with Alpha == 1 on every edge."|>], Module]
-        ];
-
-        (* 2. Preprocessing *)
-        inputs = buildInputsFunc[sys];
-        If[!ListQ[inputs] || Length[inputs] < 3,
-            Return[Failure[solverName, <|"Message" -> "Failed to build solver inputs."|>], Module]
-        ];
-        {constraints, allVars, rulesAcc} = inputs;
-
-        (* 3. Core execution *)
-        result = bodyFunc[constraints, allVars];
-
-        (* 4. Post-processing *)
-        attachRulesFunc[result, rulesAcc]
+    withCriticalCongestionGuard[sys, solverName,
+        Module[{inputs, constraints, allVars, rulesAcc, result},
+            inputs = buildInputsFunc[sys];
+            If[!ListQ[inputs] || Length[inputs] < 3,
+                Return[Failure[solverName, <|"Message" -> "Failed to build solver inputs."|>], Module]
+            ];
+            {constraints, allVars, rulesAcc} = inputs;
+            result = bodyFunc[constraints, allVars];
+            attachRulesFunc[result, rulesAcc]
+        ]
     ];
 
 End[]

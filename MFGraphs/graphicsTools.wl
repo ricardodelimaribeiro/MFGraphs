@@ -4,13 +4,24 @@
 BeginPackage["graphicsTools`", {"primitives`", "utilities`", "scenarioTools`", "systemTools`"}];
 
 rawNetworkPlot::usage =
-"rawNetworkPlot[s, sys, opts] and rawNetworkPlot[s, sys, sol, opts] render the physical network. Real network vertices are gray. Auxiliary entry/exit vertices and boundary edges are hidden by default. Options: ShowAuxiliaryVertices (default False), ShowBoundaryData (default False; when True forces ShowAuxiliaryVertices), ShowFlowLabels (default Automatic; True when sol provided), ShowValueLabels (default False; shows u-values with 1/4, 1/2, 3/4 interpolations), ShowDensityLabels (default False; shows inferred density m), ColorFunction (default Automatic; Red\[Rule]Blue blend over u-values), ShowLegend (default True), GraphLayout (default Automatic), PlotLabel (default Automatic), ImageSize (default Large). With a solution provided, auxiliary vertices (when shown) and shown vertex states are colored by u-value gradient; physical entry/exit vertices remain gray.";
+"rawNetworkPlot[s, sys, opts] and rawNetworkPlot[s, sys, sol, opts] render the physical network. Real network vertices are gray. Auxiliary entry/exit vertices and boundary edges are hidden by default. Options: ShowAuxiliaryVertices (default False), ShowBoundaryData (default False; when True forces ShowAuxiliaryVertices), ShowBoundaryValues (default True; shows u-values on auxiliary exit vertices when boundary data is shown), ShowFlowLabels (default Automatic; True when sol provided), ShowValueLabels (default Automatic; True when sol provided; shows u-values with 1/4, 1/2, 3/4 interpolations), ShowDensityLabels (default False; shows inferred density m), ColorFunction (default Automatic; Red\[Rule]Blue blend over u-values), ShowLegend (default True), GraphLayout (default Automatic), PlotLabel (default Automatic), ImageSize (default Large). With a solution provided, auxiliary vertices (when shown) and shown vertex states are colored by u-value gradient; physical entry/exit vertices remain gray.";
 
 richNetworkPlot::usage =
-"richNetworkPlot[s, sys, opts] and richNetworkPlot[s, sys, sol, opts] render the augmented state-space graph. Nodes are pairs {a,b} representing oriented edge states; edges are flow arcs j[a,b] (blue) and transition arcs j[r,i,w] (red), drawn as quadratic Bezier curves so anti-parallel pairs separate. Only nodes whose label position (b) is an auxiliary entry/exit vertex receive boundary colors. Options: ShowFlowEdges (default True; False yields the transition-only graph), ShowBoundaryData (default False; overlays entry-flow and exit-cost labels), ShowBoundaryValues (default True; shows u/cost on boundary nodes), ShowFlowLabels (default Automatic), ShowValueLabels (default True), ColorFunction (default Automatic), ShowLegend (default True), BendFactor (default 0.15; arc curvature as fraction of edge length), GraphLayout (default Automatic), PlotLabel (default Automatic), ImageSize (default Large).";
+"richNetworkPlot[s, sys, opts] and richNetworkPlot[s, sys, sol, opts] render the augmented state-space graph. Nodes are pairs {a,b} representing oriented edge states; edges are flow arcs j[a,b] (blue) and transition arcs j[r,i,w] (red), drawn as quadratic Bezier curves so anti-parallel pairs separate. Only nodes whose label position (b) is an auxiliary entry/exit vertex receive boundary colors. Options: ShowFlowEdges (default True; False yields the transition-only graph), ShowBoundaryData (default False; overlays entry-flow and exit-cost labels), ShowBoundaryValues (default True; shows u/cost on boundary nodes), ShowFlowLabels (default Automatic; True when sol provided), ShowValueLabels (default Automatic; True when sol provided), UseColorFunction (default False; when True colors nodes and eligible edges by u-values using ColorFunction), ColorFunction (default Automatic), ShowLegend (default True), BendFactor (default 0.15; arc curvature as fraction of edge length), GraphLayout (default Automatic), PlotLabel (default Automatic), ImageSize (default Large).";
 
 augmentAuxiliaryGraph::usage =
 "augmentAuxiliaryGraph[sys] constructs the road-traffic augmented infrastructure graph from a system's AuxPairs and AuxTriples. Returns an Association containing the Graph, Vertices, FlowEdges, TransitionEdges, EdgeVariables, and EdgeKinds.";
+
+ShowAuxiliaryVertices::usage = "ShowAuxiliaryVertices is an option for rawNetworkPlot.";
+ShowBoundaryData::usage      = "ShowBoundaryData is an option for rawNetworkPlot and richNetworkPlot.";
+ShowBoundaryValues::usage    = "ShowBoundaryValues is an option for rawNetworkPlot and richNetworkPlot.";
+ShowFlowEdges::usage         = "ShowFlowEdges is an option for richNetworkPlot.";
+ShowFlowLabels::usage        = "ShowFlowLabels is an option for rawNetworkPlot and richNetworkPlot.";
+ShowValueLabels::usage       = "ShowValueLabels is an option for rawNetworkPlot and richNetworkPlot.";
+ShowDensityLabels::usage     = "ShowDensityLabels is an option for rawNetworkPlot.";
+ShowLegend::usage            = "ShowLegend is an option for rawNetworkPlot and richNetworkPlot.";
+UseColorFunction::usage      = "UseColorFunction is an option for richNetworkPlot.";
+BendFactor::usage            = "BendFactor is an option for richNetworkPlot.";
 
 Begin["`Private`"];
 
@@ -21,8 +32,9 @@ Begin["`Private`"];
 Options[rawNetworkPlot] = {
     ShowAuxiliaryVertices -> False,
     ShowBoundaryData      -> False,
+    ShowBoundaryValues    -> True,
     ShowFlowLabels        -> Automatic,
-    ShowValueLabels       -> False,
+    ShowValueLabels       -> Automatic,
     ShowDensityLabels     -> False,
     ColorFunction         -> Automatic,
     ShowLegend            -> True,
@@ -36,7 +48,8 @@ Options[richNetworkPlot] = {
     ShowBoundaryData      -> False,
     ShowBoundaryValues    -> True,
     ShowFlowLabels        -> Automatic,
-    ShowValueLabels       -> True,
+    ShowValueLabels       -> Automatic,
+    UseColorFunction      -> False,
     ColorFunction         -> Automatic,
     ShowLegend            -> True,
     BendFactor            -> 0.15,
@@ -56,6 +69,22 @@ stateAtomLabel[x_] :=
     StringReplace[ToString[x], {"auxEntry" -> "in", "auxExit" -> "out"}];
 
 stateLabel[{a_, b_}] := stateAtomLabel[b];
+
+formatRawVertexLabel[v_] :=
+    Placed[Style[stateAtomLabel[v], 9, Black], Center];
+
+formatRawBoundaryExitVertexLabel[v_, val_] :=
+    Placed[
+        Style[
+            If[NumericQ[val],
+                Column[{stateAtomLabel[v], Row[{"u=", formatPlotNumber[val]}]},
+                       Center, Spacings -> 0],
+                stateAtomLabel[v]
+            ],
+            9, Black
+        ],
+        Center
+    ];
 
 plotLabelValue[label_, default_String] :=
     Replace[label, {
@@ -126,6 +155,25 @@ directedDisplayEdges[edges_List, rules_List] :=
         ],
         DirectedEdge[a_, b_] :> DirectedEdge[a, b]
     };
+
+(* Force aux entry edges to point auxEntry -> N and aux exit edges to point
+   N -> auxExit, regardless of how the edge currently appears (UndirectedEdge
+   or either DirectedEdge orientation). Internal edges are left untouched. *)
+forceAuxEdgeDirections[edges_List, inAuxEntryPairs_List, outAuxExitPairs_List] :=
+    Module[{entryKeys, exitKeys, canonical},
+        entryKeys = Association @ Map[(Sort[#] -> #) &, inAuxEntryPairs];
+        exitKeys  = Association @ Map[(Sort[#] -> #) &, outAuxExitPairs];
+        canonical[a_, b_] := Module[{key = Sort[{a, b}], pair},
+            pair = Lookup[entryKeys, Key[key], Lookup[exitKeys, Key[key], Missing[]]];
+            If[MissingQ[pair], Missing[], DirectedEdge @@ pair]
+        ];
+        Map[
+            With[{forced = canonical[#[[1]], #[[2]]]},
+                If[MissingQ[forced], #, forced]
+            ] &,
+            edges
+        ]
+    ];
 
 edgeHamiltonianValue[ham_Association, key_String, edge_List] :=
     Module[{edgeAssoc, globalValue},
@@ -219,7 +267,7 @@ augmentAuxiliaryGraph[sys_?mfgSystemQ] :=
 realVertexGrayMap[vertices_List] :=
     AssociationThread[vertices, GrayLevel[0.72]];
 
-(* Auxiliary vertices (raw plot, when shown): green/red category colors. *)
+(* Auxiliary vertices: shared entry/exit category colors. *)
 auxiliaryVertexColorMap[auxV_List, sys_?mfgSystemQ] :=
     Module[{auxEntryV, auxExitV},
         auxEntryV = systemData[sys, "AuxEntryVertices"];
@@ -232,19 +280,19 @@ auxiliaryVertexColorMap[auxV_List, sys_?mfgSystemQ] :=
 
 (* Augmented state-pair colors: only nodes where p[[2]] (label position) is aux entry/exit. *)
 stateNodeColorMap[vertices_List, sys_?mfgSystemQ] :=
-    Module[{auxEntryV, auxExitV, base, entryColored, exitColored},
-        auxEntryV = systemData[sys, "AuxEntryVertices"];
-        auxExitV  = systemData[sys, "AuxExitVertices"];
+    Module[{base, auxColors, colored},
         base = AssociationThread[vertices, GrayLevel[0.72]];
-        entryColored = AssociationThread[
-            Select[vertices, MemberQ[auxEntryV, #[[2]]] &],
-            RGBColor[0.22, 0.6, 0.3]
+        auxColors = auxiliaryVertexColorMap[vertices[[All, 2]], sys];
+        colored = Association @ Cases[
+            Map[
+                With[{vtx = #, color = Lookup[auxColors, Key[#[[2]]], Missing[]]},
+                    If[MissingQ[color], Nothing, vtx -> color]
+                ] &,
+                vertices
+            ],
+            _Rule
         ];
-        exitColored = AssociationThread[
-            Select[vertices, MemberQ[auxExitV, #[[2]]] &],
-            RGBColor[0.82, 0.27, 0.2]
-        ];
-        Join[base, entryColored, exitColored]
+        Join[base, colored]
     ];
 
 (* Gradient style from u-values, with a fallback association for vertices without u. *)
@@ -258,6 +306,39 @@ gradientVertexStyle[vertices_List, uValues_Association, fallback_Association,
             ]
         ] &,
         vertices
+    ];
+
+rawVertexCoordinatesFromStateLayout[sys_?mfgSystemQ, vertices_List, layout_] :=
+    Module[{augmented, stateVertices, stateEdges, stateGraph, embedding,
+            coordinateMap, coordinatesFor, coordinateRules},
+        augmented = augmentAuxiliaryGraph[sys];
+        stateVertices = augmented["Vertices"];
+        stateEdges = Join[augmented["FlowEdges"], augmented["TransitionEdges"]];
+        stateGraph = Graph[stateVertices, stateEdges, GraphLayout -> layout];
+        embedding = Quiet @ Check[GraphEmbedding[stateGraph], $Failed];
+        If[embedding === $Failed || Length[embedding] != Length[VertexList[stateGraph]],
+            Return[Automatic, Module]
+        ];
+
+        coordinateMap = AssociationThread[VertexList[stateGraph], embedding];
+        coordinatesFor[v_] := DeleteMissing @ Map[
+            If[MatchQ[#, {_, _}] && #[[2]] === v,
+                Lookup[coordinateMap, Key[#], Missing[]],
+                Nothing
+            ] &,
+            stateVertices
+        ];
+
+        coordinateRules = Normal @ Association @ Cases[
+            Map[
+                With[{v = #, coords = coordinatesFor[#]},
+                    If[coords === {}, Nothing, v -> Mean[coords]]
+                ] &,
+                vertices
+            ],
+            _Rule
+        ];
+        If[coordinateRules === {}, Automatic, coordinateRules]
     ];
 
 barLegendForU[uMin_, uMax_, colorFn_] :=
@@ -374,7 +455,7 @@ rawNetworkPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, title_String, opts : Options
 
 rawNetworkPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, opts : OptionsPattern[]] :=
     Module[{rules, model, realV, auxEntryV, auxExitV, auxV, showAux, showBoundary,
-            showFlow, showValues, showDensity, showLegend, colorFn,
+            showBoundaryValues, showFlow, showValues, showDensity, showLegend, colorFn,
             edges, vertices, edgeLabels, dispEdges, vertexCoords,
             entryDataAssoc, inAuxEntryPairs, exitCosts, entryEdgeMap,
             uValues, numericU, uMin, uMax,
@@ -390,9 +471,11 @@ rawNetworkPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, opts : OptionsPattern[]] :=
         auxExitV  = systemData[sys, "AuxExitVertices"];
 
         showBoundary = TrueQ[OptionValue[ShowBoundaryData]];
+        showBoundaryValues = TrueQ[OptionValue[ShowBoundaryValues]];
         showAux = TrueQ[OptionValue[ShowAuxiliaryVertices]] || showBoundary;
         showFlow = Replace[OptionValue[ShowFlowLabels], Automatic :> rules =!= {}];
-        showValues = TrueQ[OptionValue[ShowValueLabels]];
+        showValues = Replace[OptionValue[ShowValueLabels],
+            {Automatic :> rules =!= {}, x_ :> TrueQ[x]}];
         showDensity = TrueQ[OptionValue[ShowDensityLabels]];
         showLegend = TrueQ[OptionValue[ShowLegend]];
         colorFn = Replace[OptionValue[ColorFunction], Automatic -> (Blend[{Red, Blue}, #] &)];
@@ -408,20 +491,25 @@ rawNetworkPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, opts : OptionsPattern[]] :=
             vertices = realV
         ];
 
-        (* Pin real-vertex coordinates to the layout the real-only subgraph
-           would have on its own, so adding aux vertices doesn't perturb the
-           embedding (which can introduce spurious edge crossings). Aux vertices
-           are left to the automatic layout. *)
-        vertexCoords = If[showAux,
-            With[{realGraph = Graph[realV, systemData[sys, "Edges"],
-                                    GraphLayout -> OptionValue[GraphLayout]]},
-                Thread[realV -> GraphEmbedding[realGraph]]
-            ],
-            Automatic
-        ];
+        (* Project raw vertex coordinates from the same state-label positions
+           used by richNetworkPlot, keeping the raw and rich views aligned. *)
+        vertexCoords = rawVertexCoordinatesFromStateLayout[
+            sys, vertices, OptionValue[GraphLayout]];
 
         (* Direct edges by net flow when flow info is being shown; else keep undirected. *)
         dispEdges = If[TrueQ[showFlow], directedDisplayEdges[edges, rules], edges];
+
+        (* Aux entry/exit edges always render with their canonical orientation
+           (auxEntry -> N, N -> auxExit), matching richNetworkPlot's augmented
+           graph. Independent of flow sign and applies even without a solution,
+           as long as aux vertices are shown. *)
+        If[showAux,
+            dispEdges = forceAuxEdgeDirections[
+                dispEdges,
+                systemData[sys, "InAuxEntryPairs"],
+                systemData[sys, "OutAuxExitPairs"]
+            ]
+        ];
 
         (* Vertex base styles: real vertices gray; aux vertices get category color. *)
         baseStyleMap = Join[
@@ -461,8 +549,22 @@ rawNetworkPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, opts : OptionsPattern[]] :=
             legend = None
         ];
 
-        (* Vertex labels: standard "Name" placement. *)
-        vertexLabels = Placed["Name", Center];
+        exitCosts = systemData[sys, "ExitCosts"];
+        vertexLabels = Association @ Map[
+            With[{v = #},
+                v -> If[
+                    showBoundary && showBoundaryValues && MemberQ[auxExitV, v],
+                    formatRawBoundaryExitVertexLabel[
+                        v,
+                        With[{uv = Lookup[uValues, Key[v], Missing[]]},
+                            If[NumericQ[uv], uv, Lookup[exitCosts, Key[v], Missing[]]]
+                        ]
+                    ],
+                    formatRawVertexLabel[v]
+                ]
+            ] &,
+            vertices
+        ];
 
         (* Edge labels per option. *)
         flowLabels = If[TrueQ[showFlow], buildFlowLabels[dispEdges, rules], <||>];
@@ -485,7 +587,7 @@ rawNetworkPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, opts : OptionsPattern[]] :=
                     If[!MissingQ[pair],
                         supply = Lookup[entryDataAssoc, Key[pair], Missing[]];
                         If[!MissingQ[supply],
-                            e -> Placed[Style[Row[{"f=", formatPlotNumber[supply]}],
+                            e -> Placed[Style[Row[{"j=", formatPlotNumber[supply]}],
                                               8, Black, Background -> White], Center],
                             Nothing
                         ],
@@ -503,7 +605,7 @@ rawNetworkPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, opts : OptionsPattern[]] :=
         edgeStyle = Directive[GrayLevel[0.45], AbsoluteThickness[2], Opacity[0.9]];
 
         graph = Graph[vertices, dispEdges,
-            VertexLabels -> vertexLabels,
+            VertexLabels -> Normal[vertexLabels],
             VertexStyle  -> Normal[vertexStyle],
             VertexSize   -> Normal @ Join[
                 AssociationThread[realV, 0.38],
@@ -539,7 +641,8 @@ richNetworkPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, title_String, opts : Option
 richNetworkPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, opts : OptionsPattern[]] :=
     Module[{rules, augmented, allVertices, flowEdges, transitionEdges, edgeVariables,
             edgeKinds, showFlowEdges, showBoundary, showBoundaryValues,
-            showFlowLabels, showValueLabels, showLegend, colorFn, bendFactor,
+            showFlowLabels, showValueLabels, useColorFunction, showLegend,
+            colorFn, bendFactor,
             auxEntryV, auxExitV, exitCosts, entryDataAssoc, inAuxEntryPairs,
             entryEdgeSet, edges, vertices, effectiveFlows, numericJ, maxJ,
             getU, getEffectiveU, uValues, numericU, uMin, uMax, baseStyleMap,
@@ -557,8 +660,10 @@ richNetworkPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, opts : OptionsPattern[]] :=
         showFlowEdges = TrueQ[OptionValue[ShowFlowEdges]];
         showBoundary = TrueQ[OptionValue[ShowBoundaryData]];
         showBoundaryValues = TrueQ[OptionValue[ShowBoundaryValues]];
-        showFlowLabels = Replace[OptionValue[ShowFlowLabels], Automatic :> True];
-        showValueLabels = TrueQ[OptionValue[ShowValueLabels]];
+        showFlowLabels = Replace[OptionValue[ShowFlowLabels], Automatic :> rules =!= {}];
+        showValueLabels = Replace[OptionValue[ShowValueLabels],
+            {Automatic :> rules =!= {}, x_ :> TrueQ[x]}];
+        useColorFunction = TrueQ[OptionValue[UseColorFunction]];
         showLegend = TrueQ[OptionValue[ShowLegend]];
         colorFn = Replace[OptionValue[ColorFunction], Automatic -> (Blend[{Red, Blue}, #] &)];
         bendFactor = OptionValue[BendFactor];
@@ -602,12 +707,12 @@ richNetworkPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, opts : OptionsPattern[]] :=
         numericJ = Cases[Values[effectiveFlows], _?NumericQ, Infinity];
         maxJ = Max[Append[numericJ, 1]];
 
-        (* Vertex coloring: state pairs with label-position aux get green/red; gradient
-           overlays where u-values exist. *)
+        (* Vertex coloring: state pairs with label-position aux reuse raw aux
+           category colors. ColorFunction is opt-in for u-value gradients. *)
         baseStyleMap = stateNodeColorMap[vertices, sys];
         uValues = AssociationMap[getEffectiveU, vertices];
         numericU = Select[uValues, NumericQ];
-        If[Length[numericU] > 0,
+        If[useColorFunction && Length[numericU] > 0,
             uMin = Min[Values[numericU]];
             uMax = Max[Values[numericU]];
             gradientStyle = gradientVertexStyle[
@@ -649,7 +754,7 @@ richNetworkPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, opts : OptionsPattern[]] :=
                         showBoundary && !MissingQ[entryPair],
                             supply = Lookup[entryDataAssoc, Key[entryPair], Missing[]];
                             If[!MissingQ[supply],
-                                Row[{"f=", formatPlotNumber[supply]}],
+                                Row[{"j=", formatPlotNumber[supply]}],
                                 If[showFlowLabels && NumericQ[jv] && jv != 0,
                                     NumberForm[N[jv], {5, 1}], ""]],
                         showFlowLabels && NumericQ[jv] && jv != 0,
@@ -678,8 +783,9 @@ richNetworkPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, opts : OptionsPattern[]] :=
                     p1   = N[pts[[1]]],
                     p2   = N[pts[[-1]]]
                 },
+                    If[NumericQ[effJ] && effJ == 0, {},
                     Module[{op, thick, edgeColorAt, d, perp, ctrl, pAt},
-                        op    = If[NumericQ[effJ] && effJ == 0, 0, 0.9];
+                        op    = 0.9;
                         thick = AbsoluteThickness[
                             If[NumericQ[effJ], Rescale[effJ, {0, maxJ}, {1.5, 7}], 2.0]];
                         d    = p2 - p1;
@@ -687,7 +793,9 @@ richNetworkPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, opts : OptionsPattern[]] :=
                             If[len > 0, {-d[[2]], d[[1]]}/len, {0, 1}]];
                         ctrl = 0.5*(p1 + p2) + bendFactor*Norm[d]*perp;
                         pAt  = Function[t, (1-t)^2*p1 + 2*(1-t)*t*ctrl + t^2*p2];
-                        edgeColorAt = If[NumericQ[uS] && NumericQ[uT] && Length[numericU] > 0,
+                        edgeColorAt = If[
+                            useColorFunction && NumericQ[uS] && NumericQ[uT] &&
+                                Length[numericU] > 0,
                             colorFn[Rescale[(1 - #)*uS + #*uT, {uMin, uMax}]] &,
                             (Which[
                                 kind === "Flow", RGBColor[0.12, 0.45, 0.78],
@@ -704,7 +812,7 @@ richNetworkPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, opts : OptionsPattern[]] :=
                             {{GrayLevel[0.3], Opacity[op], Arrowheads[{{0.02, 1}}],
                               Arrow[{pAt[0.45], pAt[0.55]}]}}
                         ]
-                    ]
+                    ]]
                 ]
             ],
             EdgeLabels   -> Normal[edgeLabels],

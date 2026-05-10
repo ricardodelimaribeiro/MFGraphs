@@ -183,8 +183,10 @@ Test[
 ]
 
 Test[
-    solversTools`Private`branchStateReduceResult[x == y && y == 3, {x, y}],
-    {x -> 3, y -> 3},
+    (* Sorted so the assertion is on the rule set, not the incidental order
+       in which Solve / mergeRules emit them. *)
+    Sort @ solversTools`Private`branchStateReduceResult[x == y && y == 3, {x, y}],
+    Sort @ {x -> 3, y -> 3},
     TestID -> "branchStateReduceResult: chained equalities become ground rules"
 ]
 

@@ -3,8 +3,8 @@
    solversTools.wl: symbolic solvers for mfgSystem objects.
 
    Three solvers share a common preprocessing pipeline (buildSolverInputs):
-   collect structural equations, apply exit-value rules, eliminate linear
-   equations via accumulateLinearRules. They differ only in the final step:
+   collect structural equations, apply exit-value rules, eliminate equalities
+   via accumulateEqualityRules. They differ only in the final step:
      reduceSystem         -- Reduce[constraints, allVars, Reals]
      dnfReduceSystem      -- dnfReduce[True, constraints]
      optimizedDNFReduceSystem
@@ -136,17 +136,22 @@ Begin["`Private`"];
    - normalizeRules
 *)
 
+(* Variable-count cutoff below which branch-state enumeration beats full DNF
+   reduction. Empirically tuned; shared by optimizedDNFReduceSystem and
+   activeSetReduceSystem. *)
+$optimizedDNFVarThreshold = 8;
+
 trackedVarQ::usage =
 "trackedVarQ[var] returns True for solver variables tracked during Reduce post-processing.";
 
 topLevelEquations::usage =
 "topLevelEquations[constraints] extracts top-level Equal expressions from an And expression or single constraint.";
 
-extractLinearRules::usage =
-"extractLinearRules[equations, vars, existingRules] solves linear equations for new eliminable rules.";
+rulesFromEqualities::usage =
+"rulesFromEqualities[equations, vars, existingRules] solves the equalities for new eliminable rules. Assumes linear inputs; see makeSystem contract.";
 
-accumulateLinearRules::usage =
-"accumulateLinearRules[baseConstraints, vars, initRules] repeatedly extracts linear rules from the constraint system.";
+accumulateEqualityRules::usage =
+"accumulateEqualityRules[baseConstraints, vars, initRules] repeatedly extracts substitution rules from equalities in the constraint system. Assumes linear inputs; see makeSystem contract.";
 
 attachAccumulatedRules::usage =
 "attachAccumulatedRules[result, rulesAcc] merges accumulated rules into a reduceSystem result.";
@@ -173,7 +178,7 @@ or False when the branch is contradictory.";
 
 buildSolverInputs::usage =
 "buildSolverInputs[sys] collects all constraint blocks from sys, applies \
-exit-value rules, and runs accumulateLinearRules. Returns \
+exit-value rules, and runs accumulateEqualityRules. Returns \
 {constraints, allVars, rulesAcc} ready for the final solve step.";
 
 checkBlock::usage =
@@ -236,7 +241,7 @@ dnfReduceSystem[sys_?mfgSystemQ] :=
 optimizedDNFReduceSystem[sys_?mfgSystemQ] :=
     withCriticalCongestionSolver[sys, "optimizedDNFReduceSystem",
         Function[{constraints, allVars},
-            If[Length[allVars] <= 8,
+            If[Length[allVars] <= $optimizedDNFVarThreshold,
                 branchStateReduceResult[constraints, allVars],
                 parseDNFReduceResult[dnfReduce[True, constraints], allVars]
             ]
@@ -246,12 +251,9 @@ optimizedDNFReduceSystem[sys_?mfgSystemQ] :=
     ];
 
 activeSetReduceSystem[sys_?mfgSystemQ] :=
+    withCriticalCongestionGuard[sys, "activeSetReduceSystem",
     Module[{initRules, deterministicConstraints, activeConstraints, allVars,
             detReduced, rulesAcc, activeReduced, result, branches},
-        If[!criticalCongestionSystemQ[sys],
-            Message[MFGraphs::noncritical, "activeSetReduceSystem"];
-            Return[Failure["activeSetReduceSystem", <|"Message" -> "activeSetReduceSystem supports only critical congestion systems with Alpha == 1 on every edge."|>], Module]
-        ];
         initRules = Join[
             Normal @ With[{v = systemData[sys, "RuleBalanceGatheringFlows"]}, If[AssociationQ[v], v, <||>]],
             With[{v = systemData[sys, "ZeroSwitchUEqualities"]}, If[ListQ[v], v, {}]]
@@ -276,19 +278,20 @@ activeSetReduceSystem[sys_?mfgSystemQ] :=
             Variables[(And[deterministicConstraints, activeConstraints] /. initRules) /. {Equal -> List, Or -> List, And -> List}],
             trackedVarQ
         ];
-        {detReduced, rulesAcc} = accumulateLinearRules[deterministicConstraints, allVars, initRules];
+        {detReduced, rulesAcc} = accumulateEqualityRules[deterministicConstraints, allVars, initRules];
         activeReduced = activeConstraints /. rulesAcc;
         allVars = Select[
             Variables[And[detReduced, activeReduced] /. {Equal -> List, Or -> List, And -> List}],
             trackedVarQ
         ];
-        result = If[Length[allVars] <= 8,
+        result = If[Length[allVars] <= $optimizedDNFVarThreshold,
             branches = branchStateReduce[activeReduced, allVars];
             branches = branchStateReduceFromBranches[branches, detReduced, allVars];
             branchStateFinalizeResult[branches, allVars],
             parseDNFReduceResult[dnfReduce[True, And[detReduced, activeReduced]], allVars]
         ];
         attachAccumulatedRules[result, rulesAcc]
+    ]
     ];
 
 Options[booleanReduceSystem] = {
@@ -589,7 +592,7 @@ buildSolverInputs[sys_?mfgSystemQ] :=
             Variables[(baseConstraints /. initRules) /. {Equal -> List, Or -> List, And -> List}],
             trackedVarQ
         ];
-        {constraints, rulesAcc} = accumulateLinearRules[baseConstraints, allVars, initRules];
+        {constraints, rulesAcc} = accumulateEqualityRules[baseConstraints, allVars, initRules];
         allVars = Select[
             Variables[constraints /. {Equal -> List, Or -> List, And -> List}],
             trackedVarQ
@@ -651,8 +654,8 @@ trackedFreeQ::usage =
 cheapConstraintSimplify::usage =
 "cheapConstraintSimplify[expr] performs lightweight simplification of boolean constraints.";
 
-linearRuleFromEquality::usage =
-"linearRuleFromEquality[eq, vars] extracts a substitution rule (var -> rhs) from a linear equality if possible.";
+(* linearRuleFromEquality removed: subsumed by rulesFromEqualities[{eq}, vars, existing]
+   under makeSystem's linearity guarantee. *)
 
 simplifyResiduals::usage =
 "simplifyResiduals[residuals, rules] substitutes rules into a list of residuals and simplifies.";
@@ -857,32 +860,11 @@ cheapConstraintSimplify[expr_] :=
         ]
     ];
 
-linearRuleFromEquality[eq_Equal, vars_List] :=
-    Module[{expr, presentVars, varAlt, coeff, rest, rule = None},
-        expr = Expand[Subtract @@ (List @@ eq)];
-        presentVars = Select[vars, !FreeQ[expr, #] &];
-        If[presentVars === {}, Return[None, Module]];
-        varAlt = Alternatives @@ vars;
-        Do[
-            coeff = Simplify[Coefficient[expr, v]];
-            rest  = Simplify[expr - coeff v];
-            If[coeff =!= 0 &&
-               FreeQ[coeff, varAlt] &&
-               FreeQ[rest, v] &&
-               Simplify[expr - coeff v - rest] === 0,
-                rule = v -> Simplify[-rest/coeff];
-                Break[]
-            ],
-            {v, presentVars}
-        ];
-        rule
-    ];
-
 simplifyResiduals[residuals_List, rules_List] :=
     DeleteCases[cheapConstraintSimplify /@ (residuals /. rules), True];
 
 addBranchConstraint[branch_Association, elem_, vars_List] :=
-    Module[{rules, residuals, simplified, rule, newRules, newResiduals},
+    Module[{rules, residuals, simplified, solvedRules, newRules, newResiduals},
         rules = Lookup[branch, "Rules", {}];
         residuals = Lookup[branch, "Residuals", {}];
         simplified = cheapConstraintSimplify[elem /. rules];
@@ -902,9 +884,11 @@ addBranchConstraint[branch_Association, elem_, vars_List] :=
             Head[simplified] === Or,
                 Join @@ (addBranchConstraint[branch, #, vars] & /@ orderedAlternatives[simplified]),
             Head[simplified] === Equal,
-                rule = linearRuleFromEquality[simplified, vars];
-                If[MatchQ[rule, _Rule],
-                    newRules = normalizeRules[mergeRules[rules, {rule}]];
+                (* Was linearRuleFromEquality + manual Coefficient extraction.
+                   Under makeSystem's linearity guarantee Solve returns the same single rule. *)
+                solvedRules = rulesFromEqualities[{simplified}, vars, rules];
+                If[solvedRules =!= {},
+                    newRules = normalizeRules[mergeRules[rules, solvedRules]];
                     newResiduals = simplifyResiduals[residuals, newRules];
                     If[MemberQ[newResiduals, False],
                         {},
@@ -961,7 +945,7 @@ branchStateFinalizeResult[branches_List, allVars_List] :=
             Return[<|"Rules" -> {}, "Residual" -> False|>, Module]
         ];
         ruleSets = Lookup[#, "Rules", {}] & /@ branches;
-        common = If[ruleSets === {}, {}, Fold[Intersection, First[ruleSets], Rest[ruleSets]]];
+        common = commonRulesFromBranches[ruleSets];
         {commonGround, commonResiduals} = splitGroundRules[common, allVars];
         branchExprs = Simplify /@ Map[
             Function[branch,
@@ -1483,27 +1467,60 @@ topLevelEquations[constraints_] :=
         MatchQ[#, _Equal] &
     ];
 
-extractLinearRules[equations_List, vars_List, existingRules_List] :=
-    Module[{sol, solRules},
-        If[equations === {}, Return[{}, Module]];
-        sol = Quiet[Solve[equations, vars], Solve::svars];
-        If[!ListQ[sol] || Length[sol] === 0, Return[{}, Module]];
-        
-        solRules = Cases[First[sol],
-            r : Rule[v_, rhs_] /; MemberQ[vars, v] && FreeQ[rhs, v] && FreeQ[rhs, C] :> r
+rulesFromEqualities[equations_List, vars_List, existingRules_List] :=
+    Module[{orderedVars, n, arrays, c0, c1, augmented, rref, candidateRules},
+        If[equations === {} || vars === {}, Return[{}, Module]];
+        (* Reorder vars so u-vars are pivoted first, then j-vars. RowReduce
+           takes the leftmost nonzero column of each row as pivot, so column
+           order = pivot priority. Solve was previously preferred because its
+           internal heuristic also prefers eliminating u-vars first; matching
+           that ordering lets the linear-algebra path keep parity downstream
+           (Alt* disjunctions can collapse to ground rules once u-vars are
+           pinned). Subordering inside each head class is the original `vars`
+           order so existingRules dedup remains stable. *)
+        orderedVars = Join[
+            Cases[vars, _u],
+            Cases[vars, Except[_u]]
         ];
-        Select[solRules, FreeQ[existingRules[[All, 1]], First[#]] &]
+        n = Length[orderedVars];
+        (* Linear path: equations represent c1.vars + c0 == 0; RowReduce on the
+           augmented matrix [c1 | -c0] reads off solved rules in one pass.
+           Skips Solve's general-purpose engine. Safe because (a) makeSystem
+           guarantees linearity in {j, u, z} and (b) buildHamiltonianData no
+           longer emits Cost[__] coefficients into eqGeneral, so coefficients
+           here are pure rationals. *)
+        arrays = Quiet @ Check[
+            CoefficientArrays[equations /. Equal[a_, b_] :> a - b, orderedVars],
+            $Failed
+        ];
+        If[!ListQ[arrays] || Length[arrays] < 2, Return[{}, Module]];
+        {c0, c1} = Normal /@ Take[arrays, 2];
+        augmented = ArrayFlatten[{{c1, Transpose[{-c0}]}}];
+        rref = RowReduce[augmented];
+        candidateRules = Table[
+            Module[{row = rref[[i]], leadIdx},
+                leadIdx = SelectFirst[Range[n], row[[#]] =!= 0 &, 0];
+                If[leadIdx === 0,
+                    Nothing,
+                    orderedVars[[leadIdx]] ->
+                        -Sum[row[[k]] orderedVars[[k]], {k, leadIdx + 1, n}] + row[[n + 1]]
+                ]
+            ],
+            {i, Length[rref]}
+        ];
+        Select[candidateRules, FreeQ[existingRules[[All, 1]], First[#]] &]
     ];
 
-accumulateLinearRules[baseConstraints_, vars_List, initRules_List] :=
+accumulateEqualityRules[baseConstraints_, vars_List, initRules_List] :=
     Module[{rulesAcc = normalizeRules[initRules], constraints, eqs, newRules,
             prevAcc, deltaRules, iter = 0, maxIter},
-        maxIter = Max[10, 2 Length[vars] + 5];
+        (* Each pass eliminates >=1 var under linearity, so Length[vars]+1 iterations suffice. *)
+        maxIter = Length[vars] + 1;
         constraints = baseConstraints /. rulesAcc;
         While[iter < maxIter,
             eqs = topLevelEquations[constraints];
             If[eqs === {}, Break[]];
-            newRules = extractLinearRules[eqs, vars, rulesAcc];
+            newRules = rulesFromEqualities[eqs, vars, rulesAcc];
             If[newRules === {}, Break[]];
             prevAcc = rulesAcc;
             rulesAcc = normalizeRules[mergeRules[rulesAcc, newRules]];
@@ -1514,11 +1531,17 @@ accumulateLinearRules[baseConstraints_, vars_List, initRules_List] :=
         {constraints, rulesAcc}
     ];
 
+mergeAccumulatedRules[rulesAcc_, rules_] := normalizeRules[mergeRules[rulesAcc, rules]];
+
+(* Rules common to every branch's rule set. Empty input -> {}. *)
+commonRulesFromBranches[ruleSets_List] :=
+    If[ruleSets === {}, {}, Fold[Intersection, First[ruleSets], Rest[ruleSets]]];
+
 attachAccumulatedRules[result_, rulesAcc_List] /; ListQ[result] :=
-    normalizeRules[mergeRules[rulesAcc, result]];
+    mergeAccumulatedRules[rulesAcc, result];
 
 attachAccumulatedRules[result_, rulesAcc_List] /; AssociationQ[result] :=
-    Association[result, "Rules" -> normalizeRules[mergeRules[rulesAcc, Lookup[result, "Rules", {}]]]];
+    Association[result, "Rules" -> mergeAccumulatedRules[rulesAcc, Lookup[result, "Rules", {}]]];
 
 attachAccumulatedRules[result_, _] := result;
 
@@ -1535,7 +1558,7 @@ parseReduceResult[reduced_, allVars_] :=
     Module[{conjuncts, rules, residual},
         If[Head[reduced] === Or,
             Return[
-                With[{common = Fold[Intersection,
+                With[{common = commonRulesFromBranches[
                                     branchToRules[#, allVars] & /@ List @@ reduced]},
                     <|"Rules" -> common, "Residual" -> reduced|>
                 ]
@@ -1615,7 +1638,7 @@ parseDNFReduceResult[reduced_, allVars_List] :=
             ]
         ];
         ruleSets = Lookup[#, "Rules", {}] & /@ harvested;
-        common = If[ruleSets === {}, {}, Fold[Intersection, First[ruleSets], Rest[ruleSets]]];
+        common = commonRulesFromBranches[ruleSets];
         branchExprs = Simplify /@ Map[
             With[{branchRules = Complement[Lookup[#, "Rules", {}], common],
                   residual = Lookup[#, "Residual", True]},
