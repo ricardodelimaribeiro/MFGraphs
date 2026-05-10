@@ -21,6 +21,7 @@ $TestSuites = <|
         "graphicsTools.mt",
         "orchestration.mt",
         "dnf-reducer.mt",
+        "boolean-minimize.mt",
         "tawaf.mt"
     },
     (* Archived tests are intentionally excluded from active CI.

@@ -224,7 +224,7 @@ JamaratScenarioSummary[s_?scenarioQ, sys_?mfgSystemQ] :=
 $MFGraphsVerbose = False;
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Simplified Jamarat cycle*)
 
 
@@ -243,16 +243,41 @@ Column[{
     DescribeOutput[
         "Simplified Jamarat augmented infrastructure",
         "Augmented graph before solving \[LongDash] structure only.",
-        richNetworkPlot[jamaratEnd, jamaratEndSystem, <||>,
+        rawNetworkPlot[jamaratEnd, jamaratEndSystem,
+            PlotLabel -> "Simplified Jamarat infrastructure",
+            ImageSize -> Large,
+            ShowBoundaryData->True,
+            ShowBoundaryValues -> True]
+    ],
+    DescribeOutput[
+        "Simplified Jamarat augmented infrastructure",
+        "Augmented graph before solving \[LongDash] structure only.",
+        richNetworkPlot[jamaratEnd, jamaratEndSystem,
             PlotLabel -> "Simplified Jamarat infrastructure",
             ImageSize -> Large,
             ShowBoundaryValues -> False]
+    ],
+    DescribeOutput[
+        "Simplified Jamarat augmented infrastructure",
+        "Augmented graph before solving \[LongDash] structure only.",
+        richNetworkPlot[jamaratEnd, jamaratEndSystem,
+            PlotLabel -> "Simplified Jamarat infrastructure",
+            ImageSize -> Large,
+            ShowBoundaryData->True]
     ],
     DescribeOutput[
         "Simplified Jamarat augmented solution",
         "Augmented graph with solved flow, transition, and u values.",
         richNetworkPlot[jamaratEnd, jamaratEndSystem, jamaratEndSol,
             PlotLabel -> "Simplified Jamarat solution",
+            ImageSize -> Large]
+    ],
+    DescribeOutput[
+        "Simplified Jamarat augmented solution",
+        "Augmented graph with solved flow, transition, and u values.",
+        richNetworkPlot[jamaratEnd, jamaratEndSystem, jamaratEndSol,
+            PlotLabel -> "Simplified Jamarat solution",
+            UseColorFunction->True,
             ImageSize -> Large]
     ]
 }]
@@ -353,6 +378,9 @@ Column[{
 }]
 
 
+RGBColor[0.38, 0.74, 0.9]
+
+
 jamaratScenarioSummary = JamaratScenarioSummary[jamaratScenario, jamaratSystem];
 
 DescribeOutput[
@@ -376,11 +404,23 @@ DescribeOutput[
         jamaratScenario,
         jamaratSystem,
         <||>,
-        PlotLabel -> "Jamaratv9 augmented infrastructure",
+        PlotLabel -> "Jamarat augmented infrastructure",
         ImageSize -> Large,
         ShowBoundaryValues -> False
     ]
 ]
+DescribeOutput[
+        "Jamaratv9 augmented infrastructure with flow and value function",
+        "Augmented graph showing flow and transition edges before solving.",
+        richNetworkPlot[
+            jamaratScenario,
+            jamaratSystem,
+            jamaratSol,
+            PlotLabel -> "Jamarat",
+            ImageSize -> Large,
+            ShowBoundaryValues -> False
+        ]
+    ]
 
 
 DescribeOutput[
@@ -464,7 +504,7 @@ jamaratHighEntryScenario
 DescribeOutput[
         "Jamarat (High) augmented solution",
         "Augmented graph with solved flow, transition, and u values.",
-        richNetworkPlot[jamaratHighEntryScenario, jamaratHighEntrySystem, jamaratHighEntryTimedSol,
+        richNetworkPlot[jamaratHighEntryScenario, jamaratHighEntrySystem, jamaratHighEntrySol,
             PlotLabel -> "Jamarat solution",
             ImageSize -> Large]
     ]

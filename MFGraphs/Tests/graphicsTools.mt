@@ -83,6 +83,45 @@ Test[
 ]
 
 Test[
+    Module[{s, sys, plot, labels, entryLabel, exitLabel},
+        s = gridScenario[{3}, {{1, 120}}, {{2, 10}, {3, 0}}];
+        sys = makeSystem[s];
+        plot = rawNetworkPlot[s, sys, ShowAuxiliaryVertices -> True];
+        labels = Association[AbsoluteOptions[plot, VertexLabels][[1, 2]]];
+        entryLabel = ToString[InputForm[Lookup[labels, "auxEntry1", Missing[]]]];
+        exitLabel = ToString[InputForm[Lookup[labels, "auxExit3", Missing[]]]];
+        StringContainsQ[entryLabel, "in1"] &&
+        StringContainsQ[exitLabel, "out3"]
+    ],
+    True,
+    TestID -> "GraphicsTools: rawNetworkPlot abbreviates auxiliary vertex labels"
+]
+
+Test[
+    Module[{s, sys, raw, rich, rawCoords, richCoords, entryDelta, exitDelta},
+        s = gridScenario[{3}, {{1, 10}}, {{3, 0}}];
+        sys = makeSystem[s];
+        raw = rawNetworkPlot[s, sys, ShowAuxiliaryVertices -> True,
+                             PlotLabel -> None, ShowLegend -> False];
+        rich = Replace[richNetworkPlot[s, sys, PlotLabel -> None],
+                       Legended[g_, _] :> g];
+        rawCoords = AssociationThread[VertexList[raw], GraphEmbedding[raw]];
+        richCoords = AssociationThread[VertexList[rich], GraphEmbedding[rich]];
+        entryDelta = Norm[
+            Lookup[rawCoords, "auxEntry1"] -
+            Lookup[richCoords, Key[{1, "auxEntry1"}]]
+        ];
+        exitDelta = Norm[
+            Lookup[rawCoords, "auxExit3"] -
+            Lookup[richCoords, Key[{3, "auxExit3"}]]
+        ];
+        entryDelta < 10^-8 && exitDelta < 10^-8
+    ],
+    True,
+    TestID -> "GraphicsTools: rawNetworkPlot orientation follows richNetworkPlot label positions"
+]
+
+Test[
     Module[{s, sys, plot, vlist},
         s = gridScenario[{3}, {{1, 120}}, {{2, 10}, {3, 0}}];
         sys = makeSystem[s];
@@ -94,6 +133,38 @@ Test[
     ],
     True,
     TestID -> "GraphicsTools: ShowBoundaryData forces aux visibility"
+]
+
+Test[
+    Module[{s, sys, plot, labels},
+        s = gridScenario[{3}, {{1, 120}}, {{2, 10}, {3, 0}}];
+        sys = makeSystem[s];
+        plot = rawNetworkPlot[s, sys, ShowBoundaryData -> True,
+                              ShowBoundaryValues -> True];
+        labels = ToString[InputForm[AbsoluteOptions[plot, VertexLabels]]];
+        StringContainsQ[labels, "out3"] &&
+        StringContainsQ[labels, "u="] &&
+        !StringContainsQ[labels, "c\[LessEqual]"]
+    ],
+    True,
+    TestID -> "GraphicsTools: rawNetworkPlot boundary exit vertices show only u values"
+]
+
+Test[
+    Module[{s, sys, raw, rich, rawLabels, richLabels},
+        s = gridScenario[{3}, {{1, 120}}, {{2, 10}, {3, 0}}];
+        sys = makeSystem[s];
+        raw = rawNetworkPlot[s, sys, ShowBoundaryData -> True,
+                             ShowFlowLabels -> False, ShowLegend -> False];
+        rich = richNetworkPlot[s, sys, ShowBoundaryData -> True,
+                               ShowFlowLabels -> False, ShowLegend -> False];
+        rawLabels = ToString[InputForm[AbsoluteOptions[raw, EdgeLabels]]];
+        richLabels = ToString[InputForm[AbsoluteOptions[rich, EdgeLabels]]];
+        StringContainsQ[rawLabels, "j="] &&
+        StringContainsQ[richLabels, "j="]
+    ],
+    True,
+    TestID -> "GraphicsTools: boundary entry-flow labels include j prefix"
 ]
 
 Test[
@@ -205,6 +276,43 @@ Test[
     ],
     True,
     TestID -> "GraphicsTools: richNetworkPlot only colors label-position aux nodes"
+]
+
+Test[
+    Module[{s, sys, raw, rich, rawStyles, richStyles},
+        s = gridScenario[{3}, {{1, 10}}, {{3, 0}}];
+        sys = makeSystem[s];
+        raw = rawNetworkPlot[s, sys, ShowAuxiliaryVertices -> True,
+                             ShowLegend -> False];
+        rich = richNetworkPlot[s, sys, ShowLegend -> False];
+        rawStyles = Association[AbsoluteOptions[raw, VertexStyle][[1, 2]]];
+        richStyles = Association[AbsoluteOptions[rich, VertexStyle][[1, 2]]];
+        Lookup[richStyles, Key[{1, "auxEntry1"}], Missing[]] ===
+            Lookup[rawStyles, "auxEntry1", Missing[]] &&
+        Lookup[richStyles, Key[{3, "auxExit3"}], Missing[]] ===
+            Lookup[rawStyles, "auxExit3", Missing[]]
+    ],
+    True,
+    TestID -> "GraphicsTools: richNetworkPlot reuses raw auxiliary category colors"
+]
+
+Test[
+    Module[{s, sys, plot, styles, color},
+        s = gridScenario[{3}, {{1, 10}}, {{3, 0}}];
+        sys = makeSystem[s];
+        plot = richNetworkPlot[
+            s, sys,
+            {u[1, "auxEntry1"] -> 0., u["auxEntry1", 1] -> 10.},
+            UseColorFunction -> True,
+            ColorFunction -> (RGBColor[#, 0, 1 - #] &),
+            ShowLegend -> False
+        ];
+        styles = Association[AbsoluteOptions[plot, VertexStyle][[1, 2]]];
+        color = Lookup[styles, Key[{1, "auxEntry1"}], Missing[]];
+        MatchQ[color, _RGBColor] && color =!= RGBColor[0.38, 0.74, 0.9]
+    ],
+    True,
+    TestID -> "GraphicsTools: richNetworkPlot UseColorFunction applies u-value colors"
 ]
 
 Test[

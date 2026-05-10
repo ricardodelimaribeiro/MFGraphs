@@ -3,16 +3,29 @@
    solversTools.wl: symbolic solvers for mfgSystem objects.
 
    Three solvers share a common preprocessing pipeline (buildSolverInputs):
-   collect structural equations, apply exit-value rules, eliminate linear
-   equations via accumulateLinearRules. They differ only in the final step:
-     reduceSystem         -- Reduce[constraints, allVars, Reals]
-     dnfReduceSystem      -- dnfReduce[True, constraints]
+   collect structural equations, apply exit-value rules, eliminate equalities
+   via accumulateEqualityRules. They differ only in the final step:
+     reduceSystem         -- Wolfram Reduce over Reals (CAD/real
+                             quantifier-elimination backend for polynomial
+                             systems)
+     dnfReduceSystem      -- package recursive DNF reducer:
+                             equality substitution + disjunction expansion
      optimizedDNFReduceSystem
-                          -- branch-state exact DNF reduction
+                          -- package branch-state exact DNF reduction,
+                             falling back to dnfReduce
      activeSetReduceSystem
-                          -- branch-state exact active-set reduction
-     booleanReduceSystem  -- BooleanConvert to DNF, Reduce per disjunct
-     findInstanceSystem   -- FindInstance[constraints, allVars, Reals]
+                          -- package active-set/complementarity branch
+                             enumeration, falling back to dnfReduce
+     booleanReduceSystem  -- Wolfram BooleanConvert to DNF, then Reduce per
+                             disjunct
+     booleanMinimizeSystem
+                          -- Wolfram BooleanMinimize to minimal DNF, then
+                             Reduce per disjunct
+     booleanMinimizeReduceSystem
+                          -- package arm-prune + component decomposition,
+                             BooleanMinimize per component, Reduce per
+                             disjunct
+     findInstanceSystem   -- Wolfram FindInstance over Reals
 *)
 
 BeginPackage["solversTools`", {"primitives`", "utilities`", "systemTools`"}];
@@ -20,7 +33,8 @@ BeginPackage["solversTools`", {"primitives`", "utilities`", "systemTools`"}];
 reduceSystem::usage =
 "reduceSystem[sys] reduces the structural equations, flow balance, \
 non-negativity constraints, and complementarity conditions of the \
-mfgSystem sys using Reduce over the Reals. Includes AltOptCond \
+mfgSystem sys using Wolfram Reduce over the Reals; for polynomial real \
+systems this is the CAD/real quantifier-elimination backend. Includes AltOptCond \
 (switching-cost optimality complementarity) and \
 IneqSwitchingByVertex (switching-cost optimality inequalities). \
 Fails for non-critical congestion systems where Alpha != 1 on any edge. \
@@ -81,8 +95,9 @@ non-critical congestion systems where Alpha != 1 on any edge.";
 booleanReduceSystem::usage =
 "booleanReduceSystem[sys] solves the mfgSystem sys by converting the \
 preprocessed constraint system to DNF via BooleanConvert, then calling \
-Reduce independently on each disjunct. Each disjunct is a pure conjunction \
-(no Or), so Reduce avoids case-splitting. Non-False results are collected; \
+Reduce independently on each disjunct. This is DNF conversion followed by \
+real quantifier elimination / CAD-style solving per pure conjunction. Each \
+disjunct has no Or, so Reduce avoids case-splitting. Non-False results are collected; \
 if the system has a unique equilibrium all non-False results are equivalent. \
 Returns a list of rules when fully determined, or \
 <|\"Rules\" -> rules, \"Residual\" -> residual|> when underdetermined. \
@@ -94,10 +109,45 @@ booleanReduceSystem::multisol =
 "booleanReduceSystem found `1` non-False disjuncts with differing rules. \
 Returning first; use \"ReturnAll\" -> True to inspect all results.";
 
+booleanMinimizeSystem::usage =
+"booleanMinimizeSystem[sys] is a head-to-head variant of booleanReduceSystem \
+that calls BooleanMinimize[constraints, \"DNF\"] in place of \
+BooleanConvert[constraints, \"DNF\"]. This is exact minimal-DNF Boolean \
+minimization, analogous to classical two-level SOP minimization such as \
+Quine-McCluskey/Petrick-style methods, followed by Reduce per disjunct. \
+Wolfram does not document BooleanMinimize as a specific QMC/Petrick \
+implementation. Same preprocessing and return shape as booleanReduceSystem. \
+Use to compare the two Boolean-stage operations on identical input. Fails for \
+non-critical congestion systems where Alpha != 1 on any edge. Options: \
+\"DisjunctTimeout\" (default 30s per Reduce call), \
+\"ReturnAll\" (default False).";
+
+booleanMinimizeSystem::multisol =
+"booleanMinimizeSystem found `1` non-False disjuncts with differing rules. \
+Returning first; use \"ReturnAll\" -> True to inspect all results.";
+
+booleanMinimizeReduceSystem::usage =
+"booleanMinimizeReduceSystem[sys] solves the mfgSystem sys by attacking the \
+disjunctive structure of the preprocessed constraint system before DNF \
+expansion. It (1) prunes individual complementarity arms that are infeasible \
+against the linear part via FindInstance; (2) decomposes the surviving \
+disjunctive atoms into connected components by shared variables; \
+(3) BooleanMinimizes each component to minimal DNF and Reduces per disjunct. \
+Returns the same rule/residual shape as booleanReduceSystem. Fails for \
+non-critical congestion systems where Alpha != 1 on any edge. \
+Options: \"ArmTimeout\" (default 2s per FindInstance arm check), \
+\"DisjunctTimeout\" (default 30s per Reduce call), \
+\"ReturnAll\" (default False).";
+
+booleanMinimizeReduceSystem::multisol =
+"booleanMinimizeReduceSystem found `1` non-False disjuncts in a component with \
+differing rules. Returning first; use \"ReturnAll\" -> True to inspect all results.";
+
 findInstanceSystem::usage =
 "findInstanceSystem[sys] solves the mfgSystem sys by collecting and \
 linearly preprocessing constraints, then calling FindInstance over the \
-remaining variables. Returns one feasible list of rules. If no instance is \
+remaining real variables. This is real satisfiability / instance finding using \
+Wolfram's real-system solver backend. Returns one feasible list of rules. If no instance is \
 found or the final solve times out, returns \
 <|\"Rules\" -> accumulatedRules, \"Residual\" -> False|>. \
 Fails for non-critical congestion systems where Alpha != 1 on any edge. \
@@ -136,17 +186,30 @@ Begin["`Private`"];
    - normalizeRules
 *)
 
+(* Variable-count cutoff below which branch-state enumeration beats full DNF
+   reduction. Re-tuned 2026-05-10 to 0 (branch-state only when there are zero
+   tracked vars to enumerate): once branchStateFinalizeResult was taught to
+   promote residual equalities into rules, branch-state stopped winning on any
+   non-trivial benchmark case while still costing 25-35% on chain-3v-2exit and
+   chain-3-midentry. Kept as a knob rather than deleting the path so a future
+   case profile with high branching factor can re-enable it via the sweep
+   script. Shared by optimizedDNFReduceSystem and activeSetReduceSystem. *)
+$optimizedDNFVarThreshold = 0;
+
 trackedVarQ::usage =
 "trackedVarQ[var] returns True for solver variables tracked during Reduce post-processing.";
+
+collectTrackedVars::usage =
+"collectTrackedVars[sys, expr] returns the tracked solver variables (j[__] | u[__]) appearing in expr, in u-first construction order. Pulls the pre-grouped Us, Js, Jts lists straight from sys instead of re-deriving via Variables, so the column-pivot priority required by rulesFromEqualities is established once at the system level rather than re-sorted per call.";
 
 topLevelEquations::usage =
 "topLevelEquations[constraints] extracts top-level Equal expressions from an And expression or single constraint.";
 
-extractLinearRules::usage =
-"extractLinearRules[equations, vars, existingRules] solves linear equations for new eliminable rules.";
+rulesFromEqualities::usage =
+"rulesFromEqualities[equations, vars, existingRules] solves the equalities for new eliminable rules. Assumes linear inputs; see makeSystem contract.";
 
-accumulateLinearRules::usage =
-"accumulateLinearRules[baseConstraints, vars, initRules] repeatedly extracts linear rules from the constraint system.";
+accumulateEqualityRules::usage =
+"accumulateEqualityRules[baseConstraints, vars, initRules] repeatedly extracts substitution rules from equalities in the constraint system. Assumes linear inputs; see makeSystem contract.";
 
 attachAccumulatedRules::usage =
 "attachAccumulatedRules[result, rulesAcc] merges accumulated rules into a reduceSystem result.";
@@ -173,7 +236,7 @@ or False when the branch is contradictory.";
 
 buildSolverInputs::usage =
 "buildSolverInputs[sys] collects all constraint blocks from sys, applies \
-exit-value rules, and runs accumulateLinearRules. Returns \
+exit-value rules, and runs accumulateEqualityRules. Returns \
 {constraints, allVars, rulesAcc} ready for the final solve step.";
 
 checkBlock::usage =
@@ -236,7 +299,7 @@ dnfReduceSystem[sys_?mfgSystemQ] :=
 optimizedDNFReduceSystem[sys_?mfgSystemQ] :=
     withCriticalCongestionSolver[sys, "optimizedDNFReduceSystem",
         Function[{constraints, allVars},
-            If[Length[allVars] <= 8,
+            If[Length[allVars] <= $optimizedDNFVarThreshold,
                 branchStateReduceResult[constraints, allVars],
                 parseDNFReduceResult[dnfReduce[True, constraints], allVars]
             ]
@@ -246,12 +309,9 @@ optimizedDNFReduceSystem[sys_?mfgSystemQ] :=
     ];
 
 activeSetReduceSystem[sys_?mfgSystemQ] :=
+    withCriticalCongestionGuard[sys, "activeSetReduceSystem",
     Module[{initRules, deterministicConstraints, activeConstraints, allVars,
             detReduced, rulesAcc, activeReduced, result, branches},
-        If[!criticalCongestionSystemQ[sys],
-            Message[MFGraphs::noncritical, "activeSetReduceSystem"];
-            Return[Failure["activeSetReduceSystem", <|"Message" -> "activeSetReduceSystem supports only critical congestion systems with Alpha == 1 on every edge."|>], Module]
-        ];
         initRules = Join[
             Normal @ With[{v = systemData[sys, "RuleBalanceGatheringFlows"]}, If[AssociationQ[v], v, <||>]],
             With[{v = systemData[sys, "ZeroSwitchUEqualities"]}, If[ListQ[v], v, {}]]
@@ -272,23 +332,20 @@ activeSetReduceSystem[sys_?mfgSystemQ] :=
             And @@ systemData[sys, "AltOptCond"],
             And @@ systemData[sys, "AltExitCond"]
         ];
-        allVars = Select[
-            Variables[(And[deterministicConstraints, activeConstraints] /. initRules) /. {Equal -> List, Or -> List, And -> List}],
-            trackedVarQ
-        ];
-        {detReduced, rulesAcc} = accumulateLinearRules[deterministicConstraints, allVars, initRules];
+        allVars = collectTrackedVars[sys, And[deterministicConstraints, activeConstraints] /. initRules];
+        {detReduced, rulesAcc} = accumulateEqualityRules[deterministicConstraints, allVars, initRules];
         activeReduced = activeConstraints /. rulesAcc;
-        allVars = Select[
-            Variables[And[detReduced, activeReduced] /. {Equal -> List, Or -> List, And -> List}],
-            trackedVarQ
-        ];
-        result = If[Length[allVars] <= 8,
+        (* Eliminated vars are exactly the LHS of rulesAcc that were not in initRules.
+           Set-subtract instead of re-walking the reduced expression tree. *)
+        allVars = DeleteCases[allVars, Alternatives @@ (First /@ rulesAcc)];
+        result = If[Length[allVars] <= $optimizedDNFVarThreshold,
             branches = branchStateReduce[activeReduced, allVars];
             branches = branchStateReduceFromBranches[branches, detReduced, allVars];
             branchStateFinalizeResult[branches, allVars],
             parseDNFReduceResult[dnfReduce[True, And[detReduced, activeReduced]], allVars]
         ];
         attachAccumulatedRules[result, rulesAcc]
+    ]
     ];
 
 Options[booleanReduceSystem] = {
@@ -316,6 +373,237 @@ booleanReduceSystem[sys_?mfgSystemQ, opts : OptionsPattern[]] :=
                     ]
                 ];
                 If[returnAll, parsed, First[parsed]]
+            ]
+        ],
+        buildSolverInputs,
+        attachAccumulatedRules
+    ];
+
+(* ---------- booleanMinimizeSystem (plain) ---------- *)
+
+Options[booleanMinimizeSystem] = {
+    "DisjunctTimeout" -> 30,
+    "ReturnAll"       -> False
+};
+
+booleanMinimizeSystem[sys_?mfgSystemQ, opts : OptionsPattern[]] :=
+    withCriticalCongestionSolver[sys, "booleanMinimizeSystem",
+        Function[{constraints, allVars},
+            Module[{dnf, disjuncts, reducedList, nonFalse, parsed, timeout, returnAll},
+                timeout   = OptionValue[booleanMinimizeSystem, {opts}, "DisjunctTimeout"];
+                returnAll = TrueQ[OptionValue[booleanMinimizeSystem, {opts}, "ReturnAll"]];
+                dnf       = BooleanMinimize[constraints, "DNF"];
+                disjuncts = If[Head[dnf] === Or, List @@ dnf, {dnf}];
+                reducedList = TimeConstrained[Reduce[#, allVars, Reals], timeout, $Aborted] & /@ disjuncts;
+                nonFalse = Select[reducedList, # =!= False && # =!= $Aborted &];
+                If[nonFalse === {},
+                    Return[<|"Rules" -> {}, "Residual" -> False|>, Module]
+                ];
+                parsed = parseReduceResult[#, allVars] & /@ nonFalse;
+                If[Length[parsed] > 1,
+                    With[{ruleSets = (If[ListQ[#], #, Lookup[#, "Rules", {}]] & /@ parsed)},
+                        If[!SameQ @@ (Sort /@ ruleSets), Message[booleanMinimizeSystem::multisol, Length[parsed]]]
+                    ]
+                ];
+                If[returnAll, parsed, First[parsed]]
+            ]
+        ],
+        buildSolverInputs,
+        attachAccumulatedRules
+    ];
+
+(* ---------- booleanMinimizeReduceSystem (levered) ---------- *)
+
+(* Lever 1: prune complementarity arms that are infeasible against the linear part. *)
+pruneDisjunctiveArms[linearAtoms_List, disjAtoms_List, allVars_List, armTimeout_] :=
+    Module[{lin = linearAtoms, disj = disjAtoms, changed = True, status = "Unchanged",
+            newDisj, atom, arms, kept, fi, infeasibleAll = False},
+        While[changed && !infeasibleAll,
+            changed = False;
+            newDisj = {};
+            Do[
+                atom = disj[[k]];
+                arms = If[Head[atom] === Or, List @@ atom, {atom}];
+                kept = Select[arms,
+                    Function[arm,
+                        fi = TimeConstrained[
+                            FindInstance[And @@ Append[lin, arm], allVars, Reals, 1],
+                            armTimeout, $Aborted
+                        ];
+                        Which[
+                            fi === $Aborted,             True,    (* keep on timeout *)
+                            MatchQ[fi, {{___Rule}, ___}], True,
+                            True,                         False
+                        ]
+                    ]
+                ];
+                Which[
+                    kept === {},
+                        infeasibleAll = True;
+                        Break[],
+                    Length[kept] === 1,
+                        lin = Append[lin, First[kept]];
+                        changed = True;
+                        status = "Reduced",
+                    Length[kept] < Length[arms],
+                        AppendTo[newDisj, Or @@ kept];
+                        changed = True;
+                        status = "Reduced",
+                    True,
+                        AppendTo[newDisj, atom]
+                ],
+                {k, Length[disj]}
+            ];
+            If[!infeasibleAll, disj = newDisj]
+        ];
+        If[infeasibleAll,
+            {lin, disj, "Infeasible"},
+            {lin, disj, status}
+        ]
+    ];
+
+(* Lever 2: decompose into connected components of the variable-cooccurrence graph
+   built from BOTH linear and disjunctive atoms. Returns one record per component:
+   {compDisjAtoms, compLinearAtoms, compVars}. Variables are coupled if they appear
+   together in any atom; this preserves linkages through linear equalities/inequalities
+   that would otherwise split coupled disjuncts into different components. *)
+varsOf[expr_, varSet_] :=
+    DeleteDuplicates@Cases[expr, v_ /; KeyExistsQ[varSet, v], {0, Infinity}, Heads -> False];
+
+decomposeByVariableSharing[linearAtoms_List, disjAtoms_List, allVars_List] :=
+    Module[{varSet, linVars, disjVars, edges, varComponents, varToComp,
+            compIndex, n, results},
+        n = Length[allVars];
+        If[n === 0, Return[{{disjAtoms, linearAtoms, {}}}]];
+        varSet = Association[# -> True & /@ allVars];
+        linVars  = varsOf[#, varSet] & /@ linearAtoms;
+        disjVars = varsOf[#, varSet] & /@ disjAtoms;
+        edges = DeleteDuplicates@Flatten[
+            Function[vs,
+                If[Length[vs] >= 2,
+                    Table[vs[[1]] <-> vs[[k]], {k, 2, Length[vs]}],
+                    {}
+                ]
+            ] /@ Join[linVars, disjVars]
+        ];
+        varComponents = ConnectedComponents[Graph[allVars, edges]];
+        varToComp = Association[];
+        Do[
+            (varToComp[#] = k) & /@ varComponents[[k]],
+            {k, Length[varComponents]}
+        ];
+        compIndex[atomVars_] := If[atomVars === {}, Missing[], varToComp[First[atomVars]]];
+        results = Table[
+            With[{compVars = varComponents[[k]]},
+                {
+                    Pick[disjAtoms,   (compIndex[#] === k) & /@ disjVars],
+                    Pick[linearAtoms, (compIndex[#] === k) & /@ linVars],
+                    compVars
+                }
+            ],
+            {k, Length[varComponents]}
+        ];
+        results
+    ];
+
+Options[booleanMinimizeReduceSystem] = {
+    "ArmTimeout"      -> 2,
+    "DisjunctTimeout" -> 30,
+    "ReturnAll"       -> False
+};
+
+booleanMinimizeReduceSystem[sys_?mfgSystemQ, opts : OptionsPattern[]] :=
+    withCriticalCongestionSolver[sys, "booleanMinimizeReduceSystem",
+        Function[{constraints, allVars},
+            Module[{atoms, linearAtoms, disjAtoms, status, components,
+                    armTimeout, disjTimeout, returnAll, mergedRules,
+                    componentResults, anyFalse = False, infeasible = False},
+                armTimeout  = OptionValue[booleanMinimizeReduceSystem, {opts}, "ArmTimeout"];
+                disjTimeout = OptionValue[booleanMinimizeReduceSystem, {opts}, "DisjunctTimeout"];
+                returnAll   = TrueQ[OptionValue[booleanMinimizeReduceSystem, {opts}, "ReturnAll"]];
+
+                atoms = If[Head[constraints] === And, List @@ constraints, {constraints}];
+                {linearAtoms, disjAtoms} = {
+                    Select[atoms, Head[#] =!= Or &],
+                    Select[atoms, Head[#] === Or &]
+                };
+
+                {linearAtoms, disjAtoms, status} =
+                    pruneDisjunctiveArms[linearAtoms, disjAtoms, allVars, armTimeout];
+                If[status === "Infeasible",
+                    Return[<|"Rules" -> {}, "Residual" -> False|>, Module]
+                ];
+
+                components = decomposeByVariableSharing[linearAtoms, disjAtoms, allVars];
+
+                componentResults = Map[
+                    Function[comp,
+                        Module[{compDisjAtoms, compLinear, compVars,
+                                dnf, disjuncts, reducedList, nonFalse, parsed,
+                                fullSystem, redOne},
+                            {compDisjAtoms, compLinear, compVars} = comp;
+                            If[compDisjAtoms === {},
+                                (* Pure-linear component: one Reduce call. *)
+                                redOne = TimeConstrained[
+                                    Reduce[
+                                        If[compLinear === {}, True, And @@ compLinear],
+                                        compVars, Reals
+                                    ],
+                                    disjTimeout, $Aborted
+                                ];
+                                If[redOne === False || redOne === $Aborted,
+                                    anyFalse = True;
+                                    Return[<|"Rules" -> {}, "Residual" -> False|>, Module]
+                                ];
+                                Return[parseReduceResult[redOne, compVars], Module]
+                            ];
+                            dnf = BooleanMinimize[And @@ compDisjAtoms, "DNF"];
+                            disjuncts = If[Head[dnf] === Or, List @@ dnf, {dnf}];
+                            reducedList = TimeConstrained[
+                                Reduce[
+                                    And @@ Join[compLinear, {#}],
+                                    compVars, Reals
+                                ],
+                                disjTimeout, $Aborted
+                            ] & /@ disjuncts;
+                            nonFalse = Select[reducedList, # =!= False && # =!= $Aborted &];
+                            If[nonFalse === {},
+                                anyFalse = True;
+                                Return[<|"Rules" -> {}, "Residual" -> False|>, Module]
+                            ];
+                            parsed = parseReduceResult[#, compVars] & /@ nonFalse;
+                            If[Length[parsed] > 1,
+                                With[{ruleSets = (If[ListQ[#], #, Lookup[#, "Rules", {}]] & /@ parsed)},
+                                    If[!SameQ @@ (Sort /@ ruleSets),
+                                        Message[booleanMinimizeReduceSystem::multisol, Length[parsed]]
+                                    ]
+                                ]
+                            ];
+                            If[returnAll, parsed, First[parsed]]
+                        ]
+                    ],
+                    components
+                ];
+
+                If[anyFalse,
+                    Return[<|"Rules" -> {}, "Residual" -> False|>, Module]
+                ];
+
+                (* Merge per-component rule sets: components are variable-disjoint. *)
+                If[returnAll,
+                    componentResults,
+                    Module[{rulesList, residuals},
+                        rulesList = If[ListQ[#], #, Lookup[#, "Rules", {}]] & /@ componentResults;
+                        residuals = Cases[componentResults,
+                            a_Association :> Lookup[a, "Residual", True]];
+                        mergedRules = Flatten[rulesList];
+                        If[residuals === {} || And @@ (TrueQ /@ residuals),
+                            mergedRules,
+                            <|"Rules" -> mergedRules,
+                              "Residual" -> Simplify[And @@ residuals]|>
+                        ]
+                    ]
+                ]
             ]
         ],
         buildSolverInputs,
@@ -398,6 +686,16 @@ flowFirstCriticalSystem[sys_?mfgSystemQ] :=
 
 trackedVarQ[var_] :=
     MatchQ[var, j[__] | u[__]];
+
+collectTrackedVars[sys_?mfgSystemQ, expr_] :=
+    Select[
+        Join[
+            systemData[sys, "Us"],
+            systemData[sys, "Js"],
+            systemData[sys, "Jts"]
+        ],
+        !FreeQ[expr, #] &
+    ];
 
 primarySolutionVarQ[var_] :=
     MatchQ[var, j[_, _] | u[__]];
@@ -585,15 +883,10 @@ buildSolverInputs[sys_?mfgSystemQ] :=
             And @@ Lookup[data, "AltOptCond"],
             And @@ Lookup[data, "AltExitCond"]
         ];
-        allVars = Select[
-            Variables[(baseConstraints /. initRules) /. {Equal -> List, Or -> List, And -> List}],
-            trackedVarQ
-        ];
-        {constraints, rulesAcc} = accumulateLinearRules[baseConstraints, allVars, initRules];
-        allVars = Select[
-            Variables[constraints /. {Equal -> List, Or -> List, And -> List}],
-            trackedVarQ
-        ];
+        allVars = collectTrackedVars[sys, baseConstraints /. initRules];
+        {constraints, rulesAcc} = accumulateEqualityRules[baseConstraints, allVars, initRules];
+        (* Eliminated vars are LHS of rulesAcc; set-subtract instead of re-walking. *)
+        allVars = DeleteCases[allVars, Alternatives @@ (First /@ rulesAcc)];
         {constraints, allVars, rulesAcc}
     ];
 
@@ -651,8 +944,8 @@ trackedFreeQ::usage =
 cheapConstraintSimplify::usage =
 "cheapConstraintSimplify[expr] performs lightweight simplification of boolean constraints.";
 
-linearRuleFromEquality::usage =
-"linearRuleFromEquality[eq, vars] extracts a substitution rule (var -> rhs) from a linear equality if possible.";
+(* linearRuleFromEquality removed: subsumed by rulesFromEqualities[{eq}, vars, existing]
+   under makeSystem's linearity guarantee. *)
 
 simplifyResiduals::usage =
 "simplifyResiduals[residuals, rules] substitutes rules into a list of residuals and simplifies.";
@@ -691,9 +984,11 @@ constraintPriority[expr_] :=
     ];
 
 orderedConjuncts[expr_] :=
-    SortBy[flattenConjuncts[expr], {constraintPriority, ToString[#, InputForm] &}];
+    (* Canonical-order tiebreaker via Sort instead of ToString[..., InputForm] —
+       both inputs evaluate through the same kernel so structural order suffices. *)
+    SortBy[flattenConjuncts[expr], {constraintPriority, Identity}];
 
-orderedAlternatives[expr_Or] := SortBy[List @@ expr, ToString[#, InputForm] &];
+orderedAlternatives[expr_Or] := Sort[List @@ expr];
 orderedAlternatives[expr_]   := {expr};
 
 dnfTopLevelConjuncts[expr_] := flattenConjuncts[expr];
@@ -766,7 +1061,8 @@ dnfPathRank[expr_, pathInfo_Association] :=
         minDistance = If[verts === {}, Infinity, Min[Lookup[distances, #, Infinity] & /@ verts]];
         exitDistance = If[verts === {}, Infinity, Min[Lookup[exitDistances, #, Infinity] & /@ verts]];
         entryDistance = If[verts === {}, Infinity, Min[Lookup[entryDistances, #, Infinity] & /@ verts]];
-        {onPath, minDistance, exitDistance, entryDistance, LeafCount[Unevaluated[expr]], ToString[Unevaluated[expr], InputForm]}
+        (* Hash is a stable totally-ordered tiebreaker; avoids InputForm pretty-print cost. *)
+        {onPath, minDistance, exitDistance, entryDistance, LeafCount[Unevaluated[expr]], Hash[Unevaluated[expr]]}
     ];
 
 dnfOrderingSummary[conjuncts_List] :=
@@ -830,14 +1126,13 @@ dnfOrderExpression[expr_, order_String, sys_: Missing["NoSystem"]] :=
     ];
 
 branchKey[branch_Association] :=
-    ToString[
-        InputForm[
-            <|
-                "Rules" -> SortBy[Lookup[branch, "Rules", {}], ToString[First[#], InputForm] &],
-                "Residuals" -> SortBy[Lookup[branch, "Residuals", {}], ToString[#, InputForm] &]
-            |>
-        ]
-    ];
+    (* Hash of canonically-sorted Rules + Residuals replaces a full InputForm
+       pretty-print. DeleteDuplicatesBy only requires equal keys for equal
+       branches, which Hash satisfies for structurally-equal inputs. *)
+    Hash[{
+        Sort @ Lookup[branch, "Rules", {}],
+        Sort @ Lookup[branch, "Residuals", {}]
+    }];
 
 deduplicateBranches[branches_List] := DeleteDuplicatesBy[branches, branchKey];
 
@@ -857,32 +1152,11 @@ cheapConstraintSimplify[expr_] :=
         ]
     ];
 
-linearRuleFromEquality[eq_Equal, vars_List] :=
-    Module[{expr, presentVars, varAlt, coeff, rest, rule = None},
-        expr = Expand[Subtract @@ (List @@ eq)];
-        presentVars = Select[vars, !FreeQ[expr, #] &];
-        If[presentVars === {}, Return[None, Module]];
-        varAlt = Alternatives @@ vars;
-        Do[
-            coeff = Simplify[Coefficient[expr, v]];
-            rest  = Simplify[expr - coeff v];
-            If[coeff =!= 0 &&
-               FreeQ[coeff, varAlt] &&
-               FreeQ[rest, v] &&
-               Simplify[expr - coeff v - rest] === 0,
-                rule = v -> Simplify[-rest/coeff];
-                Break[]
-            ],
-            {v, presentVars}
-        ];
-        rule
-    ];
-
 simplifyResiduals[residuals_List, rules_List] :=
     DeleteCases[cheapConstraintSimplify /@ (residuals /. rules), True];
 
 addBranchConstraint[branch_Association, elem_, vars_List] :=
-    Module[{rules, residuals, simplified, rule, newRules, newResiduals},
+    Module[{rules, residuals, simplified, solvedRules, newRules, newResiduals},
         rules = Lookup[branch, "Rules", {}];
         residuals = Lookup[branch, "Residuals", {}];
         simplified = cheapConstraintSimplify[elem /. rules];
@@ -892,19 +1166,57 @@ addBranchConstraint[branch_Association, elem_, vars_List] :=
             simplified === False,
                 {},
             Head[simplified] === And,
-                Fold[
-                    Function[{branches, conjunct},
-                        Join @@ (addBranchConstraint[#, conjunct, vars] & /@ branches)
-                    ],
-                    {branch},
-                    orderedConjuncts[simplified]
+                (* Batch all top-level Equal conjuncts through one rulesFromEqualities
+                   call instead of recursing per conjunct. RowReduce is complete on
+                   linear systems, so one CoefficientArrays + RowReduce subsumes N
+                   per-equation calls. The non-equation conjuncts (and any equations
+                   that survive batch substitution as non-trivial) fall through the
+                   per-conjunct fold for contradiction detection. *)
+                Module[{conjuncts, eqs, rest, batchedRules, mergedRules,
+                        seedResiduals, seedBranch, residualEqs},
+                    conjuncts = orderedConjuncts[simplified];
+                    eqs  = Cases[conjuncts, _Equal];
+                    rest = DeleteCases[conjuncts, _Equal];
+                    batchedRules = If[eqs === {}, {}, rulesFromEqualities[eqs, vars, rules]];
+                    If[batchedRules === {},
+                        Fold[
+                            Function[{branches, conjunct},
+                                Join @@ (addBranchConstraint[#, conjunct, vars] & /@ branches)
+                            ],
+                            {branch},
+                            conjuncts
+                        ],
+                        mergedRules   = normalizeRules[mergeRules[rules, batchedRules]];
+                        seedResiduals = simplifyResiduals[residuals, batchedRules];
+                        If[MemberQ[seedResiduals, False],
+                            {},
+                            seedBranch  = <|"Rules" -> mergedRules, "Residuals" -> seedResiduals|>;
+                            (* Drop equations whose batched substitution makes them True
+                               (pivoted or redundant); keep the rest for the fold to
+                               either consume into residuals or detect as contradictions. *)
+                            residualEqs = DeleteCases[
+                                cheapConstraintSimplify /@ (eqs /. batchedRules),
+                                True
+                            ];
+                            If[MemberQ[residualEqs, False],
+                                {},
+                                Fold[
+                                    Function[{branches, conjunct},
+                                        Join @@ (addBranchConstraint[#, conjunct, vars] & /@ branches)
+                                    ],
+                                    {seedBranch},
+                                    Join[residualEqs, rest]
+                                ]
+                            ]
+                        ]
+                    ]
                 ],
             Head[simplified] === Or,
                 Join @@ (addBranchConstraint[branch, #, vars] & /@ orderedAlternatives[simplified]),
             Head[simplified] === Equal,
-                rule = linearRuleFromEquality[simplified, vars];
-                If[MatchQ[rule, _Rule],
-                    newRules = normalizeRules[mergeRules[rules, {rule}]];
+                solvedRules = rulesFromEqualities[{simplified}, vars, rules];
+                If[solvedRules =!= {},
+                    newRules = normalizeRules[mergeRules[rules, solvedRules]];
                     newResiduals = simplifyResiduals[residuals, newRules];
                     If[MemberQ[newResiduals, False],
                         {},
@@ -956,12 +1268,13 @@ splitGroundRules[rules_List, allVars_List] :=
 
 branchStateFinalizeResult[branches_List, allVars_List] :=
     Module[{ruleSets, common, commonGround, commonResiduals, branchExprs,
-            branchRules, branchGround, branchSymbolic, residuals, residualExpr},
+            branchRules, branchGround, branchSymbolic, residuals, residualExpr,
+            finalResidual, finalRules},
         If[branches === {},
             Return[<|"Rules" -> {}, "Residual" -> False|>, Module]
         ];
         ruleSets = Lookup[#, "Rules", {}] & /@ branches;
-        common = If[ruleSets === {}, {}, Fold[Intersection, First[ruleSets], Rest[ruleSets]]];
+        common = commonRulesFromBranches[ruleSets];
         {commonGround, commonResiduals} = splitGroundRules[common, allVars];
         branchExprs = Simplify /@ Map[
             Function[branch,
@@ -981,9 +1294,16 @@ branchStateFinalizeResult[branches_List, allVars_List] :=
             And @@ (commonResiduals /. commonGround),
             If[branchExprs === {}, True, If[Length[branchExprs] === 1, First[branchExprs], Or @@ branchExprs]]
         ];
-        If[residualExpr === True,
-            commonGround,
-            <|"Rules" -> commonGround, "Residual" -> residualExpr|>
+        (* Promote top-level equalities surviving in residualExpr into rules
+           (ground or parametric — the package treats both the same; see
+           RuleBalanceGatheringFlows in systemTools.wl which seeds initRules
+           with parametric rules). The per-branch reducer leaves equalities in
+           Residuals rather than Rules; without this pass a fully-solved result
+           misreports as Underdetermined. *)
+        {finalResidual, finalRules} = accumulateEqualityRules[residualExpr, allVars, commonGround];
+        If[finalResidual === True,
+            finalRules,
+            <|"Rules" -> finalRules, "Residual" -> finalResidual|>
         ]
     ];
 
@@ -1379,8 +1699,7 @@ dnfReduceDiagnosticReport[sys_?mfgSystemQ, OptionsPattern[]] :=
         orderingSummary = Association[
             dnfOrderingSummary[conjuncts],
             "Order" -> order,
-            "OrderedSameMultisetQ" -> (Sort[ToString[#, InputForm] & /@ conjuncts] ===
-                Sort[ToString[#, InputForm] & /@ dnfTopLevelConjuncts[orderedConstraints]])
+            "OrderedSameMultisetQ" -> (Sort[conjuncts] === Sort[dnfTopLevelConjuncts[orderedConstraints]])
         ];
         monitor = <|
             "TraceLength" -> traceLength,
@@ -1483,60 +1802,110 @@ topLevelEquations[constraints_] :=
         MatchQ[#, _Equal] &
     ];
 
-extractLinearRules[equations_List, vars_List, existingRules_List] :=
-    Module[{sol, solRules},
-        If[equations === {}, Return[{}, Module]];
-        sol = Quiet[Solve[equations, vars], Solve::svars];
-        If[!ListQ[sol] || Length[sol] === 0, Return[{}, Module]];
-        
-        solRules = Cases[First[sol],
-            r : Rule[v_, rhs_] /; MemberQ[vars, v] && FreeQ[rhs, v] && FreeQ[rhs, C] :> r
+rulesFromEqualities[equations_List, vars_List, existingRules_List] :=
+    Module[{n = Length[vars], arrays, c0, c1, augmented, rref, candidateRules, existingLHS},
+        If[equations === {} || n === 0, Return[{}, Module]];
+        (* Equations represent c1.vars + c0 == 0; RowReduce on the augmented
+           matrix [c1 | -c0] reads off solved rules in one pass. Safe because
+           (a) makeSystem guarantees linearity in {j, u, z} and (b) eqGeneral
+           no longer carries Cost[__] coefficients, so coefficients here are
+           pure rationals. Pivot priority is column order; vars arrive u-first
+           via collectTrackedVars so RowReduce eliminates value variables ahead
+           of flow variables, keeping Alt* disjunctions collapsible downstream. *)
+        arrays = Quiet @ Check[
+            CoefficientArrays[equations /. Equal[a_, b_] :> a - b, vars],
+            $Failed
         ];
-        Select[solRules, FreeQ[existingRules[[All, 1]], First[#]] &]
+        If[!ListQ[arrays] || Length[arrays] < 2, Return[{}, Module]];
+        {c0, c1} = Normal /@ Take[arrays, 2];
+        augmented = ArrayFlatten[{{c1, Transpose[{-c0}]}}];
+        rref = RowReduce[augmented];
+        candidateRules = Table[
+            Module[{row = rref[[i]], leadIdx},
+                leadIdx = SelectFirst[Range[n], row[[#]] =!= 0 &, 0];
+                If[leadIdx === 0,
+                    Nothing,
+                    vars[[leadIdx]] ->
+                        -Sum[row[[k]] vars[[k]], {k, leadIdx + 1, n}] + row[[n + 1]]
+                ]
+            ],
+            {i, Length[rref]}
+        ];
+        (* O(1) LHS membership via Association instead of O(n) FreeQ scan per candidate. *)
+        existingLHS = If[existingRules === {}, <||>,
+            AssociationThread[existingRules[[All, 1]] -> True]];
+        Select[candidateRules, !KeyExistsQ[existingLHS, First[#]] &]
     ];
 
-accumulateLinearRules[baseConstraints_, vars_List, initRules_List] :=
-    Module[{rulesAcc = normalizeRules[initRules], constraints, eqs, newRules,
-            prevAcc, deltaRules, iter = 0, maxIter},
-        maxIter = Max[10, 2 Length[vars] + 5];
-        constraints = baseConstraints /. rulesAcc;
-        While[iter < maxIter,
-            eqs = topLevelEquations[constraints];
-            If[eqs === {}, Break[]];
-            newRules = extractLinearRules[eqs, vars, rulesAcc];
-            If[newRules === {}, Break[]];
-            prevAcc = rulesAcc;
-            rulesAcc = normalizeRules[mergeRules[rulesAcc, newRules]];
-            deltaRules = Complement[rulesAcc, prevAcc];
-            constraints = constraints /. deltaRules;
-            iter++
+(* RowReduce is complete on a linear system, so one rulesFromEqualities call
+   extracts every implied rule from the current top-level equation set in one
+   shot. Recursion is needed only when substitution exposes a brand-new
+   top-level equality (Or-branch collapse, paired-inequality fusion such as
+   a<=b && a>=b -> a==b). Termination: each step's rulesFromEqualities
+   LHS-dedup filter forbids re-solving the same variable, so the residual
+   equation set strictly shrinks. The depth guard catches a broken linearity
+   invariant or non-shrinking constraint that would otherwise loop silently. *)
+$accumulateEqualityRulesDepthCap = 8;
+
+accumulateEqualityRules[baseConstraints_, vars_List, initRules_List, depth_Integer:0] :=
+    Module[{constraints, eqs, newRules, nextConstraints, nextEqs, mergedRules},
+        constraints = baseConstraints /. initRules;
+        eqs = topLevelEquations[constraints];
+        newRules = If[eqs === {}, {}, rulesFromEqualities[eqs, vars, initRules]];
+        If[newRules === {},
+            Return[{constraints, normalizeRules[initRules]}, Module]
         ];
-        {constraints, rulesAcc}
+        nextConstraints = constraints /. newRules;
+        nextEqs = topLevelEquations[nextConstraints];
+        mergedRules = mergeRules[initRules, newRules];
+        Which[
+            Complement[nextEqs, eqs] === {},
+                {nextConstraints, normalizeRules[mergedRules]},
+            depth >= $accumulateEqualityRulesDepthCap,
+                mfgPrint["accumulateEqualityRules: depth cap hit; check linearity invariant."];
+                {nextConstraints, normalizeRules[mergedRules]},
+            True,
+                accumulateEqualityRules[nextConstraints, vars, mergedRules, depth + 1]
+        ]
     ];
+
+mergeAccumulatedRules[rulesAcc_, rules_] := normalizeRules[mergeRules[rulesAcc, rules]];
+
+(* Rules common to every branch's rule set. Empty input -> {}. *)
+commonRulesFromBranches[ruleSets_List] :=
+    If[ruleSets === {}, {}, Fold[Intersection, First[ruleSets], Rest[ruleSets]]];
 
 attachAccumulatedRules[result_, rulesAcc_List] /; ListQ[result] :=
-    normalizeRules[mergeRules[rulesAcc, result]];
+    mergeAccumulatedRules[rulesAcc, result];
 
 attachAccumulatedRules[result_, rulesAcc_List] /; AssociationQ[result] :=
-    Association[result, "Rules" -> normalizeRules[mergeRules[rulesAcc, Lookup[result, "Rules", {}]]]];
+    Association[result, "Rules" -> mergeAccumulatedRules[rulesAcc, Lookup[result, "Rules", {}]]];
 
 attachAccumulatedRules[result_, _] := result;
 
-branchToRules[branch_, allVars_] :=
+(* O(1) KeyExistsQ replaces per-match O(n) MemberQ scan. branchToRules
+   accepts an optional pre-built (allVarsSet, varsAlt) pair so the Or-branch
+   fan-out in parseReduceResult builds them once instead of per branch. *)
+branchToRules[branch_, allVars_List] :=
+    branchToRules[branch, AssociationThread[allVars -> True], Alternatives @@ allVars];
+
+branchToRules[branch_, allVarsSet_Association, varsAlt_] :=
     With[{conjuncts = Switch[Head[branch], And, List @@ branch, _, {branch}]},
         Cases[conjuncts,
             HoldPattern[v_ == val_] /;
-                MemberQ[allVars, v] && FreeQ[val, Alternatives @@ allVars] :>
+                KeyExistsQ[allVarsSet, v] && FreeQ[val, varsAlt] :>
                 (v -> val)
         ]
     ];
 
 parseReduceResult[reduced_, allVars_] :=
-    Module[{conjuncts, rules, residual},
+    Module[{conjuncts, rules, residual, allVarsSet, varsAlt},
+        allVarsSet = AssociationThread[allVars -> True];
+        varsAlt = Alternatives @@ allVars;
         If[Head[reduced] === Or,
             Return[
-                With[{common = Fold[Intersection,
-                                    branchToRules[#, allVars] & /@ List @@ reduced]},
+                With[{common = commonRulesFromBranches[
+                                    branchToRules[#, allVarsSet, varsAlt] & /@ List @@ reduced]},
                     <|"Rules" -> common, "Residual" -> reduced|>
                 ]
             ]
@@ -1549,12 +1918,12 @@ parseReduceResult[reduced_, allVars_] :=
         ];
         rules = Cases[conjuncts,
             HoldPattern[v_ == val_] /;
-                MemberQ[allVars, v] && FreeQ[val, Alternatives @@ allVars] :>
+                KeyExistsQ[allVarsSet, v] && FreeQ[val, varsAlt] :>
                 (v -> val)
         ];
         residual = DeleteCases[conjuncts,
             HoldPattern[v_ == val_] /;
-                MemberQ[allVars, v] && FreeQ[val, Alternatives @@ allVars]
+                KeyExistsQ[allVarsSet, v] && FreeQ[val, varsAlt]
         ];
         If[residual === {},
             rules,
@@ -1565,7 +1934,7 @@ parseReduceResult[reduced_, allVars_] :=
 harvestDNFBranch[False, _] := False;
 
 harvestDNFBranch[branch_, allVars_List] :=
-    Module[{conjuncts, eqs, sol, rules, reducedConjuncts, residual},
+    Module[{conjuncts, eqs, sol, rules, reducedConjuncts, residual, allVarsSet, varsAlt},
         conjuncts = flattenConjuncts[branch];
         eqs = Select[conjuncts, MatchQ[#, _Equal] &];
         sol = If[eqs === {} || allVars === {},
@@ -1573,10 +1942,11 @@ harvestDNFBranch[branch_, allVars_List] :=
             Quiet[Solve[eqs, allVars], Solve::svars]
         ];
         If[!ListQ[sol] || sol === {}, Return[False, Module]];
+        allVarsSet = AssociationThread[allVars -> True];
+        varsAlt = Alternatives @@ allVars;
         rules = Cases[First[sol],
             r : Rule[v_, rhs_] /;
-                MemberQ[allVars, v] &&
-                FreeQ[rhs, Alternatives @@ allVars] :> r
+                KeyExistsQ[allVarsSet, v] && FreeQ[rhs, varsAlt] :> r
         ];
         reducedConjuncts = Simplify /@ (conjuncts /. rules);
         reducedConjuncts = DeleteCases[reducedConjuncts, True];
@@ -1615,7 +1985,7 @@ parseDNFReduceResult[reduced_, allVars_List] :=
             ]
         ];
         ruleSets = Lookup[#, "Rules", {}] & /@ harvested;
-        common = If[ruleSets === {}, {}, Fold[Intersection, First[ruleSets], Rest[ruleSets]]];
+        common = commonRulesFromBranches[ruleSets];
         branchExprs = Simplify /@ Map[
             With[{branchRules = Complement[Lookup[#, "Rules", {}], common],
                   residual = Lookup[#, "Residual", True]},

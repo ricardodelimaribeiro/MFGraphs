@@ -46,6 +46,36 @@ The symbolic solvers (`MFGraphs/solversTools.wl`) are designed for **critical co
 
 Hamiltonian parameters `V`, `G`, `EdgeV`, and `EdgeG` are validated and preserved on scenarios for future density-per-edge visualization work, but current structural system construction applies only `Alpha` and `EdgeAlpha`.
 
+The solver layer combines package-defined MFGraphs reductions with Wolfram
+backends:
+
+| Solver | Method |
+|---|---|
+| `reduceSystem` | Wolfram `Reduce` over `Reals` (CAD / real quantifier elimination for polynomial real systems). |
+| `dnfReduceSystem` | Package recursive DNF reducer: equality substitution and disjunction expansion. |
+| `optimizedDNFReduceSystem` | Package branch-state DNF reduction for small residual systems, falling back to `dnfReduce`. |
+| `activeSetReduceSystem` | Package active-set enumeration for complementarity alternatives, falling back to `dnfReduce`. |
+| `booleanReduceSystem` | Wolfram `BooleanConvert[..., "DNF"]`, then `Reduce` per disjunct. |
+| `booleanMinimizeSystem` | Wolfram `BooleanMinimize[..., "DNF"]`, then `Reduce` per disjunct. This is exact Boolean minimal-DNF/SOP minimization; it is analogous to classical Quine-McCluskey/Petrick-style two-level minimization, but Wolfram does not document `BooleanMinimize` as specifically using QMC or Petrick internally. |
+| `booleanMinimizeReduceSystem` | Package arm pruning and component decomposition, then `BooleanMinimize` and `Reduce` per component/disjunct. |
+| `findInstanceSystem` | Wolfram `FindInstance` over `Reals`. |
+| `directCriticalSystem` | Package graph-distance pruning heuristic, then `FindInstance`. |
+| `flowFirstCriticalSystem` | Package linear least-squares candidate via `LeastSquares`, then `FindInstance` fallback. |
+
+See [Solver Methods and Package Novelty](docs/solvers/methods-and-novelty.md)
+for the full method map and the distinction between Wolfram backend algorithms
+and MFGraphs-specific contributions.
+
+## Package novelty
+
+The package novelty is the MFG-specific workflow around those solver backends:
+typed scenario construction, auxiliary state-space graph augmentation, exact
+logical-algebraic complementarity encoding, equality preprocessing,
+custom DNF/active-set reductions, hybrid Boolean/real branch solving, solver
+diagnostics, and paired raw/rich network visualization. The package should not
+claim novelty for Wolfram built-ins such as `Reduce`, `FindInstance`,
+`BooleanMinimize`, `RowReduce`, or `LeastSquares`.
+
 ### Signed edge traversal cost
 
 Physical network edges are undirected, but the symbolic system keeps one flow variable per direction. For an edge `{a, b}`, the oriented net flow is:
@@ -230,6 +260,7 @@ Scripts/
 - Canonical workflow/reference: [CLAUDE.md](CLAUDE.md)
 - Pointer companion: [GEMINI.md](GEMINI.md)
 - Assistant pointer policy: [AGENTS.md](AGENTS.md)
+- Solver methods and novelty: [docs/solvers/methods-and-novelty.md](docs/solvers/methods-and-novelty.md)
 - Troubleshooting: [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
 
 ## License

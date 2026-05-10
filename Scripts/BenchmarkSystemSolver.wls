@@ -127,7 +127,9 @@ RunCase[{name_String, buildFn_}] :=
     ];
     warmupMs = warmupTime * 1000;
 
-    {repTime, repSol} = AbsoluteTiming[
+    (* RepeatedTiming auto-tunes sample count to a stable mean — replaces a
+       single AbsoluteTiming sample so the reported Repeat is reproducible. *)
+    {repTime, repSol} = RepeatedTiming[
       TimeConstrained[RunSelectedSolver[sys], timeout, $TimedOut]
     ];
     sol = solWarmup;

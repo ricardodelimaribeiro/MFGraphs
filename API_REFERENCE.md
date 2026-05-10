@@ -80,7 +80,7 @@ cycleScenario[n, entries, exits] creates a scenario on n-cycle connections, vert
 
 ## getExampleScenario
 
-getExampleScenario[n] returns a 6-arg factory Function[{entries,exits,sc,alpha,V,g}, scenario[...]] for built-in example n. Topology is baked in; all parameters are caller-supplied. getExampleScenario[n, entries, exits] calls the factory using the canonical switching costs for that case (sc=Automatic resolves via $CaseDefaultSC, defaulting to {} if none defined) and makeScenario-supplied Hamiltonian defaults. V/G are preserved on the scenario for future density and visualization work, but are not applied by current system construction. Additional optional arguments override each default in order: sc, alpha, V, g. Pass sc={} explicitly to force no switching costs. entries={{vertex,flow},...}, exits={{vertex,cost},...}, sc={{i,k,j,cost},...}. Returns $Failed for unknown keys.
+getExampleScenario[n] returns a 6-arg factory Function[{entries,exits,sc,alpha,V,g}, scenario[...]] for built-in example n (integer 1-23 or named string). Topology is baked in; all parameters are caller-supplied. getExampleScenario[n, entries, exits] calls the factory with canonical defaults:   sc=Automatic resolves via $CaseDefaultSC (falls back to {}),   alpha=1 (critical congestion), V=0, g=0 (Hamiltonian parameters passed through but not yet applied in system construction). getExampleScenario[n, entries, exits, sc] overrides switching costs (pass {} for none). getExampleScenario[n, entries, exits, sc, alpha] also overrides alpha. getExampleScenario[n, entries, exits, sc, alpha, V] also overrides V. getExampleScenario[n, entries, exits, sc, alpha, V, g] overrides all parameters. entries={{vertex,flow},...}; exits={{vertex,cost},...}; sc={{i,k,j,cost},...} or Association with 3-tuple keys. Returns $Failed for unknown keys.
 
 ## getExampleScenarioMetadata
 
@@ -125,12 +125,11 @@ altFlowOp[j][list] returns the alternative: j@@list ==0 || j@@Reverse@list ==0.
 ## altSwitch
 
 altSwitch[j, u, switchingCosts][r, i, w] returns the complementarity condition at junction i for the transition from r to w:
-(j[r, i, w] == 0) || (u[w, i] + switchingCosts[r, i, w] - u[r, i] == 0)
-where switchingCosts[r, i, w] is the minimal cost of transitioning from edge e_{r,i} to edge e_{i,w}; minimal because when switching costs are inconsistent the broader alternative-transition-flow conditions (j[j,i,l]==0 || j[l,i,k]==0) for all v_j, v_l, v_k adjacent to v_i are added to the system (this generalizes the condition for j=k already present in the system).
+(j[r, i, w] == 0) || (u[w, i] + switchingCosts[r, i, w] - u[r, i] == 0).
 
 ## buildBoundaryData
 
-buildBoundaryData[s, topology] builds typed boundary equations, boundary value rules, and entry/exit metadata.
+buildBoundaryData[s, topology] builds typed boundary equations, entry rules, exit inequalities, and entry/exit metadata. IneqExitValues stores upper-bound inequalities u[auxExit,N]<=cost for each exit; AltExitCond stores the complementarity conditions j[N,auxExit]==0||u[auxExit,N]==cost.
 
 ## buildComplementarityData
 
@@ -142,15 +141,7 @@ buildFlowData[s, topology, unk] builds typed flow-balance equations and non-nega
 
 ## buildHamiltonianData
 
-buildHamiltonianData[s, topology, flowData] builds typed Hamiltonian residual equations for the system. The current EqGeneral block is the integrated transport-equation form associated with the Hamiltonian equation: the integral over [0,1] of the adjoint of the linearization of the stationary Hamilton-Jacobi equation. Current system construction uses Alpha/EdgeAlpha; V/G/EdgeV/EdgeG are preserved on scenarios for future density and visualization work but are not applied here yet. For an undirected edge {a,b}, SignedFlows stores the oriented net flow m = j[a,b] - j[b,a]; Nrhs stores the orientation-aware congestion current m - Sign[m] m^alpha, so for Alpha == 1 the Sign term encodes the edge traversal cost through Abs[m].
-
-## consistentSwitchingCosts
-
-consistentSwitchingCosts[switchingcosts][{a,b,c}->S]
-returns True if S, the cost of switching from the edge ab to cb, is smaller than any other combination,
-such as, ab to bd and then from db to bc.
-Returns the condition for this switching cost to satisfy the triangle inequality when S, and the other
-switching costs too, does not have a numerical value.
+buildHamiltonianData[s, topology, flowData] builds typed Hamiltonian residual equations for the system. EqGeneral encodes the edge-level HJB equation u[a,b]-u[b,a]+j[a,b]-j[b,a] = nrhs unconditionally for every undirected edge {a,b}, where nrhs = 0 for Alpha==1 and m - Sign[m] m^alpha otherwise. The equation is enforced even when net flow is zero (zero-flow edges force u[a,b]=u[b,a]), which propagates through switching inequalities to pin value variables at bypassed exit nodes to their terminal cost. Current system construction uses Alpha/EdgeAlpha; V/G/EdgeV/EdgeG are preserved on scenarios for future work.
 
 ## flowGathering
 
@@ -171,12 +162,7 @@ getKirchhoffMatrix[sys] returns the entry current vector, Kirchhoff matrix, (cri
 ## ineqSwitch
 
 ineqSwitch[u, switchingCosts][r, i, w] returns the optimality condition at junction i for the transition from r to w. Namely,
-u[w, i] + switchingCosts[r, i, w] - u[r, i] >= 0
-where switchingCosts[r, i, w] is the minimal cost of transitioning from edge e_{r,i} to edge e_{i,w}; minimal because when switching costs are inconsistent the broader alternative-transition-flow conditions (j[j,i,l]==0 || j[l,i,k]==0) for all v_j, v_l, v_k adjacent to v_i are added to the system (this generalizes the condition for j=k already present in the system).
-
-## isSwitchingCostConsistent
-
-isSwitchingCostConsistent[List of switching costs] is True if all switching costs satisfy the triangle inequality. If some switching costs are symbolic, then it returns the consistency conditions.
+u[w, i] + switchingCosts[r, i, w] - u[r, i] >= 0.
 
 ## makeSystem
 
@@ -238,9 +224,17 @@ systemDataFlatten[sys] returns a single flat Association containing all keys fro
 
 activeSetReduceSystem[sys] is an opt-in exact active-set solver for the critical-congestion linear complementarity structure. It enumerates small complementarity alternatives incrementally with exact linear substitution and falls back to the proven exact DNF reducer for larger residual variable sets. Returns the same rule/residual shape as dnfReduceSystem. Fails for non-critical congestion systems where Alpha != 1 on any edge.
 
+## booleanMinimizeReduceSystem
+
+booleanMinimizeReduceSystem[sys] solves the mfgSystem sys by attacking the disjunctive structure of the preprocessed constraint system before DNF expansion. It (1) prunes individual complementarity arms that are infeasible against the linear part via FindInstance; (2) decomposes the surviving disjunctive atoms into connected components by shared variables; (3) BooleanMinimizes each component to minimal DNF and Reduces per disjunct. Returns the same rule/residual shape as booleanReduceSystem. Fails for non-critical congestion systems where Alpha != 1 on any edge. Options: "ArmTimeout" (default 2s per FindInstance arm check), "DisjunctTimeout" (default 30s per Reduce call), "ReturnAll" (default False).
+
+## booleanMinimizeSystem
+
+booleanMinimizeSystem[sys] is a head-to-head variant of booleanReduceSystem that calls BooleanMinimize[constraints, "DNF"] in place of BooleanConvert[constraints, "DNF"]. This is exact minimal-DNF Boolean minimization, analogous to classical two-level SOP minimization such as Quine-McCluskey/Petrick-style methods, followed by Reduce per disjunct. Wolfram does not document BooleanMinimize as a specific QMC/Petrick implementation. Same preprocessing and return shape as booleanReduceSystem. Use to compare the two Boolean-stage operations on identical input. Fails for non-critical congestion systems where Alpha != 1 on any edge. Options: "DisjunctTimeout" (default 30s per Reduce call), "ReturnAll" (default False).
+
 ## booleanReduceSystem
 
-booleanReduceSystem[sys] solves the mfgSystem sys by converting the preprocessed constraint system to DNF via BooleanConvert, then calling Reduce independently on each disjunct. Each disjunct is a pure conjunction (no Or), so Reduce avoids case-splitting. Non-False results are collected; if the system has a unique equilibrium all non-False results are equivalent. Returns a list of rules when fully determined, or <|"Rules" -> rules, "Equations" -> residual|> when underdetermined. Fails for non-critical congestion systems where Alpha != 1 on any edge. Options: "DisjunctTimeout" (default 30s per Reduce call), "ReturnAll" (default False; True returns all non-False parsed results).
+booleanReduceSystem[sys] solves the mfgSystem sys by converting the preprocessed constraint system to DNF via BooleanConvert, then calling Reduce independently on each disjunct. This is DNF conversion followed by real quantifier elimination / CAD-style solving per pure conjunction. Each disjunct has no Or, so Reduce avoids case-splitting. Non-False results are collected; if the system has a unique equilibrium all non-False results are equivalent. Returns a list of rules when fully determined, or <|"Rules" -> rules, "Residual" -> residual|> when underdetermined. Fails for non-critical congestion systems where Alpha != 1 on any edge. Options: "DisjunctTimeout" (default 30s per Reduce call), "ReturnAll" (default False; True returns all non-False parsed results).
 
 ## computeKirchhoffResidual
 
@@ -252,15 +246,15 @@ directCriticalSystem[sys] is an explicit opt-in solver for critical congestion s
 
 ## dnfReduce
 
-dnfReduce[xp, sys] simplifies xp && sys by solving equalities, substituting their solutions throughout the system, and distributing over disjunctions. Returns a DNF expression with all equalities eliminated where possible. dnfReduce[xp, sys, elem] is the 3-argument form used internally to process one conjunct elem from sys.
+dnfReduce[xp, sys] simplifies xp && sys by solving equalities, substituting their solutions throughout the system, and distributing over disjunctions. Returns a DNF expression with all equalities eliminated where possible. dnfReduce[xp, sys, elem] is the 3-argument form used internally to process one conjunct elem from sys. Implemented with direct recursion: the Or case spawns one recursive call per branch and the Equal case recurses on the substituted remainder. Deeply nested Or-chains may approach $RecursionLimit; see dnfReduceProcedural for a stack-based iterative alternative.
 
 ## dnfReduceSystem
 
-dnfReduceSystem[sys] solves the mfgSystem sys using linear preprocessing followed by dnfReduce instead of Reduce. Handles cases where Reduce times out by using equality-substitution and disjunction-distribution. Returns a list of rules when fully determined, or <|"Rules" -> rules, "Equations" -> residual|> when underdetermined. Fails for non-critical congestion systems where Alpha != 1 on any edge.
+dnfReduceSystem[sys] solves the mfgSystem sys using linear preprocessing followed by dnfReduce instead of Reduce. Handles cases where Reduce times out by using equality-substitution and disjunction-distribution. Returns a list of rules when fully determined, or <|"Rules" -> rules, "Residual" -> residual|> when underdetermined. Fails for non-critical congestion systems where Alpha != 1 on any edge.
 
 ## findInstanceSystem
 
-findInstanceSystem[sys] solves the mfgSystem sys by collecting and linearly preprocessing constraints, then calling FindInstance over the remaining variables. Returns one feasible list of rules. If no instance is found or the final solve times out, returns <|"Rules" -> accumulatedRules, "Equations" -> False|>. Fails for non-critical congestion systems where Alpha != 1 on any edge. Options: "Timeout" (default Infinity).
+findInstanceSystem[sys] solves the mfgSystem sys by collecting and linearly preprocessing constraints, then calling FindInstance over the remaining real variables. This is real satisfiability / instance finding using Wolfram's real-system solver backend. Returns one feasible list of rules. If no instance is found or the final solve times out, returns <|"Rules" -> accumulatedRules, "Residual" -> False|>. Fails for non-critical congestion systems where Alpha != 1 on any edge. Options: "Timeout" (default Infinity).
 
 ## flowFirstCriticalSystem
 
@@ -272,11 +266,11 @@ isValidSystemSolution[sys, sol] checks whether sol (the output of reduceSystem[s
 
 ## optimizedDNFReduceSystem
 
-optimizedDNFReduceSystem[sys] is an opt-in exact solver for critical congestion systems. It follows the same preprocessing and output contract as dnfReduceSystem. It carries small DNF branch families directly as rules plus residual constraints, and falls back to the proven exact DNF reducer for larger residual variable sets. Returns a list of rules when fully determined, or <|"Rules" -> rules, "Equations" -> residual|> when underdetermined. Fails for non-critical congestion systems where Alpha != 1 on any edge.
+optimizedDNFReduceSystem[sys] is an opt-in exact solver for critical congestion systems. It follows the same preprocessing and output contract as dnfReduceSystem. It carries small DNF branch families directly as rules plus residual constraints, and falls back to the proven exact DNF reducer for larger residual variable sets. Returns a list of rules when fully determined, or <|"Rules" -> rules, "Residual" -> residual|> when underdetermined. Fails for non-critical congestion systems where Alpha != 1 on any edge.
 
 ## reduceSystem
 
-reduceSystem[sys] reduces the structural equations, flow balance, non-negativity constraints, and complementarity conditions of the mfgSystem sys using Reduce over the Reals. Includes AltOptCond (switching-cost optimality complementarity) and IneqSwitchingByVertex (switching-cost optimality inequalities). Fails for non-critical congestion systems where Alpha != 1 on any edge. Returns a list of rules when the system is fully determined, or <|"Rules" -> rules, "Equations" -> residual|> when underdetermined.
+reduceSystem[sys] reduces the structural equations, flow balance, non-negativity constraints, and complementarity conditions of the mfgSystem sys using Wolfram Reduce over the Reals; for polynomial real systems this is the CAD/real quantifier-elimination backend. Includes AltOptCond (switching-cost optimality complementarity) and IneqSwitchingByVertex (switching-cost optimality inequalities). Fails for non-critical congestion systems where Alpha != 1 on any edge. Returns a list of rules when the system is fully determined, or <|"Rules" -> rules, "Residual" -> residual|> when underdetermined.
 
 ## solutionBranchCostReport
 
@@ -286,42 +280,66 @@ solutionBranchCostReport[sys, sol] ranks top-level residual branches by a diagno
 
 solutionReport[sys, sol] returns a read-only diagnostic association for an existing solver result. The report includes result kind, validation report, Kirchhoff residual, residual branch diagnostics, primary residual variables, and transition-flow determinacy diagnostics. It does not rewrite sol.
 
+## clearSolveCache
+
+clearSolveCache[] empties solveScenario's session-scoped memoization cache. Call between benchmark passes to measure cold-start cost, or to release memory in long-running sessions.
+
 ## SolveMFG
 
 SolveMFG[s] solves a typed scenario object by delegating to solveScenario. SolveMFG[assoc] provides backward compatibility for legacy raw-association solving. It constructs a scenario and delegates to solveScenario. SolveMFG[s, solver] or SolveMFG[assoc, solver] uses the specified solver function.
 
 ## solveScenario
 
-solveScenario[s] automatically constructs exact symbolic unknowns, builds the structural system, and calls dnfReduceSystem. solveScenario[{s1, s2, ...}] solves multiple populations (scenarios) and returns a list of solutions. solveScenario[..., solver] uses the specified solver function (e.g., reduceSystem).
+solveScenario[s] automatically constructs exact symbolic unknowns, builds the structural system, and calls dnfReduceSystem. solveScenario[{s1, s2, ...}] solves multiple populations (scenarios) and returns a list of solutions. solveScenario[..., solver] uses the specified solver function (e.g., reduceSystem). Results are memoized per (scenario, solver) within the session; call clearSolveCache[] to wipe.
 
 ## augmentAuxiliaryGraph
 
 augmentAuxiliaryGraph[sys] constructs the road-traffic augmented infrastructure graph from a system's AuxPairs and AuxTriples. Returns an Association containing the Graph, Vertices, FlowEdges, TransitionEdges, EdgeVariables, and EdgeKinds.
 
-## mfgAugmentedPlot
+## BendFactor
 
-mfgAugmentedPlot[s, sys, sol, opts] plots the augmented road-traffic infrastructure graph built by augmentAuxiliaryGraph. Blue edges represent flow variables j[a,b]; red edges represent transition variables j[r,i,w]. Use PlotLabel, GraphLayout, and ImageSize options to control display.
+BendFactor is an option for richNetworkPlot.
 
-## mfgDensityPlot
+## rawNetworkPlot
 
-mfgDensityPlot[s, sys, sol, opts] plots real network edges with agent density inferred from solved signed spatial flow and the scenario Hamiltonian density equation. Use PlotLabel, GraphLayout, and ImageSize options to control display.
+rawNetworkPlot[s, sys, opts] and rawNetworkPlot[s, sys, sol, opts] render the physical network. Real network vertices are gray. Auxiliary entry/exit vertices and boundary edges are hidden by default. Options: ShowAuxiliaryVertices (default False), ShowBoundaryData (default False; when True forces ShowAuxiliaryVertices), ShowBoundaryValues (default True; shows u-values on auxiliary exit vertices when boundary data is shown), ShowFlowLabels (default Automatic; True when sol provided), ShowValueLabels (default Automatic; True when sol provided; shows u-values with 1/4, 1/2, 3/4 interpolations), ShowDensityLabels (default False; shows inferred density m), ColorFunction (default Automatic; RedBlue blend over u-values), ShowLegend (default True), GraphLayout (default Automatic), PlotLabel (default Automatic), ImageSize (default Large). With a solution provided, auxiliary vertices (when shown) and shown vertex states are colored by u-value gradient; physical entry/exit vertices remain gray.
 
-## mfgFlowPlot
+## richNetworkPlot
 
-mfgFlowPlot[s, sys, sol, opts] plots a flow-only solution graph with real and auxiliary edges. Edges are displayed as directed, and edge labels show only j flow values. Use PlotLabel, GraphLayout, and ImageSize options to control display.
+richNetworkPlot[s, sys, opts] and richNetworkPlot[s, sys, sol, opts] render the augmented state-space graph. Nodes are pairs {a,b} representing oriented edge states; edges are flow arcs j[a,b] (blue) and transition arcs j[r,i,w] (red), drawn as quadratic Bezier curves so anti-parallel pairs separate. Only nodes whose label position (b) is an auxiliary entry/exit vertex receive boundary colors. Options: ShowFlowEdges (default True; False yields the transition-only graph), ShowBoundaryData (default False; overlays entry-flow and exit-cost labels), ShowBoundaryValues (default True; shows u/cost on boundary nodes), ShowFlowLabels (default Automatic; True when sol provided), ShowValueLabels (default Automatic; True when sol provided), UseColorFunction (default False; when True colors nodes and eligible edges by u-values using ColorFunction), ColorFunction (default Automatic), ShowLegend (default True), BendFactor (default 0.15; arc curvature as fraction of edge length), GraphLayout (default Automatic), PlotLabel (default Automatic), ImageSize (default Large).
 
-## mfgSolutionPlot
+## ShowAuxiliaryVertices
 
-mfgSolutionPlot[s, sys, sol, opts] plots coordinated solution views: flows, value samples, and agent density. Use PlotLabel, GraphLayout, and ImageSize options to control display.
+ShowAuxiliaryVertices is an option for rawNetworkPlot.
 
-## mfgTransitionPlot
+## ShowBoundaryData
 
-mfgTransitionPlot[s, sys, sol, opts] plots the transition graph of the solution. Nodes are AuxPair states {r,i}->{i,w}; directed edges represent transition flows j[r,i,w]. Nodes are labeled with internal values u where available. Use PlotLabel, GraphLayout, and ImageSize options to control display.
+ShowBoundaryData is an option for rawNetworkPlot and richNetworkPlot.
 
-## mfgValuePlot
+## ShowBoundaryValues
 
-mfgValuePlot[s, sys, sol, opts] plots real network edges with endpoint value variables u[a,b], u[b,a] and linearly interpolated interior samples at 1/4, 1/2, and 3/4. Use PlotLabel, GraphLayout, and ImageSize options to control display.
+ShowBoundaryValues is an option for rawNetworkPlot and richNetworkPlot.
 
-## scenarioTopologyPlot
+## ShowDensityLabels
 
-scenarioTopologyPlot[s, sys, opts] plots the scenario topology using vertex coloring for entry, exit, and internal vertices. Use PlotLabel, GraphLayout, and ImageSize options to control display.
+ShowDensityLabels is an option for rawNetworkPlot.
+
+## ShowFlowEdges
+
+ShowFlowEdges is an option for richNetworkPlot.
+
+## ShowFlowLabels
+
+ShowFlowLabels is an option for rawNetworkPlot and richNetworkPlot.
+
+## ShowLegend
+
+ShowLegend is an option for rawNetworkPlot and richNetworkPlot.
+
+## ShowValueLabels
+
+ShowValueLabels is an option for rawNetworkPlot and richNetworkPlot.
+
+## UseColorFunction
+
+UseColorFunction is an option for richNetworkPlot.

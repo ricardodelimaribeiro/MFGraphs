@@ -88,19 +88,16 @@ Test[
     TestID -> "parseDNFReduceResult: common rule extraction preserves inequality branches"
 ]
 
-(* Regression: pure equality disjunction must continue to work. *)
+(* Regression: pure equality disjunction must continue to work. TautologyQ
+   suffices here (no inequality atoms); the other two tests in this block
+   need Resolve[..., Reals] because TautologyQ refuses non-Boolean atoms. *)
 Test[
-    TrueQ @ Resolve[
-        ForAll[{x},
-            Equivalent[
-                toExpr[solversTools`Private`parseDNFReduceResult[
-                    solversTools`dnfReduce[True, (x == 0) || (x == 1)],
-                    {x}
-                ]],
-                BooleanConvert[(x == 0) || (x == 1), "DNF"]
-            ]
-        ],
-        Reals
+    TautologyQ @ Equivalent[
+        toExpr[solversTools`Private`parseDNFReduceResult[
+            solversTools`dnfReduce[True, (x == 0) || (x == 1)],
+            {x}
+        ]],
+        BooleanConvert[(x == 0) || (x == 1), "DNF"]
     ],
     True,
     TestID -> "parseDNFReduceResult: pure equality Or preserved (regression)"

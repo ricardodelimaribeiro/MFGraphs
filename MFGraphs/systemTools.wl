@@ -361,50 +361,24 @@ buildComplementarityData[s_?scenarioQ, topology_Association, unk_?symbolicUnknow
     ];
 
 buildHamiltonianData[s_?scenarioQ, topology_Association, flowData_mfgFlowData] :=
-    Module[{hamiltonian, alphaDefault, edgeAlpha, alphaAtEdge, edgeCost, halfPairs,
-         signedFlows, nlhs, nrhs, costCurrents, eqGeneral},
-        hamiltonian = scenarioData[s, "Hamiltonian"];
-        If[!AssociationQ[hamiltonian], hamiltonian = <||>];
-        alphaDefault = Lookup[hamiltonian, "Alpha", 1];
-        edgeAlpha    = Lookup[hamiltonian, "EdgeAlpha", <||>];
-
-        alphaAtEdge[edge_List] :=
-            Lookup[
-                edgeAlpha,
-                Key[edge],
-                Lookup[edgeAlpha, Key[Reverse[edge]], alphaDefault]
-            ];
-        edgeCost[m_, edge_List] := m^alphaAtEdge[edge];
-
+    Module[{halfPairs, signedFlows, nlhs, eqGeneral},
+        (* The Hamiltonian equation u[a,b]-u[b,a]+j[a,b]-j[b,a] == 0 is enforced
+           unconditionally. The (j[a,b]-j[b,a]==0) || ... disjunct must NOT be
+           reintroduced: on zero-flow edges it fires True, leaving u[a,b]/u[b,a]
+           unconstrained and producing parametric solutions with free value
+           variables at unused exits. Without it, zero net flow forces
+           u[a,b]==u[b,a], and switching inequalities propagate the value pin.
+           Critical-congestion-only: under withCriticalCongestionGuard the per-edge
+           alpha branching collapses to nlhs == 0; revisit if Alpha != 1 is ever
+           supported. *)
         halfPairs   = topology["HalfPairs"];
         signedFlows = First[flowData]["SignedFlows"];
-
         nlhs = Flatten[u @@ # - u @@ Reverse @ # + signedFlows[#]& /@ halfPairs];
-        nrhs = Flatten[signedFlows[#] - Sign[signedFlows[#]] edgeCost[signedFlows[#], #]& /@ halfPairs];
-
-        costCurrents = Table[Symbol["systemTools`Private`cpc" <> ToString[k]], {k, 1, EdgeCount[topology["Graph"]]}];
-        (* The Hamiltonian equation u[a,b]-u[b,a]+j[a,b]-j[b,a] = nrhs is enforced
-           unconditionally. Dropping the former (j[a,b]-j[b,a]==0) || disjunct fixes
-           a gap: on zero-flow edges that disjunct fired True, leaving u[a,b] and u[b,a]
-           unconstrained. That prevented exit values at bypassed exit nodes from being
-           pinned, producing parametric solutions with free value variables at unused
-           exits. Without the disjunct, zero net flow forces u[a,b]=u[b,a]; the
-           switching inequalities at adjacent nodes then propagate this to pin values
-           at unused exits to their terminal cost. Safe for alpha≠1: nrhs=0 when j=0
-           for any alpha, so the behaviour on zero-flow edges is unchanged. *)
-        eqGeneral = MapThread[
-            With[{eq = Equal[#1, If[alphaAtEdge[halfPairs[[#3]]] === 1, 0, #2]]},
-                eq
-            ] &,
-            {nlhs, costCurrents, Range[Length[halfPairs]]}
-        ];
-        costCurrents = AssociationThread[costCurrents, nrhs];
+        eqGeneral = (# == 0) & /@ nlhs;
 
         mfgHamiltonianData @ <|
-            "Nlhs"         -> nlhs,
-            "Nrhs"         -> nrhs,
-            "CostCurrents" -> costCurrents,
-            "EqGeneral"    -> eqGeneral
+            "Nlhs"      -> nlhs,
+            "EqGeneral" -> eqGeneral
         |>
     ];
 
