@@ -23,7 +23,7 @@ $HistoryLength = 0;
 $Timeout            = 300;
 $BoolConvertTimeout = 60;
 $BMTimeout          = 60;
-$BMRTimeout         = 60;
+$BMRTimeout         = 600;
 
 $KnownCases = <|
     "grid-2x2" -> Function[gridScenario[{2, 2}, {{1, 100}}, {{4, 0}}]],
@@ -106,6 +106,15 @@ match = Which[
 ];
 Print["  verdict: ", match];
 
+(* Free large intermediate results before the Boolean stage. On grid-4x4 / 4x5
+   the dnfReduce outputs (7200 / 27000 branches) plus their canonical sorted
+   forms hold enough memory that the kernel can be OOM-killed during the
+   subsequent BooleanConvert allocation. wolframscript reports an OOM kernel
+   loss as "license error", which is misleading. *)
+ClearAll[resRec, resProc, recCan, procCan];
+Share[];
+Print["  freed dnf results; mem now ", MemoryInUse[]];
+
 (* BooleanConvert (Stage 1 only) *)
 {tBool, resBool} = AbsoluteTiming[
     TimeConstrained[
@@ -138,21 +147,20 @@ bmVerdict = Which[
 ];
 Print["  BooleanMinimize: ", tBM, "s  verdict: ", bmVerdict];
 
-(* booleanMinimizeReduceSystem *)
-{tBMR, resBMR} = AbsoluteTiming[
-    TimeConstrained[
-        Quiet[booleanMinimizeReduceSystem[sys,
-              "ArmTimeout" -> 2, "DisjunctTimeout" -> 10],
-              {booleanMinimizeReduceSystem::multisol}],
-        $BMRTimeout, $Aborted
+(* booleanMinimizeReduceSystem — runs in a fresh kernel so that OOM during BMR
+   cannot kill the current kernel and lose the rows already computed. *)
+ClearAll[resBool]; Share[];
+bmrScript = FileNameJoin[{$RepoRoot, "Scripts", "CompareSingleCaseBMR.wls"}];
+bmrProc = RunProcess[{"wolframscript", "-file", bmrScript, caseName}];
+bmrOut  = Lookup[bmrProc, "StandardOutput", ""];
+bmrLine = SelectFirst[StringSplit[bmrOut, "\n"], StringStartsQ[#, "BMR_RESULT|"] &, ""];
+{bmrVerdict, tBMR} = If[bmrLine === "",
+    {"FAIL", 0.0},
+    Module[{parts = StringSplit[bmrLine, "|"]},
+        {parts[[2]], ToExpression[parts[[3]]]}
     ]
 ];
-bmrVerdict = Which[
-    resBMR === $Aborted,                   "TIMEOUT",
-    ListQ[resBMR] || AssociationQ[resBMR], "OK",
-    True,                                  "FAIL"
-];
-Print["  BooleanMinimizeReduce: ", tBMR, "s  verdict: ", bmrVerdict];
+Print["  BooleanMinimizeReduce: ", tBMR, "s  verdict: ", bmrVerdict, "  (subprocess)"];
 
 (* Single markdown row, same column shape as the multi-case report. *)
 row = StringJoin[

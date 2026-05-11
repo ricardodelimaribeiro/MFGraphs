@@ -155,10 +155,6 @@ flowSplitting[AT][UndirectedEdge[a, b]] returns the splitting that start with {a
 
 getKirchhoffLinearSystem[sys] returns the entry current vector, Kirchhoff matrix, and the variables in the order corresponding to the Kirchhoff matrix.
 
-## getKirchhoffMatrix
-
-getKirchhoffMatrix[sys] returns the entry current vector, Kirchhoff matrix, (critical congestion) cost function placeholder, and the variables in the order corresponding to the Kirchhoff matrix. The third slot is retained for backward compatibility.
-
 ## ineqSwitch
 
 ineqSwitch[u, switchingCosts][r, i, w] returns the optimality condition at junction i for the transition from r to w. Namely,

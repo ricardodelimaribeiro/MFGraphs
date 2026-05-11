@@ -81,8 +81,6 @@ with legacy solvers.";
 
 getKirchhoffLinearSystem::usage = "getKirchhoffLinearSystem[sys] returns the entry current vector, Kirchhoff matrix, and the variables in the order corresponding to the Kirchhoff matrix.";
 
-getKirchhoffMatrix::usage = "getKirchhoffMatrix[sys] returns the entry current vector, Kirchhoff matrix, (critical congestion) cost function placeholder, and the variables in the order corresponding to the Kirchhoff matrix. The third slot is retained for backward compatibility.";
-
 altFlowOp::usage = "altFlowOp[j][list] returns the alternative: j@@list ==0 || j@@Reverse@list ==0.";
 
 flowSplitting::usage = "flowSplitting[AT][UndirectedEdge[a, b]] returns the splitting that start with {a,b}.";
@@ -393,14 +391,8 @@ getKirchhoffLinearSystem[sys_] :=
         ruleEntryIn          = systemData[sys, "RuleEntryIn"];
         ruleEntryOut         = systemData[sys, "RuleEntryOut"];
 
-        If[MissingQ[eqEntryIn],            eqEntryIn = True];
-        If[MissingQ[balanceGatheringFlows], balanceGatheringFlows = {}];
-        If[MissingQ[balanceSplittingFlows], balanceSplittingFlows = {}];
-        If[MissingQ[ruleEntryIn],          ruleEntryIn = <||>];
-        If[MissingQ[ruleEntryOut],         ruleEntryOut = <||>];
-
         kirchhoff = Join[
-            If[Head[eqEntryIn] === List, eqEntryIn, {eqEntryIn}],
+            eqEntryIn,
             (# == 0& /@ Join[balanceGatheringFlows, balanceSplittingFlows])
         ];
         kirchhoff = kirchhoff /. Join[Normal[ruleEntryIn], Normal[ruleEntryOut]];
@@ -416,22 +408,15 @@ getKirchhoffLinearSystem[sys_] :=
         ]
     ];
 
-getKirchhoffMatrix[sys_] :=
-    Module[{b, km, vars, cost, cCost},
-        {b, km, vars} = getKirchhoffLinearSystem[sys];
-        If[Length[vars] === 0,
-            Return[{b, km, <||>, vars}, Module]
-        ];
-        cost  = AssociationThread[vars, (0&) /@ vars];
-        cCost = cost /@ vars /. MapThread[Rule, {vars, #}]&;
-        {b, km, cCost, vars}
-    ];
-
 (* --- Constructors --- *)
 
-(* When Alpha == 1, the generated system consists of linear equations,
-   alternatives between linear equations, and linear inequalities; nothing is
-   non-linear. *)
+(* The generated system consists of linear equations, alternatives between
+   linear equations, and linear inequalities; nothing is non-linear. Linearity
+   is preserved by two conventions: (i) switching costs are scalars or affine
+   Function[x, a x + b], so cost[j[r,i,w]] stays linear in j; (ii) non-linear
+   Hamiltonian terms (e.g. m^alpha for Alpha != 1) are represented by cpf
+   placeholder symbols, with the non-linear relationship deferred to a
+   separate closure equation outside this kernel. *)
 makeSystem[s_?scenarioQ] := makeSystem[s, makeSymbolicUnknowns[s]];
 
 makeSystem[s_?scenarioQ, unk_?symbolicUnknownsQ] :=
@@ -441,11 +426,6 @@ makeSystem[s_?scenarioQ, unk_?symbolicUnknownsQ] :=
 
         model    = scenarioData[s, "Model"];
         topology = scenarioData[s, "Topology"];
-        If[!AssociationQ[topology], topology = buildAuxiliaryTopology[model]];
-
-        If[topology === $Failed,
-            Return[Failure["makeSystem", <|"Message" -> "Could not build topology from scenario."|>], Module]
-        ];
 
         graph          = topology["Graph"];
         auxiliaryGraph = topology["AuxiliaryGraph"];

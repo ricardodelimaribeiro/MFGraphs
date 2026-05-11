@@ -97,6 +97,7 @@ Active `.mt` files under `MFGraphs/Tests/`:
 | `reduce-system.mt` | system reduction end-to-end |
 | `scenario-consistency.mt` | cross-stage invariants (scenario ↔ unknowns ↔ system) |
 | `dnf-reducer.mt` | DNF reducer correctness and edge cases |
+| `boolean-minimize.mt` | `booleanMinimizeSystem` / `booleanMinimizeReduceSystem` |
 | `orchestration.mt` | `solveScenario` and full pipeline |
 | `graphicsTools.mt` | `rawNetworkPlot`, `richNetworkPlot` |
 | `tawaf.mt` | unrolled-circumambulation scenario builder |

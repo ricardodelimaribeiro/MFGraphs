@@ -5,6 +5,7 @@ This directory contains modules intentionally removed from the active core-only 
 ## Archived modules
 
 - Solver-era modules and backend helpers that are not loaded by the active package.
+- `getKirchhoffMatrix.wl` — public wrapper around `getKirchhoffLinearSystem` with a placeholder cost-function slot; archived after the active code path stopped consuming the 4-tuple shape.
 
 ## Notes
 
