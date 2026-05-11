@@ -239,6 +239,13 @@ buildSolverInputs::usage =
 exit-value rules, and runs accumulateEqualityRules. Returns \
 {constraints, allVars, rulesAcc} ready for the final solve step.";
 
+booleanDnfReducePipeline::usage =
+"booleanDnfReducePipeline[dnfFn, multisolEmit][constraints, allVars, timeout, returnAll] \
+is the shared body of booleanReduceSystem and booleanMinimizeSystem. dnfFn is the Boolean \
+DNF operation (BooleanConvert or BooleanMinimize); multisolEmit is a 1-arg callback that \
+emits the solver-specific ::multisol message when distinct disjuncts produce differing \
+rule sets.";
+
 checkBlock::usage =
 "checkBlock[expr, tol] evaluates a substituted constraint block using tolerance tol for numeric comparisons.";
 
@@ -288,12 +295,17 @@ reduceSystem[sys_?mfgSystemQ] :=
     ];
 
 dnfReduceSystem[sys_?mfgSystemQ] :=
-    withCriticalCongestionSolver[sys, "dnfReduceSystem",
-        Function[{constraints, allVars},
-            parseDNFReduceResult[dnfReduce[True, constraints], allVars]
-        ],
-        buildSolverInputs,
-        attachAccumulatedRules
+    Module[{result},
+        resetSolveCacheCounters[];
+        result = withCriticalCongestionSolver[sys, "dnfReduceSystem",
+            Function[{constraints, allVars},
+                parseDNFReduceResult[dnfReduce[True, constraints], allVars]
+            ],
+            buildSolverInputs,
+            attachAccumulatedRules
+        ];
+        If[TrueQ[$MFGraphsVerbose], printSolveCacheSummary["dnfReduceSystem"]];
+        result
     ];
 
 optimizedDNFReduceSystem[sys_?mfgSystemQ] :=
@@ -348,6 +360,28 @@ activeSetReduceSystem[sys_?mfgSystemQ] :=
     ]
     ];
 
+(* Shared body for booleanReduceSystem / booleanMinimizeSystem.
+   dnfFn is the Boolean DNF operation (BooleanConvert or BooleanMinimize);
+   multisolEmit is a 1-arg callback that emits the solver-specific
+   ::multisol message when distinct disjuncts produce differing rule sets. *)
+booleanDnfReducePipeline[dnfFn_, multisolEmit_][constraints_, allVars_, timeout_, returnAll_] :=
+    Module[{dnf, disjuncts, reducedList, nonFalse, parsed},
+        dnf         = dnfFn[constraints, "DNF"];
+        disjuncts   = If[Head[dnf] === Or, List @@ dnf, {dnf}];
+        reducedList = TimeConstrained[Reduce[#, allVars, Reals], timeout, $Aborted] & /@ disjuncts;
+        nonFalse    = Select[reducedList, # =!= False && # =!= $Aborted &];
+        If[nonFalse === {},
+            Return[<|"Rules" -> {}, "Residual" -> False|>, Module]
+        ];
+        parsed = parseReduceResult[#, allVars] & /@ nonFalse;
+        If[Length[parsed] > 1,
+            With[{ruleSets = (If[ListQ[#], #, Lookup[#, "Rules", {}]] & /@ parsed)},
+                If[!SameQ @@ (Sort /@ ruleSets), multisolEmit[Length[parsed]]]
+            ]
+        ];
+        If[returnAll, parsed, First[parsed]]
+    ];
+
 Options[booleanReduceSystem] = {
     "DisjunctTimeout" -> 30,
     "ReturnAll"       -> False
@@ -356,23 +390,13 @@ Options[booleanReduceSystem] = {
 booleanReduceSystem[sys_?mfgSystemQ, opts : OptionsPattern[]] :=
     withCriticalCongestionSolver[sys, "booleanReduceSystem",
         Function[{constraints, allVars},
-            Module[{dnf, disjuncts, reducedList, nonFalse, parsed, timeout, returnAll},
-                timeout   = OptionValue[booleanReduceSystem, {opts}, "DisjunctTimeout"];
-                returnAll = TrueQ[OptionValue[booleanReduceSystem, {opts}, "ReturnAll"]];
-                dnf       = BooleanConvert[constraints, "DNF"];
-                disjuncts = If[Head[dnf] === Or, List @@ dnf, {dnf}];
-                reducedList = TimeConstrained[Reduce[#, allVars, Reals], timeout, $Aborted] & /@ disjuncts;
-                nonFalse = Select[reducedList, # =!= False && # =!= $Aborted &];
-                If[nonFalse === {},
-                    Return[<|"Rules" -> {}, "Residual" -> False|>, Module]
-                ];
-                parsed = parseReduceResult[#, allVars] & /@ nonFalse;
-                If[Length[parsed] > 1,
-                    With[{ruleSets = (If[ListQ[#], #, Lookup[#, "Rules", {}]] & /@ parsed)},
-                        If[!SameQ @@ (Sort /@ ruleSets), Message[booleanReduceSystem::multisol, Length[parsed]]]
-                    ]
-                ];
-                If[returnAll, parsed, First[parsed]]
+            booleanDnfReducePipeline[
+                BooleanConvert,
+                Function[{n}, Message[booleanReduceSystem::multisol, n]]
+            ][
+                constraints, allVars,
+                OptionValue[booleanReduceSystem, {opts}, "DisjunctTimeout"],
+                TrueQ[OptionValue[booleanReduceSystem, {opts}, "ReturnAll"]]
             ]
         ],
         buildSolverInputs,
@@ -389,23 +413,13 @@ Options[booleanMinimizeSystem] = {
 booleanMinimizeSystem[sys_?mfgSystemQ, opts : OptionsPattern[]] :=
     withCriticalCongestionSolver[sys, "booleanMinimizeSystem",
         Function[{constraints, allVars},
-            Module[{dnf, disjuncts, reducedList, nonFalse, parsed, timeout, returnAll},
-                timeout   = OptionValue[booleanMinimizeSystem, {opts}, "DisjunctTimeout"];
-                returnAll = TrueQ[OptionValue[booleanMinimizeSystem, {opts}, "ReturnAll"]];
-                dnf       = BooleanMinimize[constraints, "DNF"];
-                disjuncts = If[Head[dnf] === Or, List @@ dnf, {dnf}];
-                reducedList = TimeConstrained[Reduce[#, allVars, Reals], timeout, $Aborted] & /@ disjuncts;
-                nonFalse = Select[reducedList, # =!= False && # =!= $Aborted &];
-                If[nonFalse === {},
-                    Return[<|"Rules" -> {}, "Residual" -> False|>, Module]
-                ];
-                parsed = parseReduceResult[#, allVars] & /@ nonFalse;
-                If[Length[parsed] > 1,
-                    With[{ruleSets = (If[ListQ[#], #, Lookup[#, "Rules", {}]] & /@ parsed)},
-                        If[!SameQ @@ (Sort /@ ruleSets), Message[booleanMinimizeSystem::multisol, Length[parsed]]]
-                    ]
-                ];
-                If[returnAll, parsed, First[parsed]]
+            booleanDnfReducePipeline[
+                BooleanMinimize,
+                Function[{n}, Message[booleanMinimizeSystem::multisol, n]]
+            ][
+                constraints, allVars,
+                OptionValue[booleanMinimizeSystem, {opts}, "DisjunctTimeout"],
+                TrueQ[OptionValue[booleanMinimizeSystem, {opts}, "ReturnAll"]]
             ]
         ],
         buildSolverInputs,
@@ -1310,6 +1324,50 @@ branchStateFinalizeResult[branches_List, allVars_List] :=
 branchStateReduceResult[constraints_, allVars_List] :=
     branchStateFinalizeResult[branchStateReduce[constraints, allVars], allVars];
 
+(* --- cachedSolve: memoized Quiet[Solve[expr], Solve::svars] ------------- *)
+(* Used inside dnfReduce / dnfReduceProcedural / dnfReduceInstrumented.
+   On a baseline measurement (2026-05-11) grid-4x4 made 71 051 non-trivial
+   Solve calls on only 114 distinct keys (99.8% hit rate). The cache is
+   keyed by Hash[expr] (32-bit, fast); collisions are negligible at our
+   scale. Reset before each dnfReduceSystem invocation. *)
+
+$dnfSolveCache    = <||>;
+$dnfSolveHits     = 0;
+$dnfSolveMiss     = 0;
+$dnfSolveMissTag  = Unique["dnfSolveMissTag$"];  (* sentinel — guaranteed not to collide with any Solve result *)
+
+resetSolveCacheCounters[] := (
+    $dnfSolveHits = 0;
+    $dnfSolveMiss = 0;
+);
+
+clearSolveCache[] := ($dnfSolveCache = <||>);
+
+cachedSolve[expr_] :=
+    Module[{h = Hash[expr], cached},
+        cached = Lookup[$dnfSolveCache, h, $dnfSolveMissTag];
+        If[cached === $dnfSolveMissTag,
+            $dnfSolveMiss++;
+            cached = Quiet[Solve[expr], Solve::svars];
+            $dnfSolveCache[h] = cached;
+            ,
+            $dnfSolveHits++;
+        ];
+        cached
+    ];
+
+printSolveCacheSummary[label_String] :=
+    Module[{total, hitRate},
+        total   = $dnfSolveHits + $dnfSolveMiss;
+        hitRate = If[total === 0, 0., N[$dnfSolveHits / total]];
+        Print["SOLVE_CACHE|", label,
+              "|total=", total,
+              "|hits=",  $dnfSolveHits,
+              "|miss=",  $dnfSolveMiss,
+              "|hit_rate=", hitRate,
+              "|cache_size=", Length[$dnfSolveCache]];
+    ];
+
 dnfReduce[_,    False] := False
 dnfReduce[False, _]    := False
 dnfReduce[xp_,  True]  := xp
@@ -1345,7 +1403,7 @@ dnfReduce[xp_, sys_And] :=
                         Module
                     ],
                 Head[elem] === Equal,
-                    sol  = Quiet[Solve[elem], Solve::svars];
+                    sol  = cachedSolve[elem];
                     fsol = If[MatchQ[sol, {{__Rule}, ___}], First[sol], {}];
                     newxp = substituteSolution[xpAcc, fsol];
                     If[newxp === False, Return[False, Module]];
@@ -1381,7 +1439,7 @@ dnfReduce[xp_, leq_] := xp && leq
 
 dnfReduce[xp_, rst_, fst_Equal] :=
     Module[{sol, fsol, newxp, newrst},
-        sol  = Quiet[Solve[fst], Solve::svars];
+        sol  = cachedSolve[fst];
         fsol = If[MatchQ[sol, {{__Rule}, ___}], First[sol], {}];
         newxp = substituteSolution[xp, fsol];
         If[newxp === False,
@@ -1437,7 +1495,7 @@ dnfReduceProcedural[xp0_, sys0_, allVars_List] :=
                                        {b, Reverse[List @@ elem]}];
                                     outcome = "branched",
                                 Head[elem] === Equal,
-                                    sol  = Quiet[Solve[elem], Solve::svars];
+                                    sol  = cachedSolve[elem];
                                     fsol = If[MatchQ[sol, {{__Rule}, ___}], First[sol], {}];
                                     newxp = substituteSolution[xpAcc, fsol];
                                     If[newxp === False,
@@ -1458,7 +1516,7 @@ dnfReduceProcedural[xp0_, sys0_, allVars_List] :=
                             AppendTo[results, xpAcc && rst]]
                     ],
                 Head[fst] === Equal,
-                    sol  = Quiet[Solve[fst], Solve::svars];
+                    sol  = cachedSolve[fst];
                     fsol = If[MatchQ[sol, {{__Rule}, ___}], First[sol], {}];
                     newxp = substituteSolution[xp, fsol];
                     If[newxp =!= False,
@@ -1623,7 +1681,7 @@ dnfReduceInstrumentedAnd[xp_, conjuncts_List, monitor_, order_String, sysObj_, d
                     ],
                 Head[elem] === Equal,
                     dnfCounterIncrement[monitor, "EqualityAttempts"];
-                    sol  = Quiet[Solve[elem], Solve::svars];
+                    sol  = cachedSolve[elem];
                     fsol = If[MatchQ[sol, {{__Rule}, ___}], First[sol], {}];
                     If[fsol =!= {},
                         dnfCounterIncrement[monitor, "EqualitySolves"];
@@ -1651,7 +1709,7 @@ dnfReduceInstrumented[xp_, rst_, fst_Equal, monitor_, order_String, sysObj_, dep
         dnfCounterIncrement[monitor, "ConjunctsProcessed"];
         dnfCounterIncrement[monitor, "EqualityAttempts"];
         dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "ProcessBranchEquality", "Depth" -> depth, "Expression" -> fst|>];
-        sol  = Quiet[Solve[fst], Solve::svars];
+        sol  = cachedSolve[fst];
         fsol = If[MatchQ[sol, {{__Rule}, ___}], First[sol], {}];
         If[fsol =!= {},
             dnfCounterIncrement[monitor, "EqualitySolves"];
