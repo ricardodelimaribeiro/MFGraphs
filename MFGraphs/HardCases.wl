@@ -52,7 +52,7 @@ Needs["MFGraphs`"];
 (*Presentation helpers*)
 
 
-ClearAll[DescribeOutput, HardCaseSummary];
+ClearAll[DescribeOutput, HardCaseSummary, hardCaseVertexCount, hardCaseEdgeCount];
 
 DescribeOutput[title_String, description_String, expr_] :=
     Column[
@@ -65,13 +65,30 @@ DescribeOutput[title_String, description_String, expr_] :=
         Spacings -> {0.2, 0.7}
     ];
 
+(* model["Graph"] is only present for scenarios built from a Graph object
+   (graphScenario, gridScenario, cycleScenario). amScenario-based scenarios
+   store Vertices + Adjacency instead. Read whichever representation exists. *)
+hardCaseVertexCount[model_Association] :=
+    Which[
+        KeyExistsQ[model, "Vertices"], Length[model["Vertices"]],
+        KeyExistsQ[model, "Graph"],    VertexCount[model["Graph"]],
+        True,                          Missing["Unknown"]
+    ];
+
+hardCaseEdgeCount[model_Association] :=
+    Which[
+        KeyExistsQ[model, "Adjacency"], Total[Flatten[model["Adjacency"]]],
+        KeyExistsQ[model, "Graph"],     EdgeCount[model["Graph"]],
+        True,                           Missing["Unknown"]
+    ];
+
 HardCaseSummary[s_?scenarioQ, sys_?mfgSystemQ] :=
     Module[{model, augmented},
         model = scenarioData[s, "Model"];
         augmented = augmentAuxiliaryGraph[sys];
         <|
-            "Vertices" -> VertexCount[model["Graph"]],
-            "DirectedEdges" -> EdgeCount[model["Graph"]],
+            "Vertices" -> hardCaseVertexCount[model],
+            "DirectedEdges" -> hardCaseEdgeCount[model],
             "Entries" -> model["Entries"],
             "Exits" -> model["Exits"],
             "EntryFlowTotal" -> Total[Last /@ model["Entries"]],
