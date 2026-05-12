@@ -152,6 +152,21 @@ DescribeOutput[
 ]
 
 
+(* ::Text:: *)
+(*Observed zero-flow edges (by inspection of the augmented topology and boundary data):*)
+(*	\[Bullet] j[3, 1] == 0  \[LongDash] no return flow from vertex 3 to entry 1*)
+(*	\[Bullet] j[4, 2] == 0  \[LongDash] no return flow from vertex 4 to entry 2*)
+(*	\[Bullet] j[4, 3, 1] == 0  \[LongDash] transition flow 4\[Rule]3\[Rule]1 forbidden (U-turn back toward entry 1)*)
+(*	\[Bullet] j[3, 4, 2] == 0  \[LongDash] transition flow 3\[Rule]4\[Rule]2 forbidden (U-turn back toward entry 2)*)
+(*	\[Bullet] j[10, 7] == 0  \[LongDash] no flow from exit 10 back upstream*)
+(*	\[Bullet] j[11, 8] == 0  \[LongDash] no flow from exit 11 back upstream*)
+(*	\[Bullet] j[12, 9] == 0  \[LongDash] no flow from exit 12 back upstream*)
+
+
+(* ::Text:: *)
+(*Sanity-check these symbolically with: Select[systemData[case21System, "Js"], MemberQ[{j[3,1], j[4,2], j[10,7], j[11,8], j[12,9]}, #] &] (likewise for Jts).*)
+
+
  (*solveScenario[case21]*)
 
 
