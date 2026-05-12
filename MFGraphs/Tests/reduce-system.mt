@@ -884,6 +884,61 @@ Test[
     TestID -> "ZeroSwitchUEqualities: key exists and is a list"
 ]
 
+(* --- AltOptCond trimming against ZeroSwitchUEqualities --- *)
+
+Test[
+    Module[{s, sys},
+        s = gridScenario[{2, 3}, {{1, 100}}, {{6, 0}}];
+        sys = makeSystem[s];
+        Length[systemData[sys, "AltOptCond"]] < Length[systemData[sys, "ActiveTriples"]]
+    ],
+    True,
+    TestID -> "AltOptCond: trimmed strictly shorter than ActiveTriples when ZeroSwitchUEqualities is nontrivial"
+]
+
+Test[
+    Module[{s, sys},
+        s = gridScenario[{2, 3}, {{1, 100}}, {{6, 0}}];
+        sys = makeSystem[s];
+        FreeQ[systemData[sys, "AltOptCond"], True]
+    ],
+    True,
+    TestID -> "AltOptCond: no tautological True clauses remain after trimming"
+]
+
+Test[
+    Module[{s, sys, alt, zse},
+        s = gridScenario[{2, 3}, {{1, 100}}, {{6, 0}}];
+        sys = makeSystem[s];
+        alt = systemData[sys, "AltOptCond"];
+        zse = systemData[sys, "ZeroSwitchUEqualities"];
+        (alt /. zse) === alt
+    ],
+    True,
+    TestID -> "AltOptCond: trimming is idempotent under ZeroSwitchUEqualities"
+]
+
+Test[
+    Module[{s, sys},
+        s = gridScenario[{3}, {{1, 120}}, {{3, 0}}, {{1, 2, 3, 5}}];
+        sys = makeSystem[s];
+        Length[systemData[sys, "AltOptCond"]] === Length[systemData[sys, "ActiveTriples"]]
+    ],
+    True,
+    TestID -> "AltOptCond: no clauses dropped when ZeroSwitchUEqualities is empty"
+]
+
+Test[
+    Module[{s, sys, result},
+        s = gridScenario[{2, 3}, {{1, 100}}, {{6, 0}}];
+        sys = makeSystem[s];
+        result = dnfReduceSystem[sys];
+        isValidSystemSolution[sys, result]
+    ],
+    True,
+    TestID -> "AltOptCond: dnfReduceSystem solution remains valid after AltOptCond trim"
+]
+
 Test[
     Module[{s, sys, b, km, vars},
         s = gridScenario[{3}, {{1, 10}}, {{2, 0}, {3, 5}}];

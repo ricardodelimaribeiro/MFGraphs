@@ -109,7 +109,7 @@ RunOne[name_String, buildFn_, order_String] :=
           lastConjunct, lastHead, lastLeaves, kind},
     {tBuild, sys} = AbsoluteTiming[makeSystem[buildFn[]]];
     report = Block[{$RecursionLimit = If[$RecursionLimitOpt === Automatic, $RecursionLimit, $RecursionLimitOpt]},
-      solversTools`Private`dnfReduceDiagnosticReport[
+      dnfReduceDiagnosticReport[
         sys,
         "Order" -> order,
         "Timeout" -> $TimeoutSecs,

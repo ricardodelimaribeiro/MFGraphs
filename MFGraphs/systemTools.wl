@@ -344,6 +344,9 @@ buildComplementarityData[s_?scenarioQ, topology_Association, unk_?symbolicUnknow
             ];
 
             altOptCond = altSwitch[j, u, scFn] @@@ activeTriples;
+            If[zeroSwitchUEqualities =!= {},
+                altOptCond = DeleteCases[altOptCond /. zeroSwitchUEqualities, True]
+            ];
         ];
 
         mfgComplementarityData @ <|
