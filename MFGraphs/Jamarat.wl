@@ -246,8 +246,7 @@ Column[{
         rawNetworkPlot[jamaratEnd, jamaratEndSystem,
             PlotLabel -> "Simplified Jamarat infrastructure",
             ImageSize -> Large,
-            ShowBoundaryData->True,
-            ShowBoundaryValues -> True]
+            ShowBoundaryData->True]
     ],
     DescribeOutput[
         "Simplified Jamarat augmented infrastructure",
@@ -378,9 +377,6 @@ Column[{
 }]
 
 
-RGBColor[0.38, 0.74, 0.9]
-
-
 jamaratScenarioSummary = JamaratScenarioSummary[jamaratScenario, jamaratSystem];
 
 DescribeOutput[
@@ -394,7 +390,7 @@ DescribeOutput[
 AbsoluteTiming[jamaratSol=solveScenario[jamaratScenario]]
 
 
-If[Head[jamaratSol] =!= Association, jamaratSol = <|"Rules" -> jamaratSol, "Residual" -> True|>]
+If[Head[jamaratSol] =!= Association, jamaratSol = <|"Rules" -> jamaratSol, "Residual" -> True|>];
 
 
 DescribeOutput[
@@ -416,9 +412,20 @@ DescribeOutput[
             jamaratScenario,
             jamaratSystem,
             jamaratSol,
-            PlotLabel -> "Jamarat",
+            PlotLabel -> "Jamarat: equilibrium",
+            ImageSize -> Large
+        ]
+    ]
+    DescribeOutput[
+        "Jamaratv9 augmented infrastructure with flow and value function",
+        "Augmented graph showing flow and transition edges before solving.",
+        richNetworkPlot[
+            jamaratScenario,
+            jamaratSystem,
+            jamaratSol,
+            PlotLabel -> "Jamarat equilibrium: value colors",
             ImageSize -> Large,
-            ShowBoundaryValues -> False
+             UseColorFunction->True
         ]
     ]
 
