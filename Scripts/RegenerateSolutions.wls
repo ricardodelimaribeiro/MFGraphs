@@ -13,7 +13,7 @@
 $RepoRoot = ParentDirectory[DirectoryName[$InputFileName]];
 PrependTo[$Path, $RepoRoot];
 Needs["MFGraphs`"];
-$MFGraphsVerbose = False;
+$MFGraphsVerbose = False;  (* overridden below if --verbose set *)
 
 Get[FileNameJoin[{$RepoRoot, "Scripts", "SolutionCacheHelpers.wls"}]];
 
@@ -23,6 +23,7 @@ $rawArgs = $ScriptCommandLine[[2 ;;]];
 
 $timeoutSec = 300;
 $selectedKeys = {};
+$verbose = False;
 
 processArgs[args_List] :=
     Module[{rest = args, head},
@@ -34,6 +35,9 @@ processArgs[args_List] :=
                     Print["Missing value for --timeout"]; Exit[2]];
                 $timeoutSec = ToExpression[rest[[2]]];
                 rest = rest[[3 ;;]],
+                head === "--verbose" || head === "-v",
+                $verbose = True;
+                rest = Rest[rest],
                 StringStartsQ[head, "--"],
                 Print["Unknown flag: ", head]; Exit[2],
                 True,
@@ -44,6 +48,8 @@ processArgs[args_List] :=
     ];
 
 processArgs[$rawArgs];
+
+If[$verbose, $MFGraphsVerbose = True];
 
 If[$selectedKeys === {}, $selectedKeys = Keys[$ExampleBoundaryDefaults]];
 
