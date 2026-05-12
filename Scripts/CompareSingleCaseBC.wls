@@ -44,9 +44,18 @@ If[Length[args] < 1 || !KeyExistsQ[$KnownCases, First[args]],
 ];
 caseName = First[args];
 
-(* Spawn the OS-level watchdog. Detached shell sleeps then SIGKILLs us. *)
-Run["( sleep " <> ToString[$WallclockKill] <> "; kill -9 " <>
-    ToString[$ProcessID] <> " ) >/dev/null 2>&1 &"];
+(* Watchdog: echo a TIMEOUT result line 5s before SIGKILL so the parent
+   captures a meaningful verdict even when the C-level Boolean kernel
+   ignores the WL TimeConstrained abort. The sibling shell inherits
+   stdout from this wolframscript invocation, so its echo reaches the
+   parent's RunProcess capture. If BooleanConvert finishes normally
+   first, this process exits cleanly and the watchdog's later echo
+   writes to a closed pipe (silently lost). *)
+Run["( sleep " <> ToString[$WallclockKill - 5] <> "; " <>
+    "echo 'BC_RESULT|TIMEOUT|" <> ToString[$WallclockKill] <> "|?'; " <>
+    "sleep 5; " <>
+    "kill -9 " <> ToString[$ProcessID] <>
+    " ) 2>/dev/null &"];
 
 scen        = $KnownCases[caseName][];
 sys         = makeSystem[scen];

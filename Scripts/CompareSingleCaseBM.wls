@@ -44,9 +44,12 @@ If[Length[args] < 1 || !KeyExistsQ[$KnownCases, First[args]],
 ];
 caseName = First[args];
 
-(* Spawn the OS-level watchdog. *)
-Run["( sleep " <> ToString[$WallclockKill] <> "; kill -9 " <>
-    ToString[$ProcessID] <> " ) >/dev/null 2>&1 &"];
+(* Watchdog: echo TIMEOUT just before SIGKILL — see CompareSingleCaseBC.wls. *)
+Run["( sleep " <> ToString[$WallclockKill - 5] <> "; " <>
+    "echo 'BM_RESULT|TIMEOUT|" <> ToString[$WallclockKill] <> "'; " <>
+    "sleep 5; " <>
+    "kill -9 " <> ToString[$ProcessID] <>
+    " ) 2>/dev/null &"];
 
 scen = $KnownCases[caseName][];
 sys  = makeSystem[scen];
