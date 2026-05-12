@@ -2,6 +2,8 @@
 
 **MFGraphs** is a Wolfram Language package for Mean Field Games on networks.
 
+**New to the package?** See [TOUR.md](TOUR.md) for a guided reading order.
+
 The repository is currently in a **core scenario-kernel phase**. The active package surface is centered on:
 - typed scenario construction
 - example scenario factories

@@ -1,63 +1,55 @@
 (* ::Package:: *)
 
-Quit[]
+(*Quit[]*)
+
+
+(* ::Title:: *)
+(*MFGraphs Jamarat workbook*)
+
+
+(* ::Subsection:: *)
+(*Overview*)
+
+
+(* ::Text:: *)
+(*A guided tour of MFGraphs on the Jamarat scenario family \[LongDash] multi-entrance / multi-exit infrastructure problems. Each section names the package capability it demonstrates. Evaluate cells one at a time or section by section; the Quit[] at the top is a safety device.*)
+
+
+(* ::Text:: *)
+(*Capabilities demonstrated, in order:*)
+(*	1. Direct cycle scenario construction (cycleScenario) and a simple multi-exit case*)
+(*	2. Named registry retrieval (getExampleScenario["Jamaratv9", ...])*)
+(*	3. Augmented state-space graph (richNetworkPlot, augmentAuxiliaryGraph)*)
+(*	4. Symbolic solving (solveScenario, dnf-first default)*)
+(*	5. Two-mode solution visualisation \[LongDash] flow-coloured edges and value-function-coloured nodes (UseColorFunction -> True)*)
+(*	6. Congestion behaviour when entry flow exceeds exit budget (Section 3, optional, expensive)*)
 
 
 (* ::Subsection:: *)
 (*Initialization*)
 
 
-(* Notebook-friendly MFGraphs workbook for the Jamaratv9 scenario only. *)
-(* Evaluate cells one at a time or section by section \[LongDash] do not evaluate the entire file at once. *)
-(* Force clean reload \[LongDash] safe to re-evaluate without restarting the kernel. *)
-(*Quiet[
-    With[
-        {
-            reloadContexts = {
-                "MFGraphs`",
-                "primitives`",
-                "scenarioTools`",
-                "examples`",
-                "unknownsTools`",
-                "systemTools`",
-                "solversTools`",
-                "graphicsTools`"
-            }
-        },
-        Remove["Global`*"];
-        Scan[
-            Remove[# <> "*", # <> "Private`*"]&,
-            reloadContexts
-        ];
-        $Packages = DeleteCases[
-            $Packages,
-            Alternatives @@ Join[reloadContexts, (# <> "Private`") /@ reloadContexts]
-        ];
-        $ContextPath = DeleteCases[
-            $ContextPath,
-            Alternatives @@ Join[reloadContexts, (# <> "Private`") /@ reloadContexts]
-        ];
-    ];
-];*)
-
 (* This file lives alongside MFGraphs.wl in the same directory. *)
-mfgDir = If[$InputFileName === "", 
-    NotebookDirectory[], 
+mfgDir = If[$InputFileName === "",
+    NotebookDirectory[],
     DirectoryName[$InputFileName]
 ];
 
-(* Robustness: ensure mfgDir is a string for ParentDirectory *)
-If[!StringQ[mfgDir] || mfgDir === "", 
-    mfgDir = ExpandFileName["."];
+If[!StringQ[mfgDir] || mfgDir === "",
+    mfgDir = ExpandFileName["."]
 ];
 
 mfgParentDir = ParentDirectory[mfgDir];
-If[!MemberQ[$Path, mfgParentDir],
-    PrependTo[$Path, mfgParentDir]
-];
+If[!MemberQ[$Path, mfgParentDir], PrependTo[$Path, mfgParentDir]];
 Needs["MFGraphs`"];
 
-ClearAll[DescribeOutput];
+
+(* ::Subsection:: *)
+(*Presentation helpers*)
+
+
+ClearAll[DescribeOutput, JamaratScenarioSummary];
+
 DescribeOutput[title_String, description_String, expr_] :=
     Column[
         {
@@ -67,136 +59,6 @@ DescribeOutput[title_String, description_String, expr_] :=
         },
         Alignment -> Left,
         Spacings -> {0.2, 0.7}
-    ];
-
-ClearAll[
-    WorkbookFilePath,
-    CapturedSolutionFromWorkbook,
-    DNFBranches,
-    EntryCostData,
-    BranchVariables,
-    BranchEntryCostSummary,
-    RankSolutionBranches,
-    JamaratScenarioSummary
-];
-
-WorkbookFilePath[] :=
-    FileNameJoin[{mfgDir, "Jamarat.wl"}];
-
-CapturedSolutionFromWorkbook[symbolName_String] :=
-    Module[{path, text, start, stop, snippet},
-        path = WorkbookFilePath[];
-        text = Import[path, "Text"];
-        start = StringPosition[text, "(*" <> symbolName <> "="];
-        If[start === {}, Return[$Failed, Module]];
-        stop = StringPosition[text, "|>;*)"];
-        stop = Select[stop, #[[1]] > start[[1, 1]] &];
-        If[stop === {}, Return[$Failed, Module]];
-        snippet = StringTake[
-            text,
-            {start[[1, 1]] + StringLength["(*" <> symbolName <> "="], stop[[1, 1]] + 2}
-        ];
-        snippet = StringTrim[snippet];
-        If[StringEndsQ[snippet, ";"], snippet = StringDrop[snippet, -1]];
-        ToExpression[snippet]
-    ];
-
-DNFBranches[expr_, timeout_:60] :=
-    Module[{dnf},
-        dnf = TimeConstrained[
-            Quiet @ Check[BooleanConvert[expr, "DNF"], $Failed],
-            timeout,
-            $TimedOut
-        ];
-        Which[
-            dnf === $TimedOut || dnf === $Failed, dnf,
-            dnf === False, {},
-            Head[dnf] === Or, List @@ dnf,
-            True, {dnf}
-        ]
-    ];
-
-EntryCostData[s_?scenarioQ, sys_?mfgSystemQ] :=
-    Module[{pairs, vars, flows},
-        pairs = systemData[sys, "InAuxEntryPairs"];
-        vars = u @@@ pairs;
-        flows = Last /@ scenarioData[s, "Model"]["Entries"];
-        <|"Pairs" -> pairs, "Variables" -> vars, "Flows" -> flows|>
-    ];
-
-BranchVariables[expr_] :=
-    Select[
-        Variables[
-            expr /. {Equal -> List, Unequal -> List, LessEqual -> List,
-                GreaterEqual -> List, Less -> List, Greater -> List, And -> List, Or -> List}
-        ],
-        MatchQ[#, j[__] | u[__] | z[__]] &
-    ];
-
-BranchEntryCostSummary[branch_, rules_List, entry_Association, minimizeTimeout_:10] :=
-    Module[{entryVars, entryFlows, entryValues, objective, constraints, vars, min},
-        entryVars = entry["Variables"];
-        entryFlows = entry["Flows"];
-        constraints = branch /. rules;
-        entryValues = Simplify[entryVars /. rules];
-        objective = Simplify[Total[entryFlows * entryValues]];
-        vars = DeleteDuplicates @ BranchVariables[{constraints, objective}];
-        min = If[vars === {},
-            If[TrueQ[constraints], {objective, {}}, $Failed],
-            TimeConstrained[
-                Quiet @ Check[Minimize[{objective, constraints}, vars, Reals], $Failed],
-                minimizeTimeout,
-                $TimedOut
-            ]
-        ];
-        <|
-            "EntryValues" -> entryValues,
-            "WeightedEntryCost" -> objective,
-            "MinimizeResult" -> min,
-            "ResidualVariableCount" -> Length[vars],
-            "ResidualVariables" -> vars
-        |>
-    ];
-
-RankSolutionBranches[s_?scenarioQ, sys_?mfgSystemQ, sol_Association,
-        maxBranches_:Infinity, dnfTimeout_:60, minimizeTimeout_:10] :=
-    Module[{rules, residual, entry, branches, summaries, rows},
-        rules = Lookup[sol, "Rules", {}];
-        residual = Simplify[Lookup[sol, "Residual", True] /. rules];
-        entry = EntryCostData[s, sys];
-        branches = DNFBranches[residual, dnfTimeout];
-        If[branches === $TimedOut || branches === $Failed,
-            Return[
-                <|
-                    "Status" -> branches,
-                    "EntryVariables" -> entry["Variables"],
-                    "EntryFlows" -> entry["Flows"],
-                    "ResidualLeafCount" -> LeafCount[residual]
-                |>,
-                Module
-            ]
-        ];
-        summaries = BranchEntryCostSummary[#, rules, entry, minimizeTimeout] & /@
-            Take[branches, UpTo[maxBranches]];
-        rows = MapIndexed[
-            Join[<|"Branch" -> First[#2]|>, #1] &,
-            summaries
-        ];
-        <|
-            "Status" -> "OK",
-            "EntryVariables" -> entry["Variables"],
-            "EntryFlows" -> entry["Flows"],
-            "BranchCount" -> Length[branches],
-            "AnalyzedBranchCount" -> Length[rows],
-            "ResidualLeafCount" -> LeafCount[residual],
-            "RankedBranches" -> SortBy[
-                rows,
-                Replace[#["MinimizeResult"], {
-                    {val_, ___} :> {0, N[val]},
-                    _ :> {1, Infinity}
-                }] &
-            ]
-        |>
     ];
 
 JamaratScenarioSummary[s_?scenarioQ, sys_?mfgSystemQ] :=
@@ -210,7 +72,7 @@ JamaratScenarioSummary[s_?scenarioQ, sys_?mfgSystemQ] :=
             "EntryFlowTotal" -> Total[Last /@ entries],
             "Exits" -> exits,
             "ExitCostTotal" -> Total[Last /@ exits],
-            "EntryFlowTotalGreaterThanExitCostTotal" -> (Total[Last /@ entries] > Total[Last /@ exits]),
+            "EntryFlowExceedsExitBudget" -> (Total[Last /@ entries] > Total[Last /@ exits]),
             "NetworkEdges" -> Length[systemData[sys, "Edges"]],
             "FlowVariables" -> Length[systemData[sys, "Js"]],
             "TransitionFlowVariables" -> Length[systemData[sys, "Jts"]],
@@ -220,341 +82,193 @@ JamaratScenarioSummary[s_?scenarioQ, sys_?mfgSystemQ] :=
         |>
     ];
 
-(* Use the global flag from primitives context *)
 $MFGraphsVerbose = False;
 
 
-(* ::Subsection:: *)
-(*Simplified Jamarat cycle*)
-
-
-(* ::Subsubsection:: *)
-(*Simplified Jamarat end*)
+(* ::Section:: *)
+(*Section 1 \[LongDash] Simplified Jamarat (5-cycle)*)
 
 
 (* ::Text:: *)
-(*This is a shorter version of the Jamarat example for when the flows are at the last pillar. *)
+(*A 5-vertex cycle with two entrances (vertices 1 and 5) and three exits (vertex 3 cost 0, vertex 4 cost 40, vertex 2 cost 30). The smallest case where multiple entries compete for shared downstream capacity. Capability: cycleScenario direct constructor + the standard makeSystem / solveScenario pipeline.*)
 
 
-jamaratEnd=cycleScenario[5, {{1,100},{5,100}},{{3,0},{4,40},{2,30}}];
-jamaratEndSystem=makeSystem[jamaratEnd];
-AbsoluteTiming[jamaratEndSol=solveScenario[jamaratEnd];]
-Column[{
-    DescribeOutput[
-        "Simplified Jamarat augmented infrastructure",
-        "Augmented graph before solving \[LongDash] structure only.",
-        rawNetworkPlot[jamaratEnd, jamaratEndSystem,
-            PlotLabel -> "Simplified Jamarat infrastructure",
-            ImageSize -> Large,
-            ShowBoundaryData->True]
-    ],
-    DescribeOutput[
-        "Simplified Jamarat augmented infrastructure",
-        "Augmented graph before solving \[LongDash] structure only.",
-        richNetworkPlot[jamaratEnd, jamaratEndSystem,
-            PlotLabel -> "Simplified Jamarat infrastructure",
-            ImageSize -> Large,
-            ShowBoundaryValues -> False]
-    ],
-    DescribeOutput[
-        "Simplified Jamarat augmented infrastructure",
-        "Augmented graph before solving \[LongDash] structure only.",
-        richNetworkPlot[jamaratEnd, jamaratEndSystem,
-            PlotLabel -> "Simplified Jamarat infrastructure",
-            ImageSize -> Large,
-            ShowBoundaryData->True]
-    ],
-    DescribeOutput[
-        "Simplified Jamarat augmented solution",
-        "Augmented graph with solved flow, transition, and u values.",
-        richNetworkPlot[jamaratEnd, jamaratEndSystem, jamaratEndSol,
-            PlotLabel -> "Simplified Jamarat solution",
-            ImageSize -> Large]
-    ],
-    DescribeOutput[
-        "Simplified Jamarat augmented solution",
-        "Augmented graph with solved flow, transition, and u values.",
-        richNetworkPlot[jamaratEnd, jamaratEndSystem, jamaratEndSol,
-            PlotLabel -> "Simplified Jamarat solution",
-            UseColorFunction->True,
-            ImageSize -> Large]
-    ]
-}]
-
-
-jamaratEndSol
-
-
-(* ::Subsubsection::Closed:: *)
-(*Simplified Jamarat end*)
-
-
-(* ::Text:: *)
-(*This is a shorter version of the Jamarat example for when the flows are at the last pillar. *)
-
-
-jamaratEnd=cycleScenario[5, {{1,100},{2,100}},{{3,0},{4,10},{5,0}}];
-
-
+jamaratEnd = cycleScenario[5, {{1, 100}, {5, 100}}, {{3, 0}, {4, 40}, {2, 30}}];
 jamaratEndSystem = makeSystem[jamaratEnd];
 
-
-AbsoluteTiming[jamaratEndSol=solveScenario[jamaratEnd];]
-
-
-Column[{
-    DescribeOutput[
-        "Simplified Jamarat augmented infrastructure",
-        "Augmented graph before solving \[LongDash] structure only.",
-        richNetworkPlot[jamaratEnd, jamaratEndSystem, <||>,
-            PlotLabel -> "Simplified Jamarat infrastructure",
-            ImageSize -> Large,
-            ShowBoundaryValues -> False]
-    ],
-    DescribeOutput[
-        "Simplified Jamarat augmented solution",
-        "Augmented graph with solved flow, transition, and u values.",
-        richNetworkPlot[jamaratEnd, jamaratEndSystem, jamaratEndSol,
-            PlotLabel -> "Simplified Jamarat solution",
-            ImageSize -> Large]
-    ]
-}]
-
-
-(* ::Subsection:: *)
-(*Jamarat 9 vertices*)
-
-
-(* --- 1. Captured Jamaratv9 run from the named scenario registry --- *)
-
-jamaratScenario = getExampleScenario[
-    "Jamaratv9",
-    {{1, 40}, {2, 45}},
-    {{7, 3}, {8, 4}, {9, 2}}
-];
-
-jamaratSystem = makeSystem[jamaratScenario];
-jamaratAugmented = augmentAuxiliaryGraph[jamaratSystem];
-
-Column[{
-    DescribeOutput[
-        "Jamaratv9 scenario",
-        "Named registry example with two entrances and three exits.",
-        <|
-            "scenarioQ" -> scenarioQ[jamaratScenario],
-            "Entries" -> scenarioData[jamaratScenario, "Model"]["Entries"],
-            "Exits" -> scenarioData[jamaratScenario, "Model"]["Exits"],
-            "Network edges" -> systemData[jamaratSystem, "Edges"]
-        |>
-    ],
-    DescribeOutput[
-        "Jamaratv9 augmented road-traffic graph",
-        "Augmented graph showing flow and transition edges before solving.",
-        richNetworkPlot[jamaratScenario, jamaratSystem, <||>,
-            PlotLabel -> "Jamaratv9 augmented infrastructure",
-            ImageSize -> Large,
-            ShowBoundaryValues -> False]
-    ],
-    DescribeOutput[
-        "Jamaratv9 augmented graph metadata",
-        "augmentAuxiliaryGraph exposes the graph structure used by the plot.",
-        <|
-            "Vertex count" -> Length[jamaratAugmented["Vertices"]],
-            "Flow edge count" -> Length[jamaratAugmented["FlowEdges"]],
-            "Transition edge count" -> Length[jamaratAugmented["TransitionEdges"]],
-            "First flow edges" -> Take[jamaratAugmented["FlowEdges"], UpTo[8]],
-            "First transition edges" -> Take[jamaratAugmented["TransitionEdges"], UpTo[8]]
-        |>
-    ],
-    DescribeOutput[
-        "Jamaratv9 augmented road-traffic graph",
-        "Augmented graph showing flow and transition edges before solving.",
-        rawNetworkPlot[jamaratScenario, jamaratSystem, <||>,
-            PlotLabel -> "Jamaratv9 augmented infrastructure",
-            ImageSize -> Large,
-            ShowBoundaryData -> True]
-    ]
-}]
-
-
-jamaratScenarioSummary = JamaratScenarioSummary[jamaratScenario, jamaratSystem];
-
 DescribeOutput[
-    "Jamaratv9 scalar totals",
-    "The captured run uses entry-flow total 60 and exit-cost total 55.",
-    jamaratScenarioSummary
+    "Simplified Jamarat scenario summary",
+    "Two entries, three exits on a 5-cycle. Entry-flow total 200; exit-cost total 70.",
+    JamaratScenarioSummary[jamaratEnd, jamaratEndSystem]
 ]
 
 
-(* Optional rerun of the captured scenario. This may be slow; evaluate explicitly. *)
-AbsoluteTiming[jamaratSol=solveScenario[jamaratScenario]]
-
-
-If[Head[jamaratSol] =!= Association, jamaratSol = <|"Rules" -> jamaratSol, "Residual" -> True|>];
-
-
 DescribeOutput[
-    "Jamaratv9 augmented infrastructure",
-    "Augmented graph showing flow and transition edges before solving.",
-    richNetworkPlot[
-        jamaratScenario,
-        jamaratSystem,
-        <||>,
-        PlotLabel -> "Jamarat augmented infrastructure",
-        ImageSize -> Large,
-        ShowBoundaryValues -> False
-    ]
-]
-DescribeOutput[
-        "Jamaratv9 augmented infrastructure with flow and value function",
-        "Augmented graph showing flow and transition edges before solving.",
-        richNetworkPlot[
-            jamaratScenario,
-            jamaratSystem,
-            jamaratSol,
-            PlotLabel -> "Jamarat: equilibrium",
-            ImageSize -> Large
-        ]
-    ]
-    DescribeOutput[
-        "Jamaratv9 augmented infrastructure with flow and value function",
-        "Augmented graph showing flow and transition edges before solving.",
-        richNetworkPlot[
-            jamaratScenario,
-            jamaratSystem,
-            jamaratSol,
-            PlotLabel -> "Jamarat equilibrium: value colors",
-            ImageSize -> Large,
-             UseColorFunction->True
-        ]
-    ]
-
-
-DescribeOutput[
-    "Jamaratv9 infrastructure",
-    "Graph showing flow and transition edges before solving.",
-    rawNetworkPlot[
-        jamaratScenario,
-        jamaratSystem,
-        jamaratSol,
-        PlotLabel -> "Jamaratv9 infrastructure",
-        ImageSize -> Large
-    ]
+    "Simplified Jamarat physical topology (rawNetworkPlot)",
+    "ShowBoundaryData -> True overlays entry-flow and exit-cost annotations on the auxiliary nodes.",
+    rawNetworkPlot[jamaratEnd, jamaratEndSystem,
+        PlotLabel -> "Simplified Jamarat \[LongDash] physical topology",
+        ShowBoundaryData -> True,
+        ImageSize -> Large]
 ]
 
 
-(* --- 2. Jamaratv9 higher-entry-flow run --- *)
-
-jamaratHighEntryScenario = getExampleScenario[
-    "Jamaratv9",
-    {{1, 20}, {2, 50}},
-    {{7, 0}, {8, 0}, {9, 55}}
-];
-
-jamaratHighEntrySystem = makeSystem[jamaratHighEntryScenario];
-jamaratHighEntryAugmented = augmentAuxiliaryGraph[jamaratHighEntrySystem];
-jamaratHighEntryScenarioSummary = JamaratScenarioSummary[
-    jamaratHighEntryScenario,
-    jamaratHighEntrySystem
-];
-
-Column[{
-    DescribeOutput[
-        "Jamaratv9 higher-entry-flow scenario",
-        "This second run has entry-flow total 70, which is larger than exit-cost total 55.",
-        jamaratHighEntryScenarioSummary
-    ],
-    DescribeOutput[
-        "Jamaratv9 higher-entry-flow augmented graph",
-        "Augmented graph \[LongDash] same shape as before, only boundary data changes.",
-        richNetworkPlot[
-            jamaratHighEntryScenario,
-            jamaratHighEntrySystem,
-            <||>,
-            PlotLabel -> "Jamaratv9 augmented infrastructure, entries {20,50}",
-            ImageSize -> Large,
-            ShowBoundaryValues -> False
-        ]
-    ]
-}]
+DescribeOutput[
+    "Simplified Jamarat augmented state-space graph (richNetworkPlot, structure only)",
+    "Augmented graph before solving. Anti-parallel arcs separate so both directions are visible.",
+    richNetworkPlot[jamaratEnd, jamaratEndSystem,
+        PlotLabel -> "Simplified Jamarat \[LongDash] augmented (structure)",
+        ShowBoundaryValues -> False,
+        ImageSize -> Large]
+]
 
 
-(* Optional expensive solve for the higher-entry-flow scenario. Evaluate this cell explicitly. *)
-jamaratHighEntryRun[timeout_:Infinity] :=
-    AbsoluteTiming[
-        If[timeout === Infinity,
-            solveScenario[jamaratHighEntryScenario],
-            TimeConstrained[solveScenario[jamaratHighEntryScenario], timeout, $TimedOut]
-        ]
-    ];
-
-(* Example: *)
-jamaratHighEntryTimedSol = jamaratHighEntryRun[3600];
-jamaratHighEntrySol = Last[jamaratHighEntryTimedSol];
-jamaratHighEntryBranchRanking = If[
-    AssociationQ[jamaratHighEntrySol],
-    RankSolutionBranches[jamaratHighEntryScenario, jamaratHighEntrySystem, jamaratHighEntrySol, Infinity, 60, 10],
-    Missing["NoSolution", jamaratHighEntrySol]
-];
-
-
-
-jamaratHighEntryTimedSol
-
-
-jamaratHighEntrySystem
-
-
-jamaratHighEntryScenario
+AbsoluteTiming[jamaratEndSol = solveScenario[jamaratEnd];]
 
 
 DescribeOutput[
-        "Jamarat (High) augmented solution",
-        "Augmented graph with solved flow, transition, and u values.",
-        richNetworkPlot[jamaratHighEntryScenario, jamaratHighEntrySystem, jamaratHighEntrySol,
-            PlotLabel -> "Jamarat solution",
-            ImageSize -> Large]
-    ]
+    "Simplified Jamarat augmented solution (default colouring)",
+    "Augmented graph with solved flow, transition, and u values; flow-coloured edges.",
+    richNetworkPlot[jamaratEnd, jamaratEndSystem, jamaratEndSol,
+        PlotLabel -> "Simplified Jamarat \[LongDash] solved (flow colours)",
+        ImageSize -> Large]
+]
 
 
-(* --- 1. Captured Jamaratv9 run from the named scenario registry --- *)
+DescribeOutput[
+    "Simplified Jamarat augmented solution (value-coloured)",
+    "Same solution rendered with UseColorFunction -> True: nodes coloured by their value-function value on a Blue\[Rule]Red gradient.",
+    richNetworkPlot[jamaratEnd, jamaratEndSystem, jamaratEndSol,
+        PlotLabel -> "Simplified Jamarat \[LongDash] solved (value colours)",
+        UseColorFunction -> True,
+        ImageSize -> Large]
+]
+
+
+(* ::Section:: *)
+(*Section 2 \[LongDash] Jamaratv9 from the named registry*)
+
+
+(* ::Text:: *)
+(*The canonical Jamaratv9 topology: 9 vertices, two upstream entrances (vertices 1 and 2), three downstream exits (vertices 7, 8, 9). Capability: getExampleScenario from the named registry, end-to-end solve, two-mode solution visualisation.*)
+
 
 jamaratScenario = getExampleScenario[
     "Jamaratv9",
     {{1, 100}, {2, 100}},
     {{7, 0}, {8, 0}, {9, 0}}
 ];
-
 jamaratSystem = makeSystem[jamaratScenario];
-jamaratAugmented = augmentAuxiliaryGraph[jamaratSystem];
 
-Column[{
+DescribeOutput[
+    "Jamaratv9 scenario summary",
+    "Equal-cost exits and equal entries: a balanced baseline. The solver should split flows symmetrically.",
+    JamaratScenarioSummary[jamaratScenario, jamaratSystem]
+]
+
+
+DescribeOutput[
+    "Jamaratv9 physical topology (rawNetworkPlot)",
+    "Real network with auxiliary entry/exit nodes shown. Entries (blue) at 1 and 2; exits (orange) at 7, 8, 9.",
+    rawNetworkPlot[jamaratScenario, jamaratSystem,
+        PlotLabel -> "Jamaratv9 \[LongDash] physical topology",
+        ShowAuxiliaryVertices -> True,
+        ImageSize -> Large]
+]
+
+
+DescribeOutput[
+    "Jamaratv9 augmented state-space graph (structure only)",
+    "Augmented graph before solving; node colours indicate boundary status only.",
+    richNetworkPlot[jamaratScenario, jamaratSystem,
+        PlotLabel -> "Jamaratv9 \[LongDash] augmented (structure)",
+        ShowBoundaryValues -> False,
+        ImageSize -> Large]
+]
+
+
+AbsoluteTiming[jamaratSol = solveScenario[jamaratScenario];]
+If[Head[jamaratSol] =!= Association,
+    jamaratSol = <|"Rules" -> jamaratSol, "Residual" -> True|>];
+
+
+DescribeOutput[
+    "Jamaratv9 solution (default colouring)",
+    "Edges show solved j-values; node colours indicate boundary category.",
+    richNetworkPlot[jamaratScenario, jamaratSystem, jamaratSol,
+        PlotLabel -> "Jamaratv9 \[LongDash] solved (flow colours)",
+        ImageSize -> Large]
+]
+
+
+DescribeOutput[
+    "Jamaratv9 solution (value-coloured)",
+    "UseColorFunction -> True: node colours show the equilibrium value function on a Blue\[Rule]Red gradient. Vertices closer to the cheapest exits are on the cool end.",
+    richNetworkPlot[jamaratScenario, jamaratSystem, jamaratSol,
+        PlotLabel -> "Jamaratv9 \[LongDash] solved (value colours)",
+        UseColorFunction -> True,
+        ImageSize -> Large]
+]
+
+
+(* ::Section:: *)
+(*Section 3 \[LongDash] High cost exit avoided variant (optional, 36 seconds)*)
+
+
+(* ::Text:: *)
+(*Same Jamaratv9 topology, but exit costs are unbalanced \[LongDash] vertex 9 has cost 55 while 7 and 8 are free. Entries are smaller (20 + 50). The interesting feature is that the cheapest exit is downstream of a longer route, while the costly exit is closer; congestion vs path length forces a non-trivial split. The solve is wrapped in TimeConstrained because the search space grows with the asymmetry.*)
+
+
+jamaratHighEntryScenario = getExampleScenario[
+    "Jamaratv9",
+    {{1, 20}, {2, 50}},
+    {{7, 0}, {8, 0}, {9, 55}}
+];
+jamaratHighEntrySystem = makeSystem[jamaratHighEntryScenario];
+
+DescribeOutput[
+    "High-entry-flow Jamaratv9 scenario summary",
+    "Asymmetric entries (20 + 50) and asymmetric exit costs (free, free, 55).",
+    JamaratScenarioSummary[jamaratHighEntryScenario, jamaratHighEntrySystem]
+]
+
+
+(* Generous timeout. Abort manually if needed. *)
+AbsoluteTiming[
+    jamaratHighEntrySol =
+        TimeConstrained[solveScenario[jamaratHighEntryScenario], 600, $TimedOut];
+]
+
+
+If[AssociationQ[jamaratHighEntrySol] || ListQ[jamaratHighEntrySol],
     DescribeOutput[
-        "Jamaratv9 scenario",
-        "Named registry example with two entrances and three exits.",
-        <|
-            "scenarioQ" -> scenarioQ[jamaratScenario],
-            "Entries" -> scenarioData[jamaratScenario, "Model"]["Entries"],
-            "Exits" -> scenarioData[jamaratScenario, "Model"]["Exits"],
-            "Network edges" -> systemData[jamaratSystem, "Edges"]
-        |>
-    ],
-    DescribeOutput[
-        "Jamaratv9 augmented road-traffic graph",
-        "Augmented graph showing flow and transition edges before solving.",
-        richNetworkPlot[jamaratScenario, jamaratSystem, <||>,
-            PlotLabel -> "Jamaratv9 augmented infrastructure",
+        "High-entry-flow Jamaratv9 solution (value-coloured)",
+        "Solved augmented graph with value-coloured nodes. Compare to Section 2: the value-function gradient now reflects the asymmetric exit costs.",
+        richNetworkPlot[jamaratHighEntryScenario, jamaratHighEntrySystem, jamaratHighEntrySol,
+            PlotLabel -> "Jamaratv9 high-entry \[LongDash] solved (value colours)",
+            UseColorFunction -> True,
             ImageSize -> Large]
     ],
-    DescribeOutput[
-        "Jamaratv9 augmented graph metadata",
-        "augmentAuxiliaryGraph exposes the graph structure used by the plot.",
-        <|
-            "Vertex count" -> Length[jamaratAugmented["Vertices"]],
-            "Flow edge count" -> Length[jamaratAugmented["FlowEdges"]],
-            "Transition edge count" -> Length[jamaratAugmented["TransitionEdges"]],
-            "First flow edges" -> Take[jamaratAugmented["FlowEdges"], UpTo[8]],
-            "First transition edges" -> Take[jamaratAugmented["TransitionEdges"], UpTo[8]]
-        |>
-    ]
-}]
+    Print["High-entry Jamaratv9 solve did not return a solution (",
+        jamaratHighEntrySol, "); skipping solved plot."]
+]
+
+
+(* ::Subsection:: *)
+(*Summary \[LongDash] capabilities demonstrated*)
+
+
+(* ::Text:: *)
+(*Direct constructors. cycleScenario built the simplified 5-cycle case; getExampleScenario pulled the named "Jamaratv9" topology from the registry. Both expose the same downstream pipeline.*)
+
+
+(* ::Text:: *)
+(*Multi-entrance / multi-exit handling. makeSystem builds entry/exit balance equations transparently when entries and exits are lists of pairs; no Jamarat-specific code path.*)
+
+
+(* ::Text:: *)
+(*Two-mode solution visualisation. richNetworkPlot defaults to flow-coloured edges; UseColorFunction -> True switches to value-function-coloured nodes on a Blue->Red gradient. The two views answer different questions about the same solution.*)
+
+
+(* ::Text:: *)
+(*Pointers: package-side API in CLAUDE.md and the auto-generated API_REFERENCE.md. The named registry behind getExampleScenario is documented at MFGraphs/examples.wl; use listExampleScenarios[] to discover all keys.*)

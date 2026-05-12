@@ -56,11 +56,19 @@ getExampleScenario[n, entries, exits, sc, alpha] also overrides alpha. \
 getExampleScenario[n, entries, exits, sc, alpha, V] also overrides V. \
 getExampleScenario[n, entries, exits, sc, alpha, V, g] overrides all parameters. \
 entries={{vertex,flow},...}; exits={{vertex,cost},...}; sc={{i,k,j,cost},...} or Association with 3-tuple keys. \
-Returns $Failed for unknown keys.";
+Returns $Failed for unknown keys. \
+Numeric keys (3, 11-18, 20-23, 27, 104, 105) are retained for backward compatibility with \
+older scripts; new code should prefer named keys (\"Jamaratv9\", \"Grid0303\", \"Camilli 2015 simple\", etc.). \
+Use listExampleScenarios[] to discover all registered keys.";
 
 getExampleScenarioMetadata::usage =
 "getExampleScenarioMetadata[key] returns metadata for a built-in example scenario, \
 including source/provenance details when available. Returns $Failed for unknown keys.";
+
+listExampleScenarios::usage =
+"listExampleScenarios[] returns the sorted list of all keys recognised by getExampleScenario \
+(both numeric legacy keys and named keys). Use this for discovery and for iterating over \
+the registry in tests.";
 
 Begin["`Private`"];
 
@@ -325,6 +333,146 @@ $ExampleScenarioMetadata = <|
             "Switching costs default to zero, matching the paper graph as connections rather than directed movement restrictions."
         }
     |>,
+    3 -> <|
+        "Title" -> "Linear chain, 3 vertices",
+        "Description" -> "Three-vertex chain 1-2-3 built via gridScenario[{3}, ...]. The smallest non-trivial scenario; useful as a smoke test."
+    |>,
+    11 -> <|
+        "Title" -> "Attraction 4-vertex diamond (case 11)",
+        "Description" -> "Diamond topology 1-{2,3}-4 with shared interior vertices and the canonical attraction switching costs."
+    |>,
+    12 -> <|
+        "Title" -> "Attraction 4-vertex diamond (case 12)",
+        "Description" -> "Same diamond topology as case 11; reserved for variant boundary data."
+    |>,
+    13 -> <|
+        "Title" -> "Attraction 4-vertex diamond, case 13 variant",
+        "Description" -> "1->{2,3}->4 with reduced edges; lighter switching cost set than case 11."
+    |>,
+    14 -> <|
+        "Title" -> "Triangle 3-cycle 1->2->3->1 (case 14)",
+        "Description" -> "Three-vertex directed cycle with the canonical Y-shortcut switching costs."
+    |>,
+    15 -> <|
+        "Title" -> "3-vertex misc (case 15)",
+        "Description" -> "Two-edge in-tree 2->1, 3->1 used to probe the EqEntryIn/EqExit boundary blocks."
+    |>,
+    16 -> <|
+        "Title" -> "3-vertex chain (case 16)",
+        "Description" -> "1->2->3 chain probing single-shortcut switching at vertex 2."
+    |>,
+    17 -> <|
+        "Title" -> "3-vertex chain (case 17)",
+        "Description" -> "Same topology as case 16 with a different SC default."
+    |>,
+    18 -> <|
+        "Title" -> "3-vertex chain (case 18)",
+        "Description" -> "Same topology as cases 16/17, alternative SC profile."
+    |>,
+    20 -> <|
+        "Title" -> "9-vertex multi-entrance/multi-exit (case 20)",
+        "Description" -> "Two-entrance, three-exit topology used as an early Jamarat-like benchmark."
+    |>,
+    21 -> <|
+        "Title" -> "12-vertex multi-entrance/multi-exit (case 21)",
+        "Description" -> "Larger benchmark variant of the multi-entrance/multi-exit family."
+    |>,
+    22 -> <|
+        "Title" -> "7-vertex two-entrance/two-exit (case 22)",
+        "Description" -> "Compact multi-entrance benchmark."
+    |>,
+    23 -> <|
+        "Title" -> "6-vertex two-entrance/two-exit (case 23)",
+        "Description" -> "Smallest multi-entrance benchmark in the registry."
+    |>,
+    27 -> <|
+        "Title" -> "2-vertex undirected edge (case 27)",
+        "Description" -> "Trivial scenario: a single undirected edge. Useful for unit-test scaffolding."
+    |>,
+    104 -> <|
+        "Title" -> "Triangle 3-cycle alias (case 104)",
+        "Description" -> "Alias for the triangle 1->2->3->1 scenario; same factory as case 14."
+    |>,
+    105 -> <|
+        "Title" -> "3-vertex chain with two exits (case 105)",
+        "Description" -> "Alias for the named scenario \"chain with two exits\"."
+    |>,
+    "triangle with two exits" -> <|
+        "Title" -> "Triangle with two exits",
+        "Description" -> "Three-vertex directed cycle exposed under a descriptive name; same factory as case 14."
+    |>,
+    "chain with two exits" -> <|
+        "Title" -> "3-vertex chain with two exits",
+        "Description" -> "Three-vertex chain 1->2->3 with exits at vertices 2 and 3. Common parametric-solution test case."
+    |>,
+    "Jamaratv9" -> <|
+        "Title" -> "Jamarat v9: 9-vertex two-entrance / three-exit",
+        "Description" -> "Multi-entrance, multi-exit infrastructure scenario used in the Jamarat workbook (MFGraphs/Jamarat.wl). Two entries (vertices 1 and 2) feed three downstream exits (vertices 7, 8, 9)."
+    |>,
+    "Braess split" -> <|
+        "Title" -> "Braess paradox: split variant",
+        "Description" -> "8-vertex Braess-style graph with parallel routes; switching cost {1,2,4,1} biases the split."
+    |>,
+    "Braess congest" -> <|
+        "Title" -> "Braess paradox: congested variant",
+        "Description" -> "7-vertex Braess-style graph that exhibits the congestion paradox under the canonical switching cost."
+    |>,
+    "New Braess" -> <|
+        "Title" -> "Braess with custom congestion field",
+        "Description" -> "6-vertex Braess variant carrying an extra \"a\" congestion field on edges 1->4 and 3->6 (j/100). Demonstrates per-edge Hamiltonian extensions outside the standard Alpha/V/G triple."
+    |>,
+    "Big Braess split" -> <|
+        "Title" -> "Larger Braess: split variant",
+        "Description" -> "10-vertex extension of the Braess split topology."
+    |>,
+    "Big Braess congest" -> <|
+        "Title" -> "Larger Braess: congested variant",
+        "Description" -> "9-vertex extension of the Braess congested topology."
+    |>,
+    "HRF Scenario 1" -> <|
+        "Title" -> "HRF Scenario 1",
+        "Description" -> "10-vertex multi-route benchmark from the HRF case study."
+    |>,
+    "Paper example" -> <|
+        "Title" -> "Paper example: 4-vertex chain",
+        "Description" -> "Four-vertex chain used as a worked example in early write-ups; shipped with a non-trivial SC profile."
+    |>,
+    "Inconsistent Y shortcut" -> <|
+        "Title" -> "Y-topology with infeasible switching costs",
+        "Description" -> "4-vertex Y graph whose canonical SC violates the triangle inequality. Used to validate infeasibility detection."
+    |>,
+    "Inconsistent attraction shortcut" -> <|
+        "Title" -> "Attraction diamond with infeasible switching costs",
+        "Description" -> "Attraction-4 topology whose canonical SC violates the triangle inequality. Used to validate infeasibility detection."
+    |>,
+    "Grid0303" -> <|
+        "Title" -> "3x3 grid",
+        "Description" -> "GridGraph[{3,3}] connections; vertices 1..9 in row-major order."
+    |>,
+    "Grid0404" -> <|
+        "Title" -> "4x4 grid",
+        "Description" -> "GridGraph[{4,4}] connections; vertices 1..16 in row-major order."
+    |>,
+    "Grid0505" -> <|
+        "Title" -> "5x5 grid",
+        "Description" -> "GridGraph[{5,5}] connections; vertices 1..25 in row-major order."
+    |>,
+    "Grid0707" -> <|
+        "Title" -> "7x7 grid",
+        "Description" -> "GridGraph[{7,7}] connections; vertices 1..49 in row-major order."
+    |>,
+    "Grid0710" -> <|
+        "Title" -> "7x10 grid",
+        "Description" -> "GridGraph[{7,10}] connections; vertices 1..70 in row-major order."
+    |>,
+    "Grid1010" -> <|
+        "Title" -> "10x10 grid",
+        "Description" -> "GridGraph[{10,10}] connections; vertices 1..100 in row-major order."
+    |>,
+    "Grid1020" -> <|
+        "Title" -> "10x20 grid",
+        "Description" -> "GridGraph[{10,20}] connections; vertices 1..200 in row-major order. Largest grid in the registry."
+    |>,
     "Achdou 2023 junction" -> <|
         "Title" -> "First order Mean Field Games on networks",
         "Authors" -> {"Yves Achdou", "Paola Mannucci", "Claudio Marchi", "Nicoletta Tchou"},
@@ -529,6 +677,8 @@ $ExampleScenarios = Association[
 getExampleScenario[n_] := Lookup[$ExampleScenarios, n, $Failed];
 
 getExampleScenarioMetadata[n_] := Lookup[$ExampleScenarioMetadata, n, $Failed];
+
+listExampleScenarios[] := SortBy[Keys[$ExampleScenarios], {Head[#] === String, #} &];
 
 (* sc=Automatic resolves to the canonical SC via $CaseDefaultSC, or {} if undefined. *)
 getExampleScenario[n_, entries_, exits_,
