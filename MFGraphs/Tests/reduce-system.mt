@@ -368,7 +368,7 @@ Test[
         s = gridScenario[{2}, {{1, 10}}, {{2, 0}}];
         sys = makeSystem[s];
         expected = dnfReduceSystem[sys];
-        report = solversTools`Private`dnfReduceDiagnosticReport[sys, "Order" -> "original", "Timeout" -> 30];
+        report = dnfReduceDiagnosticReport[sys, "Order" -> "original", "Timeout" -> 30];
         report["Status"] === "OK" &&
         report["Result"] === expected &&
         AssociationQ[report["Summary"]] &&
@@ -382,7 +382,7 @@ Test[
     Module[{s, sys, report},
         s = gridScenario[{2}, {{1, 10}}, {{2, 0}}];
         sys = makeSystem[s];
-        report = solversTools`Private`dnfReduceDiagnosticReport[sys, "Timeout" -> 0];
+        report = dnfReduceDiagnosticReport[sys, "Timeout" -> 0];
         report["Status"] === "Timeout" &&
         report["Result"] === $TimedOut &&
         AssociationQ[report["TimeoutLocation"]]

@@ -19,11 +19,11 @@
 (*Cases included:*)
 (*	1. case 21 \[LongDash] 12-vertex multi-entrance / multi-exit; crashes the kernel mid-Reduce*)
 (*	2. HRF Scenario 1 \[LongDash] 10-vertex multi-route benchmark; Reduce never returns*)
-(*	3. Grid0505 \[LongDash] 5\[Times]5 grid; clean 10-min TimeConstrained*)
-(*	4. Grid0707 \[LongDash] 7\[Times]7 grid; clean 10-min TimeConstrained*)
-(*	5. Grid0710 \[LongDash] 7\[Times]10 grid; clean 10-min TimeConstrained*)
-(*	6. Grid1010 \[LongDash] 10\[Times]10 grid; clean 10-min TimeConstrained*)
-(*	7. Grid1020 \[LongDash] 10\[Times]20 grid; clean 10-min TimeConstrained (also tripped a license error in one run)*)
+(*	3. Grid0505 \[LongDash] 5*5 grid; clean 10-min TimeConstrained*)
+(*	4. Grid0707 \[LongDash] 7*7 grid; clean 10-min TimeConstrained*)
+(*	5. Grid0710 \[LongDash] 7*10 grid; clean 10-min TimeConstrained*)
+(*	6. Grid1010 \[LongDash] 10*10 grid; clean 10-min TimeConstrained*)
+(*	7. Grid1020 \[LongDash] 10*20 grid; clean 10-min TimeConstrained (also tripped a license error in one run)*)
 
 
 (* ::Text:: *)
@@ -52,7 +52,14 @@ Needs["MFGraphs`"];
 (*Presentation helpers*)
 
 
-ClearAll[DescribeOutput, HardCaseSummary, hardCaseVertexCount, hardCaseEdgeCount];
+ClearAll[DescribeOutput, HardCaseSummary, HardCaseDNFDiagnostic,
+    hardCaseVertexCount, hardCaseEdgeCount];
+
+(* Per-case DNF reducer timeout in seconds. dnfReduce is package-level recursive
+   code so TimeConstrained inside dnfReduceDiagnosticReport actually interrupts
+   it (unlike the C-level Reduce inside reduceSystem). Bump if you want a deeper
+   trace; budget ~ $hardCaseDNFTimeout * 7 per evaluate-all run. *)
+$hardCaseDNFTimeout = 30;
 
 DescribeOutput[title_String, description_String, expr_] :=
     Column[
@@ -82,6 +89,13 @@ hardCaseEdgeCount[model_Association] :=
         True,                           Missing["Unknown"]
     ];
 
+(* Run the recursive DNF reducer with an internal timeout and return the
+   diagnostic association: Status, Summary (branch/conjunct counts + timings),
+   OrderingSummary, LastConjunct, LastEvents (recent trace), TimeoutLocation. *)
+HardCaseDNFDiagnostic[sys_?mfgSystemQ, timeout_:Automatic] :=
+    dnfReduceDiagnosticReport[sys,
+        "Timeout" -> If[timeout === Automatic, $hardCaseDNFTimeout, timeout]];
+
 HardCaseSummary[s_?scenarioQ, sys_?mfgSystemQ] :=
     Module[{model, augmented},
         model = scenarioData[s, "Model"];
@@ -100,7 +114,7 @@ HardCaseSummary[s_?scenarioQ, sys_?mfgSystemQ] :=
         |>
     ];
 
-$MFGraphsVerbose = False;
+$MFGraphsVerbose = True;
 
 
 (* ::Section:: *)
@@ -131,6 +145,16 @@ DescribeOutput[
 ]
 
 
+DescribeOutput[
+    "case 21 dnfReduce diagnostic",
+    "Recursive DNF reducer with " <> ToString[$hardCaseDNFTimeout] <> "s timeout. Status=OK means the DNF phase finished; Status=Timeout still reports how many branches/conjuncts were processed before the budget ran out.",
+    HardCaseDNFDiagnostic[case21System]
+]
+
+
+ (*solveScenario[case21]*)
+
+
 (* ::Section:: *)
 (*Section 2 \[LongDash] HRF Scenario 1*)
 
@@ -157,6 +181,16 @@ DescribeOutput[
         ShowBoundaryData -> True,
         ImageSize -> Large]
 ]
+
+
+DescribeOutput[
+    "HRF Scenario 1 dnfReduce diagnostic",
+    "Recursive DNF reducer with " <> ToString[$hardCaseDNFTimeout] <> "s timeout.",
+    HardCaseDNFDiagnostic[hrfSystem]
+]
+
+
+(* solveScenario[hrfScenario] *)
 
 
 (* ::Section:: *)
@@ -191,6 +225,16 @@ DescribeOutput[
 ]
 
 
+DescribeOutput[
+    "Grid0505 dnfReduce diagnostic",
+    "Recursive DNF reducer with " <> ToString[$hardCaseDNFTimeout] <> "s timeout.",
+    HardCaseDNFDiagnostic[grid0505System]
+]
+
+
+(* solveScenario[grid0505] *)
+
+
 (* ::Subsubsection:: *)
 (*3.2 Grid0707 (49 vertices)*)
 
@@ -213,6 +257,16 @@ DescribeOutput[
         ShowBoundaryData -> True,
         ImageSize -> Large]
 ]
+
+
+DescribeOutput[
+    "Grid0707 dnfReduce diagnostic",
+    "Recursive DNF reducer with " <> ToString[$hardCaseDNFTimeout] <> "s timeout.",
+    HardCaseDNFDiagnostic[grid0707System]
+]
+
+
+(* solveScenario[grid0707] *)
 
 
 (* ::Subsubsection:: *)
@@ -239,6 +293,16 @@ DescribeOutput[
 ]
 
 
+DescribeOutput[
+    "Grid0710 dnfReduce diagnostic",
+    "Recursive DNF reducer with " <> ToString[$hardCaseDNFTimeout] <> "s timeout.",
+    HardCaseDNFDiagnostic[grid0710System]
+]
+
+
+(* solveScenario[grid0710] *)
+
+
 (* ::Subsubsection:: *)
 (*3.4 Grid1010 (100 vertices)*)
 
@@ -261,6 +325,16 @@ DescribeOutput[
         ShowBoundaryData -> True,
         ImageSize -> Large]
 ]
+
+
+DescribeOutput[
+    "Grid1010 dnfReduce diagnostic",
+    "Recursive DNF reducer with " <> ToString[$hardCaseDNFTimeout] <> "s timeout.",
+    HardCaseDNFDiagnostic[grid1010System]
+]
+
+
+(* solveScenario[grid1010] *)
 
 
 (* ::Subsubsection:: *)
@@ -287,12 +361,22 @@ DescribeOutput[
 ]
 
 
+DescribeOutput[
+    "Grid1020 dnfReduce diagnostic",
+    "Recursive DNF reducer with " <> ToString[$hardCaseDNFTimeout] <> "s timeout. Largest grid \[LongDash] often times out before BranchesStarted moves off zero.",
+    HardCaseDNFDiagnostic[grid1020System]
+]
+
+
+(* solveScenario[grid1020] *)
+
+
 (* ::Subsection:: *)
 (*Summary*)
 
 
 (* ::Text:: *)
-(*All seven scenarios construct (scenarioQ + mfgSystemQ both pass) and have a fully-populated boundary data layer; the failure mode is purely solver-side. The augmented graphs render quickly, so even the 10\[Times]20 case is interactively explorable in the front end.*)
+(*All seven scenarios construct (scenarioQ + mfgSystemQ both pass) and have a fully-populated boundary data layer; the failure mode is purely solver-side. The augmented graphs render quickly, so even the 10*20 case is interactively explorable in the front end.*)
 
 
 (* ::Text:: *)

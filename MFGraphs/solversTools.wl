@@ -179,6 +179,13 @@ Kirchhoff/nonnegative flow constraints, then recovers value variables from \
 the remaining system. Returns the standard raw solver shape or \
 Failure[\"flowFirstCriticalSystem\", ...].";
 
+dnfReduceDiagnosticReport::usage =
+"dnfReduceDiagnosticReport[sys, opts] runs the private DNF reducer with \
+instrumentation and returns a diagnostic association. Options: \"Order\" \
+(default \"original\"), \"Timeout\" (default Infinity, seconds), \
+\"TraceLength\" (default 20). Intended for scripts and workbooks; \
+dnfReduceSystem behavior is unchanged.";
+
 Begin["`Private`"];
 
 (* The following functions are declared and implemented in utilities.wl:
@@ -279,11 +286,6 @@ and transition-flow determinacy for a solver result.";
 
 dnfResidualDiagnostics::usage =
 "dnfResidualDiagnostics[sol] returns lightweight branch and tracked-variable diagnostics for solver residuals.";
-
-dnfReduceDiagnosticReport::usage =
-"dnfReduceDiagnosticReport[sys, opts] runs the private DNF reducer with \
-instrumentation and returns a diagnostic association. This helper is intended \
-for scripts and tests; dnfReduceSystem behavior is unchanged.";
 
 reduceSystem[sys_?mfgSystemQ] :=
     withCriticalCongestionSolver[sys, "reduceSystem",
