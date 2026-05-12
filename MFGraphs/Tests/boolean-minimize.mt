@@ -57,11 +57,14 @@ Do[
         sys    = makeSystem[scen];
         refSol = dnfReduceSystem[sys];
         bmrSol = booleanMinimizeReduceSystem[sys];
-        Test[
-            ListQ[bmrSol] && ListQ[refSol] && (Sort[bmrSol] === Sort[refSol]),
-            True,
-            TestID -> "booleanMinimizeReduceSystem matches dnfReduceSystem on " <> label
-        ]
+        (* Split assertions so mutual $Failed cannot satisfy the equivalence
+           check by short-circuiting both ListQ guards to False. *)
+        Test[ListQ[refSol], True,
+             TestID -> "dnfReduceSystem returns a List on " <> label];
+        Test[ListQ[bmrSol], True,
+             TestID -> "booleanMinimizeReduceSystem returns a List on " <> label];
+        Test[Sort[bmrSol] === Sort[refSol], True,
+             TestID -> "booleanMinimizeReduceSystem matches dnfReduceSystem on " <> label]
     ],
     {pair, $smallCases}
 ];

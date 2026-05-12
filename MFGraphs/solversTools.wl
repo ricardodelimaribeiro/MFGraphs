@@ -295,32 +295,32 @@ reduceSystem[sys_?mfgSystemQ] :=
     ];
 
 dnfReduceSystem[sys_?mfgSystemQ] :=
-    Module[{result},
-        resetSolveCacheCounters[];
-        result = withCriticalCongestionSolver[sys, "dnfReduceSystem",
+    withDnfSolveCache["dnfReduceSystem",
+        withCriticalCongestionSolver[sys, "dnfReduceSystem",
             Function[{constraints, allVars},
                 parseDNFReduceResult[dnfReduce[True, constraints], allVars]
             ],
             buildSolverInputs,
             attachAccumulatedRules
-        ];
-        If[TrueQ[$MFGraphsVerbose], printSolveCacheSummary["dnfReduceSystem"]];
-        result
+        ]
     ];
 
 optimizedDNFReduceSystem[sys_?mfgSystemQ] :=
-    withCriticalCongestionSolver[sys, "optimizedDNFReduceSystem",
-        Function[{constraints, allVars},
-            If[Length[allVars] <= $optimizedDNFVarThreshold,
-                branchStateReduceResult[constraints, allVars],
-                parseDNFReduceResult[dnfReduce[True, constraints], allVars]
-            ]
-        ],
-        buildSolverInputs,
-        attachAccumulatedRules
+    withDnfSolveCache["optimizedDNFReduceSystem",
+        withCriticalCongestionSolver[sys, "optimizedDNFReduceSystem",
+            Function[{constraints, allVars},
+                If[Length[allVars] <= $optimizedDNFVarThreshold,
+                    branchStateReduceResult[constraints, allVars],
+                    parseDNFReduceResult[dnfReduce[True, constraints], allVars]
+                ]
+            ],
+            buildSolverInputs,
+            attachAccumulatedRules
+        ]
     ];
 
 activeSetReduceSystem[sys_?mfgSystemQ] :=
+    withDnfSolveCache["activeSetReduceSystem",
     withCriticalCongestionGuard[sys, "activeSetReduceSystem",
     Module[{initRules, deterministicConstraints, activeConstraints, allVars,
             detReduced, rulesAcc, activeReduced, result, branches},
@@ -357,6 +357,7 @@ activeSetReduceSystem[sys_?mfgSystemQ] :=
             parseDNFReduceResult[dnfReduce[True, And[detReduced, activeReduced]], allVars]
         ];
         attachAccumulatedRules[result, rulesAcc]
+    ]
     ]
     ];
 
@@ -1326,30 +1327,26 @@ branchStateReduceResult[constraints_, allVars_List] :=
 
 (* --- cachedSolve: memoized Quiet[Solve[expr], Solve::svars] ------------- *)
 (* Used inside dnfReduce / dnfReduceProcedural / dnfReduceInstrumented.
-   On a baseline measurement (2026-05-11) grid-4x4 made 71 051 non-trivial
-   Solve calls on only 114 distinct keys (99.8% hit rate). The cache is
-   keyed by Hash[expr] (32-bit, fast); collisions are negligible at our
-   scale. Reset before each dnfReduceSystem invocation. *)
+   See BENCHMARKS.md for the grid-4x4 baseline (~99.8% hit rate) that
+   motivated the cache. Scope: $dnfSolveCache and its counters are
+   rebound per public entry point via withDnfSolveCache[...] so the
+   cache is empty at every invocation and cannot leak across scenarios.
+   Keyed by the full expression (no hash) to eliminate any chance of
+   returning a wrong solution under collision. *)
 
-$dnfSolveCache    = <||>;
-$dnfSolveHits     = 0;
-$dnfSolveMiss     = 0;
-$dnfSolveMissTag  = Unique["dnfSolveMissTag$"];  (* sentinel — guaranteed not to collide with any Solve result *)
+$dnfSolveCache = <||>;
+$dnfSolveHits  = 0;
+$dnfSolveMiss  = 0;
 
-resetSolveCacheCounters[] := (
-    $dnfSolveHits = 0;
-    $dnfSolveMiss = 0;
-);
-
-clearSolveCache[] := ($dnfSolveCache = <||>);
-
-cachedSolve[expr_] :=
-    Module[{h = Hash[expr], cached},
-        cached = Lookup[$dnfSolveCache, h, $dnfSolveMissTag];
-        If[cached === $dnfSolveMissTag,
+(* Typed Equal pattern self-documents the contract; expr is always an
+   Equal expression (not a List), so it is a safe direct Association key. *)
+cachedSolve[expr_Equal] :=
+    Module[{cached},
+        cached = Lookup[$dnfSolveCache, expr, Missing["NotCached"]];
+        If[MissingQ[cached],
             $dnfSolveMiss++;
             cached = Quiet[Solve[expr], Solve::svars];
-            $dnfSolveCache[h] = cached;
+            $dnfSolveCache[expr] = cached;
             ,
             $dnfSolveHits++;
         ];
@@ -1360,12 +1357,25 @@ printSolveCacheSummary[label_String] :=
     Module[{total, hitRate},
         total   = $dnfSolveHits + $dnfSolveMiss;
         hitRate = If[total === 0, 0., N[$dnfSolveHits / total]];
-        Print["SOLVE_CACHE|", label,
+        mfgPrint["SOLVE_CACHE|", label,
               "|total=", total,
               "|hits=",  $dnfSolveHits,
               "|miss=",  $dnfSolveMiss,
               "|hit_rate=", hitRate,
               "|cache_size=", Length[$dnfSolveCache]];
+    ];
+
+(* HoldRest defers body until the Block rebinds the cache vars, so
+   cachedSolve sees the per-invocation empty cache. Module captures the
+   body's return value in r before printSolveCacheSummary runs, so the
+   final cache stats reflect the completed work. *)
+SetAttributes[withDnfSolveCache, HoldRest];
+withDnfSolveCache[label_String, body_] :=
+    Block[{$dnfSolveCache = <||>, $dnfSolveHits = 0, $dnfSolveMiss = 0},
+        Module[{r = body},
+            printSolveCacheSummary[label];
+            r
+        ]
     ];
 
 dnfReduce[_,    False] := False
@@ -1460,6 +1470,7 @@ dnfReduce for well-formed inputs. Or-branches are pushed in original order \
 Not wired into dnfReduceSystem by default; call directly for deep Or-chains.";
 
 dnfReduceProcedural[xp0_, sys0_, allVars_List] :=
+    withDnfSolveCache["dnfReduceProcedural",
     Module[{stack = {<|"xp" -> xp0, "rst" -> True, "fst" -> sys0|>},
             results = {}, item, xp, rst, fst,
             conjuncts, xpAcc, i, elem, sol, fsol, newxp, rest, newRest},
@@ -1532,6 +1543,7 @@ dnfReduceProcedural[xp0_, sys0_, allVars_List] :=
             Length[results] === 1, First[results],
             True, Or @@ results
         ]
+    ]
     ]
 
 dnfTraceEvent::usage =
@@ -1740,6 +1752,7 @@ Options[dnfReduceDiagnosticReport] = {
 };
 
 dnfReduceDiagnosticReport[sys_?mfgSystemQ, OptionsPattern[]] :=
+    withDnfSolveCache["dnfReduceDiagnosticReport",
     Module[{order, timeout, traceLength, tInputs, inputs, constraints, allVars,
             rulesAcc, conjuncts, orderedConstraints, orderingSummary, monitor,
             tDNF, reduced, status, parsed, result, variableDiagnostics, summary},
@@ -1847,6 +1860,7 @@ dnfReduceDiagnosticReport[sys_?mfgSystemQ, OptionsPattern[]] :=
             "LastEvents" -> Lookup[monitor, "LastEvents", {}],
             "TimeoutLocation" -> Lookup[monitor, "TimeoutLocation", <||>]
         |>
+    ]
     ];
 
 (* reduceSystem only handles the critical-congestion structural system. The
