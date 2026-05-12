@@ -70,3 +70,26 @@ Test[
     ,
     TestID -> "Scenario consistency: HRF Scenario 1 paper case migrated"
 ] *)
+
+(* Structural invariants relied on by getKirchhoffLinearSystem and makeSystem
+   after the dead defensive guards were removed. If a future scenario builder
+   ever fails to populate one of these keys, these tests will catch it before
+   downstream Join / lookups blow up. Runs against two scenario shapes so
+   builder-specific regressions are more likely to surface. *)
+
+Do[
+    Module[{label, s, sys},
+        {label, s} = pair;
+        sys = makeSystem[s];
+        Test[ListQ[systemData[sys, "EqEntryIn"]],             True, TestID -> "System invariant: EqEntryIn is a List ("             <> label <> ")"];
+        Test[ListQ[systemData[sys, "BalanceGatheringFlows"]], True, TestID -> "System invariant: BalanceGatheringFlows is a List (" <> label <> ")"];
+        Test[ListQ[systemData[sys, "BalanceSplittingFlows"]], True, TestID -> "System invariant: BalanceSplittingFlows is a List (" <> label <> ")"];
+        Test[AssociationQ[systemData[sys, "RuleEntryIn"]],    True, TestID -> "System invariant: RuleEntryIn is an Association ("   <> label <> ")"];
+        Test[AssociationQ[systemData[sys, "RuleEntryOut"]],   True, TestID -> "System invariant: RuleEntryOut is an Association ("  <> label <> ")"];
+        Test[AssociationQ[scenarioData[s, "Topology"]],       True, TestID -> "Scenario invariant: Topology is Association ("       <> label <> ")"]
+    ],
+    {pair, {
+        {"case-12",         getExampleScenario[12, $entries12, $exits12, {}]},
+        {"chain-two-exits", getExampleScenario["chain with two exits", {{1, 100}}, {{2, 0}, {3, 20}}, {{1, 2, 3, 10}}]}
+    }}
+];

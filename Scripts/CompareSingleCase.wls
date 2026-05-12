@@ -23,7 +23,7 @@ $HistoryLength = 0;
 $Timeout            = 300;
 $BoolConvertTimeout = 60;
 $BMTimeout          = 60;
-$BMRTimeout         = 60;
+$BMRTimeout         = 600;
 
 $KnownCases = <|
     "grid-2x2" -> Function[gridScenario[{2, 2}, {{1, 100}}, {{4, 0}}]],
@@ -106,53 +106,60 @@ match = Which[
 ];
 Print["  verdict: ", match];
 
-(* BooleanConvert (Stage 1 only) *)
-{tBool, resBool} = AbsoluteTiming[
-    TimeConstrained[
-        BooleanConvert[constraints, "DNF"],
-        $BoolConvertTimeout, $Aborted
+(* Free large intermediate results before the Boolean stage. On grid-4x4 / 4x5
+   the dnfReduce outputs (7200 / 27000 branches) plus their canonical sorted
+   forms hold enough memory that the kernel can be OOM-killed during the
+   subsequent BooleanConvert allocation. wolframscript reports an OOM kernel
+   loss as "license error", which is misleading. *)
+ClearAll[resRec, resProc, recCan, procCan];
+Share[];
+Print["  freed dnf results; mem now ", MemoryInUse[]];
+
+(* BooleanConvert — runs in a fresh kernel with an OS-level wall-clock
+   watchdog so that the known C-level abort-deafness of BooleanConvert
+   cannot block the main pipeline. *)
+bcScript = FileNameJoin[{$RepoRoot, "Scripts", "CompareSingleCaseBC.wls"}];
+bcProc   = RunProcess[{"wolframscript", "-file", bcScript, caseName}];
+bcOut    = Lookup[bcProc, "StandardOutput", ""];
+bcLine   = SelectFirst[StringSplit[bcOut, "\n"], StringStartsQ[#, "BC_RESULT|"] &, ""];
+{boolVerdict, tBool, boolBranches} = If[bcLine === "",
+    {"FAIL", 0.0, "?"},
+    Module[{parts = StringSplit[bcLine, "|"]},
+        {parts[[2]], ToExpression[parts[[3]]], parts[[4]]}
     ]
-];
-boolVerdict = If[resBool === $Aborted, "TIMEOUT", "OK"];
-boolBranches = Which[
-    resBool === $Aborted, "?",
-    Head[resBool] === Or, ToString[Length[resBool]],
-    True,                 "1"
 ];
 Print["  BooleanConvert: ", tBool, "s",
-      If[resBool === $Aborted, " (TIMEOUT)", ""],
-      "  disjuncts: ", boolBranches];
+      If[boolVerdict === "TIMEOUT", " (TIMEOUT)", ""],
+      "  disjuncts: ", boolBranches, "  (subprocess)"];
 
-(* booleanMinimizeSystem *)
-{tBM, resBM} = AbsoluteTiming[
-    TimeConstrained[
-        Quiet[booleanMinimizeSystem[sys, "DisjunctTimeout" -> 10],
-              {booleanMinimizeSystem::multisol}],
-        $BMTimeout, $Aborted
+(* booleanMinimizeSystem — runs in a fresh kernel with an OS-level
+   wall-clock watchdog (same rationale as BooleanConvert). *)
+bmScript = FileNameJoin[{$RepoRoot, "Scripts", "CompareSingleCaseBM.wls"}];
+bmProc   = RunProcess[{"wolframscript", "-file", bmScript, caseName}];
+bmOut    = Lookup[bmProc, "StandardOutput", ""];
+bmLine   = SelectFirst[StringSplit[bmOut, "\n"], StringStartsQ[#, "BM_RESULT|"] &, ""];
+{bmVerdict, tBM} = If[bmLine === "",
+    {"FAIL", 0.0},
+    Module[{parts = StringSplit[bmLine, "|"]},
+        {parts[[2]], ToExpression[parts[[3]]]}
     ]
 ];
-bmVerdict = Which[
-    resBM === $Aborted,                  "TIMEOUT",
-    ListQ[resBM] || AssociationQ[resBM], "OK",
-    True,                                "FAIL"
-];
-Print["  BooleanMinimize: ", tBM, "s  verdict: ", bmVerdict];
+Print["  BooleanMinimize: ", tBM, "s  verdict: ", bmVerdict, "  (subprocess)"];
 
-(* booleanMinimizeReduceSystem *)
-{tBMR, resBMR} = AbsoluteTiming[
-    TimeConstrained[
-        Quiet[booleanMinimizeReduceSystem[sys,
-              "ArmTimeout" -> 2, "DisjunctTimeout" -> 10],
-              {booleanMinimizeReduceSystem::multisol}],
-        $BMRTimeout, $Aborted
+(* booleanMinimizeReduceSystem — runs in a fresh kernel so that OOM during BMR
+   cannot kill the current kernel and lose the rows already computed. *)
+ClearAll[resBool]; Share[];
+bmrScript = FileNameJoin[{$RepoRoot, "Scripts", "CompareSingleCaseBMR.wls"}];
+bmrProc = RunProcess[{"wolframscript", "-file", bmrScript, caseName}];
+bmrOut  = Lookup[bmrProc, "StandardOutput", ""];
+bmrLine = SelectFirst[StringSplit[bmrOut, "\n"], StringStartsQ[#, "BMR_RESULT|"] &, ""];
+{bmrVerdict, tBMR} = If[bmrLine === "",
+    {"FAIL", 0.0},
+    Module[{parts = StringSplit[bmrLine, "|"]},
+        {parts[[2]], ToExpression[parts[[3]]]}
     ]
 ];
-bmrVerdict = Which[
-    resBMR === $Aborted,                   "TIMEOUT",
-    ListQ[resBMR] || AssociationQ[resBMR], "OK",
-    True,                                  "FAIL"
-];
-Print["  BooleanMinimizeReduce: ", tBMR, "s  verdict: ", bmrVerdict];
+Print["  BooleanMinimizeReduce: ", tBMR, "s  verdict: ", bmrVerdict, "  (subprocess)"];
 
 (* Single markdown row, same column shape as the multi-case report. *)
 row = StringJoin[

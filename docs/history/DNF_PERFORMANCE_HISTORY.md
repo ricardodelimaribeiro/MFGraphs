@@ -582,6 +582,47 @@ All remaining cases should have consistent switching costs
 
 ---
 
+### 2026-05-11 — Restore `cachedSolve` (shared with procedural engine)
+
+**Commit:** _pending_
+**File:** `MFGraphs/solversTools.wl`
+
+#### Rationale
+
+The historical `CachedSolve` from v0.2 / v1.0 (`MFGraphs/ZAnd.m` /
+`MFGraphs/DNFReduce.m`) did not survive the move to `solversTools.wl`.
+A telemetry pass found 99.8% hit-rate on grid-4x4 (85 103 calls, 140
+distinct keys) — restoring the memo recovers ~13% of `dnfReduceSystem`
+wall-clock on that case.
+
+#### Changes
+
+Memoize all six `Quiet[Solve[expr], Solve::svars]` call sites inside
+`dnfReduce`, `dnfReduceProcedural`, and `dnfReduceInstrumented`. Keyed
+by `Hash[expr]`. Cache persists across calls within a session (small,
+content-hashed, correctness-safe). See `DNF_PROCEDURAL_PERFORMANCE_HISTORY.md`
+2026-05-11 entry for full instrumentation data and rationale for
+caching everything (no shape gate — trivial and non-trivial Equals
+are within noise of each other in mean per-call cost).
+
+#### Measured performance
+
+`dnfReduceSystem` wall-clock, same five-case sweep:
+
+| Case | Before (s) | After (s) | Speedup |
+|---|---|---|---|
+| grid-2x2 | 0.005 | 0.005 | 1.00× |
+| grid-3x2 | 0.008 | 0.008 | 1.00× |
+| grid-3x3 | 0.111 | 0.097 | 1.14× |
+| grid-3x4 | 0.184 | 0.164 | 1.12× |
+| grid-4x4 | 35.05 | 30.54 | 1.15× |
+
+#### Verification
+
+`Scripts/RunTests.wls fast` — 216/216 pass.
+
+---
+
 ## Future entries (template)
 
 When implementing a new optimization, copy this template:

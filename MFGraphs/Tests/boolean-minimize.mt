@@ -45,6 +45,30 @@ Do[
     {pair, $smallCases}
 ];
 
+(* --------------------------------------------------------------------- *)
+(* booleanMinimizeReduceSystem matches dnfReduceSystem on small cases    *)
+(* (cross-check that the levered solver lands on the same rules as the   *)
+(* reference DNF reducer when both fully determine the system).          *)
+(* --------------------------------------------------------------------- *)
+
+Do[
+    Module[{label, scen, sys, refSol, bmrSol},
+        {label, scen} = pair;
+        sys    = makeSystem[scen];
+        refSol = dnfReduceSystem[sys];
+        bmrSol = booleanMinimizeReduceSystem[sys];
+        (* Split assertions so mutual $Failed cannot satisfy the equivalence
+           check by short-circuiting both ListQ guards to False. *)
+        Test[ListQ[refSol], True,
+             TestID -> "dnfReduceSystem returns a List on " <> label];
+        Test[ListQ[bmrSol], True,
+             TestID -> "booleanMinimizeReduceSystem returns a List on " <> label];
+        Test[Sort[bmrSol] === Sort[refSol], True,
+             TestID -> "booleanMinimizeReduceSystem matches dnfReduceSystem on " <> label]
+    ],
+    {pair, $smallCases}
+];
+
 (* --------------------------------------------------------------- *)
 (* Lever 1 (arm-pruning) actually fires: surviving disjAtom count   *)
 (* is strictly less than raw BooleanConvert disjunct count.         *)
