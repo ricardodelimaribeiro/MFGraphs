@@ -1,6 +1,6 @@
 (* ::Package:: *)
 
-Quit[]
+(*Quit[]*)
 
 
 (* ::Title:: *)
@@ -212,7 +212,7 @@ DescribeOutput[
 
 
 (* ::Section:: *)
-(*Section 3 \[LongDash] High-entry-flow variant (optional, expensive)*)
+(*Section 3 \[LongDash] High cost exit avoided variant (optional, 36 seconds)*)
 
 
 (* ::Text:: *)
@@ -267,7 +267,7 @@ If[AssociationQ[jamaratHighEntrySol] || ListQ[jamaratHighEntrySol],
 
 
 (* ::Text:: *)
-(*Two-mode solution visualisation. richNetworkPlot defaults to flow-coloured edges; UseColorFunction -> True switches to value-function-coloured nodes on a Blue\[Rule]Red gradient. The two views answer different questions about the same solution.*)
+(*Two-mode solution visualisation. richNetworkPlot defaults to flow-coloured edges; UseColorFunction -> True switches to value-function-coloured nodes on a Blue->Red gradient. The two views answer different questions about the same solution.*)
 
 
 (* ::Text:: *)
