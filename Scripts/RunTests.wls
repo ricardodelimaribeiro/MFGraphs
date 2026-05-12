@@ -22,7 +22,8 @@ $TestSuites = <|
         "orchestration.mt",
         "dnf-reducer.mt",
         "boolean-minimize.mt",
-        "tawaf.mt"
+        "tawaf.mt",
+        "example-coverage.mt"
     },
     (* Archived tests are intentionally excluded from active CI.
        Use this suite only for explicit compatibility checks. *)
