@@ -4,7 +4,7 @@
 BeginPackage["graphicsTools`", {"primitives`", "utilities`", "scenarioTools`", "systemTools`"}];
 
 rawNetworkPlot::usage =
-"rawNetworkPlot[s, sys, opts] and rawNetworkPlot[s, sys, sol, opts] render the physical network. Real network vertices are gray. Auxiliary entry/exit vertices and boundary edges are hidden by default. Options: ShowAuxiliaryVertices (default False), ShowBoundaryData (default False; when True forces ShowAuxiliaryVertices), ShowBoundaryValues (default True; shows u-values on auxiliary exit vertices when boundary data is shown), ShowFlowLabels (default Automatic; True when sol provided), ShowValueLabels (default Automatic; True when sol provided; shows u-values with 1/4, 1/2, 3/4 interpolations), ShowDensityLabels (default False; shows inferred density m), ColorFunction (default Automatic; Red\[Rule]Blue blend over u-values), ShowLegend (default True), GraphLayout (default Automatic), PlotLabel (default Automatic), ImageSize (default Large). With a solution provided, auxiliary vertices (when shown) and shown vertex states are colored by u-value gradient; physical entry/exit vertices remain gray.";
+"rawNetworkPlot[s, sys, opts] and rawNetworkPlot[s, sys, sol, opts] render the physical network. Real network vertices are gray. Auxiliary entry/exit vertices and boundary edges are hidden by default. Options: ShowAuxiliaryVertices (default False), ShowBoundaryData (default False; when True forces ShowAuxiliaryVertices), ShowBoundaryValues (default True; shows u-values on auxiliary exit vertices when boundary data is shown), ShowFlowLabels (default Automatic; True when sol provided), ShowValueLabels (default Automatic; True when sol provided; shows u-values with 1/4, 1/2, 3/4 interpolations), ShowDensityLabels (default False; shows inferred density m), ColorFunction (default Automatic; Blue\[Rule]Red blend over u-values), ShowLegend (default True), GraphLayout (default Automatic), PlotLabel (default Automatic), ImageSize (default Large). With a solution provided, auxiliary vertices (when shown) and shown vertex states are colored by u-value gradient; physical entry/exit vertices remain gray.";
 
 richNetworkPlot::usage =
 "richNetworkPlot[s, sys, opts] and richNetworkPlot[s, sys, sol, opts] render the augmented state-space graph. Nodes are pairs {a,b} representing oriented edge states; edges are flow arcs j[a,b] (blue) and transition arcs j[r,i,w] (red), drawn as quadratic Bezier curves so anti-parallel pairs separate. Only nodes whose label position (b) is an auxiliary entry/exit vertex receive boundary colors. Options: ShowFlowEdges (default True; False yields the transition-only graph), ShowBoundaryData (default False; overlays entry-flow and exit-cost labels), ShowBoundaryValues (default True; shows u/cost on boundary nodes), ShowFlowLabels (default Automatic; True when sol provided), ShowValueLabels (default Automatic; True when sol provided), UseColorFunction (default False; when True colors nodes and eligible edges by u-values using ColorFunction), ColorFunction (default Automatic), ShowLegend (default True), BendFactor (default 0.15; arc curvature as fraction of edge length), GraphLayout (default Automatic), PlotLabel (default Automatic), ImageSize (default Large).";
@@ -480,7 +480,7 @@ rawNetworkPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, opts : OptionsPattern[]] :=
         showValues = resolveAutomaticOption[OptionValue[ShowValueLabels], rules =!= {}];
         showDensity = TrueQ[OptionValue[ShowDensityLabels]];
         showLegend = TrueQ[OptionValue[ShowLegend]];
-        colorFn = Replace[OptionValue[ColorFunction], Automatic -> (Blend[{Red, Blue}, #] &)];
+        colorFn = Replace[OptionValue[ColorFunction], Automatic -> (Blend[{Blue, Red}, #] &)];
 
         (* Choose vertex / edge sets based on whether aux is shown. *)
         If[showAux,
@@ -666,7 +666,7 @@ richNetworkPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_, opts : OptionsPattern[]] :=
         showValueLabels = resolveAutomaticOption[OptionValue[ShowValueLabels], rules =!= {}];
         useColorFunction = TrueQ[OptionValue[UseColorFunction]];
         showLegend = TrueQ[OptionValue[ShowLegend]];
-        colorFn = Replace[OptionValue[ColorFunction], Automatic -> (Blend[{Red, Blue}, #] &)];
+        colorFn = Replace[OptionValue[ColorFunction], Automatic -> (Blend[{Blue, Red}, #] &)];
         bendFactor = OptionValue[BendFactor];
 
         auxEntryV = systemData[sys, "AuxEntryVertices"];
