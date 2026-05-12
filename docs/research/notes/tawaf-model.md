@@ -145,6 +145,83 @@ End-to-end coverage in `Tests/tawaf.mt:143-160`. The 2×3×1 case is the
 smallest non-trivial coupled instance (one shared physical segment,
 `j[1,2] ↔ j[4,5]`).
 
+## Density extension (opt-in)
+
+The base Tawaf builder couples **flows** on shared physical edges. Flow
+alone does not characterise congestion in the standard stationary MFG
+formulation — the Hamiltonian carries a density `m` as well. The opt-in
+density extension (`makeTawafScenario[…, "Density" -> True]` →
+`makeTawafSystem`) augments the system with a per-edge density family
+and the corresponding consistency block.
+
+### Math
+
+Critical-congestion Hamiltonian with `g(m) = -1/(2m)` and a strictly
+negative potential `V(x) < 0`. The condition `H = 0` yields the
+algebraic relation between the density and the signed flow on each
+edge:
+
+```
+m = -(j² + 1) / (2 V)        equivalently        j = ±√(-2 m V - 1)
+```
+
+where `j` is the signed net flow `j[a,b] - j[b,a]` along the directed
+pair on an undirected edge `{a,b}`. The `±` is the direction of net
+flow; AltFlows kills one of the two non-negative directional variables
+at equilibrium.
+
+### What `makeTawafSystem` adds when `Density -> True`
+
+- A symbolic family `m[{a, b}]` — one per non-boundary undirected
+  logical edge, keyed by `Sort[{a, b}]`. Lives under `Ms` in the
+  Hamiltonian sub-record (`systemData[sys, "Ms"]`).
+- An inequality block `IneqMs` enforcing `m > 0`.
+- A consistency block `EqDensityFlow`: one equation
+  `j_phys² + 2 V_{ab} m_phys + 1 == 0` per shared physical segment,
+  where `j_phys` and `m_phys` are the cohort sums (the existing flow
+  coupling and a parallel density coupling are both applied; siblings
+  collapse into a single physical constraint after `DeleteDuplicates`).
+- A baseline strictly-negative potential on every non-boundary edge
+  (`"BaselinePotential"` option, default `-1.0`); the Black-Stone
+  discount `-5.0` is added on top of the baseline. `V` must be `< 0`
+  everywhere `m` is defined or the consistency relation has no real
+  solution.
+
+### Modelling fork (current implementation = additive)
+
+Two defensible reads of "the cost is `j = ±√(-2 m V - 1)`":
+
+1. **Additive (current).** `EqGeneral` keeps its linear flow cost
+   `j[a,b] - j[b,a]`. `m` enters only through `EqDensityFlow`, so the
+   density is a first-class quantity tied algebraically to the
+   physical flow sum but does not directly substitute into the HJB.
+2. **Substitutive (deferred).** `EqGeneral`'s `j[a,b] - j[b,a]` is
+   replaced by the signed `√(-2 m_phys V - 1)` expression. Tighter
+   coupling; significantly harder for `Reduce` because every HJB
+   equation gains a radical.
+
+The current code implements the additive form. Switching to
+substitutive is a one-line rewrite atop this baseline.
+
+### Solver implications
+
+The consistency block introduces quadratic terms in `j` and a
+multiplicative coupling between `j_phys²` and `m_phys`. The DNF
+prefilter on the existing complementarity blocks still applies; per-
+branch reduce gets harder but stays in the symbolic pipeline.
+`isValidSystemSolution` validates whatever the system stores, so no
+solver-side change is required.
+
+### Test coverage
+
+`Tests/tawaf.mt` asserts (at the 2×3×1 size): five `m` symbols
+generated, five `m > 0` inequalities, three `EqDensityFlow` equations
+(one per physical segment, after the cohort dedup), and the explicit
+shared-segment equation
+`(j[1,2] - j[2,1] + j[4,5] - j[5,4])² + 2 V (m[{1,2}] + m[{4,5}]) + 1 == 0`.
+A separate test confirms that the density block is absent on the plain
+(non-density) builder so the existing pipeline is not perturbed.
+
 ## Visualisation
 
 `TawafWorkbook.wl` provides three views:
