@@ -417,7 +417,7 @@ DescribeOutput[
 
 DescribeOutput[
     "2\[Times]3\[Times]1 augmented infrastructure with solved flows (richNetworkPlot)",
-    "Blue arcs are flow variables j[a,b]; red arcs are transition flows j[r,i,w]. Node colours show u-values on a Red\[Rule]Blue gradient.",
+    "Blue arcs are flow variables j[a,b]; red arcs are transition flows j[r,i,w]. Node colours show u-values on a Blue\[Rule]Red gradient.",
     richNetworkPlot[tawaf2x3, tawaf2x3System, tawaf2x3Sol,
         PlotLabel -> "Tawaf 2\[Times]3\[Times]1 \[LongDash] solved",
         ImageSize -> Large]

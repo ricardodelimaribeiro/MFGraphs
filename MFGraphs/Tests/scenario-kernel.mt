@@ -847,3 +847,28 @@ Test[
     ,
     TestID -> "Example metadata: Achdou 2023 source and finite analog note"
 ]
+
+(* Test: listExampleScenarios returns the full registry as a non-empty sorted list *)
+Test[
+    Module[{keys},
+        keys = listExampleScenarios[];
+        ListQ[keys] && Length[keys] > 20 &&
+            MemberQ[keys, "Jamaratv9"] && MemberQ[keys, "Grid0303"] && MemberQ[keys, 3]
+    ]
+    ,
+    True
+    ,
+    TestID -> "Example registry: listExampleScenarios discoverability"
+]
+
+(* Test: every registered scenario has metadata (no $Failed leaks) *)
+Test[
+    AllTrue[
+        listExampleScenarios[],
+        AssociationQ[getExampleScenarioMetadata[#]] &
+    ]
+    ,
+    True
+    ,
+    TestID -> "Example metadata: every registered key resolves to an Association"
+]

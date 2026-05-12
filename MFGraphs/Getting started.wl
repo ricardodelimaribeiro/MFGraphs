@@ -1,43 +1,40 @@
 (* ::Package:: *)
 
+(* ::Title:: *)
+(*MFGraphs Getting Started*)
+
+
+(* ::Subsection:: *)
+(*Overview*)
+
+
+(* ::Text:: *)
+(*A notebook tour of the MFGraphs scenario kernel and the solversTools solver. Evaluate cells one at a time or section by section \[LongDash] do not evaluate the entire file at once. To force a clean reload, restart the kernel with Quit[] and re-evaluate from the top.*)
+
+
+(* ::Text:: *)
+(*Capabilities demonstrated, in order:*)
+(*	1. Direct scenario constructors (gridScenario, cycleScenario, amScenario)*)
+(*	2. Named example registry (getExampleScenario, listExampleScenarios)*)
+(*	3. Typed scenarios and scenarioData accessor*)
+(*	4. Per-edge Hamiltonian model (Alpha, V, G overrides)*)
+(*	5. Symbolic unknown bundles (makeSymbolicUnknowns)*)
+(*	6. Structural systems (makeSystem, mfgSystem, systemData)*)
+(*	7. Switching costs vs HJ/complementarity blocks*)
+(*	8. Topology visualisation (rawNetworkPlot)*)
+(*	9. Symbolic solving (solveScenario \[Rule] dnfReduceSystem)*)
+(*	10. Solution visualisation with flows / value function*)
+(*	11. Augmented state-space graph (richNetworkPlot, augmentAuxiliaryGraph)*)
+(*	12. Paper-style network construction (graphScenario)*)
+(*	13. Multi-entrance/multi-exit scenario (Jamaratv9)*)
+
+
+(* ::Subsection:: *)
+(*Initialization*)
+
+
 (*Quit[]*)
 
-
-(* Notebook-friendly MFGraphs workbook covering the typed scenario kernels
-   and the solversTools solver. *)
-
-(* Evaluate cells one at a time or section by section \[LongDash] do not evaluate the entire file at once. *)
-
-(* Force clean reload \[LongDash] safe to re-evaluate without restarting the kernel. *)
-Quiet[
-    With[
-        {
-            reloadContexts = {
-                "MFGraphs`",
-                "primitives`",
-                "scenarioTools`",
-                "examples`",
-                "unknownsTools`",
-                "systemTools`",
-                "solversTools`",
-                "graphicsTools`"
-            }
-        },
-        Remove["Global`*"];
-        Scan[
-            Remove[# <> "*", # <> "Private`*"]&,
-            reloadContexts
-        ];
-        $Packages = DeleteCases[
-            $Packages,
-            Alternatives @@ Join[reloadContexts, (# <> "Private`") /@ reloadContexts]
-        ];
-        $ContextPath = DeleteCases[
-            $ContextPath,
-            Alternatives @@ Join[reloadContexts, (# <> "Private`") /@ reloadContexts]
-        ];
-    ];
-];
 
 (* This file lives alongside MFGraphs.wl in the same directory. *)
 mfgDir = If[$InputFileName === "", 
@@ -170,7 +167,8 @@ EdgeModelPlot[s_?scenarioQ, sys_?mfgSystemQ, opts : OptionsPattern[]] :=
 (* Use the global flag from primitives context *)
 $MFGraphsVerbose = False;
 
-(* --- 1. Build scenarios with ExampleScenarios constructors --- *)
+(* ::Section:: *)
+(*1. Build scenarios with ExampleScenarios constructors*)
 
 sGrid = gridScenario[
     {3},
@@ -219,7 +217,8 @@ Column[{
 }]
 
 
-(* --- 2. Use named factory examples from ExampleScenarios.wl --- *)
+(* ::Section:: *)
+(*2. Use named factory examples from ExampleScenarios.wl*)
 
 exY = gridScenario[{3}, {{2, 100.0}}, {{1, 0.0}, {3, 10.0}}];
 
@@ -243,7 +242,8 @@ Column[{
 }]
 
 
-(* --- 3. Inspect scenario structure from Scenario.wl --- *)
+(* ::Section:: *)
+(*3. Inspect scenario structure from Scenario.wl*)
 
 scenarioChecks = <|
     "scenarioQ[exY]" -> scenarioQ[exY],
@@ -261,7 +261,8 @@ DescribeOutput[
 ]
 
 
-(* --- 4. Show the Hamiltonian model stored on each edge --- *)
+(* ::Section:: *)
+(*4. Show the Hamiltonian model stored on each edge*)
 
 edgeModelScenario = makeScenario[
     <|
@@ -318,7 +319,8 @@ Column[{
 }]
 
 
-(* --- 5. Build exact symbolic unknown bundles from unknownsTools.wl --- *)
+(* ::Section:: *)
+(*5. Build exact symbolic unknown bundles from unknownsTools.wl*)
 
 exampleUnknowns = makeSymbolicUnknowns[exY];
 
@@ -339,7 +341,8 @@ DescribeOutput[
 ]
 
 
-(* --- 6. Build structural systems from System.wl --- *)
+(* ::Section:: *)
+(*6. Build structural systems from System.wl*)
 
 exampleSystem = makeSystem[exY, exampleUnknowns];
 
@@ -363,7 +366,8 @@ DescribeOutput[
 ]
 
 
-(* --- 7. Chain with two exits: equations without and with switching costs --- *)
+(* ::Section:: *)
+(*7. Chain with two exits: equations without and with switching costs*)
 
 chain2ExNoSC = gridScenario[
     {3},
@@ -411,7 +415,8 @@ Column[{
 }]
 
 
-(* --- 8. Topology visualization (from MFGraphs`graphicsTools`) --- *)
+(* ::Section:: *)
+(*8. Topology visualization (from MFGraphs`graphicsTools`)*)
 
 Column[{
     DescribeOutput[
@@ -429,7 +434,8 @@ Column[{
 }]
 
 
-(* --- 9. Solve with solveScenario (DNF-first default) --- *)
+(* ::Section:: *)
+(*9. Solve with solveScenario (DNF-first default)*)
 
 (* Chain 1->2->3, single exit at 3 (cost=0), entry flow=10.
    All variables are uniquely determined. *)
@@ -456,9 +462,11 @@ Column[{
 }]
 
 
-(* --- 10. Visualize solveScenario solutions (from MFGraphs`graphicsTools`) --- *)
+(* ::Section:: *)
+(*10. Visualize solveScenario solutions (from MFGraphs`graphicsTools`)*)
 
-(* --- Apply to chain with one exit (sol1Ex from section 9) --- *)
+(* ::Subsubsection:: *)
+(*Apply to chain with one exit (sol1Ex from section 9)*)
 
 Column[{
     DescribeOutput[
@@ -482,7 +490,8 @@ Column[{
 }]
 
 
-(* --- Apply to chain with two exits (solNoSC from section 9) --- *)
+(* ::Subsubsection:: *)
+(*Apply to chain with two exits (solNoSC from section 9)*)
 
 Column[{
     DescribeOutput[
@@ -502,7 +511,8 @@ Column[{
 }]
 
 
-(* --- 11. Advanced Solution Visualization (Paper Scheme) --- *)
+(* ::Section:: *)
+(*11. Advanced Solution Visualization (Paper Scheme)*)
 
 augChain1 = augmentAuxiliaryGraph[sys1Ex];
 
@@ -519,7 +529,7 @@ Column[{
     ],
     DescribeOutput[
         "Transition graph \[LongDash] richNetworkPlot[..., ShowFlowEdges -> False]",
-        "richNetworkPlot with ShowFlowEdges -> False suppresses j[a,b] flow arcs, leaving the transition graph (j[r,i,w]). Nodes are colored on a Red\[Rule]Blue u-value gradient when a solution is provided. A color bar legend is shown by default.",
+        "richNetworkPlot with ShowFlowEdges -> False suppresses j[a,b] flow arcs, leaving the transition graph (j[r,i,w]). Nodes are colored on a Blue\[Rule]Red u-value gradient when a solution is provided. A color bar legend is shown by default.",
         richNetworkPlot[chain1Ex, sys1Ex, sol1Ex,
             PlotLabel -> "Chain 1\[Rule]2\[Rule]3: transition graph",
             ShowFlowEdges -> False]
@@ -558,7 +568,8 @@ Column[{
 }]
 
 
-(* --- 12. Paper-style network: Figure 3 \[Rule] Figure 4 transformation --- *)
+(* ::Section:: *)
+(*12. Paper-style network: Figure 3 \[Rule] Figure 4 transformation*)
 
 paperFig3Scenario = graphScenario[
     Graph[{1 \[UndirectedEdge] 2, 2 \[UndirectedEdge] 3, 3 \[UndirectedEdge] 4}],
@@ -609,7 +620,8 @@ Column[{
 }]
 
 
-(* --- 13. Jamaratv9 example from the named scenario registry --- *)
+(* ::Section:: *)
+(*13. Jamaratv9 example from the named scenario registry*)
 
 jamaratScenario = getExampleScenario[
     "Jamaratv9",
