@@ -17,7 +17,8 @@ Needs["MFGraphs`"];
 $MFGraphsVerbose = False;
 $HistoryLength = 0;
 
-$BMRTimeout = 600;
+$BMRTimeout    = 600;    (* WL-level (often ignored by C kernel) *)
+$WallclockKill = 800;    (* OS-level hard ceiling *)
 
 $KnownCases = <|
     "grid-2x2" -> Function[gridScenario[{2, 2}, {{1, 100}}, {{4, 0}}]],
@@ -36,6 +37,10 @@ If[Length[args] < 1 || !KeyExistsQ[$KnownCases, First[args]],
     Exit[1]
 ];
 caseName = First[args];
+
+(* Spawn the OS-level watchdog. *)
+Run["( sleep " <> ToString[$WallclockKill] <> "; kill -9 " <>
+    ToString[$ProcessID] <> " ) >/dev/null 2>&1 &"];
 
 scen = $KnownCases[caseName][];
 sys  = makeSystem[scen];

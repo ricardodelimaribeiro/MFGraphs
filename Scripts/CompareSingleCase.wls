@@ -115,37 +115,36 @@ ClearAll[resRec, resProc, recCan, procCan];
 Share[];
 Print["  freed dnf results; mem now ", MemoryInUse[]];
 
-(* BooleanConvert (Stage 1 only) *)
-{tBool, resBool} = AbsoluteTiming[
-    TimeConstrained[
-        BooleanConvert[constraints, "DNF"],
-        $BoolConvertTimeout, $Aborted
+(* BooleanConvert — runs in a fresh kernel with an OS-level wall-clock
+   watchdog so that the known C-level abort-deafness of BooleanConvert
+   cannot block the main pipeline. *)
+bcScript = FileNameJoin[{$RepoRoot, "Scripts", "CompareSingleCaseBC.wls"}];
+bcProc   = RunProcess[{"wolframscript", "-file", bcScript, caseName}];
+bcOut    = Lookup[bcProc, "StandardOutput", ""];
+bcLine   = SelectFirst[StringSplit[bcOut, "\n"], StringStartsQ[#, "BC_RESULT|"] &, ""];
+{boolVerdict, tBool, boolBranches} = If[bcLine === "",
+    {"FAIL", 0.0, "?"},
+    Module[{parts = StringSplit[bcLine, "|"]},
+        {parts[[2]], ToExpression[parts[[3]]], parts[[4]]}
     ]
-];
-boolVerdict = If[resBool === $Aborted, "TIMEOUT", "OK"];
-boolBranches = Which[
-    resBool === $Aborted, "?",
-    Head[resBool] === Or, ToString[Length[resBool]],
-    True,                 "1"
 ];
 Print["  BooleanConvert: ", tBool, "s",
-      If[resBool === $Aborted, " (TIMEOUT)", ""],
-      "  disjuncts: ", boolBranches];
+      If[boolVerdict === "TIMEOUT", " (TIMEOUT)", ""],
+      "  disjuncts: ", boolBranches, "  (subprocess)"];
 
-(* booleanMinimizeSystem *)
-{tBM, resBM} = AbsoluteTiming[
-    TimeConstrained[
-        Quiet[booleanMinimizeSystem[sys, "DisjunctTimeout" -> 10],
-              {booleanMinimizeSystem::multisol}],
-        $BMTimeout, $Aborted
+(* booleanMinimizeSystem — runs in a fresh kernel with an OS-level
+   wall-clock watchdog (same rationale as BooleanConvert). *)
+bmScript = FileNameJoin[{$RepoRoot, "Scripts", "CompareSingleCaseBM.wls"}];
+bmProc   = RunProcess[{"wolframscript", "-file", bmScript, caseName}];
+bmOut    = Lookup[bmProc, "StandardOutput", ""];
+bmLine   = SelectFirst[StringSplit[bmOut, "\n"], StringStartsQ[#, "BM_RESULT|"] &, ""];
+{bmVerdict, tBM} = If[bmLine === "",
+    {"FAIL", 0.0},
+    Module[{parts = StringSplit[bmLine, "|"]},
+        {parts[[2]], ToExpression[parts[[3]]]}
     ]
 ];
-bmVerdict = Which[
-    resBM === $Aborted,                  "TIMEOUT",
-    ListQ[resBM] || AssociationQ[resBM], "OK",
-    True,                                "FAIL"
-];
-Print["  BooleanMinimize: ", tBM, "s  verdict: ", bmVerdict];
+Print["  BooleanMinimize: ", tBM, "s  verdict: ", bmVerdict, "  (subprocess)"];
 
 (* booleanMinimizeReduceSystem — runs in a fresh kernel so that OOM during BMR
    cannot kill the current kernel and lose the rows already computed. *)
