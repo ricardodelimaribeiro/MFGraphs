@@ -120,6 +120,36 @@ Test[
 ]
 
 Test[
+    (* Black-Stone potential -5 must apply only to TANGENTIAL edges leaving a
+       position-1 node. Radial (lane-change) edges from position 1 must carry
+       V = 0 — a lane change is not a salutation. Smallest case with radial
+       edges: 2x3x2. *)
+    Module[{rounds = 2, npr = 3, layers = 2, s, edgeV,
+            enc, tangentialFromP1, radialFromP1},
+        s = makeTawafScenario[rounds, npr, layers];
+        edgeV = scenarioData[s, "Hamiltonian"]["EdgeV"];
+        enc[r_, p_, l_] := tawafEncode[r, p, l, rounds, npr];
+        (* Tangential edges leaving position 1: enc[r,1,l] -> enc[r,2,l]
+           for every round and layer. *)
+        tangentialFromP1 = Flatten[
+            Table[{enc[r, 1, l], enc[r, 2, l]}, {r, rounds}, {l, layers}],
+            1];
+        (* Radial edges leaving position 1: enc[r,1,l] -> enc[r,1,l+1]
+           for every round and adjacent layer pair. *)
+        radialFromP1 = Flatten[
+            Table[{enc[r, 1, l], enc[r, 1, l + 1]},
+                {r, rounds}, {l, layers - 1}],
+            1];
+        AllTrue[tangentialFromP1, edgeV[#] === -5.0 &] &&
+        AllTrue[radialFromP1,     edgeV[#] === 0.0  &] &&
+        Length[tangentialFromP1] >= 1 &&
+        Length[radialFromP1]     >= 1
+    ],
+    True,
+    TestID -> "Tawaf: Black-Stone V applies only to tangential edges from position 1"
+]
+
+Test[
     (* Forward and backward direction is distinguished. The current scenario
        only emits forward edges, so this is a structural check on the helper:
        a hypothetical j[2,1] would group separately from j[1,2] *)
@@ -157,4 +187,139 @@ Test[
     ],
     True,
     TestID -> "Tawaf: smallest coupled system solves and validates"
+]
+
+Test[
+    (* Density extension: with "Density" -> True, makeTawafSystem augments
+       the system with an m[canonicalEdge] family (one symbol per PHYSICAL
+       undirected edge \[LongDash] the canonical = lex-smallest logical
+       undirected edge in the cohort), IneqMs (m > 0), and an EqDensityFlow
+       block whose entries are (j_phys)^2 + 2 V m + 1 == 0 \[LongDash] one
+       constraint per shared physical segment. *)
+    Module[{s, sys, ms, ineqMs, eqDF, vMap, vab, expectedShared, hasShared},
+        s   = makeTawafScenario[2, 3, 1, "Density" -> True];
+        sys = makeTawafSystem[s];
+        ms     = systemData[sys, "Ms"];
+        ineqMs = systemData[sys, "IneqMs"];
+        eqDF   = systemData[sys, "EqDensityFlow"];
+        vMap   = scenarioData[s, "Hamiltonian"]["EdgeV"];
+        vab    = vMap[{1, 2}];
+        (* Expected (j_phys)^2 + 2 V m + 1 == 0 for the shared segment
+           1<->2 (cohort {1,2} and {4,5}; canonical = {1,2}). *)
+        expectedShared =
+            (j[1,2] - j[2,1] + j[4,5] - j[5,4])^2
+                + 2 vab m[{1,2}] + 1 == 0;
+        (* Match the equation regardless of Plus / Times reordering. *)
+        hasShared = AnyTrue[eqDF,
+            TrueQ[Simplify[(#[[1]] - expectedShared[[1]]) == 0]] &];
+        And[
+            (* Three m's, one per physical undirected edge:
+               {1,2} (shared with {4,5}), {2,3} (shared with {5,6}),
+               {3,4} (round-boundary singleton). *)
+            Sort[ms] === Sort[m /@ {{1,2},{2,3},{3,4}}],
+            Length[ineqMs] === 3,
+            AllTrue[ineqMs, MatchQ[#, _ > 0] &],
+            (* Three EqDensityFlow equations, one per physical edge *)
+            Length[eqDF] === 3,
+            (* The shared-segment equation is present *)
+            hasShared,
+            (* V baseline + Black Stone discount: -6 on tangentials from
+               position 1, -1 elsewhere *)
+            vMap[{1, 2}] === -6.0,
+            vMap[{2, 3}] === -1.0
+        ]
+    ],
+    True,
+    TestID -> "Tawaf: density extension generates per-physical-edge m, IneqMs, and EqDensityFlow"
+]
+
+Test[
+    (* Density extension does not perturb the default (non-density) builder \[LongDash]
+       Density-related keys must be absent from the system when Density is off. *)
+    Module[{s, sys, ms, eqDF},
+        s   = makeTawafScenario[2, 3, 1];
+        sys = makeTawafSystem[s];
+        ms   = systemData[sys, "Ms"];
+        eqDF = systemData[sys, "EqDensityFlow"];
+        And[
+            MatchQ[ms,   _Missing],
+            MatchQ[eqDF, _Missing]
+        ]
+    ],
+    True,
+    TestID -> "Tawaf: density block absent when Density option is off (default)"
+]
+
+Test[
+    (* Multi-layer density: 2x3x2 has both tangential and radial physical
+       cohorts. Per layer there are 3 distinct tangential physical edges
+       (positions 1<->2, 2<->3 share across rounds; 3<->1 wrap is a singleton),
+       giving 6 tangential physicals across 2 layers. Per position there is
+       1 radial physical edge between layers 1 and 2 (cohort = round-1 and
+       round-2 logical edges), giving 3 radial physicals. Total 9. The
+       radial cohort at position 1 groups {1,7} with {4,10}; canonical
+       (lex-smallest) is {1,7}. *)
+    Module[{s, sys, ms, eqDF, j17Eq},
+        s   = makeTawafScenario[2, 3, 2, "Density" -> True];
+        sys = makeTawafSystem[s];
+        ms   = systemData[sys, "Ms"];
+        eqDF = systemData[sys, "EqDensityFlow"];
+        (* Expected radial-cohort equation at position 1 (V baseline = -1
+           on radial edges; cohort flows j[1,7]+j[4,10] outward minus
+           j[7,1]+j[10,4] inward). *)
+        j17Eq =
+            (j[1,7] + j[4,10] - j[7,1] - j[10,4])^2
+                + 2 (-1.0) m[{1,7}] + 1 == 0;
+        And[
+            Length[ms]   === 9,
+            Length[eqDF] === 9,
+            (* m[{1,7}] is one of the m's (the radial cohort canonical) *)
+            MemberQ[ms, m[{1,7}]],
+            (* m[{4,10}] is NOT \[LongDash] it's collapsed into m[{1,7}] *)
+            !MemberQ[ms, m[{4,10}]],
+            AnyTrue[eqDF,
+                TrueQ[Simplify[(#[[1]] - j17Eq[[1]]) == 0]] &]
+        ]
+    ],
+    True,
+    TestID -> "Tawaf: density extension on 2x3x2 produces tangential + radial cohorts"
+]
+
+Test[
+    (* tawafDensities post-solve helper: after solving the j/u part of a
+       Density-True system, the helper derives m for each physical edge by
+       inverting the linear consistency equation. All m values must be
+       strictly positive (consistent with IneqMs). *)
+    Module[{s, sys, sol, mRules, mVals},
+        s   = makeTawafScenario[2, 3, 1, "Density" -> True];
+        sys = makeTawafSystem[s];
+        sol = TimeConstrained[dnfReduceSystem[sys], 60, $TimedOut];
+        sol =!= $TimedOut && (
+            mRules = tawafDensities[sys, sol];
+            mVals  = Values[mRules];
+            And[
+                AssociationQ[mRules],
+                Length[mRules] === 3,
+                AllTrue[mVals, NumericQ[#] && # > 0 &]
+            ]
+        )
+    ],
+    True,
+    TestID -> "Tawaf: tawafDensities derives positive m per physical edge"
+]
+
+Test[
+    (* tawafDensities returns an empty association on a non-density system
+       (defensive: callers can compose unconditionally with Join). *)
+    Module[{s, sys, sol, mRules},
+        s   = makeTawafScenario[2, 3, 1];
+        sys = makeTawafSystem[s];
+        sol = TimeConstrained[dnfReduceSystem[sys], 60, $TimedOut];
+        sol =!= $TimedOut && (
+            mRules = tawafDensities[sys, sol];
+            mRules === <||>
+        )
+    ],
+    True,
+    TestID -> "Tawaf: tawafDensities returns <||> on non-density system"
 ]

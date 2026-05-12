@@ -20,10 +20,11 @@ Quit[]
 (*	1. Typed scenario construction with metadata storage (makeTawafScenario, scenarioQ, scenarioData)*)
 (*	2. Symbolic unknown bundle and structural system (makeSystem behind makeTawafSystem; symbolicUnknowns; mfgSystem)*)
 (*	3. Tawaf-specific physical-edge coupling \[LongDash] the package's specialised builder pattern (makeTawafSystem rewrites EqGeneral and AltOptCond on top of an ordinary mfgSystem)*)
-(*	4. Symbolic solving via the DNF-first default (solveScenario \[Rule] dnfReduceSystem)*)
+(*	4. Symbolic solving via the DNF-first default (dnfReduceSystem applied to the Tawaf-coupled system)*)
 (*	5. Solution validation (isValidSystemSolution)*)
 (*	6. Visualisation surface (rawNetworkPlot, richNetworkPlot, plus a custom 3D helix view defined locally)*)
 (*	7. Scaling from a 6-node smoke test through 12, 12, and 56 nodes*)
+(*	8. Density-dependent cost extension (\"Density\" -> True, m family, EqDensityFlow, tawafDensities)*)
 
 
 (* ::Text:: *)
@@ -35,7 +36,7 @@ Quit[]
 
 
 (* ::Text:: *)
-(*Evaluate cells one at a time or section by section \[LongDash] do not evaluate the entire file at once. The Quit[] at the top is a safety device; if it fires, evaluation stops cleanly. Larger scenarios (3\[Times]4 and 2\[Times]3\[Times]2) are wrapped or noted as expensive; the canonical 7\[Times]8 case ships with its solve commented out.*)
+(*Evaluate cells one at a time or section by section \[LongDash] do not evaluate the entire file at once. The Quit[] at the top is a safety device; if it fires, evaluation stops cleanly. Larger scenarios (3*4 and 2*3*2) are wrapped or noted as expensive; the canonical 7*8 case ships with its solve commented out.*)
 
 
 (* ::Subsection:: *)
@@ -141,7 +142,7 @@ TawafCouplingComparison[s_?scenarioQ, maxEqs_:4] :=
 ClearAll[tawafHelixPlot];
 
 Options[tawafHelixPlot] = {
-    "ShowEquivalenceLinks" -> True,
+    "ShowEquivalenceLinks" -> False,
     "ShowVertexLabels"     -> Automatic,
     "Pitch"                -> 0.6,
     "Radius"               -> 3.0,
@@ -184,7 +185,7 @@ tawafHelixPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_:<||>, opts:OptionsPattern[]] 
             StringTemplate["Tawaf helix ``\[Times]``\[Times]``"][rounds, npr, layers]];
         imgSize   = OptionValue[ImageSize];
 
-        encode[r_, p_, l_] := (l - 1)*rounds*npr + (r - 1)*npr + p;
+        encode[r_, p_, l_] := tawafEncode[r, p, l, rounds, npr];
         coord[r_, p_, l_]  := {
             (r0 + (l - 1) dr) Cos[2 Pi (p - 1)/npr],
             (r0 + (l - 1) dr) Sin[2 Pi (p - 1)/npr],
@@ -263,11 +264,11 @@ tawafHelixPlot[s_?scenarioQ, sys_?mfgSystemQ, sol_:<||>, opts:OptionsPattern[]] 
 
 
 (* ::Subsection:: *)
-(*Section 1 \[LongDash] Smallest coupled case (2\[Times]3\[Times]1): a guided tour*)
+(*Section 1 \[LongDash] Smallest coupled case (2*3*1): a guided tour*)
 
 
 (* ::Text:: *)
-(*Two rounds of three positions, one layer. The smallest scenario where coupling has anything to do: tangential forward edges 1\[Rule]2 and 4\[Rule]5 share the physical segment "position 1\[Rule]2", so the package rewrites either flow as their sum.*)
+(*Two rounds of three positions, one layer. The smallest scenario where coupling has anything to do: tangential forward edges 1->2 and 4->5 share the physical segment "position 1->2", so the package rewrites either flow as their sum.*)
 
 
 (* ::Subsubsection:: *)
@@ -297,7 +298,7 @@ DescribeOutput[
 
 
 (* ::Text:: *)
-(*Capability: typed accessors (scenarioData, systemData) and a flattened topology summary. The 2\[Times]3\[Times]1 case has 6 logical vertices, 5 directed tangential edges (last position of round 2 has no outgoing tangential edge \[LongDash] that is the exit), and an entry-flow total of 100.*)
+(*Capability: typed accessors (scenarioData, systemData) and a flattened topology summary. The 2*3*1 case has 6 logical vertices, 5 directed tangential edges (last position of round 2 has no outgoing tangential edge \[LongDash] that is the exit), and an entry-flow total of 100.*)
 
 
 DescribeOutput[
@@ -363,7 +364,7 @@ DescribeOutput[
 
 
 (* ::Text:: *)
-(*Capability: makeTawafSystem builds an ordinary mfgSystem via makeSystem, then rewrites EqGeneral and AltOptCond so logical flows on the same physical segment share congestion. The contrast below is the central novelty for the Tawaf scenario family. The "before" column is the raw makeSystem output; the "after" column is the makeTawafSystem rewrite \[LongDash] notice that occurrences of j[1,2] in any equation become j[1,2] + j[4,5], because both flows traverse the same physical "position 1\[Rule]2" segment.*)
+(*Capability: makeTawafSystem builds an ordinary mfgSystem via makeSystem, then rewrites EqGeneral and AltOptCond so logical flows on the same physical segment share congestion. The contrast below is the central novelty for the Tawaf scenario family. The "before" column is the raw makeSystem output; the "after" column is the makeTawafSystem rewrite \[LongDash] notice that occurrences of j[1,2] in any equation become j[1,2] + j[4,5], because both flows traverse the same physical "position 1->2" segment.*)
 
 
 DescribeOutput[
@@ -385,10 +386,10 @@ DescribeOutput[
 
 
 (* ::Text:: *)
-(*Capability: solveScenario delegates to dnfReduceSystem (the DNF-first default). On the 2\[Times]3\[Times]1 case it returns a fully-determined rule list in well under a second.*)
+(*Capability: dnfReduceSystem (the DNF-first default solver) applied to the Tawaf-coupled system. On the 2*3*1 case it returns a fully-determined rule list in well under a second. Note: solveScenario[s] cannot be used here because it dispatches to makeSystem, not makeTawafSystem \[LongDash] solving the uncoupled system would not satisfy the coupled validator below.*)
 
 
-AbsoluteTiming[tawaf2x3Sol = solveScenario[tawaf2x3];]
+AbsoluteTiming[tawaf2x3Sol = dnfReduceSystem[tawaf2x3System];]
 
 
 (* ::Subsubsection:: *)
@@ -434,8 +435,8 @@ DescribeOutput[
 
 
 DescribeOutput[
-    "2\[Times]3\[Times]1 helix view (structure, with equivalence links)",
-    "3D layout: angle = position, height = (round, position) in flattened sequence. Dashed gray edges connect equivalent (same position, different round) nodes \[LongDash] visualising the unroll-then-couple idea directly.",
+    "2\[Times]3\[Times]1 helix view (structure)",
+    "3D layout: angle = position, height = (round, position) in flattened sequence. Equivalent (same position, different round) nodes sit directly above each other on the helix, making the unroll visually interpretable.",
     tawafHelixPlot[tawaf2x3, tawaf2x3System, <||>,
         PlotLabel -> "Tawaf 2\[Times]3\[Times]1 \[LongDash] helix (structure)"]
 ]
@@ -449,8 +450,64 @@ DescribeOutput[
 ]
 
 
+(* ::Subsubsection:: *)
+(*1.9 Density extension (opt-in)*)
+
+
+(* ::Text:: *)
+(*Capability: opt into the density-dependent cost model with "Density" -> True. The scenario builder sets a strictly-negative baseline V on every non-boundary edge ("BaselinePotential" option, default -1.0); the Black-Stone -5 discount is added on top. makeTawafSystem then augments the system with a per-physical-edge density family m[{a,b}] (one symbol per physical undirected edge, keyed by the lex-smallest logical undirected edge in the cohort), an inequality block IneqMs (m > 0), and a consistency block EqDensityFlow whose entries are jPhys^2 + 2 V m + 1 == 0 \[LongDash] derived from the critical-congestion HJB H = 0 with g(m) = -1/(2m). After solving the j/u part of the system, tawafDensities[sys, sol] derives m for each physical edge by inverting the linear consistency equation.*)
+
+
+tawaf2x3D = makeTawafScenario[2, 3, 1, "Density" -> True];
+tawaf2x3DSystem = makeTawafSystem[tawaf2x3D];
+
+DescribeOutput[
+    "2\[Times]3\[Times]1 density scenario \[LongDash] EdgeV with strictly-negative baseline",
+    "Tangential edges leaving position 1 carry V = baseline + (-5) = -6.0; all other non-boundary edges carry V = baseline = -1.0 (required for the consistency relation to be well-defined).",
+    Module[{ham, edgeV},
+        ham   = scenarioData[tawaf2x3D, "Hamiltonian"];
+        edgeV = ham["EdgeV"];
+        <|
+            "Tawaf metadata"     -> scenarioData[tawaf2x3D, "Tawaf"],
+            "EdgeV"              -> edgeV,
+            "Edges with V == -6" -> Count[Values[edgeV], -6.0],
+            "Edges with V == -1" -> Count[Values[edgeV], -1.0]
+        |>
+    ]
+]
+
+
+DescribeOutput[
+    "2\[Times]3\[Times]1 density system \[LongDash] new symbolic blocks",
+    "Three m's (one per physical undirected edge: cohort {1,2}\[LeftRightArrow]{4,5} canonical = {1,2}; cohort {2,3}\[LeftRightArrow]{5,6} canonical = {2,3}; round-boundary singleton {3,4}). Three IneqMs and three EqDensityFlow equations \[LongDash] one per physical edge by construction.",
+    <|
+        "Ms"            -> systemData[tawaf2x3DSystem, "Ms"],
+        "IneqMs"        -> systemData[tawaf2x3DSystem, "IneqMs"],
+        "EqDensityFlow" -> systemData[tawaf2x3DSystem, "EqDensityFlow"]
+    |>
+]
+
+
+AbsoluteTiming[tawaf2x3DSol = dnfReduceSystem[tawaf2x3DSystem];]
+
+
+DescribeOutput[
+    "2\[Times]3\[Times]1 density solution \[LongDash] derived per-edge densities",
+    "tawafDensities post-processes the j/u solution and returns m[{a,b}] -> value rules by solving the linear consistency equation jPhys^2 + 2 V m + 1 == 0 for each physical edge. All m values must be strictly positive (consistent with IneqMs).",
+    Module[{mRules},
+        mRules = tawafDensities[tawaf2x3DSystem, tawaf2x3DSol];
+        <|
+            "j/u solution head" -> Head[tawaf2x3DSol],
+            "j/u solution length" -> Length[tawaf2x3DSol],
+            "Derived densities" -> mRules,
+            "All m > 0?" -> AllTrue[Values[mRules], NumericQ[#] && # > 0 &]
+        |>
+    ]
+]
+
+
 (* ::Subsection:: *)
-(*Section 2 \[LongDash] Mid case 3\[Times]4\[Times]1: scaling the coupling*)
+(*Section 2 \[LongDash] Mid case 3*4*1: scaling the coupling*)
 
 
 (* ::Text:: *)
@@ -478,7 +535,7 @@ DescribeOutput[
 
 
 (* This solve may take longer than the 2\[Times]3 case; evaluate explicitly. *)
-AbsoluteTiming[tawaf3x4Sol = solveScenario[tawaf3x4];]
+AbsoluteTiming[tawaf3x4Sol = dnfReduceSystem[tawaf3x4System];]
 
 
 DescribeOutput[
@@ -499,14 +556,14 @@ DescribeOutput[
 
 DescribeOutput[
     "3\[Times]4\[Times]1 helix view with solved flows",
-    "Three rounds, four positions per round. Dashed equivalence links climb vertically through each angular column.",
+    "Three rounds, four positions per round. Same-position nodes from successive rounds stack directly above each other along the helix.",
     tawafHelixPlot[tawaf3x4, tawaf3x4System, tawaf3x4Sol,
         PlotLabel -> "Tawaf 3\[Times]4\[Times]1 \[LongDash] helix (solved)"]
 ]
 
 
 (* ::Subsection:: *)
-(*Section 3 \[LongDash] Multi-layer 2\[Times]3\[Times]2: radial coupling*)
+(*Section 3 \[LongDash] Multi-layer 2*3*2: radial coupling*)
 
 
 (* ::Text:: *)
@@ -533,7 +590,7 @@ DescribeOutput[
 ]
 
 
-AbsoluteTiming[tawaf2x3x2Sol = TimeConstrained[solveScenario[tawaf2x3x2], 120, $TimedOut];]
+AbsoluteTiming[tawaf2x3x2Sol = TimeConstrained[dnfReduceSystem[tawaf2x3x2System], 120, $TimedOut];]
 
 
 (* If the solve completes in time, render the solved augmented plot. *)
@@ -561,7 +618,7 @@ DescribeOutput[
 
 
 (* ::Subsection:: *)
-(*Section 4 \[LongDash] Canonical Tawaf 7\[Times]8\[Times]1: structure at scale*)
+(*Section 4 \[LongDash] Canonical Tawaf 7*8*1: structure at scale*)
 
 
 (* ::Text:: *)
@@ -590,23 +647,46 @@ DescribeOutput[
 
 DescribeOutput[
     "7\[Times]8\[Times]1 helix view (structure only)",
-    "Canonical 7-turn helix; equivalence links disabled to reduce clutter at 56 nodes.",
+    "Canonical 7-turn helix.",
     tawafHelixPlot[tawaf7x8, tawaf7x8System, <||>,
-        "ShowEquivalenceLinks" -> False,
         PlotLabel -> "Tawaf 7\[Times]8\[Times]1 \[LongDash] helix (structure)"]
 ]
 
 
 (* Optional expensive solve. Generous timeout; abort manually if needed. *)
-(* AbsoluteTiming[tawaf7x8Sol = TimeConstrained[solveScenario[tawaf7x8], 600, $TimedOut];] *)
+ AbsoluteTiming[tawaf7x8Sol = TimeConstrained[dnfReduceSystem[tawaf7x8System], 600, $TimedOut];] 
 
 
-(* If you computed tawaf7x8Sol above and it is not $TimedOut, render with: *)
-(*
-richNetworkPlot[tawaf7x8, tawaf7x8System, tawaf7x8Sol,
-    PlotLabel -> "Tawaf 7\[Times]8\[Times]1 \[LongDash] solved",
-    ImageSize -> Large]
-*)
+DescribeOutput[
+    "7\[Times]8\[Times]1 helix view (solved)",
+    "Canonical 7-turn helix with solved flows.",
+    tawafHelixPlot[tawaf7x8, tawaf7x8System, tawaf7x8Sol,
+        PlotLabel -> "Tawaf 7\[Times]8\[Times]1 \[LongDash] helix (solved)",
+        "ShowEquivalenceLinks" -> False]
+]
+
+
+(* ::Subsection:: *)
+(*Section 5 \[LongDash] Canonical Tawaf 7*8*9 : structure at scale*)
+
+
+tawaf7x8x9 = makeTawafScenario[7, 8, 9];
+tawaf7x8x9System = makeTawafSystem[tawaf7x8x9];
+
+DescribeOutput[
+    "7\[Times]8\[Times]9 scenario summary",
+    "Tawaf parameters. ",
+    TawafScenarioSummary[tawaf7x8x9, tawaf7x8x9System]
+]
+
+
+DescribeOutput[
+    "7\[Times]8\[Times]9 helix view (structure only)",
+    "7-turn 9-lane helix.",
+    tawafHelixPlot[tawaf7x8x9, tawaf7x8x9System, <||>,
+        PlotLabel -> "Tawaf 7\[Times]8\[Times]9 \[LongDash] helix (structure)",
+        "ShowEquivalenceLinks" -> False]
+]
 
 
 (* ::Subsection:: *)
@@ -626,7 +706,7 @@ richNetworkPlot[tawaf7x8, tawaf7x8System, tawaf7x8Sol,
 
 
 (* ::Text:: *)
-(*Symbolic system construction and solving. makeSystem, dnfReduceSystem (via solveScenario), and isValidSystemSolution apply unchanged to the Tawaf-rewritten system. No code path knows about Tawaf.*)
+(*Symbolic system construction and solving. makeSystem, dnfReduceSystem, and isValidSystemSolution apply unchanged to the Tawaf-rewritten system. No code path knows about Tawaf. (This workbook calls dnfReduceSystem directly on the Tawaf-coupled system because solveScenario currently builds the system via makeSystem rather than makeTawafSystem.)*)
 
 
 (* ::Text:: *)
