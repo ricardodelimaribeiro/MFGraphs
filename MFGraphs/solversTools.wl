@@ -346,11 +346,16 @@ optimizedDNFReduceSystem[sys_?mfgSystemQ] :=
         ]
     ];
 
-activeSetReduceSystem[sys_?mfgSystemQ] :=
+Options[activeSetReduceSystem] = {
+    "LPPrecheck"        -> False,
+    "LPPrecheckTimeout" -> 1.0
+};
+
+activeSetReduceSystem[sys_?mfgSystemQ, OptionsPattern[]] :=
     withDnfSolveCache["activeSetReduceSystem",
     withCriticalCongestionGuard[sys, "activeSetReduceSystem",
     Module[{initRules, deterministicConstraints, activeConstraints, allVars,
-            detReduced, rulesAcc, activeReduced, result, branches},
+            detReduced, rulesAcc, activeReduced, result, branches, polytopeOpt},
         initRules = Join[
             Normal @ With[{v = systemData[sys, "RuleBalanceGatheringFlows"]}, If[AssociationQ[v], v, <||>]],
             With[{v = systemData[sys, "ZeroSwitchUEqualities"]}, If[ListQ[v], v, {}]]
@@ -377,11 +382,24 @@ activeSetReduceSystem[sys_?mfgSystemQ] :=
         (* Eliminated vars are exactly the LHS of rulesAcc that were not in initRules.
            Set-subtract instead of re-walking the reduced expression tree. *)
         allVars = DeleteCases[allVars, Alternatives @@ (First /@ rulesAcc)];
-        result = If[Length[allVars] <= $optimizedDNFVarThreshold,
-            branches = branchStateReduce[activeReduced, allVars];
-            branches = branchStateReduceFromBranches[branches, detReduced, allVars];
-            branchStateFinalizeResult[branches, allVars],
-            parseDNFReduceResult[dnfReduce[True, And[detReduced, activeReduced]], allVars]
+        (* Capture the reduced linear polytope for the precheck. detReduced is
+           already substituted by accumulateEqualityRules so it's the smallest
+           we can hand to FindInstance. Set Null when the option is off so the
+           gate inside addBranchConstraint is a no-op. *)
+        polytopeOpt = If[TrueQ[OptionValue["LPPrecheck"]], detReduced, Null];
+        $lpPrecheckCalls  = 0;
+        $lpPrecheckPruned = 0;
+        Block[{$lpPrecheckPolytope = polytopeOpt,
+               $lpPrecheckTimeout  = OptionValue["LPPrecheckTimeout"]},
+            (* When the precheck is on, force the branchStateReduce path so the
+               gate inside addBranchConstraint actually fires; otherwise honor
+               the global $optimizedDNFVarThreshold knob (default 0 ⇒ DNF). *)
+            result = If[TrueQ[OptionValue["LPPrecheck"]] || Length[allVars] <= $optimizedDNFVarThreshold,
+                branches = branchStateReduce[activeReduced, allVars];
+                branches = branchStateReduceFromBranches[branches, detReduced, allVars];
+                branchStateFinalizeResult[branches, allVars],
+                parseDNFReduceResult[dnfReduce[True, And[detReduced, activeReduced]], allVars]
+            ]
         ];
         attachAccumulatedRules[result, rulesAcc]
     ]
@@ -1197,6 +1215,35 @@ cheapConstraintSimplify[expr_] :=
 simplifyResiduals[residuals_List, rules_List] :=
     DeleteCases[cheapConstraintSimplify /@ (residuals /. rules), True];
 
+(* --- LP feasibility precheck (opt-in via activeSetReduceSystem option) ---
+   $lpPrecheckPolytope is Block-bound to the linear polytope expression when the
+   precheck is on, and Null otherwise. The Null guard at the top of
+   lpPrecheckBranch makes the gate a no-op when the option is off, so the
+   addBranchConstraint Or-branch below behaves byte-identically to before. *)
+$lpPrecheckPolytope = Null;
+$lpPrecheckTimeout  = 1.0;
+$lpPrecheckCalls    = 0;
+$lpPrecheckPruned   = 0;
+
+lpPrecheckBranch[branch_Association, alt_, vars_List] :=
+    Module[{rules, polytope, candidate, fi},
+        If[$lpPrecheckPolytope === Null, Return[True, Module]];
+        rules     = Lookup[branch, "Rules", {}];
+        polytope  = $lpPrecheckPolytope /. rules;
+        candidate = And[polytope, alt /. rules];
+        $lpPrecheckCalls = $lpPrecheckCalls + 1;
+        fi = TimeConstrained[
+            Quiet @ FindInstance[candidate, vars, Reals, 1],
+            $lpPrecheckTimeout,
+            $Aborted
+        ];
+        Which[
+            fi === $Aborted,                True,
+            MatchQ[fi, {{___Rule}, ___}],   True,
+            True,                           $lpPrecheckPruned = $lpPrecheckPruned + 1; False
+        ]
+    ];
+
 addBranchConstraint[branch_Association, elem_, vars_List] :=
     Module[{rules, residuals, simplified, solvedRules, newRules, newResiduals},
         rules = Lookup[branch, "Rules", {}];
@@ -1254,7 +1301,13 @@ addBranchConstraint[branch_Association, elem_, vars_List] :=
                     ]
                 ],
             Head[simplified] === Or,
-                Join @@ (addBranchConstraint[branch, #, vars] & /@ orderedAlternatives[simplified]),
+                With[{alts = orderedAlternatives[simplified]},
+                    With[{feasibleAlts = If[$lpPrecheckPolytope === Null,
+                                             alts,
+                                             Select[alts, lpPrecheckBranch[branch, #, vars] &]]},
+                        Join @@ (addBranchConstraint[branch, #, vars] & /@ feasibleAlts)
+                    ]
+                ],
             Head[simplified] === Equal,
                 solvedRules = rulesFromEqualities[{simplified}, vars, rules];
                 If[solvedRules =!= {},

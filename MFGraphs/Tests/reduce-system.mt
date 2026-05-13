@@ -698,6 +698,62 @@ Test[
     TestID -> "activeSetReduceSystem: non-critical congestion systems fail"
 ]
 
+(* --- LP feasibility precheck (opt-in via "LPPrecheck" -> True) --- *)
+
+Test[
+    Module[{s, sys, result},
+        s = gridScenario[{2, 3}, {{1, 100}}, {{6, 0}}];
+        sys = makeSystem[s];
+        result = activeSetReduceSystem[sys, "LPPrecheck" -> True];
+        !FailureQ[result] && isValidSystemSolution[sys, result]
+    ],
+    True,
+    TestID -> "activeSetReduceSystem: LPPrecheck on grid-2x3 produces a valid solution"
+]
+
+Test[
+    Module[{s, sys, result},
+        s = getExampleScenario[12, {{1, 100.0}}, {{4, 0.0}}];
+        sys = makeSystem[s];
+        result = activeSetReduceSystem[sys, "LPPrecheck" -> True];
+        !FailureQ[result] && isValidSystemSolution[sys, result]
+    ],
+    True,
+    TestID -> "activeSetReduceSystem: LPPrecheck on example-12 produces a valid solution"
+]
+
+Test[
+    (* Default LPPrecheck -> False is byte-identical to the no-option call.
+       Catches regressions where the precheck path is accidentally triggered
+       when the option is absent. *)
+    Module[{s, sys, r1, r2},
+        s = gridScenario[{2, 3}, {{1, 100}}, {{6, 0}}];
+        sys = makeSystem[s];
+        r1 = activeSetReduceSystem[sys];
+        r2 = activeSetReduceSystem[sys, "LPPrecheck" -> False];
+        Sort[r1] === Sort[r2]
+    ],
+    True,
+    TestID -> "activeSetReduceSystem: LPPrecheck -> False matches no-option call"
+]
+
+Test[
+    (* On case 21 the prototype is not expected to terminate within a small
+       budget, but the precheck must at least fire — this guards against the
+       gate accidentally short-circuiting on a problem where Or-fanout actually
+       happens. Verifies the wiring, not the optimization win. *)
+    Module[{sys},
+        sys = makeSystem[getExampleScenario[21, {{1, 50}, {2, 50}}, {{10, 0}, {11, 0}, {12, 0}}]];
+        TimeConstrained[
+            activeSetReduceSystem[sys, "LPPrecheck" -> True, "LPPrecheckTimeout" -> 0.2],
+            10
+        ];
+        solversTools`Private`$lpPrecheckCalls > 0
+    ],
+    True,
+    TestID -> "activeSetReduceSystem: LPPrecheck wiring fires on case-21 within 10s"
+]
+
 Test[
     Module[{s, sys},
         s = gridScenario[{2}, {{1, 10}}, {{2, 0}}];
