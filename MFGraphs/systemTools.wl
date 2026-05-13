@@ -97,6 +97,10 @@ u[w, i] + switchingCosts[r, i, w] - u[r, i] >= 0.";
 altSwitch::usage = "altSwitch[j, u, switchingCosts][r, i, w] returns the complementarity condition at junction i for the transition from r to w:
 (j[r, i, w] == 0) || (u[w, i] + switchingCosts[r, i, w] - u[r, i] == 0).";
 
+boundaryPreservingAutomorphisms::usage = "boundaryPreservingAutomorphisms[scenario] returns the list of graph automorphisms of the scenario's underlying graph that also preserve the (vertex,value) multisets of Entries and Exits. Empty list if no nontrivial symmetry survives.";
+
+addSymmetryEqualities::usage = "addSymmetryEqualities[sys, scenario] returns a new mfgSystem whose EqGeneral has the orbit equalities j[a,b] == j[sigma(a), sigma(b)] and u[a,b] == u[sigma(a), sigma(b)] appended for every boundary-preserving automorphism sigma. Symbolic, exact; no-op when the symmetry group is trivial.";
+
 (* The following function is declared and implemented in utilities.wl:
    - roundValues
 *)
@@ -498,6 +502,77 @@ makeSystem[s_?scenarioQ, unk_?symbolicUnknownsQ] :=
 
 makeSystem[_] :=
     Failure["makeSystem", <|"Message" -> "makeSystem requires a scenario object."|>];
+
+(* ---- Boundary-aware symmetry folding ---- *)
+
+(* Apply a Cycles permutation to a single vertex label. Integer vertices
+   permute directly. Aux identifiers ("auxEntry<n>" / "auxExit<n>") are
+   strings carrying the underlying vertex in their name — extract n,
+   permute, reassemble so swapping vertex i with vertex j also swaps the
+   matching aux. *)
+applyPermVertex[v_Integer, perm_Cycles] := PermutationReplace[v, perm];
+applyPermVertex[v_String, perm_Cycles] :=
+    Module[{digits, prefix, n, permed},
+        digits = StringCases[v, DigitCharacter ..];
+        If[digits === {}, Return[v, Module]];
+        prefix = StringDrop[v, -StringLength[Last[digits]]];
+        n      = ToExpression[Last[digits]];
+        permed = PermutationReplace[n, perm];
+        If[permed === n, v, prefix <> ToString[permed]]
+    ];
+applyPermVertex[v_, _Cycles] := v;
+
+(* Apply perm to a flow / value variable. j[a,b], j[a,b,c], u[a,b]
+   permute their integer arguments componentwise. *)
+applyPermVar[j[a_, b_],    perm_Cycles] := j[applyPermVertex[a, perm], applyPermVertex[b, perm]];
+applyPermVar[j[a_, b_, c_], perm_Cycles] := j[applyPermVertex[a, perm], applyPermVertex[b, perm], applyPermVertex[c, perm]];
+applyPermVar[u[a_, b_],    perm_Cycles] := u[applyPermVertex[a, perm], applyPermVertex[b, perm]];
+
+(* True iff perm preserves the (vertex,value) multiset. Integer vertices
+   get permuted; non-integers (aux symbols) stay put because applyPermVertex
+   is the identity on them. *)
+boundaryPreservedByQ[pairs_List, perm_Cycles] :=
+    Sort[pairs] === Sort[{applyPermVertex[#[[1]], perm], #[[2]]} & /@ pairs];
+
+boundaryPreservingAutomorphisms[s_?scenarioQ] :=
+    Module[{graph, group, generators, entries, exits, model, valid},
+        model = scenarioData[s, "Model"];
+        graph = Lookup[scenarioData[s, "Topology"], "Graph", Null];
+        If[graph === Null, Return[{}, Module]];
+        entries = Lookup[model, "Entries", {}];
+        exits   = Lookup[model, "Exits",   {}];
+        group = Quiet @ TimeConstrained[GraphAutomorphismGroup[graph], 30, Null];
+        If[group === Null || group === $Aborted, Return[{}, Module]];
+        generators = If[Head[group] === PermutationGroup, GroupGenerators[group], {}];
+        valid = Select[generators,
+            boundaryPreservedByQ[entries, #] && boundaryPreservedByQ[exits, #] &];
+        valid
+    ];
+
+addSymmetryEqualities[sys_?mfgSystemQ, s_?scenarioQ] :=
+    Module[{perms, js, jts, us, eqs, hamRecord, hamAssoc, newEqGeneral, newHam, sysAssoc},
+        perms = boundaryPreservingAutomorphisms[s];
+        If[perms === {}, Return[sys, Module]];
+        js  = systemData[sys, "Js"];
+        jts = systemData[sys, "Jts"];
+        us  = systemData[sys, "Us"];
+        eqs = Flatten @ Table[
+            Join[
+                # == applyPermVar[#, perm] & /@ js,
+                # == applyPermVar[#, perm] & /@ jts,
+                # == applyPermVar[#, perm] & /@ us
+            ],
+            {perm, perms}
+        ];
+        eqs = DeleteDuplicates @ DeleteCases[eqs, lhs_ == rhs_ /; lhs === rhs];
+        sysAssoc  = mfgData[sys];
+        hamRecord = Lookup[sysAssoc, "HamiltonianData", Null];
+        If[! mfgHamiltonianDataQ[hamRecord], Return[sys, Module]];
+        hamAssoc  = mfgData[hamRecord];
+        newEqGeneral = Join[Lookup[hamAssoc, "EqGeneral", {}], eqs];
+        newHam = mfgHamiltonianData[<|hamAssoc, "EqGeneral" -> newEqGeneral|>];
+        mfgSystem[<|sysAssoc, "HamiltonianData" -> newHam|>]
+    ];
 
 End[]
 

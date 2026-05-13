@@ -93,3 +93,62 @@ Do[
         {"chain-two-exits", getExampleScenario["chain with two exits", {{1, 100}}, {{2, 0}, {3, 20}}, {{1, 2, 3, 10}}]}
     }}
 ];
+
+(* Boundary-aware symmetry folding (Stage 2 of solver experiments).
+   These tests pin down: detection on a known-symmetric topology,
+   defensive no-op on a topology with no nontrivial automorphisms,
+   that addSymmetryEqualities is a no-op when no perms survive, and
+   end-to-end that folding cracks case 21 (which times out without it). *)
+
+Test[
+    Length[boundaryPreservingAutomorphisms[
+        getExampleScenario[21, {{1, 50}, {2, 50}}, {{10, 0}, {11, 0}, {12, 0}}]]] > 0
+    ,
+    True
+    ,
+    TestID -> "Symmetry: case 21 with symmetric boundary detects (1<->2)(3<->4)..."
+];
+
+Test[
+    boundaryPreservingAutomorphisms[
+        getExampleScenario[21, {{1, 30}, {2, 70}}, {{10, 0}, {11, 0}, {12, 0}}]]
+    ,
+    {}
+    ,
+    TestID -> "Symmetry: case 21 with asymmetric entries returns no perms"
+];
+
+Test[
+    boundaryPreservingAutomorphisms[
+        getExampleScenario["chain with two exits", {{1, 100}}, {{2, 0}, {3, 20}}, {{1, 2, 3, 10}}]]
+    ,
+    {}
+    ,
+    TestID -> "Symmetry: chain with asymmetric exits returns no perms"
+];
+
+Module[{s, sys},
+    s   = getExampleScenario[21, {{1, 30}, {2, 70}}, {{10, 0}, {11, 0}, {12, 0}}];
+    sys = makeSystem[s];
+    Test[
+        addSymmetryEqualities[sys, s] === sys
+        ,
+        True
+        ,
+        TestID -> "Symmetry: addSymmetryEqualities is identity when no perms"
+    ]
+];
+
+Module[{s, sys, sym, res},
+    s   = getExampleScenario[21, {{1, 50}, {2, 50}}, {{10, 0}, {11, 0}, {12, 0}}];
+    sys = makeSystem[s];
+    sym = addSymmetryEqualities[sys, s];
+    res = TimeConstrained[activeSetReduceSystem[sym], 30, $TimedOut];
+    Test[
+        AssociationQ[res] && isValidSystemSolution[sym, res] === True
+        ,
+        True
+        ,
+        TestID -> "Symmetry: case 21 with folding solves and validates within 30s"
+    ]
+];
