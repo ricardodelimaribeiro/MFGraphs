@@ -66,6 +66,15 @@ spawns one recursive call per branch and the Equal case recurses on the \
 substituted remainder. Deeply nested Or-chains may approach $RecursionLimit; \
 see dnfReduceProcedural for a stack-based iterative alternative.";
 
+bfsDNFReduce::usage =
+"bfsDNFReduce[xp, sys, allVars] is a breadth-first analog of dnfReduceProcedural. \
+Uses a FIFO queue instead of a LIFO stack so that all live frontier items at \
+depth k are processed before any item at depth k+1. Same input/output contract \
+as dnfReduce; result branches may appear in a different order inside the final Or. \
+Shares the per-invocation cachedSolve cache, so sibling Or-branches that produce \
+identical Equal expressions hit the cache on the next pop instead of after a deep \
+DFS detour. Opt-in: not wired into dnfReduceSystem.";
+
 dnfReduceSystem::usage =
 "dnfReduceSystem[sys] solves the mfgSystem sys using linear preprocessing \
 followed by dnfReduce instead of Reduce. Handles cases where Reduce times \
@@ -73,6 +82,11 @@ out by using equality-substitution and disjunction-distribution. Returns a \
 list of rules when fully determined, or \
 <|\"Rules\" -> rules, \"Residual\" -> residual|> when underdetermined. \
 Fails for non-critical congestion systems where Alpha != 1 on any edge.";
+
+bfsDNFReduceSystem::usage =
+"bfsDNFReduceSystem[sys] is dnfReduceSystem with bfsDNFReduce as the engine. \
+Same input/output contract; differs only in worklist discipline (FIFO vs LIFO). \
+Useful for head-to-head benchmarking against dnfReduceSystem.";
 
 optimizedDNFReduceSystem::usage =
 "optimizedDNFReduceSystem[sys] is an opt-in exact solver for critical \
@@ -301,6 +315,17 @@ dnfReduceSystem[sys_?mfgSystemQ] :=
         withCriticalCongestionSolver[sys, "dnfReduceSystem",
             Function[{constraints, allVars},
                 parseDNFReduceResult[dnfReduce[True, constraints], allVars]
+            ],
+            buildSolverInputs,
+            attachAccumulatedRules
+        ]
+    ];
+
+bfsDNFReduceSystem[sys_?mfgSystemQ] :=
+    withDnfSolveCache["bfsDNFReduceSystem",
+        withCriticalCongestionSolver[sys, "bfsDNFReduceSystem",
+            Function[{constraints, allVars},
+                parseDNFReduceResult[bfsDNFReduce[True, constraints, allVars], allVars]
             ],
             buildSolverInputs,
             attachAccumulatedRules
@@ -1534,6 +1559,83 @@ dnfReduceProcedural[xp0_, sys0_, allVars_List] :=
                     newxp = substituteSolution[xp, fsol];
                     If[newxp =!= False,
                         stack = Prepend[stack,
+                            <|"xp" -> newxp && fst, "rst" -> True,
+                              "fst" -> substituteSolution[rst, fsol]|>]],
+                True,
+                    AppendTo[results, xp && rst && fst]
+            ]
+        ];
+        Which[
+            results === {}, False,
+            Length[results] === 1, First[results],
+            True, Or @@ results
+        ]
+    ]
+    ]
+
+bfsDNFReduce[xp0_, sys0_, allVars_List] :=
+    withDnfSolveCache["bfsDNFReduce",
+    Module[{queue = {<|"xp" -> xp0, "rst" -> True, "fst" -> sys0|>},
+            results = {}, item, xp, rst, fst,
+            conjuncts, xpAcc, i, elem, sol, fsol, newxp, rest, newRest},
+        While[queue =!= {},
+            item  = First[queue];
+            queue = Rest[queue];
+            xp = item["xp"]; rst = item["rst"]; fst = item["fst"];
+            Which[
+                xp  === False || fst === False,
+                    Null,
+                fst === True,
+                    AppendTo[results, xp && rst],
+                Head[fst] === Or,
+                    Do[queue = Append[queue, <|"xp" -> xp, "rst" -> rst, "fst" -> b|>],
+                       {b, List @@ fst}],
+                Head[fst] === And,
+                    conjuncts = List @@ fst;
+                    xpAcc     = xp;
+                    i         = 1;
+                    Module[{outcome = "normal"},
+                        While[i <= Length[conjuncts] && outcome === "normal",
+                            If[xpAcc === False, outcome = "false"; Break[]];
+                            elem = conjuncts[[i]];
+                            Which[
+                                elem === True,
+                                    i++,
+                                elem === False,
+                                    outcome = "false",
+                                Head[elem] === Or,
+                                    rest = If[i >= Length[conjuncts], rst,
+                                              And[rst, And @@ conjuncts[[i + 1 ;;]]]];
+                                    Do[queue = Append[queue, <|"xp" -> xpAcc, "rst" -> rest, "fst" -> b|>],
+                                       {b, List @@ elem}];
+                                    outcome = "branched",
+                                Head[elem] === Equal,
+                                    sol  = cachedSolve[elem];
+                                    fsol = If[MatchQ[sol, {{__Rule}, ___}], First[sol], {}];
+                                    newxp = substituteSolution[xpAcc, fsol];
+                                    If[newxp === False,
+                                        outcome = "false",
+                                        xpAcc = newxp && elem;
+                                        If[i < Length[conjuncts],
+                                            newRest = substituteSolution[And @@ conjuncts[[i + 1 ;;]], fsol];
+                                            conjuncts = Join[conjuncts[[;; i]], flattenConjuncts[newRest]]
+                                        ]
+                                    ];
+                                    i++,
+                                True,
+                                    xpAcc = xpAcc && elem;
+                                    i++
+                            ]
+                        ];
+                        If[outcome === "normal",
+                            AppendTo[results, xpAcc && rst]]
+                    ],
+                Head[fst] === Equal,
+                    sol  = cachedSolve[fst];
+                    fsol = If[MatchQ[sol, {{__Rule}, ___}], First[sol], {}];
+                    newxp = substituteSolution[xp, fsol];
+                    If[newxp =!= False,
+                        queue = Append[queue,
                             <|"xp" -> newxp && fst, "rst" -> True,
                               "fst" -> substituteSolution[rst, fsol]|>]],
                 True,

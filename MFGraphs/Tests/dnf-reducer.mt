@@ -102,3 +102,72 @@ Test[
     True,
     TestID -> "parseDNFReduceResult: pure equality Or preserved (regression)"
 ]
+
+
+(* ------------------------------------------------------------------ *)
+(* bfsDNFReduce — breadth-first analog of dnfReduceProcedural          *)
+(* ------------------------------------------------------------------ *)
+
+(* Pure equality Or: same single-conjunct fan-out as DFS. *)
+Test[
+    TautologyQ @ Equivalent[
+        solversTools`bfsDNFReduce[True, (x == 0) || (x == 1), {x}],
+        solversTools`dnfReduce[True, (x == 0) || (x == 1)]
+    ],
+    True,
+    TestID -> "bfsDNFReduce: pure equality Or matches dnfReduce"
+]
+
+(* Mixed inequality + Or with shared equality: BFS may emit branches in
+   a different order, but the disjunction must be semantically equivalent. *)
+Test[
+    TrueQ @ Resolve[
+        ForAll[{x, y, z},
+            Equivalent[
+                solversTools`bfsDNFReduce[
+                    True,
+                    (x >= 0) && ((x == 0) || (y == 1)) && ((y == 1) || (z == 2)),
+                    {x, y, z}
+                ],
+                solversTools`dnfReduce[
+                    True,
+                    (x >= 0) && ((x == 0) || (y == 1)) && ((y == 1) || (z == 2))
+                ]
+            ]
+        ],
+        Reals
+    ],
+    True,
+    TestID -> "bfsDNFReduce: nested Or with shared equality matches DFS semantically"
+]
+
+(* parseDNFReduceResult round-trip: BFS output must validate via the same
+   harvester as DFS. *)
+Test[
+    With[{
+        bfsResult = solversTools`bfsDNFReduce[
+            True,
+            ((x == 1) && (y >= 0)) || ((x == 1) && (z >= 0)),
+            {x, y, z}
+        ]
+    },
+        TrueQ @ Resolve[
+            ForAll[{x, y, z},
+                Equivalent[
+                    toExpr[solversTools`Private`parseDNFReduceResult[bfsResult, {x, y, z}]],
+                    BooleanConvert[((x == 1) && (y >= 0)) || ((x == 1) && (z >= 0)), "DNF"]
+                ]
+            ],
+            Reals
+        ]
+    ],
+    True,
+    TestID -> "bfsDNFReduce: parseDNFReduceResult round-trip matches BooleanConvert"
+]
+
+(* Infeasible system: BFS must return False, same as DFS. *)
+Test[
+    solversTools`bfsDNFReduce[True, (x == 0) && (x == 1), {x}],
+    False,
+    TestID -> "bfsDNFReduce: contradictory equalities return False"
+]
