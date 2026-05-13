@@ -1606,14 +1606,20 @@ dnfTraceEvent[_, event_Association] :=
 dnfCounterIncrement[_, key_String, n_: 1] :=
     ($dnfCurrentMonitor[key] = Lookup[$dnfCurrentMonitor, key, 0] + n);
 
-dnfReduceInstrumented[_, False, monitor_, _String, _, _Integer:1] :=
-    (dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "FalseSystem"|>]; False);
+dnfCounterIncrementAtDepth[_, key_String, depth_Integer, n_: 1] :=
+    Module[{a = Lookup[$dnfCurrentMonitor, key, <||>]},
+        a[depth] = Lookup[a, depth, 0] + n;
+        $dnfCurrentMonitor[key] = a
+    ];
 
-dnfReduceInstrumented[False, _, monitor_, _String, _, _Integer:1] :=
-    (dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "FalsePrefix"|>]; False);
+dnfReduceInstrumented[_, False, monitor_, _String, _, depth_Integer:1] :=
+    (dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "FalseSystem", "Depth" -> depth|>]; False);
 
-dnfReduceInstrumented[xp_, True, monitor_, _String, _, _Integer:1] :=
-    (dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "TrueSystem"|>]; xp);
+dnfReduceInstrumented[False, _, monitor_, _String, _, depth_Integer:1] :=
+    (dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "FalsePrefix", "Depth" -> depth|>]; False);
+
+dnfReduceInstrumented[xp_, True, monitor_, _String, _, depth_Integer:1] :=
+    (dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "TrueSystem", "Depth" -> depth|>]; xp);
 
 dnfReduceInstrumented[xp_, eq_Equal, monitor_, order_String, sys_, depth_Integer:1] :=
     dnfReduceInstrumented[xp, True, eq, monitor, order, sys, depth];
@@ -1624,20 +1630,24 @@ dnfReduceInstrumented[xp_, sys_And, monitor_, order_String, sysObj_, depth_Integ
     ];
 
 dnfReduceInstrumented[xp_, sys_Or, monitor_, order_String, sysObj_, depth_Integer:1] :=
-    Module[{results = {}, r, alternatives = List @@ sys},
+    Module[{results = {}, r, alternatives = List @@ sys, branchDepth = depth + 1},
         $dnfCurrentMonitor["MaxRecursionDepth"] = Max[Lookup[$dnfCurrentMonitor, "MaxRecursionDepth", 0], depth];
         dnfCounterIncrement[monitor, "OrsProcessed"];
         dnfCounterIncrement[monitor, "BranchesStarted", Length[alternatives]];
+        dnfCounterIncrementAtDepth[monitor, "BranchesStartedByDepth", branchDepth, Length[alternatives]];
         dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "TopLevelOr", "BranchCount" -> Length[alternatives], "Depth" -> depth, "Expression" -> sys|>];
         Scan[
             Function[branch,
-            With[{branchValue = branch, depthValue = depth + 1},
+            With[{branchValue = branch, depthValue = branchDepth},
                 dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "EnterTopLevelBranch", "Depth" -> depthValue, "Expression" -> branchValue|>];
                 r = dnfReduceInstrumented[xp, branchValue, monitor, order, sysObj, depthValue]
             ];
             If[r =!= False,
-                AppendTo[results, r]; dnfCounterIncrement[monitor, "BranchesKept"],
-                dnfCounterIncrement[monitor, "BranchesDropped"]
+                AppendTo[results, r];
+                dnfCounterIncrement[monitor, "BranchesKept"];
+                dnfCounterIncrementAtDepth[monitor, "BranchesKeptByDepth", branchDepth],
+                dnfCounterIncrement[monitor, "BranchesDropped"];
+                dnfCounterIncrementAtDepth[monitor, "BranchesDroppedByDepth", branchDepth]
             ]
             ],
             alternatives
@@ -1649,9 +1659,9 @@ dnfReduceInstrumented[xp_, sys_Or, monitor_, order_String, sysObj_, depth_Intege
         ]
     ];
 
-dnfReduceInstrumented[xp_, leq_, monitor_, _String, _, _Integer:1] :=
+dnfReduceInstrumented[xp_, leq_, monitor_, _String, _, depth_Integer:1] :=
     (dnfCounterIncrement[monitor, "ConjunctsProcessed"];
-     dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "AppendConstraint", "Expression" -> leq|>];
+     dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "AppendConstraint", "Depth" -> depth, "Expression" -> leq|>];
      xp && leq);
 
 dnfReduceInstrumentedAnd[xp_, conjuncts_List, monitor_, order_String, sysObj_, depth_Integer] :=
@@ -1667,10 +1677,12 @@ dnfReduceInstrumentedAnd[xp_, conjuncts_List, monitor_, order_String, sysObj_, d
                     i++,
                 elem === False,
                     dnfCounterIncrement[monitor, "BranchesDropped"];
+                    dnfCounterIncrementAtDepth[monitor, "BranchesDroppedByDepth", depth];
                     Return[False, Module],
                 Head[elem] === Or,
                     dnfCounterIncrement[monitor, "OrsProcessed"];
                     dnfCounterIncrement[monitor, "BranchesStarted", Length[List @@ elem]];
+                    dnfCounterIncrementAtDepth[monitor, "BranchesStartedByDepth", depth + 1, Length[List @@ elem]];
                     rest = If[i >= Length[conjunctList], True, And @@ conjunctList[[i + 1 ;;]]];
                     Return[
                         Module[{results = {}, r},
@@ -1681,8 +1693,11 @@ dnfReduceInstrumentedAnd[xp_, conjuncts_List, monitor_, order_String, sysObj_, d
                                     r = dnfReduceInstrumented[prefixValue, restValue, branchValue, monitor, order, sysObj, depthValue]
                                 ];
                                 If[r =!= False,
-                                    AppendTo[results, r]; dnfCounterIncrement[monitor, "BranchesKept"],
-                                    dnfCounterIncrement[monitor, "BranchesDropped"]
+                                    AppendTo[results, r];
+                                    dnfCounterIncrement[monitor, "BranchesKept"];
+                                    dnfCounterIncrementAtDepth[monitor, "BranchesKeptByDepth", depth + 1],
+                                    dnfCounterIncrement[monitor, "BranchesDropped"];
+                                    dnfCounterIncrementAtDepth[monitor, "BranchesDroppedByDepth", depth + 1]
                                 ]
                                 ],
                                 List @@ elem
@@ -1785,6 +1800,9 @@ dnfReduceDiagnosticReport[sys_?mfgSystemQ, OptionsPattern[]] :=
             "BranchesStarted" -> 0,
             "BranchesKept" -> 0,
             "BranchesDropped" -> 0,
+            "BranchesStartedByDepth" -> <||>,
+            "BranchesKeptByDepth" -> <||>,
+            "BranchesDroppedByDepth" -> <||>,
             "EqualityAttempts" -> 0,
             "EqualitySolves" -> 0,
             "Substitutions" -> 0,
@@ -1838,6 +1856,9 @@ dnfReduceDiagnosticReport[sys_?mfgSystemQ, OptionsPattern[]] :=
             "BranchesStarted" -> Lookup[monitor, "BranchesStarted", 0],
             "BranchesKept" -> Lookup[monitor, "BranchesKept", 0],
             "BranchesDropped" -> Lookup[monitor, "BranchesDropped", 0],
+            "BranchesStartedByDepth" -> KeySort[Lookup[monitor, "BranchesStartedByDepth", <||>]],
+            "BranchesKeptByDepth" -> KeySort[Lookup[monitor, "BranchesKeptByDepth", <||>]],
+            "BranchesDroppedByDepth" -> KeySort[Lookup[monitor, "BranchesDroppedByDepth", <||>]],
             "EqualityAttempts" -> Lookup[monitor, "EqualityAttempts", 0],
             "EqualitySolves" -> Lookup[monitor, "EqualitySolves", 0],
             "Substitutions" -> Lookup[monitor, "Substitutions", 0],

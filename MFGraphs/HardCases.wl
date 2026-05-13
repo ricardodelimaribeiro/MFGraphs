@@ -53,7 +53,7 @@ Needs["MFGraphs`"];
 
 
 ClearAll[DescribeOutput, HardCaseSummary, HardCaseDNFDiagnostic,
-    hardCaseVertexCount, hardCaseEdgeCount];
+    HardCaseBranchesByDepth, hardCaseVertexCount, hardCaseEdgeCount];
 
 (* Per-case DNF reducer timeout in seconds. dnfReduce is package-level recursive
    code so TimeConstrained inside dnfReduceDiagnosticReport actually interrupts
@@ -95,6 +95,27 @@ hardCaseEdgeCount[model_Association] :=
 HardCaseDNFDiagnostic[sys_?mfgSystemQ, timeout_:Automatic] :=
     dnfReduceDiagnosticReport[sys,
         "Timeout" -> If[timeout === Automatic, $hardCaseDNFTimeout, timeout]];
+
+(* Pivot the per-depth branch tallies inside a diagnostic report into a
+   one-row-per-depth Dataset showing Started / Kept / Dropped / PruneRate.
+   Use this to see whether the reducer is cutting high (good) or low
+   (wasted enumeration). *)
+HardCaseBranchesByDepth[diagnostic_Association] :=
+    Module[{started, kept, dropped, depths},
+        started = Lookup[diagnostic["Summary"], "BranchesStartedByDepth", <||>];
+        kept    = Lookup[diagnostic["Summary"], "BranchesKeptByDepth",    <||>];
+        dropped = Lookup[diagnostic["Summary"], "BranchesDroppedByDepth", <||>];
+        depths  = Sort[Union[Keys[started], Keys[kept], Keys[dropped]]];
+        Dataset[
+            Function[d,
+                <|"Depth" -> d,
+                  "Started" -> Lookup[started, d, 0],
+                  "Kept" -> Lookup[kept, d, 0],
+                  "Dropped" -> Lookup[dropped, d, 0],
+                  "PruneRate" -> N[Lookup[dropped, d, 0] / Max[1, Lookup[started, d, 0]]]|>
+            ] /@ depths
+        ]
+    ];
 
 HardCaseSummary[s_?scenarioQ, sys_?mfgSystemQ] :=
     Module[{model, augmented},
