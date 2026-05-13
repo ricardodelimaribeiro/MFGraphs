@@ -1606,32 +1606,34 @@ dnfTraceEvent[_, event_Association] :=
 dnfCounterIncrement[_, key_String, n_: 1] :=
     ($dnfCurrentMonitor[key] = Lookup[$dnfCurrentMonitor, key, 0] + n);
 
-dnfReduceInstrumented[_, False, monitor_, _String, _] :=
+dnfReduceInstrumented[_, False, monitor_, _String, _, _Integer:1] :=
     (dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "FalseSystem"|>]; False);
 
-dnfReduceInstrumented[False, _, monitor_, _String, _] :=
+dnfReduceInstrumented[False, _, monitor_, _String, _, _Integer:1] :=
     (dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "FalsePrefix"|>]; False);
 
-dnfReduceInstrumented[xp_, True, monitor_, _String, _] :=
+dnfReduceInstrumented[xp_, True, monitor_, _String, _, _Integer:1] :=
     (dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "TrueSystem"|>]; xp);
 
-dnfReduceInstrumented[xp_, eq_Equal, monitor_, order_String, sys_] :=
-    dnfReduceInstrumented[xp, True, eq, monitor, order, sys, 1];
+dnfReduceInstrumented[xp_, eq_Equal, monitor_, order_String, sys_, depth_Integer:1] :=
+    dnfReduceInstrumented[xp, True, eq, monitor, order, sys, depth];
 
-dnfReduceInstrumented[xp_, sys_And, monitor_, order_String, sysObj_] :=
+dnfReduceInstrumented[xp_, sys_And, monitor_, order_String, sysObj_, depth_Integer:1] :=
     With[{conjunctsValue = dnfOrderConjuncts[sys, order, sysObj]},
-        dnfReduceInstrumentedAnd[xp, conjunctsValue, monitor, order, sysObj, 1]
+        dnfReduceInstrumentedAnd[xp, conjunctsValue, monitor, order, sysObj, depth]
     ];
 
-dnfReduceInstrumented[xp_, sys_Or, monitor_, order_String, sysObj_] :=
+dnfReduceInstrumented[xp_, sys_Or, monitor_, order_String, sysObj_, depth_Integer:1] :=
     Module[{results = {}, r, alternatives = List @@ sys},
+        $dnfCurrentMonitor["MaxRecursionDepth"] = Max[Lookup[$dnfCurrentMonitor, "MaxRecursionDepth", 0], depth];
         dnfCounterIncrement[monitor, "OrsProcessed"];
         dnfCounterIncrement[monitor, "BranchesStarted", Length[alternatives]];
-        dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "TopLevelOr", "BranchCount" -> Length[alternatives], "Expression" -> sys|>];
+        dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "TopLevelOr", "BranchCount" -> Length[alternatives], "Depth" -> depth, "Expression" -> sys|>];
         Scan[
             Function[branch,
-            With[{branchValue = branch},
-                r = dnfReduceInstrumented[xp, branchValue, monitor, order, sysObj]
+            With[{branchValue = branch, depthValue = depth + 1},
+                dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "EnterTopLevelBranch", "Depth" -> depthValue, "Expression" -> branchValue|>];
+                r = dnfReduceInstrumented[xp, branchValue, monitor, order, sysObj, depthValue]
             ];
             If[r =!= False,
                 AppendTo[results, r]; dnfCounterIncrement[monitor, "BranchesKept"],
@@ -1647,7 +1649,7 @@ dnfReduceInstrumented[xp_, sys_Or, monitor_, order_String, sysObj_] :=
         ]
     ];
 
-dnfReduceInstrumented[xp_, leq_, monitor_, _String, _] :=
+dnfReduceInstrumented[xp_, leq_, monitor_, _String, _, _Integer:1] :=
     (dnfCounterIncrement[monitor, "ConjunctsProcessed"];
      dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "AppendConstraint", "Expression" -> leq|>];
      xp && leq);
@@ -1734,7 +1736,7 @@ dnfReduceInstrumented[xp_, rst_, fst_Equal, monitor_, order_String, sysObj_, dep
             False,
             newrst = substituteSolution[rst, fsol];
             With[{prefixValue = newxp && fst, restValue = dnfOrderExpression[newrst, order, sysObj]},
-                dnfReduceInstrumented[prefixValue, restValue, monitor, order, sysObj]
+                dnfReduceInstrumented[prefixValue, restValue, monitor, order, sysObj, depth]
             ]
         ]
     ];
@@ -1744,7 +1746,7 @@ dnfReduceInstrumented[xp_, rst_, fst_, monitor_, order_String, sysObj_, depth_In
      dnfCounterIncrement[monitor, "ConjunctsProcessed"];
      dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "ProcessBranchConstraint", "Depth" -> depth, "Expression" -> fst|>];
      With[{prefixValue = xp && fst, restValue = dnfOrderExpression[rst, order, sysObj]},
-         dnfReduceInstrumented[prefixValue, restValue, monitor, order, sysObj]
+         dnfReduceInstrumented[prefixValue, restValue, monitor, order, sysObj, depth]
      ]);
 
 Options[dnfReduceDiagnosticReport] = {

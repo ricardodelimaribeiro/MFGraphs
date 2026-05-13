@@ -167,6 +167,103 @@ DescribeOutput[
 (*Sanity-check these symbolically with: Select[systemData[case21System, "Js"], MemberQ[{j[3,1], j[4,2], j[10,7], j[11,8], j[12,9]}, #] &] (likewise for Jts).*)
 
 
+(* ::Subsubsection:: *)
+(*1.1 case 21 reference solution*)
+
+
+(* ::Text:: *)
+(*A hand-derived equilibrium for case 21 (verified with isValidSystemSolution; see the warm-start cell below). Structure: each entry feeds a backbone (1\[Rule]3\[Rule]5\[Rule]7 and 2\[Rule]4\[Rule]6\[Rule]8), then mass splits at vertices 7 and 8 between the local exit and a feeder into vertex 9, which collects 25 units and routes them to exit 12.*)
+(*	Vertex 7 split: 37.5 to exit 10, 12.5 to vertex 9*)
+(*	Vertex 8 split: 37.5 to exit 11, 12.5 to vertex 9*)
+(*	Vertex 9 collects 25 and routes to exit 12*)
+(*	All cross/peer edges (j[3,4], j[5,6], j[7,8], j[8,9] reverse...) are zero*)
+
+
+case21FlowRules = Join[
+    {j[1, 3] -> 50, j[3, 5] -> 50, j[5, 7] -> 50,
+     j[2, 4] -> 50, j[4, 6] -> 50, j[6, 8] -> 50,
+     j[7, 10] -> 75/2, j[8, 11] -> 75/2, j[9, 12] -> 25,
+     j[7, 9] -> 25/2, j[8, 9] -> 25/2,
+     j[7, 8] -> 0, j[3, 4] -> 0, j[5, 6] -> 0,
+     j[3, 1] -> 0, j[4, 2] -> 0, j[4, 3] -> 0, j[5, 3] -> 0,
+     j[6, 4] -> 0, j[6, 5] -> 0, j[7, 5] -> 0, j[8, 6] -> 0,
+     j[8, 7] -> 0, j[9, 7] -> 0, j[10, 7] -> 0,
+     j[9, 8] -> 0, j[11, 8] -> 0, j[12, 9] -> 0,
+     j["auxEntry1", 1] -> 50, j["auxEntry2", 2] -> 50,
+     j[10, "auxExit10"] -> 75/2, j[11, "auxExit11"] -> 75/2,
+     j[12, "auxExit12"] -> 25},
+    {j["auxEntry1", 1, 3] -> 50, j["auxEntry2", 2, 4] -> 50,
+     j[1, 3, 5] -> 50, j[2, 4, 6] -> 50,
+     j[3, 5, 7] -> 50, j[4, 6, 8] -> 50,
+     j[5, 7, 10] -> 75/2, j[5, 7, 9] -> 25/2,
+     j[6, 8, 11] -> 75/2, j[6, 8, 9] -> 25/2,
+     j[7, 9, 12] -> 25/2, j[8, 9, 12] -> 25/2,
+     j[7, 10, "auxExit10"] -> 75/2, j[8, 11, "auxExit11"] -> 75/2,
+     j[9, 12, "auxExit12"] -> 25}
+];
+case21FlowRules = Join[case21FlowRules,
+    (# -> 0) & /@ Complement[systemData[case21System, "Jts"], First /@ case21FlowRules]
+];
+
+case21URules = {
+    u["auxExit10", 10] -> 0, u["auxExit11", 11] -> 0, u["auxExit12", 12] -> 0,
+    u[7, 10] -> 0, u[8, 11] -> 0, u[9, 12] -> 0,
+    u[10, 7] -> 75/2, u[11, 8] -> 75/2, u[12, 9] -> 25,
+    u[5, 7] -> 75/2, u[8, 7] -> 75/2, u[9, 7] -> 75/2,
+    u[6, 8] -> 75/2, u[7, 8] -> 75/2, u[9, 8] -> 75/2,
+    u[7, 9] -> 25, u[8, 9] -> 25,
+    u[7, 5] -> 175/2, u[3, 5] -> 175/2, u[6, 5] -> 175/2,
+    u[8, 6] -> 175/2, u[5, 6] -> 175/2, u[4, 6] -> 175/2,
+    u[5, 3] -> 275/2, u[1, 3] -> 275/2, u[4, 3] -> 275/2,
+    u[6, 4] -> 275/2, u[2, 4] -> 275/2, u[3, 4] -> 275/2,
+    u[3, 1] -> 375/2, u[4, 2] -> 375/2,
+    u["auxEntry1", 1] -> 375/2, u["auxEntry2", 2] -> 375/2
+};
+
+case21Solution = Join[case21FlowRules, case21URules];
+
+DescribeOutput[
+    "case 21 reference solution validation",
+    "isValidSystemSolution substitutes the rule set into every block and checks consistency. True means the explicit assignment satisfies every constraint family (balance, Hamiltonian, switching, complementarity, exit boundary).",
+    isValidSystemSolution[case21System, case21Solution]
+]
+
+
+(* ::Text:: *)
+(*Warm-start observation: pre-substituting case21FlowRules into the full constraint system collapses every disjunctive clause (AltFlows, AltTransitionFlows, AltOptCond, AltExitCond) and leaves a purely linear system in 33 u-variables. Reduce solves that in well under a second \[LongDash] roughly 0.35s on the development machine \[LongDash] and the unique u-assignment matches case21URules exactly. This is the "active-set" insight: the symbolic LCP is hard because of which complementarity branch to pick, not because the resulting linear-algebra step is hard. Given a correct active set, the rest is cheap.*)
+
+
+DescribeOutput[
+    "case 21 warm start: Reduce over u with flows pinned",
+    "AbsoluteTiming + Reduce on the system after substituting case21FlowRules. Expected to finish in well under a second and reproduce case21URules.",
+    AbsoluteTiming @ Reduce[
+        And @@ Cases[
+            (Flatten[{
+                systemData[case21System, "EqEntryIn"],
+                systemData[case21System, "EqBalanceSplittingFlows"],
+                systemData[case21System, "EqBalanceGatheringFlows"],
+                systemData[case21System, "EqGeneral"],
+                systemData[case21System, "IneqJs"],
+                systemData[case21System, "IneqJts"],
+                systemData[case21System, "IneqSwitchingByVertex"],
+                systemData[case21System, "IneqExitValues"],
+                systemData[case21System, "AltFlows"],
+                systemData[case21System, "AltTransitionFlows"],
+                systemData[case21System, "AltOptCond"],
+                systemData[case21System, "AltExitCond"]
+            }] /. case21FlowRules),
+            Except[True]
+        ],
+        DeleteDuplicates @ Cases[
+            systemData[case21System, "Us"],
+            _u,
+            Infinity
+        ],
+        Reals
+    ]
+]
+
+
  (*solveScenario[case21]*)
 
 
