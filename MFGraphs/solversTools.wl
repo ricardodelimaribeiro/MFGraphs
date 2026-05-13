@@ -348,7 +348,10 @@ optimizedDNFReduceSystem[sys_?mfgSystemQ] :=
 
 Options[activeSetReduceSystem] = {
     "LPPrecheck"        -> False,
-    "LPPrecheckTimeout" -> 1.0
+    "LPPrecheckTimeout" -> 1.0,
+    "ImpliedEqualitiesTop"     -> False,
+    "ImpliedEqualities"        -> False,
+    "ImpliedEqualitiesTimeout" -> 1.0
 };
 
 activeSetReduceSystem[sys_?mfgSystemQ, OptionsPattern[]] :=
@@ -384,17 +387,48 @@ activeSetReduceSystem[sys_?mfgSystemQ, OptionsPattern[]] :=
         allVars = DeleteCases[allVars, Alternatives @@ (First /@ rulesAcc)];
         (* Capture the reduced linear polytope for the precheck. detReduced is
            already substituted by accumulateEqualityRules so it's the smallest
-           we can hand to FindInstance. Set Null when the option is off so the
-           gate inside addBranchConstraint is a no-op. *)
-        polytopeOpt = If[TrueQ[OptionValue["LPPrecheck"]], detReduced, Null];
+           we can hand to FindInstance. Set Null when *all* opt-in flags are
+           off so the gates inside lpPrecheckBranch / polytopeImpliedEqualities
+           are no-ops. *)
+        polytopeOpt = If[TrueQ[OptionValue["LPPrecheck"]] ||
+                         TrueQ[OptionValue["ImpliedEqualitiesTop"]] ||
+                         TrueQ[OptionValue["ImpliedEqualities"]],
+                         detReduced, Null];
         $lpPrecheckCalls  = 0;
         $lpPrecheckPruned = 0;
+        $liaCalls         = 0;
+        $liaPinned        = 0;
+        (* v2.0: one-shot implied-equalities pass at the top. Runs in its own
+           Block so polytopeImpliedEqualities sees the raw polytope; results
+           are merged into rulesAcc / detReduced / activeReduced before v2.1
+           (which uses the *tightened* polytope below). *)
+        If[TrueQ[OptionValue["ImpliedEqualitiesTop"]],
+            Block[{$lpPrecheckPolytope = polytopeOpt,
+                   $liaTimeout         = OptionValue["ImpliedEqualitiesTimeout"]},
+                With[{topImplied = polytopeImpliedEqualities[
+                        <|"Rules" -> {}|>, True, allVars]},
+                    If[topImplied =!= {},
+                        rulesAcc      = normalizeRules[mergeRules[rulesAcc, topImplied]];
+                        detReduced    = detReduced /. topImplied;
+                        activeReduced = activeReduced /. topImplied;
+                        allVars       = DeleteCases[allVars, Alternatives @@ (First /@ topImplied)];
+                        polytopeOpt   = detReduced   (* refresh for v1 / v2.1 *)
+                    ]
+                ]
+            ]
+        ];
         Block[{$lpPrecheckPolytope = polytopeOpt,
-               $lpPrecheckTimeout  = OptionValue["LPPrecheckTimeout"]},
-            (* When the precheck is on, force the branchStateReduce path so the
-               gate inside addBranchConstraint actually fires; otherwise honor
-               the global $optimizedDNFVarThreshold knob (default 0 ⇒ DNF). *)
-            result = If[TrueQ[OptionValue["LPPrecheck"]] || Length[allVars] <= $optimizedDNFVarThreshold,
+               $lpPrecheckTimeout  = OptionValue["LPPrecheckTimeout"],
+               $lpPrecheckEnabled  = TrueQ[OptionValue["LPPrecheck"]],
+               $liaEnabled         = TrueQ[OptionValue["ImpliedEqualities"]],
+               $liaTimeout         = OptionValue["ImpliedEqualitiesTimeout"]},
+            (* Force the branchStateReduce path only for flags that need the
+               per-branch gate inside addBranchConstraint (LPPrecheck, v2.1).
+               v2.0 (ImpliedEqualitiesTop) does its work pre-solve and does
+               NOT need to force a particular solver path. *)
+            result = If[TrueQ[OptionValue["LPPrecheck"]] ||
+                         TrueQ[OptionValue["ImpliedEqualities"]] ||
+                         Length[allVars] <= $optimizedDNFVarThreshold,
                 branches = branchStateReduce[activeReduced, allVars];
                 branches = branchStateReduceFromBranches[branches, detReduced, allVars];
                 branchStateFinalizeResult[branches, allVars],
@@ -1224,10 +1258,11 @@ $lpPrecheckPolytope = Null;
 $lpPrecheckTimeout  = 1.0;
 $lpPrecheckCalls    = 0;
 $lpPrecheckPruned   = 0;
+$lpPrecheckEnabled  = False;
 
 lpPrecheckBranch[branch_Association, alt_, vars_List] :=
     Module[{rules, polytope, candidate, fi},
-        If[$lpPrecheckPolytope === Null, Return[True, Module]];
+        If[$lpPrecheckPolytope === Null || ! TrueQ[$lpPrecheckEnabled], Return[True, Module]];
         rules     = Lookup[branch, "Rules", {}];
         polytope  = $lpPrecheckPolytope /. rules;
         candidate = And[polytope, alt /. rules];
@@ -1242,6 +1277,53 @@ lpPrecheckBranch[branch_Association, alt_, vars_List] :=
             MatchQ[fi, {{___Rule}, ___}],   True,
             True,                           $lpPrecheckPruned = $lpPrecheckPruned + 1; False
         ]
+    ];
+
+(* --- v2: Implied-equalities precheck via parametric LP ---
+   For each variable v in candidateVars, ask: is min(v) == max(v) over
+   polytope ∧ branch rules ∧ alt? If yes, v is implicitly pinned and we
+   return {v -> value} so the caller can merge it into branch["Rules"].
+   No-op when $lpPrecheckPolytope is Null. Reuses the v1 polytope/timeout
+   infrastructure; counters $liaCalls / $liaPinned are independent. *)
+$liaEnabled = False;
+$liaTimeout = 1.0;
+$liaCalls   = 0;
+$liaPinned  = 0;
+
+(* Candidate variables for the per-branch v2.1 check: tracked variables that
+   actually appear in `alt` AND are not already pinned by branch["Rules"].
+   Cases at all levels matches j[..], u[..], or any other tracked-var head
+   that occurs as a sub-expression. *)
+liaCandidateVars[alt_, vars_List, branch_Association] :=
+    Module[{appearing, pinned},
+        pinned    = First /@ Lookup[branch, "Rules", {}];
+        appearing = DeleteDuplicates @ Cases[{alt}, Alternatives @@ vars, {0, Infinity}];
+        DeleteCases[appearing, Alternatives @@ pinned]
+    ];
+
+polytopeImpliedEqualities[branch_Association, alt_, candidateVars_List] :=
+    Module[{rules, polytope, base, fixed = {}, lo, hi, loVal, hiVal},
+        If[$lpPrecheckPolytope === Null, Return[{}, Module]];
+        If[candidateVars === {}, Return[{}, Module]];
+        rules    = Lookup[branch, "Rules", {}];
+        polytope = $lpPrecheckPolytope /. rules;
+        base     = And[polytope, alt /. rules];
+        Scan[
+            Function[v,
+                $liaCalls = $liaCalls + 2;
+                lo = TimeConstrained[Quiet @ Minimize[{v, base}, v], $liaTimeout, $Aborted];
+                hi = TimeConstrained[Quiet @ Maximize[{v, base}, v], $liaTimeout, $Aborted];
+                If[MatchQ[lo, {_?NumericQ, _}] && MatchQ[hi, {_?NumericQ, _}],
+                    loVal = First[lo]; hiVal = First[hi];
+                    If[loVal === hiVal,
+                        AppendTo[fixed, v -> loVal];
+                        $liaPinned = $liaPinned + 1
+                    ]
+                ]
+            ],
+            candidateVars
+        ];
+        fixed
     ];
 
 addBranchConstraint[branch_Association, elem_, vars_List] :=
@@ -1302,10 +1384,25 @@ addBranchConstraint[branch_Association, elem_, vars_List] :=
                 ],
             Head[simplified] === Or,
                 With[{alts = orderedAlternatives[simplified]},
-                    With[{feasibleAlts = If[$lpPrecheckPolytope === Null,
+                    With[{feasibleAlts = If[! TrueQ[$lpPrecheckEnabled] || $lpPrecheckPolytope === Null,
                                              alts,
                                              Select[alts, lpPrecheckBranch[branch, #, vars] &]]},
-                        Join @@ (addBranchConstraint[branch, #, vars] & /@ feasibleAlts)
+                        Join @@ (
+                            Function[alt,
+                                With[{implied = If[TrueQ[$liaEnabled],
+                                                   polytopeImpliedEqualities[branch, alt,
+                                                       liaCandidateVars[alt, vars, branch]],
+                                                   {}]},
+                                    If[implied === {},
+                                        addBranchConstraint[branch, alt, vars],
+                                        addBranchConstraint[
+                                            <|branch, "Rules" -> normalizeRules[mergeRules[
+                                                Lookup[branch, "Rules", {}], implied]]|>,
+                                            alt, vars]
+                                    ]
+                                ]
+                            ] /@ feasibleAlts
+                        )
                     ]
                 ],
             Head[simplified] === Equal,
