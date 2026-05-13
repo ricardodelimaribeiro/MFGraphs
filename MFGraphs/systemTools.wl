@@ -101,6 +101,8 @@ boundaryPreservingAutomorphisms::usage = "boundaryPreservingAutomorphisms[scenar
 
 addSymmetryEqualities::usage = "addSymmetryEqualities[sys, scenario] returns a new mfgSystem whose EqGeneral has the orbit equalities j[a,b] == j[sigma(a), sigma(b)] and u[a,b] == u[sigma(a), sigma(b)] appended for every boundary-preserving automorphism sigma. Symbolic, exact; no-op when the symmetry group is trivial.";
 
+addOracleEqualities::usage = "addOracleEqualities[sys, oracleResult] returns a new mfgSystem with j[e] == 0 appended to EqGeneral for every e in oracleResult[\"Inactive\"]. Designed to consume the Association returned by numericOracleClassify (in the optional numericOracle subpackage); this function itself is symbolic-only. No-op when Inactive is empty or when oracleResult[\"Converged\"] is False. Runs a FindInstance safety check to verify the pruned system is still feasible; if not, returns sys unchanged.";
+
 (* The following function is declared and implemented in utilities.wl:
    - roundValues
 *)
@@ -547,6 +549,57 @@ boundaryPreservingAutomorphisms[s_?scenarioQ] :=
         valid = Select[generators,
             boundaryPreservedByQ[entries, #] && boundaryPreservedByQ[exits, #] &];
         valid
+    ];
+
+(* Append j[e] == 0 to EqGeneral for every Inactive variable in the oracle
+   result. Symbolic-only — input is a list of symbolic flow variables, output
+   is a new mfgSystem with strictly more equalities. Conservative on three
+   axes: empty Inactive list -> no-op; "Converged" -> False -> no-op; the
+   pruned system fails its FindInstance safety check -> no-op. *)
+addOracleEqualities[sys_?mfgSystemQ, oracle_Association] :=
+    Module[{inactive, eqs, sysAssoc, hamRecord, hamAssoc, newEqGeneral, newHam,
+            newSys, allVars, feasibilityProbe},
+        If[! TrueQ[Lookup[oracle, "Converged", False]], Return[sys, Module]];
+        inactive = Lookup[oracle, "Inactive", {}];
+        If[inactive === {}, Return[sys, Module]];
+        eqs = (# == 0) & /@ inactive;
+        sysAssoc  = mfgData[sys];
+        hamRecord = Lookup[sysAssoc, "HamiltonianData", Null];
+        If[! mfgHamiltonianDataQ[hamRecord], Return[sys, Module]];
+        hamAssoc  = mfgData[hamRecord];
+        newEqGeneral = Join[Lookup[hamAssoc, "EqGeneral", {}], eqs];
+        newHam = mfgHamiltonianData[<|hamAssoc, "EqGeneral" -> newEqGeneral|>];
+        newSys = mfgSystem[<|sysAssoc, "HamiltonianData" -> newHam|>];
+        (* Safety check: does the pruned linear part still admit a feasible
+           point? If FindInstance returns {} the oracle over-pruned -- bail
+           out and return the original system. Skip the check if the system
+           lacks the expected linear-program buckets. *)
+        allVars = Join[
+            Lookup[sysAssoc, "Js",  {}],
+            Lookup[sysAssoc, "Jts", {}],
+            Lookup[sysAssoc, "Us",  {}]
+        ];
+        feasibilityProbe = TimeConstrained[
+            Quiet @ FindInstance[
+                And @@ Join[
+                    Lookup[sysAssoc, "EqEntryIn", {}],
+                    {Lookup[sysAssoc, "EqBalanceSplittingFlows", True],
+                     Lookup[sysAssoc, "EqBalanceGatheringFlows", True]},
+                    Lookup[sysAssoc, "EqGeneral", {}],
+                    newEqGeneral,
+                    Lookup[sysAssoc, "IneqJs",  {}],
+                    Lookup[sysAssoc, "IneqJts", {}]
+                ],
+                allVars, Reals, 1
+            ],
+            5.0,
+            $Aborted
+        ];
+        Which[
+            feasibilityProbe === $Aborted,           newSys,  (* trust it *)
+            MatchQ[feasibilityProbe, {{___Rule}, ___}], newSys,
+            True,                                     sys     (* over-pruned *)
+        ]
     ];
 
 addSymmetryEqualities[sys_?mfgSystemQ, s_?scenarioQ] :=

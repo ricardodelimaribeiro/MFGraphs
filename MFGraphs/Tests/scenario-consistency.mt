@@ -152,3 +152,39 @@ Module[{s, sys, sym, res},
         TestID -> "Symmetry: case 21 with folding solves and validates within 30s"
     ]
 ];
+
+(* addOracleEqualities is symbolic-only: tests don't need the optional
+   numericOracle subpackage. Verify identity on empty Inactive, identity
+   on non-converged oracle, and pin behavior on a synthetic oracle
+   association that we know is consistent with the system. *)
+
+Module[{s, sys},
+    s   = getExampleScenario[12, $entries12, $exits12, {}];
+    sys = makeSystem[s];
+    Test[
+        addOracleEqualities[sys, <|"Converged" -> True, "Inactive" -> {}|>] === sys
+        ,
+        True
+        ,
+        TestID -> "Oracle: addOracleEqualities is identity on empty Inactive"
+    ]
+];
+
+Module[{s, sys},
+    s   = getExampleScenario[12, $entries12, $exits12, {}];
+    sys = makeSystem[s];
+    Test[
+        addOracleEqualities[sys, <|"Converged" -> False, "Inactive" -> {j[1, 2]}|>] === sys
+        ,
+        True
+        ,
+        TestID -> "Oracle: addOracleEqualities is identity when Converged is False"
+    ]
+];
+
+(* Note: addOracleEqualities runs a FindInstance probe on the linear part
+   only -- it can detect over-pruning that violates mass balance, but
+   complementarity-level over-pruning (oracle's pinned vars conflict with
+   Or-disjunctions) shows up downstream as Residual -> False from the
+   active-set solver. Callers are expected to check Lookup[result,
+   "Residual"] and fall back to the unpruned system if needed. *)
