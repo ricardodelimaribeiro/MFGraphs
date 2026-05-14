@@ -1,0 +1,51 @@
+{
+	"scenario":"case_105",
+	"elapsedSec":4.826e-3,
+	"status":"OK",
+	"totals":{
+		"BranchesStarted":8,
+		"BranchesKept":7,
+		"BranchesDropped":1,
+		"UniqueDisjuncts":4,
+		"MaxRecursionDepth":5
+	},
+	"conservation":{
+		"BranchesStarted":true,
+		"BranchesKept":true,
+		"DropGapNonOr":0
+	},
+	"perDisjunct":[
+		{
+			"disjunctId":"{-j[2, 3, \"auxExit3\"] == 0, j[2, 3, \"auxExit3\"] == 0}",
+			"started":2,
+			"kept":2,
+			"dropped":0,
+			"pruneRate":0.0,
+			"survivalRate":1.0
+		},
+		{
+			"disjunctId":"{j[2, 3, \"auxExit3\"] == 0, 100 + j[2, 3, \"auxExit3\"] - u[2, 1] + u[\"auxExit3\", 3] == 0}",
+			"started":2,
+			"kept":2,
+			"dropped":0,
+			"pruneRate":0.0,
+			"survivalRate":1.0
+		},
+		{
+			"disjunctId":"{100 - j[2, 3, \"auxExit3\"] == 0, 100 - u[2, 1] + u[\"auxExit2\", 2] == 0}",
+			"started":2,
+			"kept":2,
+			"dropped":0,
+			"pruneRate":0.0,
+			"survivalRate":1.0
+		},
+		{
+			"disjunctId":"{100 - j[2, 3, \"auxExit3\"] == 0, -100 + u[2, 1] == 0}",
+			"started":2,
+			"kept":1,
+			"dropped":1,
+			"pruneRate":0.5,
+			"survivalRate":0.5
+		}
+	]
+}

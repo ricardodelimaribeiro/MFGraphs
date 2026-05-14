@@ -1,0 +1,103 @@
+{
+	"scenario":"chain_with_two_exits",
+	"key":"chain with two exits",
+	"abstractCount":9,
+	"hasCachedSolution":true,
+	"outcomeCounts":{
+		"Inactive":0,
+		"Active":0,
+		"Ambiguous":9
+	},
+	"rows":[
+		{
+			"anchorVar":"j[1, 2]",
+			"anchorVertex":"2",
+			"anchorEdge":"{1, 2}",
+			"junctionDegree":3,
+			"boundaryDistance":0,
+			"edgeBetweenness":1.0e1,
+			"edgeCost":0.0,
+			"outcome":"Ambiguous"
+		},
+		{
+			"anchorVar":"j[2, 3]",
+			"anchorVertex":"3",
+			"anchorEdge":"{2, 3}",
+			"junctionDegree":2,
+			"boundaryDistance":0,
+			"edgeBetweenness":9.0,
+			"edgeCost":0.0,
+			"outcome":"Ambiguous"
+		},
+		{
+			"anchorVar":"j[1, 2, 3]",
+			"anchorVertex":"2",
+			"anchorEdge":"{1, 2}",
+			"junctionDegree":3,
+			"boundaryDistance":0,
+			"edgeBetweenness":1.0e1,
+			"edgeCost":0.0,
+			"outcome":"Ambiguous"
+		},
+		{
+			"anchorVar":"j[\"auxEntry1\", 1, 2]",
+			"anchorVertex":"1",
+			"anchorEdge":"{\"auxEntry1\", 1}",
+			"junctionDegree":2,
+			"boundaryDistance":0,
+			"edgeBetweenness":5.0,
+			"edgeCost":0.0,
+			"outcome":"Ambiguous"
+		},
+		{
+			"anchorVar":"j[1, 2, \"auxExit2\"]",
+			"anchorVertex":"2",
+			"anchorEdge":"{1, 2}",
+			"junctionDegree":3,
+			"boundaryDistance":0,
+			"edgeBetweenness":1.0e1,
+			"edgeCost":0.0,
+			"outcome":"Ambiguous"
+		},
+		{
+			"anchorVar":"j[3, 2, \"auxExit2\"]",
+			"anchorVertex":"2",
+			"anchorEdge":"{3, 2}",
+			"junctionDegree":3,
+			"boundaryDistance":0,
+			"edgeBetweenness":9.0,
+			"edgeCost":0.0,
+			"outcome":"Ambiguous"
+		},
+		{
+			"anchorVar":"j[2, 3, \"auxExit3\"]",
+			"anchorVertex":"3",
+			"anchorEdge":"{2, 3}",
+			"junctionDegree":2,
+			"boundaryDistance":0,
+			"edgeBetweenness":9.0,
+			"edgeCost":0.0,
+			"outcome":"Ambiguous"
+		},
+		{
+			"anchorVar":"j[2, \"auxExit2\"]",
+			"anchorVertex":"auxExit2",
+			"anchorEdge":"{2, \"auxExit2\"}",
+			"junctionDegree":1,
+			"boundaryDistance":null,
+			"edgeBetweenness":4.0,
+			"edgeCost":0.0,
+			"outcome":"Ambiguous"
+		},
+		{
+			"anchorVar":"j[3, \"auxExit3\"]",
+			"anchorVertex":"auxExit3",
+			"anchorEdge":"{3, \"auxExit3\"}",
+			"junctionDegree":1,
+			"boundaryDistance":null,
+			"edgeBetweenness":4.0,
+			"edgeCost":0.0,
+			"outcome":"Ambiguous"
+		}
+	]
+}

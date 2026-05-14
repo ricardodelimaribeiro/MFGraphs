@@ -1,0 +1,51 @@
+{
+	"scenario":"Camilli_2015_simple",
+	"elapsedSec":5.644e-3,
+	"status":"OK",
+	"totals":{
+		"BranchesStarted":10,
+		"BranchesKept":6,
+		"BranchesDropped":4,
+		"UniqueDisjuncts":4,
+		"MaxRecursionDepth":5
+	},
+	"conservation":{
+		"BranchesStarted":true,
+		"BranchesKept":true,
+		"DropGapNonOr":0
+	},
+	"perDisjunct":[
+		{
+			"disjunctId":"{100 - j[4, 2, 1] == 0, -50 + j[4, 2, 1] == 0}",
+			"started":4,
+			"kept":2,
+			"dropped":2,
+			"pruneRate":0.5,
+			"survivalRate":0.5
+		},
+		{
+			"disjunctId":"{j[3, 4, 2] == 0, j[3, 4, 2] == 0}",
+			"started":2,
+			"kept":2,
+			"dropped":0,
+			"pruneRate":0.0,
+			"survivalRate":1.0
+		},
+		{
+			"disjunctId":"{j[2, 4, 3] == 0, 50 + j[2, 4, 3] == 0}",
+			"started":2,
+			"kept":1,
+			"dropped":1,
+			"pruneRate":0.5,
+			"survivalRate":0.5
+		},
+		{
+			"disjunctId":"{j[2, 3, 4] == 0, 50 + j[2, 3, 4] == 0}",
+			"started":2,
+			"kept":1,
+			"dropped":1,
+			"pruneRate":0.5,
+			"survivalRate":0.5
+		}
+	]
+}

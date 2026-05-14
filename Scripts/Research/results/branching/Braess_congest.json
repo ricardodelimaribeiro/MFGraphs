@@ -1,0 +1,1843 @@
+{
+	"scenario":"Braess_congest",
+	"elapsedSec":0.270012,
+	"status":"OK",
+	"totals":{
+		"BranchesStarted":1242,
+		"BranchesKept":121,
+		"BranchesDropped":1121,
+		"UniqueDisjuncts":228,
+		"MaxRecursionDepth":14
+	},
+	"conservation":{
+		"BranchesStarted":true,
+		"BranchesKept":true,
+		"DropGapNonOr":0
+	},
+	"perDisjunct":[
+		{
+			"disjunctId":"{j[3, 4, 5] == 0, j[5, 4, 3] == 0}",
+			"started":104,
+			"kept":14,
+			"dropped":90,
+			"pruneRate":0.8653846153846154,
+			"survivalRate":0.1346153846153846
+		},
+		{
+			"disjunctId":"{j[2, 4, 3] == 0, j[3, 4, 2] == 0}",
+			"started":72,
+			"kept":11,
+			"dropped":61,
+			"pruneRate":0.8472222222222222,
+			"survivalRate":0.1527777777777778
+		},
+		{
+			"disjunctId":"{100 + j[6, 7, 5] == 0, 201 + 4*j[6, 7, 5] == 0}",
+			"started":46,
+			"kept":0,
+			"dropped":46,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-199 + 4*(100 - j[3, 4, 5]) == 0, 100 - j[3, 4, 5] == 0}",
+			"started":34,
+			"kept":9,
+			"dropped":25,
+			"pruneRate":0.7352941176470589,
+			"survivalRate":0.2647058823529412
+		},
+		{
+			"disjunctId":"{-j[2, 4, 3] == 0, j[3, 4, 6] == 0}",
+			"started":32,
+			"kept":5,
+			"dropped":27,
+			"pruneRate":0.84375,
+			"survivalRate":0.15625
+		},
+		{
+			"disjunctId":"{j[5, 7, 6] == 0, 200 + 4*j[5, 7, 6] == 0}",
+			"started":28,
+			"kept":0,
+			"dropped":28,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[3, 4, 6] == 0, -j[2, 4, 3] - j[5, 4, 3] == 0}",
+			"started":24,
+			"kept":1,
+			"dropped":23,
+			"pruneRate":0.9583333333333334,
+			"survivalRate":4.1666666666666664e-2
+		},
+		{
+			"disjunctId":"{-100 - j[5, 7, 6] == 0, j[5, 7, 6] == 0}",
+			"started":22,
+			"kept":0,
+			"dropped":22,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[3, 4, 6] == 0, -j[5, 4, 3] == 0}",
+			"started":20,
+			"kept":0,
+			"dropped":20,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{100 + j[2, 4, 3] + j[6, 4, 3] == 0, 201 + 4*j[2, 4, 3] + 4*j[6, 4, 3] == 0}",
+			"started":16,
+			"kept":0,
+			"dropped":16,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{100 + j[2, 4, 3] == 0, 201 + 4*j[2, 4, 3] == 0}",
+			"started":16,
+			"kept":0,
+			"dropped":16,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[6, 7, \"auxExit7\"] == 0, -199 + 4*j[6, 7, \"auxExit7\"] == 0}",
+			"started":14,
+			"kept":7,
+			"dropped":7,
+			"pruneRate":0.5,
+			"survivalRate":0.5
+		},
+		{
+			"disjunctId":"{-j[3, 4, 5] == 0, j[6, 4, 3] == 0}",
+			"started":14,
+			"kept":0,
+			"dropped":14,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-100 - j[5, 4, 3] == 0, j[5, 4, 3] == 0}",
+			"started":14,
+			"kept":0,
+			"dropped":14,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-100 + j[3, 4, 5] == 0, -j[3, 4, 5] == 0}",
+			"started":14,
+			"kept":0,
+			"dropped":14,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{201 - 4*j[3, 4, 6] == 0, 100 - j[3, 4, 6] == 0}",
+			"started":12,
+			"kept":1,
+			"dropped":11,
+			"pruneRate":0.9166666666666666,
+			"survivalRate":8.333333333333333e-2
+		},
+		{
+			"disjunctId":"{201 - 4*j[3, 4, 5] == 0, 100 - j[3, 4, 5] == 0}",
+			"started":12,
+			"kept":2,
+			"dropped":10,
+			"pruneRate":0.8333333333333334,
+			"survivalRate":0.16666666666666666
+		},
+		{
+			"disjunctId":"{201 - 4*j[3, 4, 2] == 0, 100 - j[3, 4, 2] == 0}",
+			"started":12,
+			"kept":0,
+			"dropped":12,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{201 - 4*(100 - j[2, 4, 3]) == 0, j[2, 4, 3] == 0}",
+			"started":12,
+			"kept":0,
+			"dropped":12,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-100 + j[3, 4, 2] + j[3, 4, 6] == 0, -200 + 4*j[3, 4, 2] + 4*j[3, 4, 6] == 0}",
+			"started":12,
+			"kept":0,
+			"dropped":12,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-100 + j[3, 4, 2] + j[3, 4, 5] + j[3, 4, 6] == 0, -200 + 4*j[3, 4, 2] + 4*j[3, 4, 5] + 4*j[3, 4, 6] == 0}",
+			"started":12,
+			"kept":4,
+			"dropped":8,
+			"pruneRate":0.6666666666666666,
+			"survivalRate":0.3333333333333333
+		},
+		{
+			"disjunctId":"{-j[5, 4, 3] == 0, -j[6, 4, 3] == 0}",
+			"started":10,
+			"kept":0,
+			"dropped":10,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[3, 4, 5] == 0, -j[3, 4, 6] == 0}",
+			"started":10,
+			"kept":0,
+			"dropped":10,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[3, 4, 2] == 0, j[6, 4, 3] == 0}",
+			"started":10,
+			"kept":0,
+			"dropped":10,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[3, 4, 2] == 0, 200 + 4*j[3, 4, 2] == 0}",
+			"started":10,
+			"kept":0,
+			"dropped":10,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{201 - 4*j[3, 4, 5] - 4*j[3, 4, 6] == 0, 100 - j[3, 4, 5] - j[3, 4, 6] == 0}",
+			"started":10,
+			"kept":4,
+			"dropped":6,
+			"pruneRate":0.6,
+			"survivalRate":0.4
+		},
+		{
+			"disjunctId":"{-199 + 4*(100 - j[3, 4, 2] - j[3, 4, 5]) == 0, 100 - j[3, 4, 2] - j[3, 4, 5] == 0}",
+			"started":10,
+			"kept":5,
+			"dropped":5,
+			"pruneRate":0.5,
+			"survivalRate":0.5
+		},
+		{
+			"disjunctId":"{-199 + 4*(100 - j[3, 4, 2]) == 0, 100 - j[3, 4, 2] == 0}",
+			"started":10,
+			"kept":0,
+			"dropped":10,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-100 + j[3, 4, 6] == 0, -j[3, 4, 6] == 0}",
+			"started":10,
+			"kept":0,
+			"dropped":10,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{100 - j[2, 4, 3] == 0, -200 + 2*(100 - j[2, 4, 3]) + 2*j[2, 4, 3] == 0}",
+			"started":10,
+			"kept":0,
+			"dropped":10,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[6, 7, 5] == 0, 100 + j[5, 7, 6] - j[6, 7, \"auxExit7\"] == 0}",
+			"started":8,
+			"kept":3,
+			"dropped":5,
+			"pruneRate":0.625,
+			"survivalRate":0.375
+		},
+		{
+			"disjunctId":"{j[5, 7, 6] == 0, j[6, 7, \"auxExit7\"] == 0}",
+			"started":8,
+			"kept":3,
+			"dropped":5,
+			"pruneRate":0.625,
+			"survivalRate":0.375
+		},
+		{
+			"disjunctId":"{j[5, 7, 6] == 0, 100 + j[5, 7, 6] + j[6, 7, 5] == 0}",
+			"started":8,
+			"kept":0,
+			"dropped":8,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[3, 4, 5] == 0, j[3, 4, 6] == 0}",
+			"started":8,
+			"kept":0,
+			"dropped":8,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[3, 4, 5] == 0, j[3, 4, 5] == 0}",
+			"started":8,
+			"kept":0,
+			"dropped":8,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[3, 4, 5] == 0, -100 + j[3, 4, 6] == 0}",
+			"started":8,
+			"kept":0,
+			"dropped":8,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[2, 4, 3] == 0, -100 + j[3, 4, 5] + j[3, 4, 6] - j[5, 4, 2] == 0}",
+			"started":8,
+			"kept":2,
+			"dropped":6,
+			"pruneRate":0.75,
+			"survivalRate":0.25
+		},
+		{
+			"disjunctId":"{-j[2, 4, 3] == 0, 100 - j[3, 4, 5] == 0}",
+			"started":8,
+			"kept":1,
+			"dropped":7,
+			"pruneRate":0.875,
+			"survivalRate":0.125
+		},
+		{
+			"disjunctId":"{-j[2, 4, 3] == 0, 100 - j[2, 4, 3] - j[3, 4, 5] == 0}",
+			"started":8,
+			"kept":0,
+			"dropped":8,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{100 + j[6, 4, 3] == 0, 201 + 4*j[6, 4, 3] == 0}",
+			"started":8,
+			"kept":0,
+			"dropped":8,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{100 + j[5, 4, 3] == 0, 201 + 4*j[5, 4, 3] == 0}",
+			"started":8,
+			"kept":0,
+			"dropped":8,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-100 - j[3, 4, 2] - j[5, 4, 2] - j[6, 4, 2] == 0, j[3, 4, 2] + j[5, 4, 2] + j[6, 4, 2] == 0}",
+			"started":8,
+			"kept":0,
+			"dropped":8,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{100 + j[2, 4, 3] + j[5, 4, 3] == 0, 201 + 4*j[2, 4, 3] + 4*j[5, 4, 3] == 0}",
+			"started":8,
+			"kept":0,
+			"dropped":8,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{100 - j[2, 4, 3] - j[3, 4, 2] - j[3, 4, 5] - j[3, 4, 6] == 0, -j[3, 4, 2] - j[5, 4, 2] == 0}",
+			"started":8,
+			"kept":2,
+			"dropped":6,
+			"pruneRate":0.75,
+			"survivalRate":0.25
+		},
+		{
+			"disjunctId":"{-j[5, 4, 3] == 0, j[2, 4, 3] + j[5, 4, 3] == 0}",
+			"started":6,
+			"kept":0,
+			"dropped":6,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[5, 4, 2] - j[5, 4, 3] == 0, 100 + j[5, 4, 2] + j[5, 4, 3] == 0}",
+			"started":6,
+			"kept":0,
+			"dropped":6,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[3, 4, 5] == 0, -100 + j[3, 4, 2] + j[3, 4, 5] == 0}",
+			"started":6,
+			"kept":0,
+			"dropped":6,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[3, 4, 2] - j[3, 4, 5] == 0, j[6, 4, 3] == 0}",
+			"started":6,
+			"kept":2,
+			"dropped":4,
+			"pruneRate":0.6666666666666666,
+			"survivalRate":0.3333333333333333
+		},
+		{
+			"disjunctId":"{j[3, 4, 2] == 0, j[6, 7, 5] == 0}",
+			"started":6,
+			"kept":0,
+			"dropped":6,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[3, 4, 2] == 0, -200 + 4*j[3, 4, 2] + 4*(100 - j[3, 4, 5]) + 4*j[3, 4, 5] == 0}",
+			"started":6,
+			"kept":1,
+			"dropped":5,
+			"pruneRate":0.8333333333333334,
+			"survivalRate":0.16666666666666666
+		},
+		{
+			"disjunctId":"{201 - 4*j[3, 4, 2] - 4*j[3, 4, 6] == 0, 100 - j[3, 4, 2] - j[3, 4, 6] == 0}",
+			"started":6,
+			"kept":0,
+			"dropped":6,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{200 + 4*(-100 + j[3, 4, 5]) == 0, -100 + j[3, 4, 5] == 0}",
+			"started":6,
+			"kept":0,
+			"dropped":6,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-100 - j[5, 4, 2] - j[5, 4, 3] == 0, j[5, 4, 2] + j[5, 4, 3] == 0}",
+			"started":6,
+			"kept":0,
+			"dropped":6,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-100 - j[5, 4, 2] == 0, j[5, 4, 2] == 0}",
+			"started":6,
+			"kept":0,
+			"dropped":6,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-100 + j[3, 4, 6] == 0, -200 + 4*j[3, 4, 6] == 0}",
+			"started":6,
+			"kept":0,
+			"dropped":6,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{100 - j[3, 4, 6] == 0, -100 + 2*j[3, 4, 6] - 3*j[6, 7, 5] + u[7, 6] - u[\"auxEntry1\", 1] == 0}",
+			"started":6,
+			"kept":0,
+			"dropped":6,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-100 + j[3, 4, 2] == 0, -j[3, 4, 2] == 0}",
+			"started":6,
+			"kept":0,
+			"dropped":6,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[5, 4, 2] == 0, j[3, 4, 2] + j[5, 4, 2] == 0}",
+			"started":4,
+			"kept":2,
+			"dropped":2,
+			"pruneRate":0.5,
+			"survivalRate":0.5
+		},
+		{
+			"disjunctId":"{-j[3, 4, 6] == 0, j[5, 7, 6] == 0}",
+			"started":4,
+			"kept":0,
+			"dropped":4,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[3, 4, 6] == 0, j[3, 4, 6] == 0}",
+			"started":4,
+			"kept":0,
+			"dropped":4,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[3, 4, 6] == 0, 400 + 2*j[3, 4, 6] + 3*j[5, 7, 6] + u[7, 6] - u[\"auxEntry1\", 1] == 0}",
+			"started":4,
+			"kept":0,
+			"dropped":4,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[3, 4, 6] == 0, -100 + j[3, 4, 2] + j[3, 4, 6] == 0}",
+			"started":4,
+			"kept":0,
+			"dropped":4,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[3, 4, 5] == 0, j[6, 7, 5] == 0}",
+			"started":4,
+			"kept":0,
+			"dropped":4,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[3, 4, 5] == 0, 100 + 2*j[3, 4, 5] - 3*j[6, 7, 5] + u[7, 6] - u[\"auxEntry1\", 1] == 0}",
+			"started":4,
+			"kept":0,
+			"dropped":4,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[3, 4, 2] - j[5, 4, 2] == 0, -100 + j[3, 4, 2] + j[5, 4, 2] == 0}",
+			"started":4,
+			"kept":0,
+			"dropped":4,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[3, 4, 2] - j[3, 4, 5] == 0, j[3, 4, 5] == 0}",
+			"started":4,
+			"kept":0,
+			"dropped":4,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[3, 4, 2] == 0, j[5, 7, 6] == 0}",
+			"started":4,
+			"kept":0,
+			"dropped":4,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[2, 4, 3] - j[5, 4, 3] == 0, -100 + j[2, 4, 3] + j[5, 4, 3] == 0}",
+			"started":4,
+			"kept":0,
+			"dropped":4,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[2, 4, 3] - j[3, 4, 6] == 0, j[3, 4, 6] == 0}",
+			"started":4,
+			"kept":0,
+			"dropped":4,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[2, 4, 3] - j[3, 4, 5] == 0, j[3, 4, 5] == 0}",
+			"started":4,
+			"kept":0,
+			"dropped":4,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[2, 4, 3] == 0, j[6, 7, 5] == 0}",
+			"started":4,
+			"kept":0,
+			"dropped":4,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[2, 4, 3] == 0, j[5, 7, 6] == 0}",
+			"started":4,
+			"kept":0,
+			"dropped":4,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[2, 4, 3] == 0, 200 + 2*(100 - j[2, 4, 3]) + 3*j[5, 7, 6] + u[7, 6] - u[\"auxEntry1\", 1] == 0}",
+			"started":4,
+			"kept":0,
+			"dropped":4,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[2, 4, 3] == 0, -100 + 2*(100 - j[2, 4, 3]) - 3*j[6, 7, 5] + u[7, 6] - u[\"auxEntry1\", 1] == 0}",
+			"started":4,
+			"kept":0,
+			"dropped":4,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{201 + 4*(-j[3, 4, 2] - j[3, 4, 5]) == 0, 100 - j[3, 4, 2] - j[3, 4, 5] == 0}",
+			"started":4,
+			"kept":0,
+			"dropped":4,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{201 - 4*j[3, 4, 2] - 4*j[3, 4, 5] - 4*j[3, 4, 6] == 0, 100 - j[3, 4, 2] - j[3, 4, 5] - j[3, 4, 6] == 0}",
+			"started":4,
+			"kept":4,
+			"dropped":0,
+			"pruneRate":0.0,
+			"survivalRate":1.0
+		},
+		{
+			"disjunctId":"{201 + 4*(-100 - j[3, 4, 2]) == 0, -j[3, 4, 2] == 0}",
+			"started":4,
+			"kept":0,
+			"dropped":4,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-200 - 4*j[2, 4, 3] == 0, -100 - j[2, 4, 3] == 0}",
+			"started":4,
+			"kept":0,
+			"dropped":4,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-200 + 4*(100 - j[2, 4, 3]) == 0, -j[2, 4, 3] == 0}",
+			"started":4,
+			"kept":0,
+			"dropped":4,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-199 - 4*j[3, 4, 6] == 0, -j[3, 4, 6] == 0}",
+			"started":4,
+			"kept":0,
+			"dropped":4,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-199 - 4*j[3, 4, 5] == 0, -j[3, 4, 5] == 0}",
+			"started":4,
+			"kept":0,
+			"dropped":4,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-100 + j[3, 4, 6] - j[5, 4, 2] == 0, -j[3, 4, 6] + j[5, 4, 2] == 0}",
+			"started":4,
+			"kept":0,
+			"dropped":4,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{100 - j[3, 4, 6] == 0, j[3, 4, 6] == 0}",
+			"started":4,
+			"kept":0,
+			"dropped":4,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-100 + j[3, 4, 5] + j[3, 4, 6] == 0, -200 + 4*j[3, 4, 5] + 4*j[3, 4, 6] == 0}",
+			"started":4,
+			"kept":0,
+			"dropped":4,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{100 - j[3, 4, 5] == 0, j[3, 4, 5] == 0}",
+			"started":4,
+			"kept":0,
+			"dropped":4,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-100 - j[3, 4, 5] == 0, j[3, 4, 5] == 0}",
+			"started":4,
+			"kept":0,
+			"dropped":4,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-100 + j[3, 4, 5] == 0, -200 + 4*j[3, 4, 5] == 0}",
+			"started":4,
+			"kept":0,
+			"dropped":4,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{100 - j[3, 4, 5] == 0, 200 + 2*j[3, 4, 5] + 3*j[5, 7, 6] + u[7, 6] - u[\"auxEntry1\", 1] == 0}",
+			"started":4,
+			"kept":0,
+			"dropped":4,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{100 - j[3, 4, 2] - j[3, 4, 6] == 0, -100 + 2*j[3, 4, 2] + 2*j[3, 4, 6] - 3*j[6, 7, 5] + u[7, 6] - u[\"auxEntry1\", 1] == 0}",
+			"started":4,
+			"kept":0,
+			"dropped":4,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-100 + j[3, 4, 2] + j[3, 4, 5] == 0, -200 + 4*j[3, 4, 2] + 4*j[3, 4, 5] == 0}",
+			"started":4,
+			"kept":0,
+			"dropped":4,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{100 - j[3, 4, 2] == 0, -j[5, 4, 3] == 0}",
+			"started":4,
+			"kept":0,
+			"dropped":4,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{100 - j[3, 4, 2] == 0, 200 + 2*j[3, 4, 2] + 3*j[5, 7, 6] + u[7, 6] - u[\"auxEntry1\", 1] == 0}",
+			"started":4,
+			"kept":0,
+			"dropped":4,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{100 - j[2, 4, 3] - j[3, 4, 6] == 0, j[3, 4, 6] == 0}",
+			"started":4,
+			"kept":0,
+			"dropped":4,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{100 - j[2, 4, 3] - j[3, 4, 5] == 0, j[3, 4, 5] == 0}",
+			"started":4,
+			"kept":0,
+			"dropped":4,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{100 - j[2, 4, 3] == 0, -j[2, 4, 3] - j[5, 4, 3] == 0}",
+			"started":4,
+			"kept":0,
+			"dropped":4,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-100 + j[2, 4, 3] == 0, -j[2, 4, 3] == 0}",
+			"started":4,
+			"kept":0,
+			"dropped":4,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[6, 4, 3] == 0, j[6, 7, 5] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[6, 4, 3] == 0, -j[5, 4, 3] + j[6, 7, 5] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[5, 4, 3] == 0, j[5, 7, 6] - j[6, 4, 3] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[5, 4, 3] == 0, j[3, 4, 2] + j[5, 4, 3] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[5, 4, 3] == 0, j[2, 4, 3] + j[5, 4, 3] + j[5, 7, 6] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[5, 4, 2] == 0, j[5, 4, 2] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[5, 4, 2] == 0, -j[3, 4, 2] - j[3, 4, 5] - j[5, 4, 2] + j[6, 4, 3] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[5, 4, 2] == 0, -j[3, 4, 2] - j[3, 4, 5] - j[5, 4, 2] - j[5, 7, 6] + j[6, 4, 3] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[5, 4, 2] == 0, j[2, 4, 3] + j[5, 4, 2] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[5, 4, 2] == 0, -j[2, 4, 3] + j[3, 4, 6] - j[5, 4, 2] - j[5, 4, 3] - j[6, 7, \"auxExit7\"] == 0}",
+			"started":2,
+			"kept":2,
+			"dropped":0,
+			"pruneRate":0.0,
+			"survivalRate":1.0
+		},
+		{
+			"disjunctId":"{j[5, 4, 2] == 0, -j[2, 4, 3] + j[3, 4, 6] - j[5, 4, 2] - j[5, 4, 3] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[5, 4, 2] == 0, -j[2, 4, 3] - j[3, 4, 2] - j[3, 4, 5] - j[5, 4, 2] - j[5, 4, 3] - j[5, 7, 6] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[5, 4, 2] == 0, -j[2, 4, 3] - j[3, 4, 2] - j[3, 4, 5] - j[5, 4, 2] - j[5, 4, 3] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[5, 4, 2] == 0, 100 - j[3, 4, 6] + j[5, 4, 2] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[5, 4, 2] == 0, 100 - j[3, 4, 5] - j[3, 4, 6] + j[5, 4, 2] == 0}",
+			"started":2,
+			"kept":2,
+			"dropped":0,
+			"pruneRate":0.0,
+			"survivalRate":1.0
+		},
+		{
+			"disjunctId":"{j[5, 4, 2] == 0, 100 - j[3, 4, 2] - j[3, 4, 5] - j[5, 4, 2] + j[6, 4, 3] - j[6, 7, \"auxExit7\"] == 0}",
+			"started":2,
+			"kept":2,
+			"dropped":0,
+			"pruneRate":0.0,
+			"survivalRate":1.0
+		},
+		{
+			"disjunctId":"{j[5, 4, 2] == 0, 100 - j[3, 4, 2] - j[3, 4, 5] - j[5, 4, 2] + j[6, 4, 3] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[5, 4, 2] == 0, -100 - j[2, 4, 3] + j[3, 4, 6] - j[5, 4, 2] - j[5, 4, 3] - j[5, 7, 6] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[5, 4, 2] == 0, -100 - j[2, 4, 3] + j[3, 4, 6] - j[5, 4, 2] - j[5, 4, 3] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[5, 4, 2] == 0, 100 - j[2, 4, 3] - j[3, 4, 2] - j[3, 4, 5] - j[5, 4, 2] - j[5, 4, 3] - j[6, 7, \"auxExit7\"] == 0}",
+			"started":2,
+			"kept":2,
+			"dropped":0,
+			"pruneRate":0.0,
+			"survivalRate":1.0
+		},
+		{
+			"disjunctId":"{j[5, 4, 2] == 0, 100 - j[2, 4, 3] - j[3, 4, 2] - j[3, 4, 5] - j[5, 4, 2] - j[5, 4, 3] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[3, 4, 6] == 0, -j[3, 4, 6] + j[5, 4, 2] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[3, 4, 6] == 0, 3*j[2, 4, 3] + 3*j[3, 4, 6] - 3*(j[2, 4, 3] + j[3, 4, 6]) == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[3, 4, 6] == 0, 100 - j[3, 4, 6] + j[5, 4, 2] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[3, 4, 6] == 0, 100 - j[3, 4, 5] + j[5, 7, 6] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[3, 4, 6] == 0, -100 + j[2, 4, 3] + j[3, 4, 6] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[3, 4, 5] == 0, j[3, 4, 6] - j[5, 4, 2] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[3, 4, 5] == 0, j[3, 4, 5] + j[6, 7, 5] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[3, 4, 5] == 0, j[3, 4, 5] + j[5, 7, 6] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[3, 4, 5] == 0, -j[3, 4, 5] - j[5, 4, 2] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[3, 4, 5] == 0, j[3, 4, 2] + j[3, 4, 5] + j[6, 7, 5] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[3, 4, 5] == 0, -j[3, 4, 2] - j[3, 4, 5] - j[5, 4, 2] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[3, 4, 5] == 0, -j[2, 4, 3] - j[3, 4, 5] - j[5, 4, 2] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[3, 4, 5] == 0, 100 - j[3, 4, 6] + j[6, 7, 5] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[3, 4, 5] == 0, -100 + j[3, 4, 6] - j[5, 4, 2] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[3, 4, 5] == 0, -100 - j[3, 4, 5] - j[5, 4, 2] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[3, 4, 5] == 0, 100 - j[3, 4, 2] - j[3, 4, 5] - j[5, 4, 2] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[3, 4, 5] == 0, 100 - j[2, 4, 3] - j[3, 4, 5] - j[5, 4, 2] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[3, 4, 5] == 0, -100 + j[2, 4, 3] + j[3, 4, 5] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[3, 4, 2] - j[5, 4, 3] == 0, j[5, 4, 3] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[3, 4, 2] + j[5, 4, 2] + j[6, 4, 2] == 0, 100 + j[2, 4, 3] - j[3, 4, 5] - j[3, 4, 6] + j[5, 4, 2] + j[5, 4, 3] + j[6, 4, 2] + j[6, 4, 3] == 0}",
+			"started":2,
+			"kept":2,
+			"dropped":0,
+			"pruneRate":0.0,
+			"survivalRate":1.0
+		},
+		{
+			"disjunctId":"{-j[3, 4, 2] - j[5, 4, 2] == 0, j[3, 4, 2] + j[3, 4, 5] + j[5, 4, 2] + j[5, 4, 3] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[3, 4, 2] - j[5, 4, 2] == 0, 100 + j[5, 4, 3] + j[6, 4, 3] == 0}",
+			"started":2,
+			"kept":1,
+			"dropped":1,
+			"pruneRate":0.5,
+			"survivalRate":0.5
+		},
+		{
+			"disjunctId":"{-j[3, 4, 2] - j[5, 4, 2] == 0, 100 + j[3, 4, 2] + j[3, 4, 5] + j[5, 4, 2] + j[5, 4, 3] + j[5, 7, 6] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[3, 4, 2] - j[5, 4, 2] == 0, 100 + j[3, 4, 2] + j[3, 4, 5] + j[5, 4, 2] + j[5, 4, 3] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[3, 4, 2] + j[3, 4, 5] + j[3, 4, 6] == 0, j[2, 4, 3] + j[5, 4, 3] + j[6, 4, 3] == 0}",
+			"started":2,
+			"kept":2,
+			"dropped":0,
+			"pruneRate":0.0,
+			"survivalRate":1.0
+		},
+		{
+			"disjunctId":"{j[3, 4, 2] + j[3, 4, 5] + j[3, 4, 6] == 0, -100 + j[3, 4, 5] + j[3, 4, 6] - j[5, 4, 2] - j[6, 4, 2] == 0}",
+			"started":2,
+			"kept":1,
+			"dropped":1,
+			"pruneRate":0.5,
+			"survivalRate":0.5
+		},
+		{
+			"disjunctId":"{-j[3, 4, 2] - j[3, 4, 5] == 0, j[3, 4, 5] + j[5, 7, 6] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[3, 4, 2] - j[3, 4, 5] == 0, -100 + j[3, 4, 5] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[3, 4, 2] == 0, -j[6, 4, 3] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[3, 4, 2] == 0, j[5, 7, 6] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[3, 4, 2] == 0, -j[5, 4, 3] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[3, 4, 2] == 0, -j[3, 4, 6] + j[5, 4, 3] + j[6, 7, \"auxExit7\"] == 0}",
+			"started":2,
+			"kept":2,
+			"dropped":0,
+			"pruneRate":0.0,
+			"survivalRate":1.0
+		},
+		{
+			"disjunctId":"{-j[3, 4, 2] == 0, -j[3, 4, 6] + j[5, 4, 3] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[3, 4, 2] == 0, j[3, 4, 2] + j[6, 7, 5] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[3, 4, 2] == 0, j[3, 4, 2] + j[5, 7, 6] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[3, 4, 2] == 0, j[3, 4, 2] + j[3, 4, 5] + j[5, 4, 3] + j[6, 7, \"auxExit7\"] == 0}",
+			"started":2,
+			"kept":1,
+			"dropped":1,
+			"pruneRate":0.5,
+			"survivalRate":0.5
+		},
+		{
+			"disjunctId":"{-j[3, 4, 2] == 0, j[3, 4, 2] + j[3, 4, 5] + j[5, 4, 3] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[3, 4, 2] == 0, -100 - j[5, 4, 3] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[3, 4, 2] == 0, 100 - j[3, 4, 6] + j[5, 4, 3] + j[5, 7, 6] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[3, 4, 2] == 0, 100 - j[3, 4, 6] + j[5, 4, 3] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[3, 4, 2] == 0, 100 + j[3, 4, 2] + j[6, 7, 5] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[3, 4, 2] == 0, 100 + j[3, 4, 2] + j[5, 7, 6] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[3, 4, 2] == 0, -100 + j[3, 4, 2] - j[5, 7, 6] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[3, 4, 2] == 0, 100 + j[3, 4, 2] + j[3, 4, 5] + j[5, 4, 3] + j[5, 7, 6] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-j[3, 4, 2] == 0, 100 + j[3, 4, 2] + j[3, 4, 5] + j[5, 4, 3] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[2, 4, 3] + j[5, 4, 3] == 0, -j[5, 4, 3] + j[6, 7, 5] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[2, 4, 3] - j[5, 4, 2] == 0, j[5, 4, 2] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[2, 4, 3] == 0, -j[3, 4, 6] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[2, 4, 3] == 0, -j[3, 4, 5] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[2, 4, 3] == 0, j[2, 4, 3] + j[6, 7, 5] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[2, 4, 3] == 0, j[2, 4, 3] + j[5, 7, 6] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[2, 4, 3] == 0, 201 + 4*j[2, 4, 3] + 4*(-100 + j[5, 4, 2]) - 4*j[5, 4, 2] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[2, 4, 3] == 0, 201 + 4*j[2, 4, 3] + 4*(-100 - j[5, 4, 2]) + 4*j[5, 4, 2] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[2, 4, 3] == 0, 200 + 2*(100 - j[2, 4, 3]) - 3*j[2, 4, 3] + u[7, 6] - u[\"auxEntry1\", 1] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[2, 4, 3] == 0, 100 - j[3, 4, 6] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[2, 4, 3] == 0, 100 - j[3, 4, 5] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[2, 4, 3] == 0, 100 + j[2, 4, 3] + u[7, 6] - u[\"auxEntry1\", 1] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[2, 4, 3] == 0, 100 + j[2, 4, 3] + j[6, 7, 5] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[2, 4, 3] == 0, 100 + j[2, 4, 3] + j[5, 7, 6] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{300 - 3*j[2, 4, 3] - 3*(100 - j[2, 4, 3] - j[3, 4, 5]) - 3*j[3, 4, 5] == 0, j[3, 4, 5] == 0}",
+			"started":2,
+			"kept":1,
+			"dropped":1,
+			"pruneRate":0.5,
+			"survivalRate":0.5
+		},
+		{
+			"disjunctId":"{300 - 3*(100 - j[3, 4, 5]) - 3*j[3, 4, 5] == 0, j[3, 4, 5] + j[3, 4, 6] == 0}",
+			"started":2,
+			"kept":1,
+			"dropped":1,
+			"pruneRate":0.5,
+			"survivalRate":0.5
+		},
+		{
+			"disjunctId":"{300 - 3*(100 - j[3, 4, 5]) - 3*j[3, 4, 5] == 0, j[3, 4, 2] + j[3, 4, 5] + j[3, 4, 6] == 0}",
+			"started":2,
+			"kept":2,
+			"dropped":0,
+			"pruneRate":0.0,
+			"survivalRate":1.0
+		},
+		{
+			"disjunctId":"{300 - 3*(100 - j[3, 4, 2]) - 3*j[3, 4, 2] == 0, j[3, 4, 2] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{201 - 4*j[3, 4, 2] - 4*j[3, 4, 5] == 0, 100 - j[3, 4, 2] - j[3, 4, 5] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{201\/4 + j[2, 4, 3] == 0, -199 + 4*(201\/4 + j[2, 4, 3]) == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{200 + 4*(-j[2, 4, 3] - j[5, 4, 3]) == 0, -j[2, 4, 3] - j[5, 4, 3] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-199 + 4*(-j[3, 4, 2] - j[3, 4, 5]) == 0, -j[3, 4, 2] - j[3, 4, 5] == 0}",
+			"started":2,
+			"kept":1,
+			"dropped":1,
+			"pruneRate":0.5,
+			"survivalRate":0.5
+		},
+		{
+			"disjunctId":"{-199 + 4*(201\/4 - j[3, 4, 5]) == 0, 201\/4 - j[3, 4, 5] == 0}",
+			"started":2,
+			"kept":1,
+			"dropped":1,
+			"pruneRate":0.5,
+			"survivalRate":0.5
+		},
+		{
+			"disjunctId":"{-199 + 4*(201\/4 - j[3, 4, 2] - j[3, 4, 5]) == 0, 201\/4 - j[3, 4, 2] - j[3, 4, 5] == 0}",
+			"started":2,
+			"kept":1,
+			"dropped":1,
+			"pruneRate":0.5,
+			"survivalRate":0.5
+		},
+		{
+			"disjunctId":"{-199 + 4*(201\/4 - j[3, 4, 2]) == 0, 201\/4 - j[3, 4, 2] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-199 + 4*(199\/4 - j[2, 4, 3]) == 0, 199\/4 - j[2, 4, 3] == 0}",
+			"started":2,
+			"kept":1,
+			"dropped":1,
+			"pruneRate":0.5,
+			"survivalRate":0.5
+		},
+		{
+			"disjunctId":"{-100 - j[5, 7, 6] == 0, j[5, 7, 6] - j[6, 4, 3] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-100 - j[5, 7, 6] == 0, j[2, 4, 3] + j[5, 7, 6] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-100 - j[5, 4, 3] - j[5, 7, 6] == 0, j[5, 7, 6] - j[6, 4, 3] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-100 - j[5, 4, 3] - j[5, 7, 6] == 0, j[2, 4, 3] + j[5, 4, 3] + j[5, 7, 6] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-100 + j[5, 4, 3] == 0, -j[5, 4, 3] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-100 + j[5, 4, 2] == 0, -j[5, 4, 2] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{100 - j[3, 4, 6] == 0, 200 + 2*j[3, 4, 6] - 3*j[6, 7, \"auxExit7\"] + u[7, 6] - u[\"auxEntry1\", 1] == 0}",
+			"started":2,
+			"kept":1,
+			"dropped":1,
+			"pruneRate":0.5,
+			"survivalRate":0.5
+		},
+		{
+			"disjunctId":"{100 - j[3, 4, 6] == 0, 200 + 2*j[3, 4, 6] + 3*j[5, 7, 6] + u[7, 6] - u[\"auxEntry1\", 1] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{100 - j[3, 4, 6] == 0, 200 + 2*j[3, 4, 6] - 3*(j[2, 4, 3] + j[3, 4, 6]) + u[7, 6] - u[\"auxEntry1\", 1] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-100 + j[3, 4, 5] + j[3, 4, 6] == 0, -j[3, 4, 6] + j[5, 4, 3] + j[6, 7, \"auxExit7\"] == 0}",
+			"started":2,
+			"kept":2,
+			"dropped":0,
+			"pruneRate":0.0,
+			"survivalRate":1.0
+		},
+		{
+			"disjunctId":"{-100 + j[3, 4, 5] + j[3, 4, 6] == 0, -j[3, 4, 6] + j[5, 4, 3] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{100 - j[3, 4, 5] - j[3, 4, 6] == 0, 200 - 3*(100 - j[3, 4, 5]) + 2*j[3, 4, 5] + 2*j[3, 4, 6] + u[7, 6] - u[\"auxEntry1\", 1] == 0}",
+			"started":2,
+			"kept":1,
+			"dropped":1,
+			"pruneRate":0.5,
+			"survivalRate":0.5
+		},
+		{
+			"disjunctId":"{100 - j[3, 4, 5] - j[3, 4, 6] == 0, 200 + 2*j[3, 4, 5] - j[3, 4, 6] + u[7, 6] - u[\"auxEntry1\", 1] == 0}",
+			"started":2,
+			"kept":1,
+			"dropped":1,
+			"pruneRate":0.5,
+			"survivalRate":0.5
+		},
+		{
+			"disjunctId":"{100 - j[3, 4, 5] - j[3, 4, 6] == 0, 200 + 2*j[3, 4, 5] + 2*j[3, 4, 6] - 3*j[6, 7, \"auxExit7\"] + u[7, 6] - u[\"auxEntry1\", 1] == 0}",
+			"started":2,
+			"kept":2,
+			"dropped":0,
+			"pruneRate":0.0,
+			"survivalRate":1.0
+		},
+		{
+			"disjunctId":"{100 - j[3, 4, 5] - j[3, 4, 6] == 0, 200 + 2*j[3, 4, 5] + 2*j[3, 4, 6] + 3*j[5, 7, 6] + u[7, 6] - u[\"auxEntry1\", 1] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-100 + j[3, 4, 5] + j[3, 4, 6] == 0, 100 - j[3, 4, 6] + j[5, 4, 3] + j[5, 7, 6] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-100 + j[3, 4, 5] + j[3, 4, 6] == 0, 100 - j[3, 4, 6] + j[5, 4, 3] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{100 - j[3, 4, 5] - j[3, 4, 6] == 0, -100 + 2*j[3, 4, 5] + 2*j[3, 4, 6] - 3*j[6, 7, 5] + u[7, 6] - u[\"auxEntry1\", 1] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-100 - j[3, 4, 5] == 0, j[3, 4, 2] + j[3, 4, 5] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{100 - j[3, 4, 5] == 0, 200 - 3*(100 - j[2, 4, 3] - j[3, 4, 5]) + 2*j[3, 4, 5] + u[7, 6] - u[\"auxEntry1\", 1] == 0}",
+			"started":2,
+			"kept":1,
+			"dropped":1,
+			"pruneRate":0.5,
+			"survivalRate":0.5
+		},
+		{
+			"disjunctId":"{100 - j[3, 4, 5] == 0, 200 + 2*j[3, 4, 5] - 3*j[6, 7, \"auxExit7\"] + u[7, 6] - u[\"auxEntry1\", 1] == 0}",
+			"started":2,
+			"kept":1,
+			"dropped":1,
+			"pruneRate":0.5,
+			"survivalRate":0.5
+		},
+		{
+			"disjunctId":"{-100 + j[3, 4, 5] == 0, 100 - j[3, 4, 5] + j[5, 7, 6] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{100 - j[3, 4, 5] == 0, -100 + 2*j[3, 4, 5] - 3*j[6, 7, 5] + u[7, 6] - u[\"auxEntry1\", 1] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{100 - j[3, 4, 2] - j[3, 4, 6] == 0, 200 + 2*j[3, 4, 2] - j[3, 4, 6] + u[7, 6] - u[\"auxEntry1\", 1] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{100 - j[3, 4, 2] - j[3, 4, 5] - j[3, 4, 6] == 0, 200 + 2*j[3, 4, 2] - 3*(100 - j[3, 4, 5]) + 2*j[3, 4, 5] + 2*j[3, 4, 6] + u[7, 6] - u[\"auxEntry1\", 1] == 0}",
+			"started":2,
+			"kept":2,
+			"dropped":0,
+			"pruneRate":0.0,
+			"survivalRate":1.0
+		},
+		{
+			"disjunctId":"{100 - j[3, 4, 2] - j[3, 4, 5] - j[3, 4, 6] == 0, 200 + 2*j[3, 4, 2] + 2*j[3, 4, 5] - j[3, 4, 6] + u[7, 6] - u[\"auxEntry1\", 1] == 0}",
+			"started":2,
+			"kept":2,
+			"dropped":0,
+			"pruneRate":0.0,
+			"survivalRate":1.0
+		},
+		{
+			"disjunctId":"{-100 - j[3, 4, 2] - j[3, 4, 5] == 0, j[3, 4, 5] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{100 - j[3, 4, 2] - j[3, 4, 5] == 0, 200 + 2*j[3, 4, 2] + 2*j[3, 4, 5] + 3*j[5, 7, 6] + u[7, 6] - u[\"auxEntry1\", 1] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-100 + j[3, 4, 2] + j[3, 4, 5] == 0, 100 - j[3, 4, 5] + j[5, 7, 6] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{100 - j[3, 4, 2] == 0, j[3, 4, 2] + j[5, 4, 2] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{100 - j[3, 4, 2] == 0, 200 - j[3, 4, 2] + u[7, 6] - u[\"auxEntry1\", 1] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-100 + j[3, 4, 2] == 0, -200 + 4*j[3, 4, 2] - 4*(-100 - j[5, 4, 2]) - 4*(100 + j[5, 4, 2]) == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-100 + j[3, 4, 2] == 0, -200 + 4*j[3, 4, 2] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{100 - j[3, 4, 2] == 0, 200 - 3*(100 - j[3, 4, 2]) + 2*j[3, 4, 2] + u[7, 6] - u[\"auxEntry1\", 1] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{100 - j[3, 4, 2] == 0, -100 + j[3, 4, 2] + j[5, 4, 2] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-100 + j[2, 4, 3] - j[5, 7, 6] == 0, j[5, 7, 6] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{100 + j[2, 4, 3] + j[5, 4, 3] + j[6, 4, 3] == 0, 201 + 4*j[2, 4, 3] + 4*j[5, 4, 3] + 4*j[6, 4, 3] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{100 + j[2, 4, 3] + j[5, 4, 3] + j[5, 7, 6] == 0, 201 + 4*j[2, 4, 3] + 4*j[5, 4, 3] + 4*j[5, 7, 6] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{100 - j[2, 4, 3] == 0, j[5, 4, 2] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{100 - j[2, 4, 3] == 0, -100 + j[5, 4, 2] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		}
+	]
+}

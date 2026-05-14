@@ -26,22 +26,42 @@
 $RepoRoot = ParentDirectory[ParentDirectory[ParentDirectory[DirectoryName[$InputFileName]]]];
 PrependTo[$Path, FileNameJoin[{$RepoRoot, "MFGraphs"}]];
 Needs["MFGraphs`"];
+Get[FileNameJoin[{$RepoRoot, "Scripts", "SolutionCacheHelpers.wls"}]];
 
 $resultsDir = FileNameJoin[{$RepoRoot, "Scripts", "Research", "results", "branching"}];
 If[!DirectoryQ[$resultsDir], CreateDirectory[$resultsDir, CreateIntermediateDirectories -> True]];
 
-$pilotCases = {
-    {"case_22",   getExampleScenario[22, {{1, 100}}, {{6, 0}, {7, 0}}]},
-    {"Jamaratv9", getExampleScenario["Jamaratv9", {{1, 100}, {2, 100}}, {{7, 0}, {8, 0}, {9, 0}}]},
-    {"Grid0303",  gridScenario[{3, 3}, {{1, 100}}, {{9, 0}}]}
-};
+(* Build the full sweep from $ExampleBoundaryDefaults (the canonical
+   per-key entries/exits used by example-coverage.mt and the cache).
+   sanitizeKey turns numeric keys (e.g. 22) and string keys (e.g.
+   "Jamaratv9") into safe filenames. *)
+sanitizeKey[k_Integer] := "case_" <> ToString[k];
+sanitizeKey[k_String]  := StringReplace[k, " " -> "_"];
+
+$sweep = Function[k,
+    Module[{ee = $ExampleBoundaryDefaults[k]},
+        {sanitizeKey[k], k, ee[[1]], ee[[2]]}
+    ]
+] /@ Keys[$ExampleBoundaryDefaults];
+
+$timeoutSec = 60;
 
 measureScenario[label_String, scenario_] :=
     Module[{sys, t0, rep, sm, started, kept, dropped, perDisj, sorted, json,
             outFile, conservation},
         sys = makeSystem[scenario];
         t0  = AbsoluteTime[];
-        rep = dnfReduceDiagnosticReport[sys, "Timeout" -> 60];
+        rep = Block[{$RecursionLimit = 16384, $IterationLimit = 16384},
+            CheckAbort[
+                dnfReduceDiagnosticReport[sys, "Timeout" -> $timeoutSec],
+                <|"Status" -> "Aborted",
+                  "Summary" -> <|"BranchesStarted" -> 0, "BranchesKept" -> 0,
+                                 "BranchesDropped" -> 0, "MaxRecursionDepth" -> 0,
+                                 "BranchesStartedByDisjunct" -> <||>,
+                                 "BranchesKeptByDisjunct" -> <||>,
+                                 "BranchesDroppedByDisjunct" -> <||>|>|>
+            ]
+        ];
         sm  = rep["Summary"];
         started = sm["BranchesStartedByDisjunct"];
         kept    = sm["BranchesKeptByDisjunct"];
@@ -98,6 +118,15 @@ measureScenario[label_String, scenario_] :=
         ]
     ];
 
-Print["Pilot: ", Length[$pilotCases], " scenarios, results to ", $resultsDir];
-Scan[measureScenario @@ # &, $pilotCases];
+Print["Sweep: ", Length[$sweep], " scenarios, timeout ", $timeoutSec, "s, results to ", $resultsDir];
+Scan[
+    Function[entry,
+        Module[{label, key, entries, exits, scenario},
+            {label, key, entries, exits} = entry;
+            scenario = getExampleScenario[key, entries, exits];
+            measureScenario[label, scenario]
+        ]
+    ],
+    $sweep
+];
 Print["Done."];

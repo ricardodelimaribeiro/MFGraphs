@@ -1,0 +1,172 @@
+#!/usr/bin/env wolframscript
+(* PR 2: aggregate per-scenario JSON from measure_branching.wls and
+   measure_structural_role.wls into a single Markdown summary.
+
+   Two sections:
+     - Branching (substituted-form granularity): top-N most-branching
+       disjuncts per scenario; cross-scenario distribution of pruneRate.
+     - Structural (abstract-complementarity granularity): per-feature
+       conditional probabilities P(outcome | feature bin), looking for
+       a topology rule that fits all cases.
+
+   Reads from:
+     Scripts/Research/results/branching/<key>.json
+     Scripts/Research/results/structural/<key>.json
+   Writes to:
+     Scripts/Research/results/findings.md *)
+
+$RepoRoot = ParentDirectory[ParentDirectory[ParentDirectory[DirectoryName[$InputFileName]]]];
+$resultsDir = FileNameJoin[{$RepoRoot, "Scripts", "Research", "results"}];
+$branchingDir  = FileNameJoin[{$resultsDir, "branching"}];
+$structuralDir = FileNameJoin[{$resultsDir, "structural"}];
+$outFile = FileNameJoin[{$resultsDir, "findings.md"}];
+
+(* ---- Loaders ---- *)
+
+loadAll[dir_] :=
+    Module[{files},
+        files = FileNames["*.json", dir];
+        Association @ Map[
+            FileBaseName[#] -> Quiet[Import[#, "RawJSON"]] &,
+            files
+        ]
+    ];
+
+$branchingData  = If[DirectoryQ[$branchingDir],  loadAll[$branchingDir],  <||>];
+$structuralData = If[DirectoryQ[$structuralDir], loadAll[$structuralDir], <||>];
+
+Print["Loaded branching: ", Length[$branchingData], " scenarios"];
+Print["Loaded structural: ", Length[$structuralData], " scenarios"];
+
+(* ---- Branching aggregate ---- *)
+
+branchingTopN[key_, n_:5] :=
+    Module[{rows},
+        rows = Lookup[$branchingData[key], "perDisjunct", {}];
+        Take[rows, UpTo[n]]
+    ];
+
+branchingSummaryRow[key_] :=
+    Module[{data, totals, conservation, top},
+        data = $branchingData[key];
+        totals = Lookup[data, "totals", <||>];
+        conservation = Lookup[data, "conservation", <||>];
+        top = branchingTopN[key, 1];
+        <|
+            "Scenario" -> key,
+            "Status"   -> Lookup[data, "status", "?"],
+            "Started"  -> Lookup[totals, "BranchesStarted", "?"],
+            "Unique"   -> Lookup[totals, "UniqueDisjuncts", "?"],
+            "MaxDepth" -> Lookup[totals, "MaxRecursionDepth", "?"],
+            "TopShare" -> If[Length[top] > 0,
+                NumberForm[N[top[[1, "started"]] / Max[1, Lookup[totals, "BranchesStarted", 1]]], {4, 3}],
+                "0"]
+        |>
+    ];
+
+(* ---- Structural aggregate ---- *)
+
+(* Bin a real-valued feature into low/mid/high deciles. Missing -> "missing". *)
+binFeature["junctionDegree", v_?NumericQ] :=
+    Which[v <= 2, "small(<=2)", v <= 4, "med(3-4)", True, "large(>=5)"];
+binFeature["boundaryDistance", v_?NumericQ] :=
+    Which[v == 0, "0", v == 1, "1", v == 2, "2", v == 3, "3", True, "4+"];
+binFeature["edgeBetweenness", v_?NumericQ] :=
+    Which[v == 0, "0", v < 0.05, "low", v < 0.2, "mid", True, "high"];
+binFeature["edgeCost", v_?NumericQ] :=
+    Which[v == 0, "0", v < 1, "small", v < 10, "mid", True, "large"];
+binFeature[_, _] := "missing";
+
+structuralRowsAcrossScenarios[] :=
+    Flatten[
+        Function[k,
+            With[{rows = Lookup[$structuralData[k], "rows", {}]},
+                <|"scenario" -> k, "row" -> #|> & /@ rows
+            ]
+        ] /@ Keys[$structuralData],
+        1
+    ];
+
+featureOutcomeTable[allRows_, feature_] :=
+    Module[{groups, counts, table},
+        groups = GroupBy[allRows, binFeature[feature, #["row"][feature]] &];
+        table = Function[bin,
+            Module[{outcomes = #["row"]["outcome"] & /@ groups[bin]},
+                <|
+                    "feature"  -> feature,
+                    "bin"      -> bin,
+                    "n"        -> Length[outcomes],
+                    "Inactive" -> Count[outcomes, "Inactive"],
+                    "Active"   -> Count[outcomes, "Active"],
+                    "Ambiguous"-> Count[outcomes, "Ambiguous"],
+                    "P_Inactive" -> NumberForm[
+                        N[Count[outcomes, "Inactive"] / Max[1, Length[outcomes]]],
+                        {4, 3}],
+                    "P_Active"   -> NumberForm[
+                        N[Count[outcomes, "Active"] / Max[1, Length[outcomes]]],
+                        {4, 3}]
+                |>
+            ]
+        ] /@ Keys[groups];
+        SortBy[table, #["bin"] &]
+    ];
+
+(* ---- Markdown emission ---- *)
+
+mdRow[assoc_, headers_] := "| " <> StringRiffle[
+    Function[h, ToString[Lookup[assoc, h, ""]]] /@ headers,
+    " | "] <> " |";
+
+mdTable[rows_List, headers_List] :=
+    StringRiffle[
+        Join[
+            {"| " <> StringRiffle[headers, " | "] <> " |"},
+            {"| " <> StringRiffle[ConstantArray["---", Length[headers]], " | "] <> " |"},
+            mdRow[#, headers] & /@ rows
+        ],
+        "\n"
+    ];
+
+content = StringJoin[
+    "# Disjunct-influence study — aggregate findings\n\n",
+    "Generated by `Scripts/Research/disjunct_influence/aggregate.wls`.\n\n",
+    "## Branching summary (substituted-form granularity)\n\n",
+    "Per scenario: total branches started, unique substituted-form disjunct\n",
+    "IDs, max recursion depth, and the share of branching attributable to\n",
+    "the single most-branching substituted disjunct (`TopShare`).\n\n",
+    If[$branchingData === <||>, "_No branching data; run `measure_branching.wls`._\n",
+        mdTable[
+            SortBy[branchingSummaryRow /@ Keys[$branchingData], -ToExpression[ToString[#["Started"]]] &],
+            {"Scenario", "Status", "Started", "Unique", "MaxDepth", "TopShare"}
+        ]
+    ],
+    "\n\n## Structural-role distribution (abstract-complementarity granularity)\n\n",
+    "Per feature × bin: count of disjuncts and conditional outcome\n",
+    "probabilities. `P_Inactive` close to 1 means the feature is a strong\n",
+    "topology-only predictor of \"this complementarity is inactive at\n",
+    "equilibrium\". `P_Active` close to 1 is the symmetric finding.\n\n",
+    If[$structuralData === <||>, "_No structural data; run `measure_structural_role.wls`._\n",
+        Module[{allRows = structuralRowsAcrossScenarios[]},
+            StringJoin @@ (
+                Function[feature,
+                    "### " <> feature <> "\n\n" <>
+                    mdTable[
+                        featureOutcomeTable[allRows, feature],
+                        {"bin", "n", "Inactive", "Active", "Ambiguous", "P_Inactive", "P_Active"}
+                    ] <> "\n\n"
+                ] /@ {"junctionDegree", "boundaryDistance", "edgeBetweenness", "edgeCost"}
+            )
+        ]
+    ],
+    "\n## Decision\n\n",
+    "_Hand-edit this section after reading the tables above. Three forks:_\n",
+    "1. Strong topology rule visible (e.g., `P(Inactive | boundaryDistance >= 3) > 0.95`):\n",
+    "   ship a `presolveByTopology` helper.\n",
+    "2. Most branching concentrated in one substituted disjunct per scenario:\n",
+    "   ship a per-scenario disjunct-priority hint.\n",
+    "3. Neither: document the negative result and consider Phase B (block ordering)\n",
+    "   as the next test.\n"
+];
+
+Export[$outFile, content, "Text"];
+Print["Wrote ", $outFile];

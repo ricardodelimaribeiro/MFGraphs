@@ -1,0 +1,107 @@
+{
+	"scenario":"Braess_split",
+	"elapsedSec":1.1449e-2,
+	"status":"OK",
+	"totals":{
+		"BranchesStarted":22,
+		"BranchesKept":5,
+		"BranchesDropped":17,
+		"UniqueDisjuncts":11,
+		"MaxRecursionDepth":6
+	},
+	"conservation":{
+		"BranchesStarted":true,
+		"BranchesKept":true,
+		"DropGapNonOr":0
+	},
+	"perDisjunct":[
+		{
+			"disjunctId":"{j[7, 8, \"auxExit8\"] == 0, -400 + 8*j[7, 8, \"auxExit8\"] == 0}",
+			"started":2,
+			"kept":1,
+			"dropped":1,
+			"pruneRate":0.5,
+			"survivalRate":0.5
+		},
+		{
+			"disjunctId":"{j[7, 8, 6] == 0, 100 + j[6, 8, 7] - j[7, 8, \"auxExit8\"] == 0}",
+			"started":2,
+			"kept":1,
+			"dropped":1,
+			"pruneRate":0.5,
+			"survivalRate":0.5
+		},
+		{
+			"disjunctId":"{j[7, 8, 6] == 0, 100 + 5*j[7, 8, 6] + u[2, 1] - u[8, 7] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[6, 8, 7] == 0, j[7, 8, \"auxExit8\"] == 0}",
+			"started":2,
+			"kept":1,
+			"dropped":1,
+			"pruneRate":0.5,
+			"survivalRate":0.5
+		},
+		{
+			"disjunctId":"{j[6, 8, 7] == 0, 401 + 8*j[6, 8, 7] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{j[6, 8, 7] == 0, 100 + j[6, 8, 7] + j[7, 8, 6] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{100 - j[7, 8, \"auxExit8\"] == 0, u[2, 1] - u[\"auxEntry1\", 1] == 0}",
+			"started":2,
+			"kept":1,
+			"dropped":1,
+			"pruneRate":0.5,
+			"survivalRate":0.5
+		},
+		{
+			"disjunctId":"{100 - j[7, 8, \"auxExit8\"] == 0, 401 - 5*j[7, 8, \"auxExit8\"] - u[2, 1] + u[8, 7] == 0}",
+			"started":2,
+			"kept":1,
+			"dropped":1,
+			"pruneRate":0.5,
+			"survivalRate":0.5
+		},
+		{
+			"disjunctId":"{100 + j[7, 8, 6] == 0, 401 + 8*j[7, 8, 6] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{-100 - j[6, 8, 7] == 0, j[6, 8, 7] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		},
+		{
+			"disjunctId":"{100 + j[6, 8, 7] == 0, 401 + 5*j[6, 8, 7] - u[2, 1] + u[8, 7] == 0}",
+			"started":2,
+			"kept":0,
+			"dropped":2,
+			"pruneRate":1.0,
+			"survivalRate":0.0
+		}
+	]
+}
