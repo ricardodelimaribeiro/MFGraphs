@@ -44,44 +44,91 @@ the single most-branching substituted disjunct (`TopShare`).
 | case_3 | OK | 0 | 0 | 0 | 0 |
 | Paper_example | OK | 0 | 0 | 0 | 0 |
 
-## Structural-role distribution (abstract-complementarity granularity)
+## Structural-role distribution â cached-only (abstract-complementarity granularity)
 
-Per feature Ã bin: count of disjuncts and conditional outcome
-probabilities. `P_Inactive` close to 1 means the feature is a strong
-topology-only predictor of "this complementarity is inactive at
-equilibrium". `P_Active` close to 1 is the symmetric finding.
+Filtered to scenarios with a cached symbolic solution (so Inactive/Active
+labels are real, not defaulted). `P_Inactive` close to 1 means the feature
+is a strong topology-only predictor that the complementarity is inactive
+at equilibrium; `P_Active` close to 1 is the symmetric finding.
+
+### junctionDegree
+
+| bin | n | Inactive | Active | Ambiguous | P_Inactive | P_Active |
+| --- | --- | --- | --- | --- | --- | --- |
+| large(>=5) | 10 | 0 | 0 | 10 | 0.000 | 0.000 |
+| med(3-4) | 496 | 170 | 186 | 140 | 0.343 | 0.375 |
+| small(<=2) | 218 | 26 | 174 | 18 | 0.119 | 0.798 |
+
+### boundaryDistance
+
+| bin | n | Inactive | Active | Ambiguous | P_Inactive | P_Active |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0 | 284 | 88 | 143 | 53 | 0.310 | 0.504 |
+| 1 | 279 | 89 | 140 | 50 | 0.319 | 0.502 |
+| 2 | 100 | 16 | 35 | 49 | 0.160 | 0.350 |
+| 3 | 20 | 0 | 4 | 16 | 0.000 | 0.200 |
+| missing | 41 | 3 | 38 | 0 | 0.073 | 0.927 |
+
+### edgeBetweenness
+
+| bin | n | Inactive | Active | Ambiguous | P_Inactive | P_Active |
+| --- | --- | --- | --- | --- | --- | --- |
+| low(<50) | 685 | 178 | 349 | 158 | 0.260 | 0.509 |
+| mid(50-200) | 39 | 18 | 11 | 10 | 0.462 | 0.282 |
+
+### edgeCost
+
+| bin | n | Inactive | Active | Ambiguous | P_Inactive | P_Active |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0 | 552 | 132 | 266 | 154 | 0.239 | 0.482 |
+| (0,1] | 68 | 13 | 41 | 14 | 0.191 | 0.603 |
+| (1,5] | 104 | 51 | 53 | 0 | 0.490 | 0.510 |
+
+
+## Structural-role distribution â all scenarios (incl. uncached)
+
+Same features over the full dataset. The Ambiguous bucket is inflated
+by 5 grids without cached solutions (Grid0505 / Grid0707 / Grid0710 /
+Grid1010 / Grid1020 â 2,405 disjuncts). Use the cached-only section
+above for actual conditional probabilities.
 
 ### junctionDegree
 
 | bin | n | Inactive | Active | Ambiguous | P_Inactive | P_Active |
 | --- | --- | --- | --- | --- | --- | --- |
 | large(>=5) | 52 | 0 | 0 | 52 | 0.000 | 0.000 |
-| med(3-4) | 3486 | 44 | 61 | 3381 | 0.013 | 0.017 |
-| small(<=2) | 262 | 13 | 112 | 137 | 0.050 | 0.427 |
+| med(3-4) | 3486 | 170 | 186 | 3130 | 0.049 | 0.053 |
+| small(<=2) | 262 | 26 | 174 | 62 | 0.099 | 0.664 |
 
 ### boundaryDistance
 
 | bin | n | Inactive | Active | Ambiguous | P_Inactive | P_Active |
 | --- | --- | --- | --- | --- | --- | --- |
-| 0 | 337 | 32 | 78 | 227 | 0.095 | 0.231 |
-| 1 | 421 | 25 | 64 | 332 | 0.059 | 0.152 |
-| 2 | 315 | 0 | 12 | 303 | 0.000 | 0.038 |
-| 3 | 271 | 0 | 0 | 271 | 0.000 | 0.000 |
-| 4+ | 2405 | 0 | 0 | 2405 | 0.000 | 0.000 |
-| missing | 51 | 0 | 19 | 32 | 0.000 | 0.373 |
+| 0 | 337 | 88 | 143 | 106 | 0.261 | 0.424 |
+| 1 | 421 | 89 | 140 | 192 | 0.211 | 0.333 |
+| 10+ | 657 | 0 | 0 | 657 | 0.000 | 0.000 |
+| 2 | 315 | 16 | 35 | 264 | 0.051 | 0.111 |
+| 3 | 271 | 0 | 4 | 267 | 0.000 | 0.015 |
+| 4-5 | 620 | 0 | 0 | 620 | 0.000 | 0.000 |
+| 6-9 | 1128 | 0 | 0 | 1128 | 0.000 | 0.000 |
+| missing | 51 | 3 | 38 | 10 | 0.059 | 0.745 |
 
 ### edgeBetweenness
 
 | bin | n | Inactive | Active | Ambiguous | P_Inactive | P_Active |
 | --- | --- | --- | --- | --- | --- | --- |
-| high | 3800 | 57 | 173 | 3570 | 0.015 | 0.046 |
+| high(200-800) | 1404 | 0 | 0 | 1404 | 0.000 | 0.000 |
+| low(<50) | 856 | 178 | 349 | 329 | 0.208 | 0.408 |
+| mid(50-200) | 660 | 18 | 11 | 631 | 0.027 | 0.017 |
+| very-high(>=800) | 880 | 0 | 0 | 880 | 0.000 | 0.000 |
 
 ### edgeCost
 
 | bin | n | Inactive | Active | Ambiguous | P_Inactive | P_Active |
 | --- | --- | --- | --- | --- | --- | --- |
-| 0 | 3628 | 36 | 109 | 3483 | 0.010 | 0.030 |
-| mid | 172 | 21 | 64 | 87 | 0.122 | 0.372 |
+| 0 | 3628 | 132 | 266 | 3230 | 0.036 | 0.073 |
+| (0,1] | 68 | 13 | 41 | 14 | 0.191 | 0.603 |
+| (1,5] | 104 | 51 | 53 | 0 | 0.490 | 0.510 |
 
 
 ## Decision

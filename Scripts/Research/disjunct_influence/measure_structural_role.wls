@@ -51,20 +51,29 @@ extractAnchor[orExpr_] :=
 $tightThreshold = 10^-8;
 
 outcomeLabel[var_, cached_Association] :=
-    Module[{rules, residual, value},
-        rules = Lookup[cached, "Solution", <||>];
-        If[!AssociationQ[rules] && !ListQ[rules], Return["Ambiguous"]];
-        rules = If[ListQ[rules], Association[rules], rules];
-        residual = Lookup[rules, "Residual", Null];
-        (* Detect parametric Or-residual presence. *)
+    Module[{sol, ruleSet, residual, value},
+        sol = Lookup[cached, "Solution", Missing[]];
+        (* Solution shapes seen in solutions/*.wxf:
+             - <|"Rules" -> {var -> v, ...}, "Residual" -> True | parametric Or|>
+             - flat <|var -> v, var -> v, ...|>     (fully-determined case)
+             - flat list of Rule[var, v]            (older cache format) *)
+        ruleSet = Which[
+            AssociationQ[sol] && KeyExistsQ[sol, "Rules"], sol["Rules"],
+            AssociationQ[sol],                              sol,
+            ListQ[sol] && AllTrue[sol, MatchQ[#, _Rule | _RuleDelayed] &], Association[sol],
+            True,                                           Missing[]
+        ];
+        residual = If[AssociationQ[sol], Lookup[sol, "Residual", Null], Null];
         If[residual =!= Null && residual =!= True && !FreeQ[residual, var],
             Return["Ambiguous"]];
-        If[!KeyExistsQ[rules, var], Return["Ambiguous"]];
-        value = rules[var];
+        If[ruleSet === Missing[], Return["Ambiguous"]];
+        ruleSet = If[ListQ[ruleSet], Association[ruleSet], ruleSet];
+        If[!KeyExistsQ[ruleSet, var], Return["Ambiguous"]];
+        value = ruleSet[var];
         Which[
-            !NumericQ[value],          "Ambiguous",
+            !NumericQ[value],             "Ambiguous",
             Abs[value] < $tightThreshold, "Inactive",
-            True,                      "Active"
+            True,                         "Active"
         ]
     ];
 outcomeLabel[_, _] := "Ambiguous";

@@ -66,22 +66,35 @@ branchingSummaryRow[key_] :=
 
 (* ---- Structural aggregate ---- *)
 
-(* Bin a real-valued feature into low/mid/high deciles. Missing -> "missing". *)
+(* Bin thresholds derived from the actual value ranges observed across
+   all 38 scenarios (computed in PR 2 refinement):
+     edgeBetweenness: min 2, q1 73, median 285, q3 740, max 2770
+     boundaryDistance: 0..14 (grids reach 14 hops)
+     edgeCost: discrete small integers 0..5+
+     junctionDegree: 1..6
+   The aggregate uses these bins; PR 4 may iterate further. *)
 binFeature["junctionDegree", v_?NumericQ] :=
     Which[v <= 2, "small(<=2)", v <= 4, "med(3-4)", True, "large(>=5)"];
 binFeature["boundaryDistance", v_?NumericQ] :=
-    Which[v == 0, "0", v == 1, "1", v == 2, "2", v == 3, "3", True, "4+"];
+    Which[v == 0, "0", v == 1, "1", v == 2, "2", v == 3, "3",
+          v <= 5, "4-5", v <= 9, "6-9", True, "10+"];
 binFeature["edgeBetweenness", v_?NumericQ] :=
-    Which[v == 0, "0", v < 0.05, "low", v < 0.2, "mid", True, "high"];
+    Which[v < 50, "low(<50)", v < 200, "mid(50-200)",
+          v < 800, "high(200-800)", True, "very-high(>=800)"];
 binFeature["edgeCost", v_?NumericQ] :=
-    Which[v == 0, "0", v < 1, "small", v < 10, "mid", True, "large"];
+    Which[v == 0, "0", v <= 1, "(0,1]", v <= 5, "(1,5]", True, "(5,inf)"];
 binFeature[_, _] := "missing";
 
-structuralRowsAcrossScenarios[] :=
+structuralRowsAcrossScenarios[cachedOnly_:False] :=
     Flatten[
         Function[k,
-            With[{rows = Lookup[$structuralData[k], "rows", {}]},
-                <|"scenario" -> k, "row" -> #|> & /@ rows
+            Module[{data = $structuralData[k]},
+                If[cachedOnly && !TrueQ[Lookup[data, "hasCachedSolution", False]],
+                    {},
+                    With[{rows = Lookup[data, "rows", {}]},
+                        <|"scenario" -> k, "row" -> #|> & /@ rows
+                    ]
+                ]
             ]
         ] /@ Keys[$structuralData],
         1
@@ -140,13 +153,31 @@ content = StringJoin[
             {"Scenario", "Status", "Started", "Unique", "MaxDepth", "TopShare"}
         ]
     ],
-    "\n\n## Structural-role distribution (abstract-complementarity granularity)\n\n",
-    "Per feature × bin: count of disjuncts and conditional outcome\n",
-    "probabilities. `P_Inactive` close to 1 means the feature is a strong\n",
-    "topology-only predictor of \"this complementarity is inactive at\n",
-    "equilibrium\". `P_Active` close to 1 is the symmetric finding.\n\n",
+    "\n\n## Structural-role distribution — cached-only (abstract-complementarity granularity)\n\n",
+    "Filtered to scenarios with a cached symbolic solution (so Inactive/Active\n",
+    "labels are real, not defaulted). `P_Inactive` close to 1 means the feature\n",
+    "is a strong topology-only predictor that the complementarity is inactive\n",
+    "at equilibrium; `P_Active` close to 1 is the symmetric finding.\n\n",
     If[$structuralData === <||>, "_No structural data; run `measure_structural_role.wls`._\n",
-        Module[{allRows = structuralRowsAcrossScenarios[]},
+        Module[{cachedRows = structuralRowsAcrossScenarios[True]},
+            StringJoin @@ (
+                Function[feature,
+                    "### " <> feature <> "\n\n" <>
+                    mdTable[
+                        featureOutcomeTable[cachedRows, feature],
+                        {"bin", "n", "Inactive", "Active", "Ambiguous", "P_Inactive", "P_Active"}
+                    ] <> "\n\n"
+                ] /@ {"junctionDegree", "boundaryDistance", "edgeBetweenness", "edgeCost"}
+            )
+        ]
+    ],
+    "\n## Structural-role distribution — all scenarios (incl. uncached)\n\n",
+    "Same features over the full dataset. The Ambiguous bucket is inflated\n",
+    "by 5 grids without cached solutions (Grid0505 / Grid0707 / Grid0710 /\n",
+    "Grid1010 / Grid1020 — 2,405 disjuncts). Use the cached-only section\n",
+    "above for actual conditional probabilities.\n\n",
+    If[$structuralData === <||>, "",
+        Module[{allRows = structuralRowsAcrossScenarios[False]},
             StringJoin @@ (
                 Function[feature,
                     "### " <> feature <> "\n\n" <>
