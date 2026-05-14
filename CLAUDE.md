@@ -45,10 +45,19 @@ wolframscript -file Scripts/GenerateDocs.wls
 
 ```
 primitives  →  utilities  →  scenarioTools  →  examples
-                                            →  unknownsTools  →  systemTools  →  Tawaf
-                                                                              →  solversTools  →  orchestrationTools
+                                            →  unknownsTools  →  systemTools  →  solversTools  →  orchestrationTools
                                                                                               →  graphicsTools
 ```
+
+**Optional subpackages.** Two files in the package directory are *not* loaded by `Needs["MFGraphs`"]`: `Tawaf.wl` (unrolled circumambulation scenario builder) and `numericOracle.wl` (LP-relaxation oracle, the only file that introduces floating-point work). Load them explicitly after `Needs["MFGraphs`"]`:
+
+```
+Needs["MFGraphs`"];
+Needs["Tawaf`"];          (* makeTawafScenario, makeTawafSystem, ... *)
+Needs["numericOracle`"];  (* numericOracleClassify, solveScenarioWithOracle *)
+```
+
+`solveScenarioWithOracle` is the high-level wrapper for the oracle path; it composes `addSymmetryEqualities` → `numericOracleClassify` → `addOracleEqualities` → `activeSetReduceSystem` and falls back to the unpruned solve when the oracle over-prunes.
 
 **Composition pipeline.** Every workflow is the same three-step chain, optionally followed by orchestration:
 
@@ -100,7 +109,9 @@ Active `.mt` files under `MFGraphs/Tests/`:
 | `boolean-minimize.mt` | `booleanMinimizeSystem` / `booleanMinimizeReduceSystem` |
 | `orchestration.mt` | `solveScenario` and full pipeline |
 | `graphicsTools.mt` | `rawNetworkPlot`, `richNetworkPlot` |
-| `tawaf.mt` | unrolled-circumambulation scenario builder |
+| `tawaf.mt` | unrolled-circumambulation scenario builder (opt-in `Tawaf`` context) |
+| `example-coverage.mt` | per-example smoke + cached-solution regression check across every key in `$ExampleScenarios` |
+| `numeric-oracle.mt` | opt-in `numericOracle`` classifier and `solveScenarioWithOracle` wrapper |
 
 ## Conventions
 

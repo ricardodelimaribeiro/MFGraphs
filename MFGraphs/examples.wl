@@ -47,7 +47,7 @@ system construction. Optional: sc, alpha, V, g.";
 
 getExampleScenario::usage =
 "getExampleScenario[n] returns a 6-arg factory Function[{entries,exits,sc,alpha,V,g}, scenario[...]] \
-for built-in example n (integer 1-23 or named string). Topology is baked in; all parameters are caller-supplied. \
+for built-in example n (see listExampleScenarios[] for valid keys). Topology is baked in; all parameters are caller-supplied. \
 getExampleScenario[n, entries, exits] calls the factory with canonical defaults: \
   sc=Automatic resolves via $CaseDefaultSC (falls back to {}), \
   alpha=1 (critical congestion), V=0, g=0 (Hamiltonian parameters passed through but not yet applied in system construction). \
