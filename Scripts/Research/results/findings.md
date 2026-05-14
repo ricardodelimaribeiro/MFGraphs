@@ -135,12 +135,55 @@ above for actual conditional probabilities.
 | (1,5] | 104 | 51 | 53 | 0 | 0.490 | 0.510 |
 
 
-## Decision
+## Decision (PR 4 — final)
 
-_Hand-edit this section after reading the tables above. Three forks:_
-1. Strong topology rule visible (e.g., `P(Inactive | boundaryDistance >= 3) > 0.95`):
-   ship a `presolveByTopology` helper.
-2. Most branching concentrated in one substituted disjunct per scenario:
-   ship a per-scenario disjunct-priority hint.
-3. Neither: document the negative result and consider Phase B (block ordering)
-   as the next test.
+The original plan posed three forks. Empirical answer for each, based on PRs 1-3:
+
+**Fork 1 — strong topology rule (P(outcome | bin) > 0.95 at meaningful n).**
+NOT MET. The strongest cached-only signals are:
+- P(Active | junctionDegree ≤ 2) = 0.798 at n = 218 — chain-like vertices
+  pin overwhelmingly Active, but well below the 0.95 cutoff for a hard rule.
+- P(Active | boundaryDistance = 0) = 0.504 dropping monotonically to 0.200
+  at distance 3 — real signal but not a clean threshold (Ambiguous absorbs
+  the rest as the distance grows).
+- P(Inactive | edgeBetweenness mid 50-200) = 0.462 at n = 39 — suggestive
+  but small sample.
+
+Useful as ordering heuristics; not strong enough to ship a `presolveByTopology`
+that pins variables before the solver runs.
+
+**Fork 2 — strong block-ordering winner.** MET. See
+`block_ordering_findings.md` for the full table. Headline:
+- 21 of 37 scenarios show > 5% speedup under at least one Block-* ordering.
+- 0 of 37 scenarios show > 10% regression; worst regressions are
+  sub-millisecond on already-fast scenarios.
+- Best wins: Achdou_2023_junction 4.95×, case_3 2.43×, case_20 1.78×,
+  Grid0303 1.65×, Grid0404 −5 s on a 30 s solve.
+- Block-Edge and Block-SCC outperform Block-Vertex on the bigger cracked
+  cases. No new hard scenario is cracked by ordering alone.
+
+**Fork 3 — no rule visible.** Not the outcome. Both empirical answers
+above (the 0.80 Active-bias on degree-2 vertices, and the broad
+block-ordering win) are real and load-bearing.
+
+**Bonus — sensitivity sweep.** On the cracked-and-small subset (22
+scenarios, ≤ 30 disjuncts AND baseline ≤ 10 s), all 323 disjuncts ×
+646 forced-branch solves produced the SAME flow-variable values as
+the baseline (L∞ delta = 0). Disjuncts shape the *search*, not the
+*answer* — the deterministic Kirchhoff + boundary + accumulated equality
+rules already pin the solution; the complementarities are answer-redundant
+relative to the final rule set, but the solver still has to traverse
+them. This explains *why* block ordering helps without changing
+semantics: vertex / edge / SCC locality surfaces the answer-redundancy
+sooner so the search collapses earlier.
+
+**Recommended next step.** Ship `"DisjunctOrdering" -> "Block-Edge"` (or
+`"Block-SCC"`) as the new default for `activeSetReduceSystem` in a follow-up
+PR. Gate the flip on a `BENCHMARKS.md` refresh with explicit before/after
+numbers, since the option is opt-in today and a default change is
+user-visible. Hard cases (Grid ≥ 5×5, HRF, case_21, case_23) are not
+cracked by ordering alone and remain on the oracle / numeric-fictitious-play
+track.
+
+The workbook `MFGraphs/DisjunctInfluenceStudy.wl` renders the
+heatmaps + per-scenario detail used to write this section.
