@@ -10,11 +10,15 @@ the single most-branching substituted disjunct (`TopShare`).
 
 | Scenario | Status | Started | Unique | MaxDepth | TopShare |
 | --- | --- | --- | --- | --- | --- |
-| case_23 | Timeout | 282476 | 4605 | 29 | 0.031 |
-| HRF_Scenario_1 | Timeout | 256436 | 15115 | 56 | 0.067 |
-| case_21 | Timeout | 200854 | 227 | 39 | 0.091 |
+| case_23 | Timeout | 282470 | 4605 | 29 | 0.031 |
+| Grid0505 | Timeout | 274102 | 134 | 91 | 0.176 |
+| HRF_Scenario_1 | Timeout | 253978 | 15115 | 56 | 0.067 |
+| case_21 | Timeout | 198236 | 227 | 39 | 0.091 |
 | Jamaratv9 | OK | 175618 | 2791 | 30 | 0.016 |
+| Grid0707 | Timeout | 166788 | 266 | 205 | 0.130 |
+| Grid0710 | Timeout | 122828 | 387 | 309 | 0.109 |
 | case_22 | OK | 120546 | 2161 | 28 | 0.045 |
+| Grid1010 | Timeout | 88234 | 568 | 468 | 0.093 |
 | Grid0404 | OK | 66598 | 82 | 51 | 0.216 |
 | case_11 | OK | 1664 | 277 | 16 | 0.024 |
 | Inconsistent_attraction_shortcut | OK | 1664 | 278 | 16 | 0.024 |
