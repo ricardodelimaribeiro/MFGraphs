@@ -22,6 +22,10 @@
      solversTools   (ReduceSystem solver)
      orchestrationTools (High-level orchestration)
      graphicsTools  (visualization helpers)
+
+   Optional subpackages (NOT loaded here; load explicitly after Needs["MFGraphs`"]):
+     Tawaf`         (unrolled circumambulation scenario builder)
+     numericOracle` (LP-relaxation oracle; introduces FindInstance floats)
 *)
 
 PrependTo[$Path, DirectoryName[$InputFileName]];
@@ -33,7 +37,6 @@ BeginPackage["MFGraphs`",
     "examples`",
     "unknownsTools`",
     "systemTools`",
-    "Tawaf`",
     "solversTools`",
     "orchestrationTools`",
     "graphicsTools`"

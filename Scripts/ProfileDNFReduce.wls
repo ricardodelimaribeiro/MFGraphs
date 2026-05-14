@@ -68,7 +68,9 @@ $Cases = {
   {"grid-3x2", Function[gridScenario[{3, 2}, {{1, 100}}, {{6, 0}}]]},
   {"grid-2x3", Function[gridScenario[{2, 3}, {{1, 100}}, {{6, 0}}]]},
   {"grid-2x4", Function[gridScenario[{2, 4}, {{1, 100}}, {{8, 0}}]]},
-  {"grid-3x3", Function[gridScenario[{3, 3}, {{1, 100}}, {{9, 0}}]]}
+  {"grid-3x3", Function[gridScenario[{3, 3}, {{1, 100}}, {{9, 0}}]]},
+  {"case-12",  Function[getExampleScenario[12, {{1, 100}}, {{4, 0}}]]},
+  {"case-21",  Function[getExampleScenario[21, {{1, 50}, {2, 50}}, {{10, 0}, {11, 0}, {12, 0}}]]}
 };
 $CaseNames = $Cases[[All, 1]];
 
@@ -107,7 +109,7 @@ RunOne[name_String, buildFn_, order_String] :=
           lastConjunct, lastHead, lastLeaves, kind},
     {tBuild, sys} = AbsoluteTiming[makeSystem[buildFn[]]];
     report = Block[{$RecursionLimit = If[$RecursionLimitOpt === Automatic, $RecursionLimit, $RecursionLimitOpt]},
-      solversTools`Private`dnfReduceDiagnosticReport[
+      dnfReduceDiagnosticReport[
         sys,
         "Order" -> order,
         "Timeout" -> $TimeoutSecs,

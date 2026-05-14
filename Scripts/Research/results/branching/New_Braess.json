@@ -1,0 +1,35 @@
+{
+	"scenario":"New_Braess",
+	"elapsedSec":4.883e-3,
+	"status":"OK",
+	"totals":{
+		"BranchesStarted":4,
+		"BranchesKept":2,
+		"BranchesDropped":2,
+		"UniqueDisjuncts":2,
+		"MaxRecursionDepth":3
+	},
+	"conservation":{
+		"BranchesStarted":true,
+		"BranchesKept":true,
+		"DropGapNonOr":0
+	},
+	"perDisjunct":[
+		{
+			"disjunctId":"{j[5, 6, 3] == 0, 50 + j[5, 6, 3] == 0}",
+			"started":2,
+			"kept":1,
+			"dropped":1,
+			"pruneRate":0.5,
+			"survivalRate":0.5
+		},
+		{
+			"disjunctId":"{-50 + j[5, 6, \"auxExit6\"] == 0, j[5, 6, \"auxExit6\"] == 0}",
+			"started":2,
+			"kept":1,
+			"dropped":1,
+			"pruneRate":0.5,
+			"survivalRate":0.5
+		}
+	]
+}

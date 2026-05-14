@@ -1,0 +1,53 @@
+{
+	"scenario":"case_27",
+	"key":"27",
+	"abstractCount":4,
+	"hasCachedSolution":true,
+	"outcomeCounts":{
+		"Inactive":0,
+		"Active":4,
+		"Ambiguous":0
+	},
+	"rows":[
+		{
+			"anchorVar":"j[1, 2]",
+			"anchorVertex":"2",
+			"anchorEdge":"{1, 2}",
+			"junctionDegree":2,
+			"boundaryDistance":0,
+			"edgeBetweenness":5.0,
+			"edgeCost":0.0,
+			"outcome":"Active"
+		},
+		{
+			"anchorVar":"j[\"auxEntry1\", 1, 2]",
+			"anchorVertex":"1",
+			"anchorEdge":"{\"auxEntry1\", 1}",
+			"junctionDegree":2,
+			"boundaryDistance":0,
+			"edgeBetweenness":3.0,
+			"edgeCost":0.0,
+			"outcome":"Active"
+		},
+		{
+			"anchorVar":"j[1, 2, \"auxExit2\"]",
+			"anchorVertex":"2",
+			"anchorEdge":"{1, 2}",
+			"junctionDegree":2,
+			"boundaryDistance":0,
+			"edgeBetweenness":5.0,
+			"edgeCost":0.0,
+			"outcome":"Active"
+		},
+		{
+			"anchorVar":"j[2, \"auxExit2\"]",
+			"anchorVertex":"auxExit2",
+			"anchorEdge":"{2, \"auxExit2\"}",
+			"junctionDegree":1,
+			"boundaryDistance":null,
+			"edgeBetweenness":3.0,
+			"edgeCost":0.0,
+			"outcome":"Active"
+		}
+	]
+}

@@ -80,7 +80,7 @@ cycleScenario[n, entries, exits] creates a scenario on n-cycle connections, vert
 
 ## getExampleScenario
 
-getExampleScenario[n] returns a 6-arg factory Function[{entries,exits,sc,alpha,V,g}, scenario[...]] for built-in example n (integer 1-23 or named string). Topology is baked in; all parameters are caller-supplied. getExampleScenario[n, entries, exits] calls the factory with canonical defaults:   sc=Automatic resolves via $CaseDefaultSC (falls back to {}),   alpha=1 (critical congestion), V=0, g=0 (Hamiltonian parameters passed through but not yet applied in system construction). getExampleScenario[n, entries, exits, sc] overrides switching costs (pass {} for none). getExampleScenario[n, entries, exits, sc, alpha] also overrides alpha. getExampleScenario[n, entries, exits, sc, alpha, V] also overrides V. getExampleScenario[n, entries, exits, sc, alpha, V, g] overrides all parameters. entries={{vertex,flow},...}; exits={{vertex,cost},...}; sc={{i,k,j,cost},...} or Association with 3-tuple keys. Returns $Failed for unknown keys.
+getExampleScenario[n] returns a 6-arg factory Function[{entries,exits,sc,alpha,V,g}, scenario[...]] for built-in example n (see listExampleScenarios[] for valid keys). Topology is baked in; all parameters are caller-supplied. getExampleScenario[n, entries, exits] calls the factory with canonical defaults:   sc=Automatic resolves via $CaseDefaultSC (falls back to {}),   alpha=1 (critical congestion), V=0, g=0 (Hamiltonian parameters passed through but not yet applied in system construction). getExampleScenario[n, entries, exits, sc] overrides switching costs (pass {} for none). getExampleScenario[n, entries, exits, sc, alpha] also overrides alpha. getExampleScenario[n, entries, exits, sc, alpha, V] also overrides V. getExampleScenario[n, entries, exits, sc, alpha, V, g] overrides all parameters. entries={{vertex,flow},...}; exits={{vertex,cost},...}; sc={{i,k,j,cost},...} or Association with 3-tuple keys. Returns $Failed for unknown keys. Numeric keys (3, 11-18, 20-23, 27, 104, 105) are retained for backward compatibility with older scripts; new code should prefer named keys ("Jamaratv9", "Grid0303", "Camilli 2015 simple", etc.). Use listExampleScenarios[] to discover all registered keys.
 
 ## getExampleScenarioMetadata
 
@@ -93,6 +93,10 @@ graphScenario[graph, entries, exits] creates a scenario from any WL Graph object
 ## gridScenario
 
 gridScenario[dims, entries, exits] creates a scenario on GridGraph[dims] connections. {n} gives a chain with vertices 1..n; {r,c} gives an r×c grid with vertices 1..r*c (row-major). Topology is symmetrized into undirected network edges before system construction. Optional: sc (switching costs, default {}), alpha, V, g (Hamiltonian defaults are supplied by makeScenario; V/G are preserved but not applied by current system construction).
+
+## listExampleScenarios
+
+listExampleScenarios[] returns the sorted list of all keys recognised by getExampleScenario (both numeric legacy keys and named keys). Use this for discovery and for iterating over the registry in tests.
 
 ## makeSymbolicUnknowns
 
@@ -118,6 +122,14 @@ unknown is reserved for future numeric MFGraphs solver fields over grids or layo
 
 unknowns is reserved for future numeric collections of unknown fields over grids or layouts, following the Maydan-style numeric solver boundary. Use symbolicUnknowns for current exact symbolic graph systems.
 
+## addOracleEqualities
+
+addOracleEqualities[sys, oracleResult] returns a new mfgSystem with j[e] == 0 appended to EqGeneral for every e in oracleResult["Inactive"]. Designed to consume the Association returned by numericOracleClassify (in the optional numericOracle subpackage); this function itself is symbolic-only. No-op when Inactive is empty or when oracleResult["Converged"] is False. Runs a FindInstance safety check to verify the pruned system is still feasible; if not, returns sys unchanged.
+
+## addSymmetryEqualities
+
+addSymmetryEqualities[sys, scenario] returns a new mfgSystem whose EqGeneral has the orbit equalities j[a,b] == j[sigma(a), sigma(b)] and u[a,b] == u[sigma(a), sigma(b)] appended for every boundary-preserving automorphism sigma. Symbolic, exact; no-op when the symmetry group is trivial.
+
 ## altFlowOp
 
 altFlowOp[j][list] returns the alternative: j@@list ==0 || j@@Reverse@list ==0.
@@ -126,6 +138,10 @@ altFlowOp[j][list] returns the alternative: j@@list ==0 || j@@Reverse@list ==0.
 
 altSwitch[j, u, switchingCosts][r, i, w] returns the complementarity condition at junction i for the transition from r to w:
 (j[r, i, w] == 0) || (u[w, i] + switchingCosts[r, i, w] - u[r, i] == 0).
+
+## boundaryPreservingAutomorphisms
+
+boundaryPreservingAutomorphisms[scenario] returns the list of graph automorphisms of the scenario's underlying graph that also preserve the (vertex,value) multisets of Entries and Exits. Empty list if no nontrivial symmetry survives.
 
 ## buildBoundaryData
 
@@ -220,6 +236,14 @@ systemDataFlatten[sys] returns a single flat Association containing all keys fro
 
 activeSetReduceSystem[sys] is an opt-in exact active-set solver for the critical-congestion linear complementarity structure. It enumerates small complementarity alternatives incrementally with exact linear substitution and falls back to the proven exact DNF reducer for larger residual variable sets. Returns the same rule/residual shape as dnfReduceSystem. Fails for non-critical congestion systems where Alpha != 1 on any edge.
 
+## bfsDNFReduce
+
+bfsDNFReduce[xp, sys, allVars] is a breadth-first analog of dnfReduceProcedural. Uses a FIFO queue instead of a LIFO stack so that all live frontier items at depth k are processed before any item at depth k+1. Same input/output contract as dnfReduce; result branches may appear in a different order inside the final Or. Shares the per-invocation cachedSolve cache, so sibling Or-branches that produce identical Equal expressions hit the cache on the next pop instead of after a deep DFS detour. Opt-in: not wired into dnfReduceSystem.
+
+## bfsDNFReduceSystem
+
+bfsDNFReduceSystem[sys] is dnfReduceSystem with bfsDNFReduce as the engine. Same input/output contract; differs only in worklist discipline (FIFO vs LIFO). Useful for head-to-head benchmarking against dnfReduceSystem.
+
 ## booleanMinimizeReduceSystem
 
 booleanMinimizeReduceSystem[sys] solves the mfgSystem sys by attacking the disjunctive structure of the preprocessed constraint system before DNF expansion. It (1) prunes individual complementarity arms that are infeasible against the linear part via FindInstance; (2) decomposes the surviving disjunctive atoms into connected components by shared variables; (3) BooleanMinimizes each component to minimal DNF and Reduces per disjunct. Returns the same rule/residual shape as booleanReduceSystem. Fails for non-critical congestion systems where Alpha != 1 on any edge. Options: "ArmTimeout" (default 2s per FindInstance arm check), "DisjunctTimeout" (default 30s per Reduce call), "ReturnAll" (default False).
@@ -243,6 +267,10 @@ directCriticalSystem[sys] is an explicit opt-in solver for critical congestion s
 ## dnfReduce
 
 dnfReduce[xp, sys] simplifies xp && sys by solving equalities, substituting their solutions throughout the system, and distributing over disjunctions. Returns a DNF expression with all equalities eliminated where possible. dnfReduce[xp, sys, elem] is the 3-argument form used internally to process one conjunct elem from sys. Implemented with direct recursion: the Or case spawns one recursive call per branch and the Equal case recurses on the substituted remainder. Deeply nested Or-chains may approach $RecursionLimit; see dnfReduceProcedural for a stack-based iterative alternative.
+
+## dnfReduceDiagnosticReport
+
+dnfReduceDiagnosticReport[sys, opts] runs the private DNF reducer with instrumentation and returns a diagnostic association. Options: "Order" (default "original"), "Timeout" (default Infinity, seconds), "TraceLength" (default 20). Intended for scripts and workbooks; dnfReduceSystem behavior is unchanged.
 
 ## dnfReduceSystem
 
@@ -298,7 +326,7 @@ BendFactor is an option for richNetworkPlot.
 
 ## rawNetworkPlot
 
-rawNetworkPlot[s, sys, opts] and rawNetworkPlot[s, sys, sol, opts] render the physical network. Real network vertices are gray. Auxiliary entry/exit vertices and boundary edges are hidden by default. Options: ShowAuxiliaryVertices (default False), ShowBoundaryData (default False; when True forces ShowAuxiliaryVertices), ShowBoundaryValues (default True; shows u-values on auxiliary exit vertices when boundary data is shown), ShowFlowLabels (default Automatic; True when sol provided), ShowValueLabels (default Automatic; True when sol provided; shows u-values with 1/4, 1/2, 3/4 interpolations), ShowDensityLabels (default False; shows inferred density m), ColorFunction (default Automatic; RedBlue blend over u-values), ShowLegend (default True), GraphLayout (default Automatic), PlotLabel (default Automatic), ImageSize (default Large). With a solution provided, auxiliary vertices (when shown) and shown vertex states are colored by u-value gradient; physical entry/exit vertices remain gray.
+rawNetworkPlot[s, sys, opts] and rawNetworkPlot[s, sys, sol, opts] render the physical network. Real network vertices are gray. Auxiliary entry/exit vertices and boundary edges are hidden by default. Options: ShowAuxiliaryVertices (default False), ShowBoundaryData (default False; when True forces ShowAuxiliaryVertices), ShowBoundaryValues (default True; shows u-values on auxiliary exit vertices when boundary data is shown), ShowFlowLabels (default Automatic; True when sol provided), ShowValueLabels (default Automatic; True when sol provided; shows u-values with 1/4, 1/2, 3/4 interpolations), ShowDensityLabels (default False; shows inferred density m), ColorFunction (default Automatic; BlueRed blend over u-values), ShowLegend (default True), GraphLayout (default Automatic), PlotLabel (default Automatic), ImageSize (default Large). With a solution provided, auxiliary vertices (when shown) and shown vertex states are colored by u-value gradient; physical entry/exit vertices remain gray.
 
 ## richNetworkPlot
 

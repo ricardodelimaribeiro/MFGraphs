@@ -368,7 +368,7 @@ Test[
         s = gridScenario[{2}, {{1, 10}}, {{2, 0}}];
         sys = makeSystem[s];
         expected = dnfReduceSystem[sys];
-        report = solversTools`Private`dnfReduceDiagnosticReport[sys, "Order" -> "original", "Timeout" -> 30];
+        report = dnfReduceDiagnosticReport[sys, "Order" -> "original", "Timeout" -> 30];
         report["Status"] === "OK" &&
         report["Result"] === expected &&
         AssociationQ[report["Summary"]] &&
@@ -382,7 +382,7 @@ Test[
     Module[{s, sys, report},
         s = gridScenario[{2}, {{1, 10}}, {{2, 0}}];
         sys = makeSystem[s];
-        report = solversTools`Private`dnfReduceDiagnosticReport[sys, "Timeout" -> 0];
+        report = dnfReduceDiagnosticReport[sys, "Timeout" -> 0];
         report["Status"] === "Timeout" &&
         report["Result"] === $TimedOut &&
         AssociationQ[report["TimeoutLocation"]]
@@ -698,6 +698,62 @@ Test[
     TestID -> "activeSetReduceSystem: non-critical congestion systems fail"
 ]
 
+(* --- LP feasibility precheck (opt-in via "LPPrecheck" -> True) --- *)
+
+Test[
+    Module[{s, sys, result},
+        s = gridScenario[{2, 3}, {{1, 100}}, {{6, 0}}];
+        sys = makeSystem[s];
+        result = activeSetReduceSystem[sys, "LPPrecheck" -> True];
+        !FailureQ[result] && isValidSystemSolution[sys, result]
+    ],
+    True,
+    TestID -> "activeSetReduceSystem: LPPrecheck on grid-2x3 produces a valid solution"
+]
+
+Test[
+    Module[{s, sys, result},
+        s = getExampleScenario[12, {{1, 100.0}}, {{4, 0.0}}];
+        sys = makeSystem[s];
+        result = activeSetReduceSystem[sys, "LPPrecheck" -> True];
+        !FailureQ[result] && isValidSystemSolution[sys, result]
+    ],
+    True,
+    TestID -> "activeSetReduceSystem: LPPrecheck on example-12 produces a valid solution"
+]
+
+Test[
+    (* Default LPPrecheck -> False is byte-identical to the no-option call.
+       Catches regressions where the precheck path is accidentally triggered
+       when the option is absent. *)
+    Module[{s, sys, r1, r2},
+        s = gridScenario[{2, 3}, {{1, 100}}, {{6, 0}}];
+        sys = makeSystem[s];
+        r1 = activeSetReduceSystem[sys];
+        r2 = activeSetReduceSystem[sys, "LPPrecheck" -> False];
+        Sort[r1] === Sort[r2]
+    ],
+    True,
+    TestID -> "activeSetReduceSystem: LPPrecheck -> False matches no-option call"
+]
+
+Test[
+    (* On case 21 the prototype is not expected to terminate within a small
+       budget, but the precheck must at least fire — this guards against the
+       gate accidentally short-circuiting on a problem where Or-fanout actually
+       happens. Verifies the wiring, not the optimization win. *)
+    Module[{sys},
+        sys = makeSystem[getExampleScenario[21, {{1, 50}, {2, 50}}, {{10, 0}, {11, 0}, {12, 0}}]];
+        TimeConstrained[
+            activeSetReduceSystem[sys, "LPPrecheck" -> True, "LPPrecheckTimeout" -> 0.2],
+            10
+        ];
+        solversTools`Private`$lpPrecheckCalls > 0
+    ],
+    True,
+    TestID -> "activeSetReduceSystem: LPPrecheck wiring fires on case-21 within 10s"
+]
+
 Test[
     Module[{s, sys},
         s = gridScenario[{2}, {{1, 10}}, {{2, 0}}];
@@ -882,6 +938,61 @@ Test[
     ],
     True,
     TestID -> "ZeroSwitchUEqualities: key exists and is a list"
+]
+
+(* --- AltOptCond trimming against ZeroSwitchUEqualities --- *)
+
+Test[
+    Module[{s, sys},
+        s = gridScenario[{2, 3}, {{1, 100}}, {{6, 0}}];
+        sys = makeSystem[s];
+        Length[systemData[sys, "AltOptCond"]] < Length[systemData[sys, "ActiveTriples"]]
+    ],
+    True,
+    TestID -> "AltOptCond: trimmed strictly shorter than ActiveTriples when ZeroSwitchUEqualities is nontrivial"
+]
+
+Test[
+    Module[{s, sys},
+        s = gridScenario[{2, 3}, {{1, 100}}, {{6, 0}}];
+        sys = makeSystem[s];
+        FreeQ[systemData[sys, "AltOptCond"], True]
+    ],
+    True,
+    TestID -> "AltOptCond: no tautological True clauses remain after trimming"
+]
+
+Test[
+    Module[{s, sys, alt, zse},
+        s = gridScenario[{2, 3}, {{1, 100}}, {{6, 0}}];
+        sys = makeSystem[s];
+        alt = systemData[sys, "AltOptCond"];
+        zse = systemData[sys, "ZeroSwitchUEqualities"];
+        (alt /. zse) === alt
+    ],
+    True,
+    TestID -> "AltOptCond: trimming is idempotent under ZeroSwitchUEqualities"
+]
+
+Test[
+    Module[{s, sys},
+        s = gridScenario[{3}, {{1, 120}}, {{3, 0}}, {{1, 2, 3, 5}}];
+        sys = makeSystem[s];
+        Length[systemData[sys, "AltOptCond"]] === Length[systemData[sys, "ActiveTriples"]]
+    ],
+    True,
+    TestID -> "AltOptCond: no clauses dropped when ZeroSwitchUEqualities is empty"
+]
+
+Test[
+    Module[{s, sys, result},
+        s = gridScenario[{2, 3}, {{1, 100}}, {{6, 0}}];
+        sys = makeSystem[s];
+        result = dnfReduceSystem[sys];
+        isValidSystemSolution[sys, result]
+    ],
+    True,
+    TestID -> "AltOptCond: dnfReduceSystem solution remains valid after AltOptCond trim"
 ]
 
 Test[

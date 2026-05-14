@@ -1,0 +1,75 @@
+{
+	"scenario":"Inconsistent_Y_shortcut",
+	"elapsedSec":1.0732e-2,
+	"status":"OK",
+	"totals":{
+		"BranchesStarted":14,
+		"BranchesKept":12,
+		"BranchesDropped":2,
+		"UniqueDisjuncts":7,
+		"MaxRecursionDepth":8
+	},
+	"conservation":{
+		"BranchesStarted":true,
+		"BranchesKept":true,
+		"DropGapNonOr":0
+	},
+	"perDisjunct":[
+		{
+			"disjunctId":"{-j[4, 2, 1] == 0, 80 - j[2, 4, \"auxExit4\"] + j[4, 2, 1] == 0}",
+			"started":2,
+			"kept":2,
+			"dropped":0,
+			"pruneRate":0.0,
+			"survivalRate":1.0
+		},
+		{
+			"disjunctId":"{j[2, 4, \"auxExit4\"] == 0, 81 - u[2, 1] + u[4, 2] == 0}",
+			"started":2,
+			"kept":2,
+			"dropped":0,
+			"pruneRate":0.0,
+			"survivalRate":1.0
+		},
+		{
+			"disjunctId":"{j[2, 4, \"auxExit4\"] == 0, 81 + j[2, 4, \"auxExit4\"] - u[2, 1] + u[\"auxExit4\", 4] == 0}",
+			"started":2,
+			"kept":2,
+			"dropped":0,
+			"pruneRate":0.0,
+			"survivalRate":1.0
+		},
+		{
+			"disjunctId":"{81 - 2*j[2, 4, \"auxExit4\"] == 0, j[2, 4, \"auxExit4\"] == 0}",
+			"started":2,
+			"kept":1,
+			"dropped":1,
+			"pruneRate":0.5,
+			"survivalRate":0.5
+		},
+		{
+			"disjunctId":"{80 - j[2, 4, \"auxExit4\"] == 0, 82 - u[2, 1] + u[3, 2] == 0}",
+			"started":2,
+			"kept":2,
+			"dropped":0,
+			"pruneRate":0.0,
+			"survivalRate":1.0
+		},
+		{
+			"disjunctId":"{80 - j[2, 4, \"auxExit4\"] == 0, 162 - j[2, 4, \"auxExit4\"] - u[2, 1] + u[\"auxExit3\", 3] == 0}",
+			"started":2,
+			"kept":2,
+			"dropped":0,
+			"pruneRate":0.0,
+			"survivalRate":1.0
+		},
+		{
+			"disjunctId":"{80 - j[2, 4, \"auxExit4\"] == 0, -162 + j[2, 4, \"auxExit4\"] + u[2, 1] == 0}",
+			"started":2,
+			"kept":1,
+			"dropped":1,
+			"pruneRate":0.5,
+			"survivalRate":0.5
+		}
+	]
+}

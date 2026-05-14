@@ -1,0 +1,75 @@
+{
+	"scenario":"case_12",
+	"elapsedSec":1.0092e-2,
+	"status":"OK",
+	"totals":{
+		"BranchesStarted":26,
+		"BranchesKept":16,
+		"BranchesDropped":10,
+		"UniqueDisjuncts":7,
+		"MaxRecursionDepth":8
+	},
+	"conservation":{
+		"BranchesStarted":true,
+		"BranchesKept":true,
+		"DropGapNonOr":0
+	},
+	"perDisjunct":[
+		{
+			"disjunctId":"{-j[2, 3, 1] == 0, 40 + j[2, 3, 1] == 0}",
+			"started":8,
+			"kept":4,
+			"dropped":4,
+			"pruneRate":0.5,
+			"survivalRate":0.5
+		},
+		{
+			"disjunctId":"{j[3, 4, 2] == 0, 40 + j[3, 4, 2] == 0}",
+			"started":4,
+			"kept":2,
+			"dropped":2,
+			"pruneRate":0.5,
+			"survivalRate":0.5
+		},
+		{
+			"disjunctId":"{-j[3, 2, 1] == 0, j[3, 2, 1] == 0}",
+			"started":4,
+			"kept":4,
+			"dropped":0,
+			"pruneRate":0.0,
+			"survivalRate":1.0
+		},
+		{
+			"disjunctId":"{-40 + j[3, 4, \"auxExit4\"] == 0, j[3, 4, \"auxExit4\"] == 0}",
+			"started":4,
+			"kept":2,
+			"dropped":2,
+			"pruneRate":0.5,
+			"survivalRate":0.5
+		},
+		{
+			"disjunctId":"{j[3, 2, 1] + j[4, 2, 1] == 0, 40 + j[3, 2, 1] + j[4, 2, 1] == 0}",
+			"started":2,
+			"kept":1,
+			"dropped":1,
+			"pruneRate":0.5,
+			"survivalRate":0.5
+		},
+		{
+			"disjunctId":"{j[2, 3, 1] + j[2, 3, 4] == 0, j[2, 3, 1] + j[2, 3, 4] == 0}",
+			"started":2,
+			"kept":2,
+			"dropped":0,
+			"pruneRate":0.0,
+			"survivalRate":1.0
+		},
+		{
+			"disjunctId":"{-40 + j[2, 3, 1] + j[3, 4, 2] + j[3, 4, \"auxExit4\"] - j[4, 3, 2] == 0, j[2, 3, 1] + j[3, 4, 2] + j[3, 4, \"auxExit4\"] - j[4, 3, 2] == 0}",
+			"started":2,
+			"kept":1,
+			"dropped":1,
+			"pruneRate":0.5,
+			"survivalRate":0.5
+		}
+	]
+}
