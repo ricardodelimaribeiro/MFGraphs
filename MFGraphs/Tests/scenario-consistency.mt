@@ -188,3 +188,39 @@ Module[{s, sys},
    Or-disjunctions) shows up downstream as Residual -> False from the
    active-set solver. Callers are expected to check Lookup[result,
    "Residual"] and fall back to the unpruned system if needed. *)
+
+(* Per-disjunct counter conservation. The new BranchesStartedByDisjunct /
+   BranchesKeptByDisjunct counters introduced in PR 1 of the
+   disjunct-influence study must sum exactly to their flat counterparts;
+   BranchesDroppedByDisjunct may be off by the count of non-Or-branch
+   drops (the And-block elem===False case in dnfReduceInstrumentedAnd). *)
+
+Module[{sys, rep, sm},
+    sys = makeSystem[gridScenario[{3, 3}, {{1, 100}}, {{9, 0}}]];
+    rep = dnfReduceDiagnosticReport[sys, "Timeout" -> 30];
+    sm  = rep["Summary"];
+    Test[
+        sm["BranchesStarted"] === Total[Values[sm["BranchesStartedByDisjunct"]]] &&
+        sm["BranchesKept"]    === Total[Values[sm["BranchesKeptByDisjunct"]]] &&
+        sm["BranchesDropped"] >= Total[Values[sm["BranchesDroppedByDisjunct"]]]
+        ,
+        True
+        ,
+        TestID -> "DisjunctCounters: conservation on Grid0303"
+    ]
+];
+
+Module[{sys, rep, sm},
+    sys = makeSystem[getExampleScenario[22, {{1, 100}}, {{6, 0}, {7, 0}}]];
+    rep = dnfReduceDiagnosticReport[sys, "Timeout" -> 60];
+    sm  = rep["Summary"];
+    Test[
+        sm["BranchesStarted"] === Total[Values[sm["BranchesStartedByDisjunct"]]] &&
+        sm["BranchesKept"]    === Total[Values[sm["BranchesKeptByDisjunct"]]] &&
+        sm["BranchesDropped"] >= Total[Values[sm["BranchesDroppedByDisjunct"]]]
+        ,
+        True
+        ,
+        TestID -> "DisjunctCounters: conservation on case 22"
+    ]
+];

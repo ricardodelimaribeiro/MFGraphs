@@ -1864,6 +1864,18 @@ dnfCounterIncrementAtDepth[_, key_String, depth_Integer, n_: 1] :=
         $dnfCurrentMonitor[key] = a
     ];
 
+(* Per-disjunct counter increment. Stable string ID for an Or expression
+   used so the same complementarity disjunct gets the same counter slot
+   across runs and across depth levels. *)
+canonicalDisjunctId[orExpr_Or] :=
+    ToString[Sort[List @@ orExpr], InputForm];
+
+dnfCounterIncrementByDisjunct[_, key_String, disjunctId_String, n_: 1] :=
+    Module[{a = Lookup[$dnfCurrentMonitor, key, <||>]},
+        a[disjunctId] = Lookup[a, disjunctId, 0] + n;
+        $dnfCurrentMonitor[key] = a
+    ];
+
 dnfReduceInstrumented[_, False, monitor_, _String, _, depth_Integer:1] :=
     (dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "FalseSystem", "Depth" -> depth|>]; False);
 
@@ -1882,24 +1894,28 @@ dnfReduceInstrumented[xp_, sys_And, monitor_, order_String, sysObj_, depth_Integ
     ];
 
 dnfReduceInstrumented[xp_, sys_Or, monitor_, order_String, sysObj_, depth_Integer:1] :=
-    Module[{results = {}, r, alternatives = List @@ sys, branchDepth = depth + 1},
+    Module[{results = {}, r, alternatives = List @@ sys, branchDepth = depth + 1, disjunctId},
         $dnfCurrentMonitor["MaxRecursionDepth"] = Max[Lookup[$dnfCurrentMonitor, "MaxRecursionDepth", 0], depth];
+        disjunctId = canonicalDisjunctId[sys];
         dnfCounterIncrement[monitor, "OrsProcessed"];
         dnfCounterIncrement[monitor, "BranchesStarted", Length[alternatives]];
         dnfCounterIncrementAtDepth[monitor, "BranchesStartedByDepth", branchDepth, Length[alternatives]];
-        dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "TopLevelOr", "BranchCount" -> Length[alternatives], "Depth" -> depth, "Expression" -> sys|>];
+        dnfCounterIncrementByDisjunct[monitor, "BranchesStartedByDisjunct", disjunctId, Length[alternatives]];
+        dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "TopLevelOr", "BranchCount" -> Length[alternatives], "Depth" -> depth, "DisjunctId" -> disjunctId, "Expression" -> sys|>];
         Scan[
             Function[branch,
             With[{branchValue = branch, depthValue = branchDepth},
-                dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "EnterTopLevelBranch", "Depth" -> depthValue, "Expression" -> branchValue|>];
+                dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "EnterTopLevelBranch", "Depth" -> depthValue, "DisjunctId" -> disjunctId, "Expression" -> branchValue|>];
                 r = dnfReduceInstrumented[xp, branchValue, monitor, order, sysObj, depthValue]
             ];
             If[r =!= False,
                 AppendTo[results, r];
                 dnfCounterIncrement[monitor, "BranchesKept"];
-                dnfCounterIncrementAtDepth[monitor, "BranchesKeptByDepth", branchDepth],
+                dnfCounterIncrementAtDepth[monitor, "BranchesKeptByDepth", branchDepth];
+                dnfCounterIncrementByDisjunct[monitor, "BranchesKeptByDisjunct", disjunctId],
                 dnfCounterIncrement[monitor, "BranchesDropped"];
-                dnfCounterIncrementAtDepth[monitor, "BranchesDroppedByDepth", branchDepth]
+                dnfCounterIncrementAtDepth[monitor, "BranchesDroppedByDepth", branchDepth];
+                dnfCounterIncrementByDisjunct[monitor, "BranchesDroppedByDisjunct", disjunctId]
             ]
             ],
             alternatives
@@ -1932,35 +1948,40 @@ dnfReduceInstrumentedAnd[xp_, conjuncts_List, monitor_, order_String, sysObj_, d
                     dnfCounterIncrementAtDepth[monitor, "BranchesDroppedByDepth", depth];
                     Return[False, Module],
                 Head[elem] === Or,
-                    dnfCounterIncrement[monitor, "OrsProcessed"];
-                    dnfCounterIncrement[monitor, "BranchesStarted", Length[List @@ elem]];
-                    dnfCounterIncrementAtDepth[monitor, "BranchesStartedByDepth", depth + 1, Length[List @@ elem]];
-                    rest = If[i >= Length[conjunctList], True, And @@ conjunctList[[i + 1 ;;]]];
-                    Return[
-                        Module[{results = {}, r},
-                            Scan[
-                                Function[branch,
-                                dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "EnterBranch", "Depth" -> depth + 1, "Expression" -> branch|>];
-                                With[{prefixValue = xpAcc, restValue = rest, branchValue = branch, depthValue = depth + 1},
-                                    r = dnfReduceInstrumented[prefixValue, restValue, branchValue, monitor, order, sysObj, depthValue]
+                    With[{disjunctIdLocal = canonicalDisjunctId[elem]},
+                        dnfCounterIncrement[monitor, "OrsProcessed"];
+                        dnfCounterIncrement[monitor, "BranchesStarted", Length[List @@ elem]];
+                        dnfCounterIncrementAtDepth[monitor, "BranchesStartedByDepth", depth + 1, Length[List @@ elem]];
+                        dnfCounterIncrementByDisjunct[monitor, "BranchesStartedByDisjunct", disjunctIdLocal, Length[List @@ elem]];
+                        rest = If[i >= Length[conjunctList], True, And @@ conjunctList[[i + 1 ;;]]];
+                        Return[
+                            Module[{results = {}, r},
+                                Scan[
+                                    Function[branch,
+                                    dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "EnterBranch", "Depth" -> depth + 1, "DisjunctId" -> disjunctIdLocal, "Expression" -> branch|>];
+                                    With[{prefixValue = xpAcc, restValue = rest, branchValue = branch, depthValue = depth + 1},
+                                        r = dnfReduceInstrumented[prefixValue, restValue, branchValue, monitor, order, sysObj, depthValue]
+                                    ];
+                                    If[r =!= False,
+                                        AppendTo[results, r];
+                                        dnfCounterIncrement[monitor, "BranchesKept"];
+                                        dnfCounterIncrementAtDepth[monitor, "BranchesKeptByDepth", depth + 1];
+                                        dnfCounterIncrementByDisjunct[monitor, "BranchesKeptByDisjunct", disjunctIdLocal],
+                                        dnfCounterIncrement[monitor, "BranchesDropped"];
+                                        dnfCounterIncrementAtDepth[monitor, "BranchesDroppedByDepth", depth + 1];
+                                        dnfCounterIncrementByDisjunct[monitor, "BranchesDroppedByDisjunct", disjunctIdLocal]
+                                    ]
+                                    ],
+                                    List @@ elem
                                 ];
-                                If[r =!= False,
-                                    AppendTo[results, r];
-                                    dnfCounterIncrement[monitor, "BranchesKept"];
-                                    dnfCounterIncrementAtDepth[monitor, "BranchesKeptByDepth", depth + 1],
-                                    dnfCounterIncrement[monitor, "BranchesDropped"];
-                                    dnfCounterIncrementAtDepth[monitor, "BranchesDroppedByDepth", depth + 1]
+                                Which[
+                                    results === {}, False,
+                                    Length[results] === 1, First[results],
+                                    True, Or @@ results
                                 ]
-                                ],
-                                List @@ elem
-                            ];
-                            Which[
-                                results === {}, False,
-                                Length[results] === 1, First[results],
-                                True, Or @@ results
-                            ]
-                        ],
-                        Module
+                            ],
+                            Module
+                        ]
                     ],
                 Head[elem] === Equal,
                     dnfCounterIncrement[monitor, "EqualityAttempts"];
@@ -2055,6 +2076,9 @@ dnfReduceDiagnosticReport[sys_?mfgSystemQ, OptionsPattern[]] :=
             "BranchesStartedByDepth" -> <||>,
             "BranchesKeptByDepth" -> <||>,
             "BranchesDroppedByDepth" -> <||>,
+            "BranchesStartedByDisjunct" -> <||>,
+            "BranchesKeptByDisjunct" -> <||>,
+            "BranchesDroppedByDisjunct" -> <||>,
             "EqualityAttempts" -> 0,
             "EqualitySolves" -> 0,
             "Substitutions" -> 0,
@@ -2111,6 +2135,9 @@ dnfReduceDiagnosticReport[sys_?mfgSystemQ, OptionsPattern[]] :=
             "BranchesStartedByDepth" -> KeySort[Lookup[monitor, "BranchesStartedByDepth", <||>]],
             "BranchesKeptByDepth" -> KeySort[Lookup[monitor, "BranchesKeptByDepth", <||>]],
             "BranchesDroppedByDepth" -> KeySort[Lookup[monitor, "BranchesDroppedByDepth", <||>]],
+            "BranchesStartedByDisjunct" -> Lookup[monitor, "BranchesStartedByDisjunct", <||>],
+            "BranchesKeptByDisjunct" -> Lookup[monitor, "BranchesKeptByDisjunct", <||>],
+            "BranchesDroppedByDisjunct" -> Lookup[monitor, "BranchesDroppedByDisjunct", <||>],
             "EqualityAttempts" -> Lookup[monitor, "EqualityAttempts", 0],
             "EqualitySolves" -> Lookup[monitor, "EqualitySolves", 0],
             "Substitutions" -> Lookup[monitor, "Substitutions", 0],
