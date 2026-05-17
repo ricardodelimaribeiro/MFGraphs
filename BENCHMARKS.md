@@ -32,6 +32,16 @@ wolframscript -file Scripts/BenchmarkSystemSolver.wls --tag "after: <description
 Include the resulting table rows from `BENCHMARKS.md` in the PR description.
 Regressions above ~25% on non-timeout cases require explanation before merge.
 
+For variant head-to-head comparisons where a single-run difference would be
+masked by warmup/JIT noise, prefer the multi-sample protocol: one discarded
+warmup call followed by N (>= 5, ideally 7) timed `AbsoluteTiming` samples per
+(case, variant) pair, with `withDnfSolveCache` rebinding the per-invocation
+cache to `<||>` so each sample is an independent cold solve. Report min /
+median / mean / max per pair; treat a pair as indistinguishable when the
+median gap is within the spread of either variant. `Scripts/BenchmarkBFSDNFReduce.wls`
+follows this protocol — see the 2026-05-17 BFS vs DFS history entry below
+for an example writeup.
+
 Solver-sensitive pull requests must also include `ProfileScenarioKernel.wls` output
 for at least one easy case (e.g. `chain-3v-1exit`) and one hard case (e.g. `grid-3x2`
 or `example-12`). Record which phase absorbed the cost change: scenario build, unknowns,
@@ -143,6 +153,31 @@ as `dnfReduceSystem`.
 
 DNF-first benchmark entries from `Scripts/BenchmarkSystemSolver.wls` are appended
 here when the script is run with `--tag`.
+
+### 2026-05-17 — bfsDNFReduceSystem vs dnfReduceSystem (multi-sample)
+
+**Commit:** `8d7c1dc`
+**Branch:** `feat/disjunct-ordering-default-block-edge`
+**Environment:** local `wolframscript`, `$MFGraphsVerbose=False`, `$HistoryLength=0`
+**Method:** for each (case, variant) pair, one warmup call is discarded, then 7 timed calls are made via `AbsoluteTiming[fn[sys]]`. `withDnfSolveCache` rebinds `$dnfSolveCache` to `<||>` per call, so each sample is an independent cold solve. `isValidSystemSolution` is asserted on the final sample.
+**Cases:** four scenarios that complete inside the 60s per-call timeout. `case-21` is excluded because both variants time out at 120s and require `addSymmetryEqualities` before either reducer can crack it.
+
+| Case | Variant | Min (ms) | Median (ms) | Mean (ms) | Max (ms) | Valid |
+|------|---------|---------:|------------:|----------:|---------:|:-----:|
+| grid-2x3 | DFS | 6.57 | 6.58 | 6.75 | 7.31 | True |
+| grid-2x3 | BFS | 6.52 | 6.74 | 6.72 | 6.91 | True |
+| grid-3x2 | DFS | 6.23 | 6.37 | 6.47 | 6.76 | True |
+| grid-3x2 | BFS | 6.22 | 6.30 | 6.38 | 6.83 | True |
+| grid-3x3 | DFS | 28.42 | 28.92 | 29.12 | 30.18 | True |
+| grid-3x3 | BFS | 28.28 | 29.16 | 29.83 | 33.01 | True |
+| case-12  | DFS | 6.80 | 6.94 | 7.04 | 7.36 | True |
+| case-12  | BFS | 6.57 | 6.75 | 6.73 | 6.90 | True |
+
+**Reading:** DFS and BFS are statistically indistinguishable on this suite — every median pair lies within ~3% and the spread of one variant straddles the other variant's mean. A previous single-sample run of `Scripts/BenchmarkBFSDNFReduce.wls` reported a ~3× win for BFS on `grid-3x3`; that gap was entirely warmup/JIT noise on the first solve and disappears when a warmup is discarded. The advertised BFS advantage in `bfsDNFReduce::usage` (better `cachedSolve` reuse on wide trees) is *theoretically* sound but does not surface on cases this small; expect BFS to start mattering when the disjunct frontier is large enough that cache hits outweigh per-pop overhead.
+
+**Recommendation:** keep `dnfReduceSystem` as the default and `bfsDNFReduceSystem` as the opt-in head-to-head probe it already is. Revisit on a wider benchmark (e.g. the 37-case sweep used for the DisjunctOrdering study below).
+
+---
 
 ### 2026-05-17 — DisjunctOrdering default flip: Lexicographic → Block-Edge
 
@@ -628,6 +663,7 @@ Interpretation:
 | `Scripts/BenchmarkSystemSolver.wls` | Active DNF-first benchmark; supports `--solver` for comparisons |
 | `Scripts/ProfileScenarioKernel.wls` | Non-mutating staged profiler for construction, preprocessing, and solver time |
 | `Scripts/ProfileDNFReduce.wls` | DNF reducer diagnostic profiler; sweeps ordering strategies and reports branch/substitution metrics |
+| `Scripts/BenchmarkBFSDNFReduce.wls` | Head-to-head `dnfReduceSystem` (DFS) vs `bfsDNFReduceSystem` (BFS); supports multi-sample warmup-discard methodology |
 | `Scripts/BenchmarkReduceSystem.wls` | Historical raw-Reduce baseline benchmark |
 | `Scripts/BenchmarkPreprocessing.wls` | Archived-preprocessing benchmark helper |
 | `Scripts/perf_review_targeted.wls` | Targeted performance review helper |
