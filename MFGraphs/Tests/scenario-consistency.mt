@@ -225,47 +225,59 @@ Module[{sys, rep, sm},
     ]
 ];
 
-(* PR 3 of disjunct-influence study: each Block-* DisjunctOrdering must
-   produce the same solution as the Lexicographic baseline. The orderings
-   only permute disjuncts, so the rule set (after KeySort) must be identical. *)
+(* PR 3 of disjunct-influence study: every DisjunctOrdering must produce
+   the same solution. Orderings only permute disjuncts, so the rule set
+   (after Sort) must be identical. Baseline is the default option value
+   (Block-Edge as of the PR-4 follow-up flip); Lexicographic is explicitly
+   re-tested to lock the opt-in back-compat path. *)
 sortedRules[res_] := Sort[Lookup[res, "Rules", {}]];
 
 Module[{sys, base},
     sys  = makeSystem[getExampleScenario[12, {{1, 100}}, {{4, 0}}]];
     base = sortedRules[activeSetReduceSystem[sys]];
     Test[
+        sortedRules[activeSetReduceSystem[sys, "DisjunctOrdering" -> "Lexicographic"]],
+        base,
+        TestID -> "DisjunctOrdering: Lexicographic matches default on case 12"
+    ];
+    Test[
         sortedRules[activeSetReduceSystem[sys, "DisjunctOrdering" -> "Block-Vertex"]],
         base,
-        TestID -> "DisjunctOrdering: Block-Vertex matches Lexicographic on case 12"
+        TestID -> "DisjunctOrdering: Block-Vertex matches default on case 12"
     ];
     Test[
         sortedRules[activeSetReduceSystem[sys, "DisjunctOrdering" -> "Block-Edge"]],
         base,
-        TestID -> "DisjunctOrdering: Block-Edge matches Lexicographic on case 12"
+        TestID -> "DisjunctOrdering: Block-Edge matches default on case 12"
     ];
     Test[
         sortedRules[activeSetReduceSystem[sys, "DisjunctOrdering" -> "Block-SCC"]],
         base,
-        TestID -> "DisjunctOrdering: Block-SCC matches Lexicographic on case 12"
+        TestID -> "DisjunctOrdering: Block-SCC matches default on case 12"
     ]
 ];
 
 Module[{sys, base},
-    sys  = makeSystem[getExampleScenario["Grid0303", Automatic, Automatic]];
+    sys  = makeSystem[getExampleScenario["Grid0303", {{1, 100}}, {{9, 0}}]];
     base = sortedRules[activeSetReduceSystem[sys]];
+    Test[
+        sortedRules[activeSetReduceSystem[sys, "DisjunctOrdering" -> "Lexicographic"]],
+        base,
+        TestID -> "DisjunctOrdering: Lexicographic matches default on Grid0303"
+    ];
     Test[
         sortedRules[activeSetReduceSystem[sys, "DisjunctOrdering" -> "Block-Vertex"]],
         base,
-        TestID -> "DisjunctOrdering: Block-Vertex matches Lexicographic on Grid0303"
+        TestID -> "DisjunctOrdering: Block-Vertex matches default on Grid0303"
     ];
     Test[
         sortedRules[activeSetReduceSystem[sys, "DisjunctOrdering" -> "Block-Edge"]],
         base,
-        TestID -> "DisjunctOrdering: Block-Edge matches Lexicographic on Grid0303"
+        TestID -> "DisjunctOrdering: Block-Edge matches default on Grid0303"
     ];
     Test[
         sortedRules[activeSetReduceSystem[sys, "DisjunctOrdering" -> "Block-SCC"]],
         base,
-        TestID -> "DisjunctOrdering: Block-SCC matches Lexicographic on Grid0303"
+        TestID -> "DisjunctOrdering: Block-SCC matches default on Grid0303"
     ]
 ];
