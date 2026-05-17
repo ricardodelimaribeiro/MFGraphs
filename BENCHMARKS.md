@@ -144,6 +144,68 @@ as `dnfReduceSystem`.
 DNF-first benchmark entries from `Scripts/BenchmarkSystemSolver.wls` are appended
 here when the script is run with `--tag`.
 
+### 2026-05-17 — DisjunctOrdering default flip: Lexicographic → Block-Edge
+
+Default `"DisjunctOrdering"` option of `activeSetReduceSystem` changed from
+`"Lexicographic"` to `"Block-Edge"`. The tagged entries below
+(`before-disjunct-ordering-default-flip` / `after-disjunct-ordering-default-block-edge`)
+show no measurable diff on the 8-case representative suite — these cases all
+finish in single-digit milliseconds and are dominated by build/warmup, not
+disjunct search. Empirical justification for the flip comes from the broader
+sweep in `Scripts/Research/results/block_ordering/benchmark.csv` (37 scenarios
+× 4 orderings, summarised in `Scripts/Research/results/findings.md`):
+
+- 21 of 37 scenarios show >5% speedup under Block-Edge or Block-SCC.
+- 0 of 37 scenarios regress by >10%; worst regressions are sub-millisecond
+  on already-fast cases.
+- Best wins (vs Lexicographic): Achdou_2023_junction 4.95×, case_3 2.43×,
+  case_20 1.78×, Grid0303 1.65×, Grid0404 −5 s on a 30 s solve.
+
+All four orderings produce identical solutions (see
+`scenario-consistency.mt: DisjunctOrdering: * matches default`), so the flip
+only changes search order, not semantics. `"DisjunctOrdering" -> "Lexicographic"`
+remains available as an opt-in for reproducing pre-flip behavior.
+
+### 2026-05-17 - after-disjunct-ordering-default-block-edge
+
+**Commit:** `ffbca7f`  
+**Environment:** local `wolframscript`, `$MFGraphsVerbose=False`  
+**Solver:** `activeset`  
+**Timeout per case:** 60s  
+**Solutions file:** `Results/system_solver_activeset_solutions_20260517-131957.wl`
+
+| Case | Solver | Build (ms) | Warmup (ms) | Repeat (ms) | Status | Kind | Transition flows | Residual Jts | Valid |
+|------|--------|-----------|------------|--------------|--------|------|------------------|--------------|-------|
+| chain-2v | activeset | 8.12 | 2.85 | 1.25 | OK | Rules | Unique | 0 | True |
+| chain-3v-1exit | activeset | 2.66 | 1.54 | 1.44 | OK | Rules | Unique | 0 | True |
+| chain-3v-2exit | activeset | 2.73 | 29.68 | 2.84 | OK | Underdetermined | Unique | 0 | True |
+| chain-3-midentry | activeset | 3.27 | 3.87 | 3.05 | OK | Rules | Unique | 0 | True |
+| chain-5v-1exit | activeset | 3.63 | 1.97 | 1.84 | OK | Rules | Unique | 0 | True |
+| grid-2x3 | activeset | 11.75 | 7.4 | 6.47 | OK | Rules | Unique | 0 | True |
+| grid-3x2 | activeset | 10.94 | 6.48 | 6.33 | OK | Rules | Unique | 0 | True |
+| example-12 | activeset | 7.54 | 7.67 | 7.24 | OK | Rules | Unique | 0 | True |
+---
+
+### 2026-05-17 - before-disjunct-ordering-default-flip
+
+**Commit:** `ffbca7f`  
+**Environment:** local `wolframscript`, `$MFGraphsVerbose=False`  
+**Solver:** `activeset`  
+**Timeout per case:** 60s  
+**Solutions file:** `Results/system_solver_activeset_solutions_20260517-131905.wl`
+
+| Case | Solver | Build (ms) | Warmup (ms) | Repeat (ms) | Status | Kind | Transition flows | Residual Jts | Valid |
+|------|--------|-----------|------------|--------------|--------|------|------------------|--------------|-------|
+| chain-2v | activeset | 8.15 | 2.66 | 1.17 | OK | Rules | Unique | 0 | True |
+| chain-3v-1exit | activeset | 2.77 | 1.48 | 1.33 | OK | Rules | Unique | 0 | True |
+| chain-3v-2exit | activeset | 2.55 | 30.06 | 2.64 | OK | Underdetermined | Unique | 0 | True |
+| chain-3-midentry | activeset | 3.28 | 3.68 | 2.87 | OK | Rules | Unique | 0 | True |
+| chain-5v-1exit | activeset | 3.53 | 1.78 | 1.7 | OK | Rules | Unique | 0 | True |
+| grid-2x3 | activeset | 11.73 | 6.91 | 6.21 | OK | Rules | Unique | 0 | True |
+| grid-3x2 | activeset | 11.1 | 6.16 | 6.12 | OK | Rules | Unique | 0 | True |
+| example-12 | activeset | 7.2 | 7.49 | 6.88 | OK | Rules | Unique | 0 | True |
+---
+
 ### 2026-05-10 - post-threshold-0
 
 **Commit:** `91ef016`  

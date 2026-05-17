@@ -352,11 +352,13 @@ Options[activeSetReduceSystem] = {
     "ImpliedEqualitiesTop"     -> False,
     "ImpliedEqualities"        -> False,
     "ImpliedEqualitiesTimeout" -> 1.0,
-    (* Disjunct ordering experiment (PR 3 of disjunct-influence study).
-       Lexicographic (default) preserves prior behavior; the three Block-*
-       options reorder Or conjuncts by anchor vertex / edge / SCC before
-       the branchStateReduce fold. See Scripts/Research/block_ordering/. *)
-    "DisjunctOrdering" -> "Lexicographic"
+    (* Disjunct ordering. Default flipped from "Lexicographic" -> "Block-Edge"
+       after the PR 3/4 disjunct-influence study showed Block-Edge wins on
+       21 of 37 scenarios with zero regressions >10% (best: Achdou 4.95x,
+       case_3 2.43x). All four orderings produce identical solutions; only
+       search order changes. See Scripts/Research/block_ordering/ and
+       Scripts/Research/results/findings.md. *)
+    "DisjunctOrdering" -> "Block-Edge"
 };
 
 activeSetReduceSystem[sys_?mfgSystemQ, OptionsPattern[]] :=
