@@ -1,0 +1,93 @@
+{
+	"scenario":"case_17",
+	"key":"17",
+	"abstractCount":8,
+	"hasCachedSolution":true,
+	"outcomeCounts":{
+		"Inactive":1,
+		"Active":7,
+		"Ambiguous":0
+	},
+	"rows":[
+		{
+			"anchorVar":"j[1, 2]",
+			"anchorVertex":"2",
+			"anchorEdge":"{1, 2}",
+			"junctionDegree":2,
+			"boundaryDistance":1,
+			"edgeBetweenness":8.0,
+			"edgeCost":2.0,
+			"outcome":"Active"
+		},
+		{
+			"anchorVar":"j[2, 3]",
+			"anchorVertex":"3",
+			"anchorEdge":"{2, 3}",
+			"junctionDegree":2,
+			"boundaryDistance":0,
+			"edgeBetweenness":8.0,
+			"edgeCost":2.0,
+			"outcome":"Active"
+		},
+		{
+			"anchorVar":"j[1, 2, 3]",
+			"anchorVertex":"2",
+			"anchorEdge":"{1, 2}",
+			"junctionDegree":2,
+			"boundaryDistance":1,
+			"edgeBetweenness":8.0,
+			"edgeCost":2.0,
+			"outcome":"Active"
+		},
+		{
+			"anchorVar":"j[\"auxEntry1\", 1, 2]",
+			"anchorVertex":"1",
+			"anchorEdge":"{\"auxEntry1\", 1}",
+			"junctionDegree":2,
+			"boundaryDistance":0,
+			"edgeBetweenness":4.0,
+			"edgeCost":0.0,
+			"outcome":"Active"
+		},
+		{
+			"anchorVar":"j[1, 2, 3]",
+			"anchorVertex":"2",
+			"anchorEdge":"{1, 2}",
+			"junctionDegree":2,
+			"boundaryDistance":1,
+			"edgeBetweenness":8.0,
+			"edgeCost":2.0,
+			"outcome":"Active"
+		},
+		{
+			"anchorVar":"j[3, 2, 1]",
+			"anchorVertex":"2",
+			"anchorEdge":"{3, 2}",
+			"junctionDegree":2,
+			"boundaryDistance":1,
+			"edgeBetweenness":8.0,
+			"edgeCost":1.0,
+			"outcome":"Inactive"
+		},
+		{
+			"anchorVar":"j[2, 3, \"auxExit3\"]",
+			"anchorVertex":"3",
+			"anchorEdge":"{2, 3}",
+			"junctionDegree":2,
+			"boundaryDistance":0,
+			"edgeBetweenness":8.0,
+			"edgeCost":2.0,
+			"outcome":"Active"
+		},
+		{
+			"anchorVar":"j[3, \"auxExit3\"]",
+			"anchorVertex":"auxExit3",
+			"anchorEdge":"{3, \"auxExit3\"}",
+			"junctionDegree":1,
+			"boundaryDistance":null,
+			"edgeBetweenness":4.0,
+			"edgeCost":0.0,
+			"outcome":"Active"
+		}
+	]
+}

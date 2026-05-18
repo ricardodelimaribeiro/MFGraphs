@@ -1,0 +1,260 @@
+{
+	"scenario":"triangle_with_two_exits",
+	"skipped":false,
+	"baselineSec":1.2837e-2,
+	"disjunctCount":14,
+	"rows":[
+		{
+			"disjunctId":"{j[1, 2] == 0, j[2, 1] == 0}",
+			"branchCount":2,
+			"removeDelta":0.0,
+			"removeTag":"Matches",
+			"forceResults":[
+				{
+					"branch":"j[1, 2] == 0",
+					"delta":0.0,
+					"tag":"Matches"
+				},
+				{
+					"branch":"j[2, 1] == 0",
+					"delta":0.0,
+					"tag":"Matches"
+				}
+			]
+		},
+		{
+			"disjunctId":"{j[1, 3] == 0, j[3, 1] == 0}",
+			"branchCount":2,
+			"removeDelta":0.0,
+			"removeTag":"Matches",
+			"forceResults":[
+				{
+					"branch":"j[1, 3] == 0",
+					"delta":0.0,
+					"tag":"Matches"
+				},
+				{
+					"branch":"j[3, 1] == 0",
+					"delta":0.0,
+					"tag":"Matches"
+				}
+			]
+		},
+		{
+			"disjunctId":"{j[2, 3] == 0, j[3, 2] == 0}",
+			"branchCount":2,
+			"removeDelta":0.0,
+			"removeTag":"Matches",
+			"forceResults":[
+				{
+					"branch":"j[2, 3] == 0",
+					"delta":0.0,
+					"tag":"Matches"
+				},
+				{
+					"branch":"j[3, 2] == 0",
+					"delta":0.0,
+					"tag":"Matches"
+				}
+			]
+		},
+		{
+			"disjunctId":"{j[2, 1, 3] == 0, j[3, 1, 2] == 0}",
+			"branchCount":2,
+			"removeDelta":0.0,
+			"removeTag":"Matches",
+			"forceResults":[
+				{
+					"branch":"j[2, 1, 3] == 0",
+					"delta":0.0,
+					"tag":"Matches"
+				},
+				{
+					"branch":"j[3, 1, 2] == 0",
+					"delta":0.0,
+					"tag":"Matches"
+				}
+			]
+		},
+		{
+			"disjunctId":"{j[1, 2, 3] == 0, j[3, 2, 1] == 0}",
+			"branchCount":2,
+			"removeDelta":0.0,
+			"removeTag":"Matches",
+			"forceResults":[
+				{
+					"branch":"j[1, 2, 3] == 0",
+					"delta":0.0,
+					"tag":"Matches"
+				},
+				{
+					"branch":"j[3, 2, 1] == 0",
+					"delta":0.0,
+					"tag":"Matches"
+				}
+			]
+		},
+		{
+			"disjunctId":"{j[1, 3, 2] == 0, j[2, 3, 1] == 0}",
+			"branchCount":2,
+			"removeDelta":0.0,
+			"removeTag":"Matches",
+			"forceResults":[
+				{
+					"branch":"j[1, 3, 2] == 0",
+					"delta":0.0,
+					"tag":"Matches"
+				},
+				{
+					"branch":"j[2, 3, 1] == 0",
+					"delta":0.0,
+					"tag":"Matches"
+				}
+			]
+		},
+		{
+			"disjunctId":"{j[\"auxEntry1\", 1, 2] == 0, u[2, 1] - u[\"auxEntry1\", 1] == 0}",
+			"branchCount":2,
+			"removeDelta":0.0,
+			"removeTag":"Matches",
+			"forceResults":[
+				{
+					"branch":"j[\"auxEntry1\", 1, 2] == 0",
+					"delta":0.0,
+					"tag":"Matches"
+				},
+				{
+					"branch":"u[2, 1] - u[\"auxEntry1\", 1] == 0",
+					"delta":0.0,
+					"tag":"Matches"
+				}
+			]
+		},
+		{
+			"disjunctId":"{j[\"auxEntry1\", 1, 3] == 0, u[2, 1] - u[\"auxEntry1\", 1] == 0}",
+			"branchCount":2,
+			"removeDelta":0.0,
+			"removeTag":"Matches",
+			"forceResults":[
+				{
+					"branch":"j[\"auxEntry1\", 1, 3] == 0",
+					"delta":0.0,
+					"tag":"Matches"
+				},
+				{
+					"branch":"u[2, 1] - u[\"auxEntry1\", 1] == 0",
+					"delta":0.0,
+					"tag":"Matches"
+				}
+			]
+		},
+		{
+			"disjunctId":"{j[1, 2, \"auxExit2\"] == 0, -u[1, 2] + u[\"auxExit2\", 2] == 0}",
+			"branchCount":2,
+			"removeDelta":0.0,
+			"removeTag":"Matches",
+			"forceResults":[
+				{
+					"branch":"j[1, 2, \"auxExit2\"] == 0",
+					"delta":0.0,
+					"tag":"Matches"
+				},
+				{
+					"branch":"-u[1, 2] + u[\"auxExit2\", 2] == 0",
+					"delta":0.0,
+					"tag":"Matches"
+				}
+			]
+		},
+		{
+			"disjunctId":"{j[3, 2, \"auxExit2\"] == 0, -u[1, 2] + u[\"auxExit2\", 2] == 0}",
+			"branchCount":2,
+			"removeDelta":0.0,
+			"removeTag":"Matches",
+			"forceResults":[
+				{
+					"branch":"j[3, 2, \"auxExit2\"] == 0",
+					"delta":0.0,
+					"tag":"Matches"
+				},
+				{
+					"branch":"-u[1, 2] + u[\"auxExit2\", 2] == 0",
+					"delta":0.0,
+					"tag":"Matches"
+				}
+			]
+		},
+		{
+			"disjunctId":"{j[1, 3, \"auxExit3\"] == 0, -u[1, 3] + u[\"auxExit3\", 3] == 0}",
+			"branchCount":2,
+			"removeDelta":0.0,
+			"removeTag":"Matches",
+			"forceResults":[
+				{
+					"branch":"j[1, 3, \"auxExit3\"] == 0",
+					"delta":0.0,
+					"tag":"Matches"
+				},
+				{
+					"branch":"-u[1, 3] + u[\"auxExit3\", 3] == 0",
+					"delta":0.0,
+					"tag":"Matches"
+				}
+			]
+		},
+		{
+			"disjunctId":"{j[2, 3, \"auxExit3\"] == 0, -u[1, 3] + u[\"auxExit3\", 3] == 0}",
+			"branchCount":2,
+			"removeDelta":0.0,
+			"removeTag":"Matches",
+			"forceResults":[
+				{
+					"branch":"j[2, 3, \"auxExit3\"] == 0",
+					"delta":0.0,
+					"tag":"Matches"
+				},
+				{
+					"branch":"-u[1, 3] + u[\"auxExit3\", 3] == 0",
+					"delta":0.0,
+					"tag":"Matches"
+				}
+			]
+		},
+		{
+			"disjunctId":"{j[2, \"auxExit2\"] == 0, u[\"auxExit2\", 2] == 0}",
+			"branchCount":2,
+			"removeDelta":0.0,
+			"removeTag":"Matches",
+			"forceResults":[
+				{
+					"branch":"j[2, \"auxExit2\"] == 0",
+					"delta":0.0,
+					"tag":"Matches"
+				},
+				{
+					"branch":"u[\"auxExit2\", 2] == 0",
+					"delta":0.0,
+					"tag":"Matches"
+				}
+			]
+		},
+		{
+			"disjunctId":"{j[3, \"auxExit3\"] == 0, u[\"auxExit3\", 3] == 0}",
+			"branchCount":2,
+			"removeDelta":0.0,
+			"removeTag":"Matches",
+			"forceResults":[
+				{
+					"branch":"j[3, \"auxExit3\"] == 0",
+					"delta":0.0,
+					"tag":"Matches"
+				},
+				{
+					"branch":"u[\"auxExit3\", 3] == 0",
+					"delta":0.0,
+					"tag":"Matches"
+				}
+			]
+		}
+	]
+}

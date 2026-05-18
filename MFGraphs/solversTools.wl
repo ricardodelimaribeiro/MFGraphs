@@ -66,6 +66,15 @@ spawns one recursive call per branch and the Equal case recurses on the \
 substituted remainder. Deeply nested Or-chains may approach $RecursionLimit; \
 see dnfReduceProcedural for a stack-based iterative alternative.";
 
+bfsDNFReduce::usage =
+"bfsDNFReduce[xp, sys, allVars] is a breadth-first analog of dnfReduceProcedural. \
+Uses a FIFO queue instead of a LIFO stack so that all live frontier items at \
+depth k are processed before any item at depth k+1. Same input/output contract \
+as dnfReduce; result branches may appear in a different order inside the final Or. \
+Shares the per-invocation cachedSolve cache, so sibling Or-branches that produce \
+identical Equal expressions hit the cache on the next pop instead of after a deep \
+DFS detour. Opt-in: not wired into dnfReduceSystem.";
+
 dnfReduceSystem::usage =
 "dnfReduceSystem[sys] solves the mfgSystem sys using linear preprocessing \
 followed by dnfReduce instead of Reduce. Handles cases where Reduce times \
@@ -73,6 +82,11 @@ out by using equality-substitution and disjunction-distribution. Returns a \
 list of rules when fully determined, or \
 <|\"Rules\" -> rules, \"Residual\" -> residual|> when underdetermined. \
 Fails for non-critical congestion systems where Alpha != 1 on any edge.";
+
+bfsDNFReduceSystem::usage =
+"bfsDNFReduceSystem[sys] is dnfReduceSystem with bfsDNFReduce as the engine. \
+Same input/output contract; differs only in worklist discipline (FIFO vs LIFO). \
+Useful for head-to-head benchmarking against dnfReduceSystem.";
 
 optimizedDNFReduceSystem::usage =
 "optimizedDNFReduceSystem[sys] is an opt-in exact solver for critical \
@@ -179,6 +193,13 @@ Kirchhoff/nonnegative flow constraints, then recovers value variables from \
 the remaining system. Returns the standard raw solver shape or \
 Failure[\"flowFirstCriticalSystem\", ...].";
 
+dnfReduceDiagnosticReport::usage =
+"dnfReduceDiagnosticReport[sys, opts] runs the private DNF reducer with \
+instrumentation and returns a diagnostic association. Options: \"Order\" \
+(default \"original\"), \"Timeout\" (default Infinity, seconds), \
+\"TraceLength\" (default 20). Intended for scripts and workbooks; \
+dnfReduceSystem behavior is unchanged.";
+
 Begin["`Private`"];
 
 (* The following functions are declared and implemented in utilities.wl:
@@ -280,11 +301,6 @@ and transition-flow determinacy for a solver result.";
 dnfResidualDiagnostics::usage =
 "dnfResidualDiagnostics[sol] returns lightweight branch and tracked-variable diagnostics for solver residuals.";
 
-dnfReduceDiagnosticReport::usage =
-"dnfReduceDiagnosticReport[sys, opts] runs the private DNF reducer with \
-instrumentation and returns a diagnostic association. This helper is intended \
-for scripts and tests; dnfReduceSystem behavior is unchanged.";
-
 reduceSystem[sys_?mfgSystemQ] :=
     withCriticalCongestionSolver[sys, "reduceSystem",
         Function[{constraints, allVars},
@@ -305,6 +321,17 @@ dnfReduceSystem[sys_?mfgSystemQ] :=
         ]
     ];
 
+bfsDNFReduceSystem[sys_?mfgSystemQ] :=
+    withDnfSolveCache["bfsDNFReduceSystem",
+        withCriticalCongestionSolver[sys, "bfsDNFReduceSystem",
+            Function[{constraints, allVars},
+                parseDNFReduceResult[bfsDNFReduce[True, constraints, allVars], allVars]
+            ],
+            buildSolverInputs,
+            attachAccumulatedRules
+        ]
+    ];
+
 optimizedDNFReduceSystem[sys_?mfgSystemQ] :=
     withDnfSolveCache["optimizedDNFReduceSystem",
         withCriticalCongestionSolver[sys, "optimizedDNFReduceSystem",
@@ -319,11 +346,24 @@ optimizedDNFReduceSystem[sys_?mfgSystemQ] :=
         ]
     ];
 
-activeSetReduceSystem[sys_?mfgSystemQ] :=
+Options[activeSetReduceSystem] = {
+    "LPPrecheck"        -> False,
+    "LPPrecheckTimeout" -> 1.0,
+    "ImpliedEqualitiesTop"     -> False,
+    "ImpliedEqualities"        -> False,
+    "ImpliedEqualitiesTimeout" -> 1.0,
+    (* Disjunct ordering experiment (PR 3 of disjunct-influence study).
+       Lexicographic (default) preserves prior behavior; the three Block-*
+       options reorder Or conjuncts by anchor vertex / edge / SCC before
+       the branchStateReduce fold. See Scripts/Research/block_ordering/. *)
+    "DisjunctOrdering" -> "Lexicographic"
+};
+
+activeSetReduceSystem[sys_?mfgSystemQ, OptionsPattern[]] :=
     withDnfSolveCache["activeSetReduceSystem",
     withCriticalCongestionGuard[sys, "activeSetReduceSystem",
     Module[{initRules, deterministicConstraints, activeConstraints, allVars,
-            detReduced, rulesAcc, activeReduced, result, branches},
+            detReduced, rulesAcc, activeReduced, result, branches, polytopeOpt},
         initRules = Join[
             Normal @ With[{v = systemData[sys, "RuleBalanceGatheringFlows"]}, If[AssociationQ[v], v, <||>]],
             With[{v = systemData[sys, "ZeroSwitchUEqualities"]}, If[ListQ[v], v, {}]]
@@ -350,11 +390,57 @@ activeSetReduceSystem[sys_?mfgSystemQ] :=
         (* Eliminated vars are exactly the LHS of rulesAcc that were not in initRules.
            Set-subtract instead of re-walking the reduced expression tree. *)
         allVars = DeleteCases[allVars, Alternatives @@ (First /@ rulesAcc)];
-        result = If[Length[allVars] <= $optimizedDNFVarThreshold,
-            branches = branchStateReduce[activeReduced, allVars];
-            branches = branchStateReduceFromBranches[branches, detReduced, allVars];
-            branchStateFinalizeResult[branches, allVars],
-            parseDNFReduceResult[dnfReduce[True, And[detReduced, activeReduced]], allVars]
+        (* Capture the reduced linear polytope for the precheck. detReduced is
+           already substituted by accumulateEqualityRules so it's the smallest
+           we can hand to FindInstance. Set Null when *all* opt-in flags are
+           off so the gates inside lpPrecheckBranch / polytopeImpliedEqualities
+           are no-ops. *)
+        polytopeOpt = If[TrueQ[OptionValue["LPPrecheck"]] ||
+                         TrueQ[OptionValue["ImpliedEqualitiesTop"]] ||
+                         TrueQ[OptionValue["ImpliedEqualities"]],
+                         detReduced, Null];
+        $lpPrecheckCalls  = 0;
+        $lpPrecheckPruned = 0;
+        $liaCalls         = 0;
+        $liaPinned        = 0;
+        (* v2.0: one-shot implied-equalities pass at the top. Runs in its own
+           Block so polytopeImpliedEqualities sees the raw polytope; results
+           are merged into rulesAcc / detReduced / activeReduced before v2.1
+           (which uses the *tightened* polytope below). *)
+        If[TrueQ[OptionValue["ImpliedEqualitiesTop"]],
+            Block[{$lpPrecheckPolytope = polytopeOpt,
+                   $liaTimeout         = OptionValue["ImpliedEqualitiesTimeout"]},
+                With[{topImplied = polytopeImpliedEqualities[
+                        <|"Rules" -> {}|>, True, allVars]},
+                    If[topImplied =!= {},
+                        rulesAcc      = normalizeRules[mergeRules[rulesAcc, topImplied]];
+                        detReduced    = detReduced /. topImplied;
+                        activeReduced = activeReduced /. topImplied;
+                        allVars       = DeleteCases[allVars, Alternatives @@ (First /@ topImplied)];
+                        polytopeOpt   = detReduced   (* refresh for v1 / v2.1 *)
+                    ]
+                ]
+            ]
+        ];
+        Block[{$lpPrecheckPolytope = polytopeOpt,
+               $lpPrecheckTimeout  = OptionValue["LPPrecheckTimeout"],
+               $lpPrecheckEnabled  = TrueQ[OptionValue["LPPrecheck"]],
+               $liaEnabled         = TrueQ[OptionValue["ImpliedEqualities"]],
+               $liaTimeout         = OptionValue["ImpliedEqualitiesTimeout"],
+               $disjunctOrderingMap = buildDisjunctOrderingMap[
+                   OptionValue["DisjunctOrdering"], sys]},
+            (* Force the branchStateReduce path only for flags that need the
+               per-branch gate inside addBranchConstraint (LPPrecheck, v2.1).
+               v2.0 (ImpliedEqualitiesTop) does its work pre-solve and does
+               NOT need to force a particular solver path. *)
+            result = If[TrueQ[OptionValue["LPPrecheck"]] ||
+                         TrueQ[OptionValue["ImpliedEqualities"]] ||
+                         Length[allVars] <= $optimizedDNFVarThreshold,
+                branches = branchStateReduce[activeReduced, allVars];
+                branches = branchStateReduceFromBranches[branches, detReduced, allVars];
+                branchStateFinalizeResult[branches, allVars],
+                parseDNFReduceResult[dnfReduce[True, And[detReduced, activeReduced]], allVars]
+            ]
         ];
         attachAccumulatedRules[result, rulesAcc]
     ]
@@ -998,13 +1084,148 @@ constraintPriority[expr_] :=
         True,                 2
     ];
 
+(* Block-bound by activeSetReduceSystem when "DisjunctOrdering" is non-default;
+   maps each Or expression to an integer rank used as a SortBy key inside
+   orderedConjuncts. Empty default means no rank perturbation (lexicographic). *)
+$disjunctOrderingMap = <||>;
+
 orderedConjuncts[expr_] :=
     (* Canonical-order tiebreaker via Sort instead of ToString[..., InputForm] —
-       both inputs evaluate through the same kernel so structural order suffices. *)
-    SortBy[flattenConjuncts[expr], {constraintPriority, Identity}];
+       both inputs evaluate through the same kernel so structural order suffices.
+       When $disjunctOrderingMap is non-empty (set by activeSetReduceSystem under
+       a Block-ordering option), Or-conjuncts are first sorted by their precomputed
+       rank; non-Or conjuncts get rank 0 (preserving their priority-0/1 placement). *)
+    If[$disjunctOrderingMap === <||>,
+        SortBy[flattenConjuncts[expr], {constraintPriority, Identity}],
+        SortBy[flattenConjuncts[expr],
+            {constraintPriority,
+             Lookup[$disjunctOrderingMap, #, 0] &,
+             Identity}]
+    ];
 
 orderedAlternatives[expr_Or] := Sort[List @@ expr];
 orderedAlternatives[expr_]   := {expr};
+
+(* --- Disjunct anchor extraction (shared with Research scripts) --------------
+   For Or[j[a,v,b]==0, c==0]: anchor vertex = v (junction); anchor edge = {v,b}.
+   For Or[j[a,b]==0, c==0]:   anchor vertex = b (head);     anchor edge = {a,b}.
+   These match the Disjunct Anchor Convention in the disjunct-influence study. *)
+disjunctAnchorVertex[orExpr_Or] :=
+    Module[{js = Cases[orExpr, _j, {0, Infinity}], args},
+        If[js === {}, Return[Missing[]]];
+        args = List @@ First[js];
+        Switch[Length[args], 2, args[[2]], 3, args[[2]], _, Missing[]]
+    ];
+disjunctAnchorVertex[_] := Missing[];
+
+disjunctAnchorEdge[orExpr_Or] :=
+    Module[{js = Cases[orExpr, _j, {0, Infinity}], args},
+        If[js === {}, Return[Missing[]]];
+        args = List @@ First[js];
+        Switch[Length[args],
+            2, {args[[1]], args[[2]]},
+            3, {args[[2]], args[[3]]},
+            _, Missing[]]
+    ];
+disjunctAnchorEdge[_] := Missing[];
+
+(* --- Block orderings -------------------------------------------------------
+   Each helper returns an Association <|orExpr -> rank|> consumed by
+   orderedConjuncts via $disjunctOrderingMap. Rank values are integers; ties
+   inside a block fall through to the structural Sort tiebreaker. *)
+
+(* Vertex BFS order from boundary vertices (entries + exits). Vertices not
+   reachable from boundary get a depth past the diameter so they sort last. *)
+vertexBlockOrder[disjuncts_List, sys_?mfgSystemQ] :=
+    Module[{graph, boundary, depth, n, vertexRank, anchors},
+        graph = Graph[systemData[sys, "AuxVertices"], systemData[sys, "AuxEdges"]];
+        boundary = Join[systemData[sys, "AuxEntryVertices"],
+                        systemData[sys, "AuxExitVertices"]];
+        n = Length[VertexList[graph]];
+        depth = Association @ MapThread[Rule,
+            {VertexList[graph],
+             Map[Function[v, Min[Replace[
+                 Quiet @ Check[GraphDistance[graph, #, v], n + 1] & /@ boundary,
+                 _DirectedInfinity | Infinity -> n + 1, 1]]],
+                 VertexList[graph]]}];
+        vertexRank = Function[v, Lookup[depth, v, n + 1]];
+        anchors = disjunctAnchorVertex /@ disjuncts;
+        Association @ MapThread[Rule,
+            {disjuncts,
+             MapThread[
+                Function[{d, v},
+                    If[v === Missing[], n + 2, vertexRank[v]]],
+                {disjuncts, anchors}]}]
+    ];
+
+(* Edge BFS order: rank an edge {a,b} by min(depth[a], depth[b]) where depth
+   is the BFS depth from boundary vertices. Within an edge-block, spatial-flow
+   disjuncts (j[a,b]==0) sort before transition-flow disjuncts (j[*,a,b]==0)
+   via the structural tiebreaker. *)
+edgeBlockOrder[disjuncts_List, sys_?mfgSystemQ] :=
+    Module[{graph, boundary, depth, n, anchors},
+        graph = Graph[systemData[sys, "AuxVertices"], systemData[sys, "AuxEdges"]];
+        boundary = Join[systemData[sys, "AuxEntryVertices"],
+                        systemData[sys, "AuxExitVertices"]];
+        n = Length[VertexList[graph]];
+        depth = Association @ MapThread[Rule,
+            {VertexList[graph],
+             Map[Function[v, Min[Replace[
+                 Quiet @ Check[GraphDistance[graph, #, v], n + 1] & /@ boundary,
+                 _DirectedInfinity | Infinity -> n + 1, 1]]],
+                 VertexList[graph]]}];
+        anchors = disjunctAnchorEdge /@ disjuncts;
+        Association @ MapThread[Rule,
+            {disjuncts,
+             MapThread[
+                Function[{d, e},
+                    If[!ListQ[e], n + 2,
+                        Min[Lookup[depth, e[[1]], n + 1],
+                            Lookup[depth, e[[2]], n + 1]]]],
+                {disjuncts, anchors}]}]
+    ];
+
+(* SCC ordering: rank by SCC index (topological order of the condensation
+   graph), tiebroken by within-SCC vertex BFS rank. Falls back to plain vertex
+   order if SCC computation fails. *)
+sccBlockOrder[disjuncts_List, sys_?mfgSystemQ] :=
+    Module[{graph, sccs, sccIndex, vertexFallback, anchors},
+        graph = Graph[systemData[sys, "AuxVertices"], systemData[sys, "AuxEdges"]];
+        sccs = Quiet @ Check[ConnectedComponents[graph], {VertexList[graph]}];
+        sccIndex = Association @ Flatten @ MapIndexed[
+            Function[{comp, idx}, (# -> First[idx]) & /@ comp],
+            sccs];
+        vertexFallback = vertexBlockOrder[disjuncts, sys];
+        anchors = disjunctAnchorVertex /@ disjuncts;
+        Association @ MapThread[Rule,
+            {disjuncts,
+             MapThread[
+                Function[{d, v},
+                    If[v === Missing[],
+                        10000,
+                        1000 * Lookup[sccIndex, v, Length[sccs] + 1] +
+                            Lookup[vertexFallback, d, 0]]],
+                {disjuncts, anchors}]}]
+    ];
+
+(* Build the ordering map for the active-set solver based on the option. *)
+buildDisjunctOrderingMap[ordering_String, sys_?mfgSystemQ] :=
+    Module[{disjuncts},
+        disjuncts = Cases[
+            Flatten[{
+                systemData[sys, "AltFlows"],
+                systemData[sys, "AltTransitionFlows"],
+                systemData[sys, "AltOptCond"],
+                systemData[sys, "AltExitCond"]}],
+            _Or];
+        Switch[ordering,
+            "Block-Vertex", vertexBlockOrder[disjuncts, sys],
+            "Block-Edge",   edgeBlockOrder[disjuncts, sys],
+            "Block-SCC",    sccBlockOrder[disjuncts, sys],
+            _,              <||>
+        ]
+    ];
+buildDisjunctOrderingMap[_, _] := <||>;
 
 dnfTopLevelConjuncts[expr_] := flattenConjuncts[expr];
 
@@ -1170,6 +1391,83 @@ cheapConstraintSimplify[expr_] :=
 simplifyResiduals[residuals_List, rules_List] :=
     DeleteCases[cheapConstraintSimplify /@ (residuals /. rules), True];
 
+(* --- LP feasibility precheck (opt-in via activeSetReduceSystem option) ---
+   $lpPrecheckPolytope is Block-bound to the linear polytope expression when the
+   precheck is on, and Null otherwise. The Null guard at the top of
+   lpPrecheckBranch makes the gate a no-op when the option is off, so the
+   addBranchConstraint Or-branch below behaves byte-identically to before. *)
+$lpPrecheckPolytope = Null;
+$lpPrecheckTimeout  = 1.0;
+$lpPrecheckCalls    = 0;
+$lpPrecheckPruned   = 0;
+$lpPrecheckEnabled  = False;
+
+lpPrecheckBranch[branch_Association, alt_, vars_List] :=
+    Module[{rules, polytope, candidate, fi},
+        If[$lpPrecheckPolytope === Null || ! TrueQ[$lpPrecheckEnabled], Return[True, Module]];
+        rules     = Lookup[branch, "Rules", {}];
+        polytope  = $lpPrecheckPolytope /. rules;
+        candidate = And[polytope, alt /. rules];
+        $lpPrecheckCalls = $lpPrecheckCalls + 1;
+        fi = TimeConstrained[
+            Quiet @ FindInstance[candidate, vars, Reals, 1],
+            $lpPrecheckTimeout,
+            $Aborted
+        ];
+        Which[
+            fi === $Aborted,                True,
+            MatchQ[fi, {{___Rule}, ___}],   True,
+            True,                           $lpPrecheckPruned = $lpPrecheckPruned + 1; False
+        ]
+    ];
+
+(* --- v2: Implied-equalities precheck via parametric LP ---
+   For each variable v in candidateVars, ask: is min(v) == max(v) over
+   polytope ∧ branch rules ∧ alt? If yes, v is implicitly pinned and we
+   return {v -> value} so the caller can merge it into branch["Rules"].
+   No-op when $lpPrecheckPolytope is Null. Reuses the v1 polytope/timeout
+   infrastructure; counters $liaCalls / $liaPinned are independent. *)
+$liaEnabled = False;
+$liaTimeout = 1.0;
+$liaCalls   = 0;
+$liaPinned  = 0;
+
+(* Candidate variables for the per-branch v2.1 check: tracked variables that
+   actually appear in `alt` AND are not already pinned by branch["Rules"].
+   Cases at all levels matches j[..], u[..], or any other tracked-var head
+   that occurs as a sub-expression. *)
+liaCandidateVars[alt_, vars_List, branch_Association] :=
+    Module[{appearing, pinned},
+        pinned    = First /@ Lookup[branch, "Rules", {}];
+        appearing = DeleteDuplicates @ Cases[{alt}, Alternatives @@ vars, {0, Infinity}];
+        DeleteCases[appearing, Alternatives @@ pinned]
+    ];
+
+polytopeImpliedEqualities[branch_Association, alt_, candidateVars_List] :=
+    Module[{rules, polytope, base, fixed = {}, lo, hi, loVal, hiVal},
+        If[$lpPrecheckPolytope === Null, Return[{}, Module]];
+        If[candidateVars === {}, Return[{}, Module]];
+        rules    = Lookup[branch, "Rules", {}];
+        polytope = $lpPrecheckPolytope /. rules;
+        base     = And[polytope, alt /. rules];
+        Scan[
+            Function[v,
+                $liaCalls = $liaCalls + 2;
+                lo = TimeConstrained[Quiet @ Minimize[{v, base}, v], $liaTimeout, $Aborted];
+                hi = TimeConstrained[Quiet @ Maximize[{v, base}, v], $liaTimeout, $Aborted];
+                If[MatchQ[lo, {_?NumericQ, _}] && MatchQ[hi, {_?NumericQ, _}],
+                    loVal = First[lo]; hiVal = First[hi];
+                    If[loVal === hiVal,
+                        AppendTo[fixed, v -> loVal];
+                        $liaPinned = $liaPinned + 1
+                    ]
+                ]
+            ],
+            candidateVars
+        ];
+        fixed
+    ];
+
 addBranchConstraint[branch_Association, elem_, vars_List] :=
     Module[{rules, residuals, simplified, solvedRules, newRules, newResiduals},
         rules = Lookup[branch, "Rules", {}];
@@ -1227,7 +1525,28 @@ addBranchConstraint[branch_Association, elem_, vars_List] :=
                     ]
                 ],
             Head[simplified] === Or,
-                Join @@ (addBranchConstraint[branch, #, vars] & /@ orderedAlternatives[simplified]),
+                With[{alts = orderedAlternatives[simplified]},
+                    With[{feasibleAlts = If[! TrueQ[$lpPrecheckEnabled] || $lpPrecheckPolytope === Null,
+                                             alts,
+                                             Select[alts, lpPrecheckBranch[branch, #, vars] &]]},
+                        Join @@ (
+                            Function[alt,
+                                With[{implied = If[TrueQ[$liaEnabled],
+                                                   polytopeImpliedEqualities[branch, alt,
+                                                       liaCandidateVars[alt, vars, branch]],
+                                                   {}]},
+                                    If[implied === {},
+                                        addBranchConstraint[branch, alt, vars],
+                                        addBranchConstraint[
+                                            <|branch, "Rules" -> normalizeRules[mergeRules[
+                                                Lookup[branch, "Rules", {}], implied]]|>,
+                                            alt, vars]
+                                    ]
+                                ]
+                            ] /@ feasibleAlts
+                        )
+                    ]
+                ],
             Head[simplified] === Equal,
                 solvedRules = rulesFromEqualities[{simplified}, vars, rules];
                 If[solvedRules =!= {},
@@ -1546,6 +1865,83 @@ dnfReduceProcedural[xp0_, sys0_, allVars_List] :=
     ]
     ]
 
+bfsDNFReduce[xp0_, sys0_, allVars_List] :=
+    withDnfSolveCache["bfsDNFReduce",
+    Module[{queue = {<|"xp" -> xp0, "rst" -> True, "fst" -> sys0|>},
+            results = {}, item, xp, rst, fst,
+            conjuncts, xpAcc, i, elem, sol, fsol, newxp, rest, newRest},
+        While[queue =!= {},
+            item  = First[queue];
+            queue = Rest[queue];
+            xp = item["xp"]; rst = item["rst"]; fst = item["fst"];
+            Which[
+                xp  === False || fst === False,
+                    Null,
+                fst === True,
+                    AppendTo[results, xp && rst],
+                Head[fst] === Or,
+                    Do[queue = Append[queue, <|"xp" -> xp, "rst" -> rst, "fst" -> b|>],
+                       {b, List @@ fst}],
+                Head[fst] === And,
+                    conjuncts = List @@ fst;
+                    xpAcc     = xp;
+                    i         = 1;
+                    Module[{outcome = "normal"},
+                        While[i <= Length[conjuncts] && outcome === "normal",
+                            If[xpAcc === False, outcome = "false"; Break[]];
+                            elem = conjuncts[[i]];
+                            Which[
+                                elem === True,
+                                    i++,
+                                elem === False,
+                                    outcome = "false",
+                                Head[elem] === Or,
+                                    rest = If[i >= Length[conjuncts], rst,
+                                              And[rst, And @@ conjuncts[[i + 1 ;;]]]];
+                                    Do[queue = Append[queue, <|"xp" -> xpAcc, "rst" -> rest, "fst" -> b|>],
+                                       {b, List @@ elem}];
+                                    outcome = "branched",
+                                Head[elem] === Equal,
+                                    sol  = cachedSolve[elem];
+                                    fsol = If[MatchQ[sol, {{__Rule}, ___}], First[sol], {}];
+                                    newxp = substituteSolution[xpAcc, fsol];
+                                    If[newxp === False,
+                                        outcome = "false",
+                                        xpAcc = newxp && elem;
+                                        If[i < Length[conjuncts],
+                                            newRest = substituteSolution[And @@ conjuncts[[i + 1 ;;]], fsol];
+                                            conjuncts = Join[conjuncts[[;; i]], flattenConjuncts[newRest]]
+                                        ]
+                                    ];
+                                    i++,
+                                True,
+                                    xpAcc = xpAcc && elem;
+                                    i++
+                            ]
+                        ];
+                        If[outcome === "normal",
+                            AppendTo[results, xpAcc && rst]]
+                    ],
+                Head[fst] === Equal,
+                    sol  = cachedSolve[fst];
+                    fsol = If[MatchQ[sol, {{__Rule}, ___}], First[sol], {}];
+                    newxp = substituteSolution[xp, fsol];
+                    If[newxp =!= False,
+                        queue = Append[queue,
+                            <|"xp" -> newxp && fst, "rst" -> True,
+                              "fst" -> substituteSolution[rst, fsol]|>]],
+                True,
+                    AppendTo[results, xp && rst && fst]
+            ]
+        ];
+        Which[
+            results === {}, False,
+            Length[results] === 1, First[results],
+            True, Or @@ results
+        ]
+    ]
+    ]
+
 dnfTraceEvent::usage =
 "dnfTraceEvent[monitor, event] logs an event to the DNF instrumentation monitor.";
 
@@ -1604,36 +2000,64 @@ dnfTraceEvent[_, event_Association] :=
 dnfCounterIncrement[_, key_String, n_: 1] :=
     ($dnfCurrentMonitor[key] = Lookup[$dnfCurrentMonitor, key, 0] + n);
 
-dnfReduceInstrumented[_, False, monitor_, _String, _] :=
-    (dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "FalseSystem"|>]; False);
-
-dnfReduceInstrumented[False, _, monitor_, _String, _] :=
-    (dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "FalsePrefix"|>]; False);
-
-dnfReduceInstrumented[xp_, True, monitor_, _String, _] :=
-    (dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "TrueSystem"|>]; xp);
-
-dnfReduceInstrumented[xp_, eq_Equal, monitor_, order_String, sys_] :=
-    dnfReduceInstrumented[xp, True, eq, monitor, order, sys, 1];
-
-dnfReduceInstrumented[xp_, sys_And, monitor_, order_String, sysObj_] :=
-    With[{conjunctsValue = dnfOrderConjuncts[sys, order, sysObj]},
-        dnfReduceInstrumentedAnd[xp, conjunctsValue, monitor, order, sysObj, 1]
+dnfCounterIncrementAtDepth[_, key_String, depth_Integer, n_: 1] :=
+    Module[{a = Lookup[$dnfCurrentMonitor, key, <||>]},
+        a[depth] = Lookup[a, depth, 0] + n;
+        $dnfCurrentMonitor[key] = a
     ];
 
-dnfReduceInstrumented[xp_, sys_Or, monitor_, order_String, sysObj_] :=
-    Module[{results = {}, r, alternatives = List @@ sys},
+(* Per-disjunct counter increment. Stable string ID for an Or expression
+   used so the same complementarity disjunct gets the same counter slot
+   across runs and across depth levels. *)
+canonicalDisjunctId[orExpr_Or] :=
+    ToString[Sort[List @@ orExpr], InputForm];
+
+dnfCounterIncrementByDisjunct[_, key_String, disjunctId_String, n_: 1] :=
+    Module[{a = Lookup[$dnfCurrentMonitor, key, <||>]},
+        a[disjunctId] = Lookup[a, disjunctId, 0] + n;
+        $dnfCurrentMonitor[key] = a
+    ];
+
+dnfReduceInstrumented[_, False, monitor_, _String, _, depth_Integer:1] :=
+    (dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "FalseSystem", "Depth" -> depth|>]; False);
+
+dnfReduceInstrumented[False, _, monitor_, _String, _, depth_Integer:1] :=
+    (dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "FalsePrefix", "Depth" -> depth|>]; False);
+
+dnfReduceInstrumented[xp_, True, monitor_, _String, _, depth_Integer:1] :=
+    (dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "TrueSystem", "Depth" -> depth|>]; xp);
+
+dnfReduceInstrumented[xp_, eq_Equal, monitor_, order_String, sys_, depth_Integer:1] :=
+    dnfReduceInstrumented[xp, True, eq, monitor, order, sys, depth];
+
+dnfReduceInstrumented[xp_, sys_And, monitor_, order_String, sysObj_, depth_Integer:1] :=
+    With[{conjunctsValue = dnfOrderConjuncts[sys, order, sysObj]},
+        dnfReduceInstrumentedAnd[xp, conjunctsValue, monitor, order, sysObj, depth]
+    ];
+
+dnfReduceInstrumented[xp_, sys_Or, monitor_, order_String, sysObj_, depth_Integer:1] :=
+    Module[{results = {}, r, alternatives = List @@ sys, branchDepth = depth + 1, disjunctId},
+        $dnfCurrentMonitor["MaxRecursionDepth"] = Max[Lookup[$dnfCurrentMonitor, "MaxRecursionDepth", 0], depth];
+        disjunctId = canonicalDisjunctId[sys];
         dnfCounterIncrement[monitor, "OrsProcessed"];
         dnfCounterIncrement[monitor, "BranchesStarted", Length[alternatives]];
-        dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "TopLevelOr", "BranchCount" -> Length[alternatives], "Expression" -> sys|>];
+        dnfCounterIncrementAtDepth[monitor, "BranchesStartedByDepth", branchDepth, Length[alternatives]];
+        dnfCounterIncrementByDisjunct[monitor, "BranchesStartedByDisjunct", disjunctId, Length[alternatives]];
+        dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "TopLevelOr", "BranchCount" -> Length[alternatives], "Depth" -> depth, "DisjunctId" -> disjunctId, "Expression" -> sys|>];
         Scan[
             Function[branch,
-            With[{branchValue = branch},
-                r = dnfReduceInstrumented[xp, branchValue, monitor, order, sysObj]
+            With[{branchValue = branch, depthValue = branchDepth},
+                dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "EnterTopLevelBranch", "Depth" -> depthValue, "DisjunctId" -> disjunctId, "Expression" -> branchValue|>];
+                r = dnfReduceInstrumented[xp, branchValue, monitor, order, sysObj, depthValue]
             ];
             If[r =!= False,
-                AppendTo[results, r]; dnfCounterIncrement[monitor, "BranchesKept"],
-                dnfCounterIncrement[monitor, "BranchesDropped"]
+                AppendTo[results, r];
+                dnfCounterIncrement[monitor, "BranchesKept"];
+                dnfCounterIncrementAtDepth[monitor, "BranchesKeptByDepth", branchDepth];
+                dnfCounterIncrementByDisjunct[monitor, "BranchesKeptByDisjunct", disjunctId],
+                dnfCounterIncrement[monitor, "BranchesDropped"];
+                dnfCounterIncrementAtDepth[monitor, "BranchesDroppedByDepth", branchDepth];
+                dnfCounterIncrementByDisjunct[monitor, "BranchesDroppedByDisjunct", disjunctId]
             ]
             ],
             alternatives
@@ -1645,9 +2069,9 @@ dnfReduceInstrumented[xp_, sys_Or, monitor_, order_String, sysObj_] :=
         ]
     ];
 
-dnfReduceInstrumented[xp_, leq_, monitor_, _String, _] :=
+dnfReduceInstrumented[xp_, leq_, monitor_, _String, _, depth_Integer:1] :=
     (dnfCounterIncrement[monitor, "ConjunctsProcessed"];
-     dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "AppendConstraint", "Expression" -> leq|>];
+     dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "AppendConstraint", "Depth" -> depth, "Expression" -> leq|>];
      xp && leq);
 
 dnfReduceInstrumentedAnd[xp_, conjuncts_List, monitor_, order_String, sysObj_, depth_Integer] :=
@@ -1663,33 +2087,43 @@ dnfReduceInstrumentedAnd[xp_, conjuncts_List, monitor_, order_String, sysObj_, d
                     i++,
                 elem === False,
                     dnfCounterIncrement[monitor, "BranchesDropped"];
+                    dnfCounterIncrementAtDepth[monitor, "BranchesDroppedByDepth", depth];
                     Return[False, Module],
                 Head[elem] === Or,
-                    dnfCounterIncrement[monitor, "OrsProcessed"];
-                    dnfCounterIncrement[monitor, "BranchesStarted", Length[List @@ elem]];
-                    rest = If[i >= Length[conjunctList], True, And @@ conjunctList[[i + 1 ;;]]];
-                    Return[
-                        Module[{results = {}, r},
-                            Scan[
-                                Function[branch,
-                                dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "EnterBranch", "Depth" -> depth + 1, "Expression" -> branch|>];
-                                With[{prefixValue = xpAcc, restValue = rest, branchValue = branch, depthValue = depth + 1},
-                                    r = dnfReduceInstrumented[prefixValue, restValue, branchValue, monitor, order, sysObj, depthValue]
+                    With[{disjunctIdLocal = canonicalDisjunctId[elem]},
+                        dnfCounterIncrement[monitor, "OrsProcessed"];
+                        dnfCounterIncrement[monitor, "BranchesStarted", Length[List @@ elem]];
+                        dnfCounterIncrementAtDepth[monitor, "BranchesStartedByDepth", depth + 1, Length[List @@ elem]];
+                        dnfCounterIncrementByDisjunct[monitor, "BranchesStartedByDisjunct", disjunctIdLocal, Length[List @@ elem]];
+                        rest = If[i >= Length[conjunctList], True, And @@ conjunctList[[i + 1 ;;]]];
+                        Return[
+                            Module[{results = {}, r},
+                                Scan[
+                                    Function[branch,
+                                    dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "EnterBranch", "Depth" -> depth + 1, "DisjunctId" -> disjunctIdLocal, "Expression" -> branch|>];
+                                    With[{prefixValue = xpAcc, restValue = rest, branchValue = branch, depthValue = depth + 1},
+                                        r = dnfReduceInstrumented[prefixValue, restValue, branchValue, monitor, order, sysObj, depthValue]
+                                    ];
+                                    If[r =!= False,
+                                        AppendTo[results, r];
+                                        dnfCounterIncrement[monitor, "BranchesKept"];
+                                        dnfCounterIncrementAtDepth[monitor, "BranchesKeptByDepth", depth + 1];
+                                        dnfCounterIncrementByDisjunct[monitor, "BranchesKeptByDisjunct", disjunctIdLocal],
+                                        dnfCounterIncrement[monitor, "BranchesDropped"];
+                                        dnfCounterIncrementAtDepth[monitor, "BranchesDroppedByDepth", depth + 1];
+                                        dnfCounterIncrementByDisjunct[monitor, "BranchesDroppedByDisjunct", disjunctIdLocal]
+                                    ]
+                                    ],
+                                    List @@ elem
                                 ];
-                                If[r =!= False,
-                                    AppendTo[results, r]; dnfCounterIncrement[monitor, "BranchesKept"],
-                                    dnfCounterIncrement[monitor, "BranchesDropped"]
+                                Which[
+                                    results === {}, False,
+                                    Length[results] === 1, First[results],
+                                    True, Or @@ results
                                 ]
-                                ],
-                                List @@ elem
-                            ];
-                            Which[
-                                results === {}, False,
-                                Length[results] === 1, First[results],
-                                True, Or @@ results
-                            ]
-                        ],
-                        Module
+                            ],
+                            Module
+                        ]
                     ],
                 Head[elem] === Equal,
                     dnfCounterIncrement[monitor, "EqualityAttempts"];
@@ -1732,7 +2166,7 @@ dnfReduceInstrumented[xp_, rst_, fst_Equal, monitor_, order_String, sysObj_, dep
             False,
             newrst = substituteSolution[rst, fsol];
             With[{prefixValue = newxp && fst, restValue = dnfOrderExpression[newrst, order, sysObj]},
-                dnfReduceInstrumented[prefixValue, restValue, monitor, order, sysObj]
+                dnfReduceInstrumented[prefixValue, restValue, monitor, order, sysObj, depth]
             ]
         ]
     ];
@@ -1742,7 +2176,7 @@ dnfReduceInstrumented[xp_, rst_, fst_, monitor_, order_String, sysObj_, depth_In
      dnfCounterIncrement[monitor, "ConjunctsProcessed"];
      dnfTraceEvent[monitor, <|"Phase" -> "DNF", "Action" -> "ProcessBranchConstraint", "Depth" -> depth, "Expression" -> fst|>];
      With[{prefixValue = xp && fst, restValue = dnfOrderExpression[rst, order, sysObj]},
-         dnfReduceInstrumented[prefixValue, restValue, monitor, order, sysObj]
+         dnfReduceInstrumented[prefixValue, restValue, monitor, order, sysObj, depth]
      ]);
 
 Options[dnfReduceDiagnosticReport] = {
@@ -1781,6 +2215,12 @@ dnfReduceDiagnosticReport[sys_?mfgSystemQ, OptionsPattern[]] :=
             "BranchesStarted" -> 0,
             "BranchesKept" -> 0,
             "BranchesDropped" -> 0,
+            "BranchesStartedByDepth" -> <||>,
+            "BranchesKeptByDepth" -> <||>,
+            "BranchesDroppedByDepth" -> <||>,
+            "BranchesStartedByDisjunct" -> <||>,
+            "BranchesKeptByDisjunct" -> <||>,
+            "BranchesDroppedByDisjunct" -> <||>,
             "EqualityAttempts" -> 0,
             "EqualitySolves" -> 0,
             "Substitutions" -> 0,
@@ -1834,6 +2274,12 @@ dnfReduceDiagnosticReport[sys_?mfgSystemQ, OptionsPattern[]] :=
             "BranchesStarted" -> Lookup[monitor, "BranchesStarted", 0],
             "BranchesKept" -> Lookup[monitor, "BranchesKept", 0],
             "BranchesDropped" -> Lookup[monitor, "BranchesDropped", 0],
+            "BranchesStartedByDepth" -> KeySort[Lookup[monitor, "BranchesStartedByDepth", <||>]],
+            "BranchesKeptByDepth" -> KeySort[Lookup[monitor, "BranchesKeptByDepth", <||>]],
+            "BranchesDroppedByDepth" -> KeySort[Lookup[monitor, "BranchesDroppedByDepth", <||>]],
+            "BranchesStartedByDisjunct" -> Lookup[monitor, "BranchesStartedByDisjunct", <||>],
+            "BranchesKeptByDisjunct" -> Lookup[monitor, "BranchesKeptByDisjunct", <||>],
+            "BranchesDroppedByDisjunct" -> Lookup[monitor, "BranchesDroppedByDisjunct", <||>],
             "EqualityAttempts" -> Lookup[monitor, "EqualityAttempts", 0],
             "EqualitySolves" -> Lookup[monitor, "EqualitySolves", 0],
             "Substitutions" -> Lookup[monitor, "Substitutions", 0],

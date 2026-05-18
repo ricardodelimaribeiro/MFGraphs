@@ -1,4 +1,10 @@
-(* Tests for the Tawaf shared-congestion scenario builder. *)
+(* Tests for the Tawaf shared-congestion scenario builder.
+
+   Tawaf is an OPT-IN subpackage as of the 2026 docs sync: Needs["MFGraphs`"]
+   does not load it. Test bodies that reference Tawaf symbols rely on the
+   explicit Needs["Tawaf`"] below. *)
+
+Needs["Tawaf`"];
 
 Test[
     NameQ["Tawaf`makeTawafScenario"] && NameQ["Tawaf`makeTawafSystem"],
@@ -11,10 +17,11 @@ Test[
         names = {"makeTawafScenario", "makeTawafSystem"};
         Scan[If[NameQ["Global`" <> #], Remove["Global`" <> #]] &, names];
         Needs["MFGraphs`"];
+        Needs["Tawaf`"];
         And @@ (NameQ /@ names)
     ],
     True,
-    TestID -> "Tawaf: unqualified symbols available after Needs[\"MFGraphs`\"]"
+    TestID -> "Tawaf: unqualified symbols available after Needs[\"Tawaf`\"]"
 ]
 
 Test[

@@ -1,0 +1,133 @@
+{
+	"scenario":"Paper_example",
+	"key":"Paper example",
+	"abstractCount":12,
+	"hasCachedSolution":true,
+	"outcomeCounts":{
+		"Inactive":2,
+		"Active":10,
+		"Ambiguous":0
+	},
+	"rows":[
+		{
+			"anchorVar":"j[1, 2]",
+			"anchorVertex":"2",
+			"anchorEdge":"{1, 2}",
+			"junctionDegree":2,
+			"boundaryDistance":1,
+			"edgeBetweenness":1.1e1,
+			"edgeCost":2.0,
+			"outcome":"Active"
+		},
+		{
+			"anchorVar":"j[2, 3]",
+			"anchorVertex":"3",
+			"anchorEdge":"{2, 3}",
+			"junctionDegree":2,
+			"boundaryDistance":1,
+			"edgeBetweenness":1.3e1,
+			"edgeCost":5.0,
+			"outcome":"Active"
+		},
+		{
+			"anchorVar":"j[3, 4]",
+			"anchorVertex":"4",
+			"anchorEdge":"{3, 4}",
+			"junctionDegree":2,
+			"boundaryDistance":0,
+			"edgeBetweenness":1.1e1,
+			"edgeCost":3.0,
+			"outcome":"Active"
+		},
+		{
+			"anchorVar":"j[1, 2, 3]",
+			"anchorVertex":"2",
+			"anchorEdge":"{1, 2}",
+			"junctionDegree":2,
+			"boundaryDistance":1,
+			"edgeBetweenness":1.1e1,
+			"edgeCost":2.0,
+			"outcome":"Active"
+		},
+		{
+			"anchorVar":"j[2, 3, 4]",
+			"anchorVertex":"3",
+			"anchorEdge":"{2, 3}",
+			"junctionDegree":2,
+			"boundaryDistance":1,
+			"edgeBetweenness":1.3e1,
+			"edgeCost":5.0,
+			"outcome":"Active"
+		},
+		{
+			"anchorVar":"j[\"auxEntry1\", 1, 2]",
+			"anchorVertex":"1",
+			"anchorEdge":"{\"auxEntry1\", 1}",
+			"junctionDegree":2,
+			"boundaryDistance":0,
+			"edgeBetweenness":5.0,
+			"edgeCost":0.0,
+			"outcome":"Active"
+		},
+		{
+			"anchorVar":"j[1, 2, 3]",
+			"anchorVertex":"2",
+			"anchorEdge":"{1, 2}",
+			"junctionDegree":2,
+			"boundaryDistance":1,
+			"edgeBetweenness":1.1e1,
+			"edgeCost":2.0,
+			"outcome":"Active"
+		},
+		{
+			"anchorVar":"j[3, 2, 1]",
+			"anchorVertex":"2",
+			"anchorEdge":"{3, 2}",
+			"junctionDegree":2,
+			"boundaryDistance":1,
+			"edgeBetweenness":1.3e1,
+			"edgeCost":2.0,
+			"outcome":"Inactive"
+		},
+		{
+			"anchorVar":"j[2, 3, 4]",
+			"anchorVertex":"3",
+			"anchorEdge":"{2, 3}",
+			"junctionDegree":2,
+			"boundaryDistance":1,
+			"edgeBetweenness":1.3e1,
+			"edgeCost":5.0,
+			"outcome":"Active"
+		},
+		{
+			"anchorVar":"j[4, 3, 2]",
+			"anchorVertex":"3",
+			"anchorEdge":"{4, 3}",
+			"junctionDegree":2,
+			"boundaryDistance":1,
+			"edgeBetweenness":1.1e1,
+			"edgeCost":1.0,
+			"outcome":"Inactive"
+		},
+		{
+			"anchorVar":"j[3, 4, \"auxExit4\"]",
+			"anchorVertex":"4",
+			"anchorEdge":"{3, 4}",
+			"junctionDegree":2,
+			"boundaryDistance":0,
+			"edgeBetweenness":1.1e1,
+			"edgeCost":3.0,
+			"outcome":"Active"
+		},
+		{
+			"anchorVar":"j[4, \"auxExit4\"]",
+			"anchorVertex":"auxExit4",
+			"anchorEdge":"{4, \"auxExit4\"}",
+			"junctionDegree":1,
+			"boundaryDistance":null,
+			"edgeBetweenness":5.0,
+			"edgeCost":0.0,
+			"outcome":"Active"
+		}
+	]
+}
