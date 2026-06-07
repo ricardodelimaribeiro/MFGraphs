@@ -251,7 +251,7 @@ Module[{sys, base},
 ];
 
 Module[{sys, base},
-    sys  = makeSystem[getExampleScenario["Grid0303", Automatic, Automatic]];
+    sys  = makeSystem[getExampleScenario["Grid0303", {{1, 100}}, {{9, 0}}]];
     base = sortedRules[activeSetReduceSystem[sys]];
     Test[
         sortedRules[activeSetReduceSystem[sys, "DisjunctOrdering" -> "Block-Vertex"]],
