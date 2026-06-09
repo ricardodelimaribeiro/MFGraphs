@@ -39,6 +39,8 @@ wolframscript -file Scripts/ProfileDNFReduce.wls --case all --order all --timeou
 wolframscript -file Scripts/GenerateDocs.wls
 ```
 
+See `Scripts/README.md` for the full inventory of benchmark, profiling, comparison, and figure-regeneration scripts.
+
 ## Architecture
 
 **Loading order and dependencies.** `Needs["MFGraphs`"]` loads each sub-package as its own flat context, then `EndPackage` flattens everything onto `$ContextPath` so public symbols are unqualified. `MFGraphs/archive/` is intentionally excluded.
@@ -49,15 +51,19 @@ primitives  →  utilities  →  scenarioTools  →  examples
                                                                                               →  graphicsTools
 ```
 
-**Optional subpackages.** Two files in the package directory are *not* loaded by `Needs["MFGraphs`"]`: `Tawaf.wl` (unrolled circumambulation scenario builder) and `numericOracle.wl` (LP-relaxation oracle, the only file that introduces floating-point work). Load them explicitly after `Needs["MFGraphs`"]`:
+**Optional subpackages.** Several files in the package directory are *not* loaded by `Needs["MFGraphs`"]` and must be loaded explicitly:
 
 ```
 Needs["MFGraphs`"];
 Needs["Tawaf`"];          (* makeTawafScenario, makeTawafSystem, ... *)
 Needs["numericOracle`"];  (* numericOracleClassify, solveScenarioWithOracle *)
+Needs["Jamarat`"];        (* multi-entrance/exit scenario builders *)
+Needs["HardCases`"];      (* curated stress-test scenarios *)
 ```
 
-`solveScenarioWithOracle` is the high-level wrapper for the oracle path; it composes `addSymmetryEqualities` → `numericOracleClassify` → `addOracleEqualities` → `activeSetReduceSystem` and falls back to the unpruned solve when the oracle over-prunes.
+`numericOracle.wl` is the only file that introduces floating-point work. `solveScenarioWithOracle` is the high-level wrapper for the oracle path; it composes `addSymmetryEqualities` → `numericOracleClassify` → `addOracleEqualities` → `activeSetReduceSystem` and falls back to the unpruned solve when the oracle over-prunes.
+
+**Workbooks (not subpackages).** `MFGraphs/Getting started.wl`, `MFGraphs/TawafWorkbook.wl`, and `MFGraphs/DisjunctInfluenceStudy.wl` are notebook-style worked examples meant to be opened in the Mathematica front end and evaluated cell-by-cell. They are not loadable via `Needs[]`.
 
 **Composition pipeline.** Every workflow is the same three-step chain, optionally followed by orchestration:
 
@@ -124,10 +130,12 @@ Active `.mt` files under `MFGraphs/Tests/`:
 ## Documentation
 
 - `README.md` — model overview and mathematical setup
+- `TOUR.md` — guided reading order for newcomers (markdown first, then workbooks)
 - `CONTRIBUTING.md` — PR conventions, commit style, branch policy
 - `API_REFERENCE.md` — auto-generated public API reference (do not edit)
 - `BENCHMARKS.md` — solver benchmark policy and historical tagged results
 - `TROUBLESHOOTING.md` — package load failures, scenario validation errors, solver timeouts
+- `AGENTS.md` / `GEMINI.md` — assistant-specific pointers; `CLAUDE.md` is canonical
 
 ## Project Skills
 
