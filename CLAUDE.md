@@ -107,11 +107,13 @@ Active `.mt` files under `MFGraphs/Tests/`:
 | `scenario-consistency.mt` | cross-stage invariants (scenario ↔ unknowns ↔ system) |
 | `dnf-reducer.mt` | DNF reducer correctness and edge cases |
 | `boolean-minimize.mt` | `booleanMinimizeSystem` / `booleanMinimizeReduceSystem` |
-| `orchestration.mt` | `solveScenario` and full pipeline |
+| `orchestration.mt` | `solveScenario` / `SolveMFG`, full pipeline, and `clearSolveCache` memoization |
+| `utilities.mt` | typed-object infra (`mfgTypedQ`/`mfgData`), rule management, boundary exactification, critical-congestion guard |
 | `graphicsTools.mt` | `rawNetworkPlot`, `richNetworkPlot` |
 | `tawaf.mt` | unrolled-circumambulation scenario builder (opt-in `Tawaf`` context) |
 | `example-coverage.mt` | per-example smoke + cached-solution regression check across every key in `$ExampleScenarios` |
 | `numeric-oracle.mt` | opt-in `numericOracle`` classifier and `solveScenarioWithOracle` wrapper |
+| `fictitiousPlay.mt` | opt-in K-fold consensus classifier `numericFictitiousPlayClassify` (in the `oracle`/`full` suites, not `fast`) |
 
 ## Conventions
 

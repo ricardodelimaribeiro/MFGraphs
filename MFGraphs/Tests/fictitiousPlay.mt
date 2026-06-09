@@ -1,7 +1,7 @@
 (* Tests for the K-fold consensus oracle in numericOracle.wl.
    OPT-IN: invokes Needs["numericOracle`"] which loads the float-isolated
-   subpackage. Not run by RunTests fast; invoke explicitly via
-   RunSingleTest.wls or a future "oracle" tag. *)
+   subpackage. Not in the "fast" suite; run it via the "oracle" or "full"
+   tag (Scripts/RunTests.wls oracle) or directly via RunSingleTest.wls. *)
 
 Needs["numericOracle`"];
 
