@@ -24,7 +24,15 @@ $TestSuites = <|
         "boolean-minimize.mt",
         "tawaf.mt",
         "example-coverage.mt",
-        "numeric-oracle.mt"
+        "numeric-oracle.mt",
+        "utilities.mt"
+    },
+    (* Opt-in oracle suite: the float-isolated numericOracle` classifiers.
+       numeric-oracle.mt also runs in fast; fictitiousPlay.mt (the K-fold
+       consensus classifier) runs here and in full until promoted to fast. *)
+    "oracle" -> {
+        "numeric-oracle.mt",
+        "fictitiousPlay.mt"
     },
     (* Archived tests are intentionally excluded from active CI.
        Use this suite only for explicit compatibility checks. *)
@@ -47,7 +55,8 @@ $TestSuites = <|
     }
 |>;
 $TestSuites["all"] = $TestSuites["fast"];
-$TestSuites["full"] = Join[$TestSuites["fast"], $TestSuites["archive"]];
+(* full = fast + the fictitiousPlay oracle extra + archived suites. *)
+$TestSuites["full"] = Join[$TestSuites["fast"], {"fictitiousPlay.mt"}, $TestSuites["archive"]];
 
 args = Select[
     Rest[$ScriptCommandLine],

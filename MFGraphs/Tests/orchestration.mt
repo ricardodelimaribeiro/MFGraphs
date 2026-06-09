@@ -88,3 +88,48 @@ Test[
     True,
     TestID -> "SolveMFG: legacy association input still works after scenario dispatch added"
 ]
+
+(* ------------------------------------------------------------------ *)
+(* solveScenario memoization cache: clearSolveCache / cache hits        *)
+(* ------------------------------------------------------------------ *)
+
+Test[
+    NameQ["orchestrationTools`clearSolveCache"],
+    True,
+    TestID -> "Orchestration: clearSolveCache exists"
+]
+
+Test[
+    clearSolveCache[] === Null && clearSolveCache[] === Null,
+    True,
+    TestID -> "clearSolveCache: returns Null and is idempotent"
+]
+
+Test[
+    Module[{s, r1, r2},
+        clearSolveCache[];
+        s  = gridScenario[{2}, {{1, 100}}, {{2, 0}}];
+        r1 = TimeConstrained[solveScenario[s], 5, $TimedOut];
+        (* Second call on the same (scenario, solver) must hit the cache and
+           return the very same stored expression. *)
+        r2 = TimeConstrained[solveScenario[s], 5, $TimedOut];
+        r1 =!= $TimedOut && r1 === r2
+    ],
+    True,
+    TestID -> "solveScenario: repeated call returns the cached result (SameQ)"
+]
+
+Test[
+    Module[{s, cold},
+        s = gridScenario[{2}, {{1, 100}}, {{2, 0}}];
+        (* Warm the cache, then wipe it and confirm the cold path still
+           recomputes a valid solution. *)
+        TimeConstrained[solveScenario[s], 5, $TimedOut];
+        clearSolveCache[];
+        cold = TimeConstrained[solveScenario[s], 5, $TimedOut];
+        (ListQ[cold] || AssociationQ[cold]) &&
+        isValidSystemSolution[makeSystem[s], cold]
+    ],
+    True,
+    TestID -> "clearSolveCache: cold re-solve after wipe still produces a valid solution"
+]
