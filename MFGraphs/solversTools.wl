@@ -180,11 +180,18 @@ switching cost, edge-flow quadratic cost, total objective, determined and \
 residual variables, and validation status for each branch.";
 
 directCriticalSystem::usage =
-"directCriticalSystem[sys] is an explicit opt-in solver for critical \
-congestion systems with all numeric zero switching costs and equal numeric \
-exit costs. It uses graph distance to exits to forbid flow directions that \
-move farther from every exit, then solves the resulting feasibility system. \
-Returns the standard raw solver shape or Failure[\"directCriticalSystem\", ...].";
+"directCriticalSystem[sys] is a DEPRECATED, experimental opt-in solver for \
+critical congestion systems with all numeric zero switching costs and equal \
+numeric exit costs. It uses graph distance to exits to forbid flow directions \
+that move farther from every exit, then solves the resulting feasibility \
+system. Its correctness is NOT established: the distance heuristic orients only \
+strictly-non-equidistant edges, so the feasibility system it solves does not \
+encode edge/transition unidirectionality and admits invalid (bidirectional) \
+points on edges whose endpoints are equidistant to the nearest exit. It happens \
+to return valid solutions on tested inputs because the linear solver returns a \
+unidirectional vertex, but this is not guaranteed. Prefer dnfReduceSystem or \
+optimizedDNFReduceSystem. Returns the standard raw solver shape or \
+Failure[\"directCriticalSystem\", ...].";
 
 flowFirstCriticalSystem::usage =
 "flowFirstCriticalSystem[sys] is an explicit opt-in solver for critical \
@@ -2749,7 +2756,7 @@ sysToEqsInternal[sys_] :=
     ];
 
 directCriticalSolverInternal[Eqs_] :=
-    Module[{graph, exitVerts, distToExit, us, js, jts, auxPairs, zeroRules, eqSystem, allVars, result, flowVars, ineqs, inst},
+    Module[{graph, exitVerts, distToExit, us, js, jts, auxPairs, zeroRules, eqSystem, allVars, result, flowVars, ineqs, inst, rules, bidirectional},
         graph = Lookup[Eqs, "auxiliaryGraph", None];
         exitVerts = Lookup[Eqs, "auxExitVertices", {}];
         If[graph === None || exitVerts === {}, Return[$Failed]];
@@ -2799,10 +2806,19 @@ directCriticalSolverInternal[Eqs_] :=
         ineqs = And @@ (# >= 0 & /@ flowVars);
         
         inst = Quiet @ FindInstance[eqSystem && ineqs, allVars, Reals];
-        If[MatchQ[inst, {{___Rule}, ___}],
-            <|"Rules" -> First[inst], "Residual" -> True|>,
-            $Failed
-        ]
+        If[!MatchQ[inst, {{___Rule}, ___}], Return[$Failed, Module]];
+        rules = First[inst];
+        (* Defensive guard (this solver is deprecated/unsound by construction):
+           eqSystem does not encode edge unidirectionality, so on edges whose
+           endpoints are equidistant to the nearest exit FindInstance may return
+           a bidirectional point j[a,b]>0 && j[b,a]>0 that violates the full
+           system. Reject such a point so the caller falls back to the exact
+           solver rather than silently returning an invalid solution. *)
+        bidirectional = Select[Cases[js, j[a_, b_] :> {a, b}],
+            With[{fwd = j[#[[1]], #[[2]]] /. rules, bwd = j[#[[2]], #[[1]]] /. rules},
+                NumericQ[fwd] && NumericQ[bwd] && fwd > 10^-6 && bwd > 10^-6] &];
+        If[bidirectional =!= {}, Return[$Failed, Module]];
+        <|"Rules" -> rules, "Residual" -> True|>
     ];
 
 (* --- SolveCriticalJFirstBackend and utilities --- *)
