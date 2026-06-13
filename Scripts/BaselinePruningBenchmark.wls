@@ -52,21 +52,35 @@ countAlternatives[sys_] := Module[{cd},
 ];
 
 (* Time one solver on sys with a hard time+memory cap. Returns assoc with seconds,
-   validity, and status (OK | TIMEOUT | MEMOUT | FAILED). *)
-$MemCap = 8 * 10^9; (* 8 GB guard so a BooleanConvert blow-up can't wedge the box *)
-timeSolver[label_, sys_, fn_, tmo_] := Module[{t, sol, status, valid},
-    {t, sol} = AbsoluteTiming[
-        TimeConstrained[MemoryConstrained[fn[sys], $MemCap, $MemOut], tmo, $TimedOut]];
+   validity, and status (OK | TIMEOUT | MEMOUT | FAILED). A first guarded warmup
+   establishes status; cells whose warmup finishes under $RepeatBelow are then
+   re-timed with RepeatedTiming so the reported time is a stable steady-state mean
+   (matching the paper table, whose caption promises "stable mean over repeated
+   runs"). Slower cells keep the single warmup time so we never repeat a
+   multi-minute solve, and TIMEOUT/MEMOUT cells are never repeated at all. *)
+$MemCap = 8 * 10^9;  (* 8 GB guard so a BooleanConvert blow-up can't wedge the box *)
+$RepeatBelow = 30;   (* seconds: warmup-time threshold below which we RepeatedTiming *)
+guardedRun[fn_, sys_, tmo_] :=
+    TimeConstrained[MemoryConstrained[fn[sys], $MemCap, $MemOut], tmo, $TimedOut];
+timeSolver[label_, sys_, fn_, tmo_] := Module[{warm, sol, status, valid, t, mode},
+    {warm, sol} = AbsoluteTiming[guardedRun[fn, sys, tmo]];
     status = Which[
         sol === $TimedOut, "TIMEOUT",
         sol === $MemOut,   "MEMOUT",
         AssociationQ[sol] || MatchQ[sol, {__Rule}] || sol === True, "OK",
         True, "FAILED"];
     valid = If[status === "OK", isValidSystemSolution[sys, sol], "-"];
+    (* For the steady-state mean we time the BARE call: the warmup already proved
+       this cell completes safely and quickly, so the time+memory guards (which add
+       measurable per-call overhead at the millisecond scale) would only distort it. *)
+    {t, mode} = Which[
+        status =!= "OK",     {Missing[status], "-"},
+        warm < $RepeatBelow, {First @ RepeatedTiming[fn[sys]], "mean"},
+        True,                {warm, "single"}];
     Print["  ", StringPadRight[label, 22], ": ",
-        If[status === "OK", ToString[Round[t, 0.001]] <> " s", status],
+        If[status === "OK", ToString[Round[t, 0.0001]] <> " s (" <> mode <> ")", status],
         "  (", tmo, "s cap)  valid=", valid];
-    <|"label" -> label, "seconds" -> If[status === "OK", t, Missing[status]],
+    <|"label" -> label, "seconds" -> t, "mode" -> mode,
       "status" -> status, "valid" -> valid|>
 ];
 
@@ -104,7 +118,7 @@ Print[StringRepeat["=", 64]];
 Print["SUMMARY (seconds; T/O = timeout, M/O = memory cap):"];
 Print[StringPadRight["Case", 14], StringPadRight["q", 6],
     StringPadRight["baseline(boolean)", 20], StringPadRight["dnf", 14], "optimized"];
-fmt[r_] := If[MissingQ[r["seconds"]], r["status"], ToString[Round[r["seconds"], 0.001]]];
+fmt[r_] := If[MissingQ[r["seconds"]], r["status"], ToString[Round[r["seconds"], 0.0001]]];
 Do[
     If[KeyExistsQ[results, c <> "-boolean"],
         Print[StringPadRight[c, 14], StringPadRight[ToString[results[c <> "-q"]], 6],
