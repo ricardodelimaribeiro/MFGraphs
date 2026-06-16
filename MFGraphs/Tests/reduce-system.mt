@@ -1,5 +1,46 @@
 (* Tests for reduceSystem *)
 
+(* ------------------------------------------------------------------ *)
+(* Shared test helpers                                                *)
+(*                                                                    *)
+(* Most solver tests share one shape: build a system from a scenario, *)
+(* run a solver, and assert something about the result. These helpers *)
+(* collapse that boilerplate so each Test reads as                    *)
+(* (id, scenario, solver). TestIDs stay as string literals in the     *)
+(* file, so they remain greppable. Same top-level-helper pattern as   *)
+(* dnf-reducer.mt and scenario-consistency.mt. The `solver` argument  *)
+(* is any function of one system — a bare symbol like dnfReduceSystem *)
+(* or a pure function that adds options/Quiet.                        *)
+(* ------------------------------------------------------------------ *)
+
+validSolutionTest[id_String, scenario_, solver_] := Test[
+    With[{sys = makeSystem[scenario]},
+        isValidSystemSolution[sys, solver[sys]]
+    ],
+    True,
+    TestID -> id
+];
+
+nonFalseTest[id_String, scenario_, solver_] := Test[
+    With[{sys = makeSystem[scenario]},
+        solver[sys] =!= False
+    ],
+    True,
+    TestID -> id
+];
+
+(* The "non-critical congestion systems fail" check is identical across *)
+(* every solver except for the solver symbol and the Tag/TestID name.   *)
+noncriticalFailsTest[solver_, name_String] := Test[
+    With[{sys = makeSystem[gridScenario[{2}, {{1, 10}}, {{2, 0}}, {}, 2]]},
+        With[{result = Quiet[solver[sys], MFGraphs::noncritical]},
+            FailureQ[result] && result["Tag"] === name
+        ]
+    ],
+    True,
+    TestID -> name <> ": non-critical congestion systems fail"
+];
+
 Test[
     NameQ["solversTools`reduceSystem"],
     True,
@@ -32,37 +73,26 @@ Test[
     TestID -> "systemDataFlatten: exposes nested solver keys without typed sub-record wrappers"
 ]
 
-Test[
-    Module[{data, s, sys, result},
-        data = <|
-            "Vertices" -> {1, 2, 3},
-            "Adjacency" -> {
-                {0, 1, 0},
-                {1, 0, 1},
-                {0, 1, 0}
-            },
-            "Entries" -> {{1, 10}},
-            "Exits" -> {{3, 0}},
-            "Switching" -> {}
-        |>;
-        s = makeScenario[<|"Model" -> data|>];
-        sys = makeSystem[s];
-        result = reduceSystem[sys];
-        result =!= False
-    ],
-    True,
-    TestID -> "reduceSystem: chain 1-exit yields non-False solution"
+nonFalseTest[
+    "reduceSystem: chain 1-exit yields non-False solution",
+    makeScenario[<|"Model" -> <|
+        "Vertices" -> {1, 2, 3},
+        "Adjacency" -> {
+            {0, 1, 0},
+            {1, 0, 1},
+            {0, 1, 0}
+        },
+        "Entries" -> {{1, 10}},
+        "Exits" -> {{3, 0}},
+        "Switching" -> {}
+    |>|>],
+    reduceSystem
 ]
 
-Test[
-    Module[{s, sys, result},
-        s = gridScenario[{3}, {{1, 120.0}}, {{2, 0.0}, {3, 10.0}}];
-        sys = makeSystem[s];
-        result = reduceSystem[sys];
-        result =!= False
-    ],
-    True,
-    TestID -> "reduceSystem: chain 2-exits yields non-False solution"
+nonFalseTest[
+    "reduceSystem: chain 2-exits yields non-False solution",
+    gridScenario[{3}, {{1, 120.0}}, {{2, 0.0}, {3, 10.0}}],
+    reduceSystem
 ]
 
 Test[
@@ -93,49 +123,25 @@ Test[
     TestID -> "reduceSystem: IneqExitValues and AltExitCond use u[auxExit, vertex] orientation"
 ]
 
-Test[
-    Module[{s, sys, result},
-        s = gridScenario[{3}, {{1, 120.0}}, {{2, 10.0}, {3, 0.0}}];
-        sys = makeSystem[s];
-        result = reduceSystem[sys];
-        result =!= False
-    ],
-    True,
-    TestID -> "reduceSystem: chain with costs {2,10},{3,0} remains solvable"
+nonFalseTest[
+    "reduceSystem: chain with costs {2,10},{3,0} remains solvable",
+    gridScenario[{3}, {{1, 120.0}}, {{2, 10.0}, {3, 0.0}}],
+    reduceSystem
 ]
 
-Test[
-    Module[{s, sys, result},
-        s = gridScenario[{3}, {{1, 120.0}}, {{2, 0.0}, {3, 10.0}}];
-        sys = makeSystem[s];
-        result = reduceSystem[sys];
-        result =!= False
-    ],
-    True,
-    TestID -> "reduceSystem: chain with costs {2,0},{3,10} remains solvable via inequality+complementarity"
+nonFalseTest[
+    "reduceSystem: chain with costs {2,0},{3,10} remains solvable via inequality+complementarity",
+    gridScenario[{3}, {{1, 120.0}}, {{2, 0.0}, {3, 10.0}}],
+    reduceSystem
 ]
 
-Test[
-    Module[{s, sys, result},
-        s = gridScenario[{3}, {{1, 10.5}}, {{3, 0.25}}];
-        sys = makeSystem[s];
-        result = reduceSystem[sys];
-        result =!= False
-    ],
-    True,
-    TestID -> "reduceSystem: non-integer decimal boundaries solve after exactification"
+nonFalseTest[
+    "reduceSystem: non-integer decimal boundaries solve after exactification",
+    gridScenario[{3}, {{1, 10.5}}, {{3, 0.25}}],
+    reduceSystem
 ]
 
-Test[
-    Module[{s, sys, result},
-        s = gridScenario[{2}, {{1, 10}}, {{2, 0}}, {}, 2];
-        sys = makeSystem[s];
-        result = Quiet[reduceSystem[sys], MFGraphs::noncritical];
-        FailureQ[result] && result["Tag"] === "reduceSystem"
-    ],
-    True,
-    TestID -> "reduceSystem: non-critical congestion systems fail"
-]
+noncriticalFailsTest[reduceSystem, "reduceSystem"]
 
 (* --- dnfReduceSystem tests --- *)
 
@@ -489,26 +495,16 @@ Test[
     TestID -> "solver parity: optimizedDNFReduceSystem matches dnf residual transition flows on chain-3v-2exit"
 ]
 
-Test[
-    Module[{s, sys, result},
-        s = gridScenario[{3}, {{1, 120.0}}, {{2, 0.0}, {3, 10.0}}];
-        sys = makeSystem[s];
-        result = dnfReduceSystem[sys];
-        isValidSystemSolution[sys, result]
-    ],
-    True,
-    TestID -> "dnfReduceSystem: chain 2-exits solution is valid"
+validSolutionTest[
+    "dnfReduceSystem: chain 2-exits solution is valid",
+    gridScenario[{3}, {{1, 120.0}}, {{2, 0.0}, {3, 10.0}}],
+    dnfReduceSystem
 ]
 
-Test[
-    Module[{s, sys, result},
-        s = gridScenario[{3}, {{2, 80.0}}, {{1, 0.0}, {3, 10.0}}, {{1,2,3,2},{3,2,1,2}}];
-        sys = makeSystem[s];
-        result = dnfReduceSystem[sys];
-        isValidSystemSolution[sys, result]
-    ],
-    True,
-    TestID -> "dnfReduceSystem: y-network solution is valid"
+validSolutionTest[
+    "dnfReduceSystem: y-network solution is valid",
+    gridScenario[{3}, {{2, 80.0}}, {{1, 0.0}, {3, 10.0}}, {{1,2,3,2},{3,2,1,2}}],
+    dnfReduceSystem
 ]
 
 Test[
@@ -583,16 +579,7 @@ Test[
     TestID -> "dnfReduceSystem: cheaper-remote-exit chain fully determines flow"
 ]
 
-Test[
-    Module[{s, sys, result},
-        s = gridScenario[{2}, {{1, 10}}, {{2, 0}}, {}, 2];
-        sys = makeSystem[s];
-        result = Quiet[dnfReduceSystem[sys], MFGraphs::noncritical];
-        FailureQ[result] && result["Tag"] === "dnfReduceSystem"
-    ],
-    True,
-    TestID -> "dnfReduceSystem: non-critical congestion systems fail"
-]
+noncriticalFailsTest[dnfReduceSystem, "dnfReduceSystem"]
 
 (* --- optimizedDNFReduceSystem tests --- *)
 
@@ -602,26 +589,16 @@ Test[
     TestID -> "optimizedDNFReduceSystem: public symbol exists"
 ]
 
-Test[
-    Module[{s, sys, result},
-        s = gridScenario[{3}, {{1, 120.0}}, {{2, 0.0}, {3, 10.0}}];
-        sys = makeSystem[s];
-        result = optimizedDNFReduceSystem[sys];
-        isValidSystemSolution[sys, result]
-    ],
-    True,
-    TestID -> "optimizedDNFReduceSystem: chain 2-exits solution is valid"
+validSolutionTest[
+    "optimizedDNFReduceSystem: chain 2-exits solution is valid",
+    gridScenario[{3}, {{1, 120.0}}, {{2, 0.0}, {3, 10.0}}],
+    optimizedDNFReduceSystem
 ]
 
-Test[
-    Module[{s, sys, result},
-        s = gridScenario[{3}, {{2, 80.0}}, {{1, 0.0}, {3, 10.0}}, {{1,2,3,2},{3,2,1,2}}];
-        sys = makeSystem[s];
-        result = optimizedDNFReduceSystem[sys];
-        isValidSystemSolution[sys, result]
-    ],
-    True,
-    TestID -> "optimizedDNFReduceSystem: y-network solution is valid"
+validSolutionTest[
+    "optimizedDNFReduceSystem: y-network solution is valid",
+    gridScenario[{3}, {{2, 80.0}}, {{1, 0.0}, {3, 10.0}}, {{1,2,3,2},{3,2,1,2}}],
+    optimizedDNFReduceSystem
 ]
 
 Test[
@@ -653,16 +630,7 @@ Test[
     TestID -> "optimizedDNFReduceSystem: example-12 remains valid and exact"
 ]
 
-Test[
-    Module[{s, sys, result},
-        s = gridScenario[{2}, {{1, 10}}, {{2, 0}}, {}, 2];
-        sys = makeSystem[s];
-        result = Quiet[optimizedDNFReduceSystem[sys], MFGraphs::noncritical];
-        FailureQ[result] && result["Tag"] === "optimizedDNFReduceSystem"
-    ],
-    True,
-    TestID -> "optimizedDNFReduceSystem: non-critical congestion systems fail"
-]
+noncriticalFailsTest[optimizedDNFReduceSystem, "optimizedDNFReduceSystem"]
 
 (* --- activeSetReduceSystem tests --- *)
 
@@ -681,26 +649,16 @@ Test[
     TestID -> "activeSetReduceSystem: uses distinct active-set branch path"
 ]
 
-Test[
-    Module[{s, sys, result},
-        s = gridScenario[{3}, {{1, 120.0}}, {{2, 0.0}, {3, 10.0}}];
-        sys = makeSystem[s];
-        result = activeSetReduceSystem[sys];
-        isValidSystemSolution[sys, result]
-    ],
-    True,
-    TestID -> "activeSetReduceSystem: chain 2-exits solution is valid"
+validSolutionTest[
+    "activeSetReduceSystem: chain 2-exits solution is valid",
+    gridScenario[{3}, {{1, 120.0}}, {{2, 0.0}, {3, 10.0}}],
+    activeSetReduceSystem
 ]
 
-Test[
-    Module[{s, sys, result},
-        s = gridScenario[{3}, {{2, 80.0}}, {{1, 0.0}, {3, 10.0}}, {{1,2,3,2},{3,2,1,2}}];
-        sys = makeSystem[s];
-        result = activeSetReduceSystem[sys];
-        isValidSystemSolution[sys, result]
-    ],
-    True,
-    TestID -> "activeSetReduceSystem: y-network solution is valid"
+validSolutionTest[
+    "activeSetReduceSystem: y-network solution is valid",
+    gridScenario[{3}, {{2, 80.0}}, {{1, 0.0}, {3, 10.0}}, {{1,2,3,2},{3,2,1,2}}],
+    activeSetReduceSystem
 ]
 
 Test[
@@ -734,16 +692,7 @@ Test[
     TestID -> "activeSetReduceSystem: example-12 remains valid"
 ]
 
-Test[
-    Module[{s, sys, result},
-        s = gridScenario[{2}, {{1, 10}}, {{2, 0}}, {}, 2];
-        sys = makeSystem[s];
-        result = Quiet[activeSetReduceSystem[sys], MFGraphs::noncritical];
-        FailureQ[result] && result["Tag"] === "activeSetReduceSystem"
-    ],
-    True,
-    TestID -> "activeSetReduceSystem: non-critical congestion systems fail"
-]
+noncriticalFailsTest[activeSetReduceSystem, "activeSetReduceSystem"]
 
 (* --- LP feasibility precheck (opt-in via "LPPrecheck" -> True) --- *)
 
@@ -822,38 +771,19 @@ Test[
     TestID -> "booleanReduceSystem: public symbol exists"
 ]
 
-Test[
-    Module[{s, sys, result},
-        s = gridScenario[{3}, {{1, 120.0}}, {{2, 0.0}, {3, 10.0}}];
-        sys = makeSystem[s];
-        result = booleanReduceSystem[sys];
-        isValidSystemSolution[sys, result]
-    ],
-    True,
-    TestID -> "booleanReduceSystem: chain 2-exits solution is valid"
+validSolutionTest[
+    "booleanReduceSystem: chain 2-exits solution is valid",
+    gridScenario[{3}, {{1, 120.0}}, {{2, 0.0}, {3, 10.0}}],
+    booleanReduceSystem
 ]
 
-Test[
-    Module[{s, sys, result},
-        s = gridScenario[{3}, {{2, 80.0}}, {{1, 0.0}, {3, 10.0}}, {{1,2,3,2},{3,2,1,2}}];
-        sys = makeSystem[s];
-        result = Quiet[booleanReduceSystem[sys], booleanReduceSystem::multisol];
-        isValidSystemSolution[sys, result]
-    ],
-    True,
-    TestID -> "booleanReduceSystem: y-network solution is valid"
+validSolutionTest[
+    "booleanReduceSystem: y-network solution is valid",
+    gridScenario[{3}, {{2, 80.0}}, {{1, 0.0}, {3, 10.0}}, {{1,2,3,2},{3,2,1,2}}],
+    Quiet[booleanReduceSystem[#], booleanReduceSystem::multisol] &
 ]
 
-Test[
-    Module[{s, sys, result},
-        s = gridScenario[{2}, {{1, 10}}, {{2, 0}}, {}, 2];
-        sys = makeSystem[s];
-        result = Quiet[booleanReduceSystem[sys], MFGraphs::noncritical];
-        FailureQ[result] && result["Tag"] === "booleanReduceSystem"
-    ],
-    True,
-    TestID -> "booleanReduceSystem: non-critical congestion systems fail"
-]
+noncriticalFailsTest[booleanReduceSystem, "booleanReduceSystem"]
 
 (* --- findInstanceSystem tests --- *)
 
@@ -907,16 +837,7 @@ Test[
     TestID -> "findInstanceSystem: y-network solution is valid"
 ]
 
-Test[
-    Module[{s, sys, result},
-        s = gridScenario[{2}, {{1, 10}}, {{2, 0}}, {}, 2];
-        sys = makeSystem[s];
-        result = Quiet[findInstanceSystem[sys], MFGraphs::noncritical];
-        FailureQ[result] && result["Tag"] === "findInstanceSystem"
-    ],
-    True,
-    TestID -> "findInstanceSystem: non-critical congestion systems fail"
-]
+noncriticalFailsTest[findInstanceSystem, "findInstanceSystem"]
 
 Test[
     Module[{s, sys, result},
@@ -953,15 +874,10 @@ Test[
     TestID -> "ZeroSwitchUEqualities: grid-2x3 has 8 equality rules (one per non-canonical u at each vertex)"
 ]
 
-Test[
-    Module[{s, sys, result},
-        s = gridScenario[{3}, {{1, 120}}, {{2, 0}, {3, 10}}];
-        sys = makeSystem[s];
-        result = dnfReduceSystem[sys];
-        isValidSystemSolution[sys, result]
-    ],
-    True,
-    TestID -> "ZeroSwitchUEqualities: chain-2-exits solution remains valid after substitution"
+validSolutionTest[
+    "ZeroSwitchUEqualities: chain-2-exits solution remains valid after substitution",
+    gridScenario[{3}, {{1, 120}}, {{2, 0}, {3, 10}}],
+    dnfReduceSystem
 ]
 
 Test[
@@ -1031,15 +947,10 @@ Test[
     TestID -> "AltOptCond: no clauses dropped when ZeroSwitchUEqualities is empty"
 ]
 
-Test[
-    Module[{s, sys, result},
-        s = gridScenario[{2, 3}, {{1, 100}}, {{6, 0}}];
-        sys = makeSystem[s];
-        result = dnfReduceSystem[sys];
-        isValidSystemSolution[sys, result]
-    ],
-    True,
-    TestID -> "AltOptCond: dnfReduceSystem solution remains valid after AltOptCond trim"
+validSolutionTest[
+    "AltOptCond: dnfReduceSystem solution remains valid after AltOptCond trim",
+    gridScenario[{2, 3}, {{1, 100}}, {{6, 0}}],
+    dnfReduceSystem
 ]
 
 Test[
