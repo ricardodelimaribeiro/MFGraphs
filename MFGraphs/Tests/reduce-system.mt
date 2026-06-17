@@ -442,6 +442,53 @@ Test[
     TestID -> "solutionResultKind: example-12 dnf result is specific residual kind"
 ]
 
+(* Solver-parity regression: optimizedDNFReduceSystem used to diverge from
+   dnfReduceSystem on chain-3v-2exit and chain-3-midentry, reporting an extra
+   residual transition flow when $optimizedDNFVarThreshold routed these cases
+   through the branch-state path. The 2026-05-10 retune to threshold=0 plus
+   the branchStateFinalizeResult fix closed the gap; pin it so a future
+   threshold change cannot silently reintroduce the divergence. *)
+Test[
+    Module[{s, sys, dnfResult, optResult},
+        s = gridScenario[{3}, {{1, 120.0}}, {{2, 0.0}, {3, 10.0}}];
+        sys = makeSystem[s];
+        dnfResult = dnfReduceSystem[sys];
+        optResult = optimizedDNFReduceSystem[sys];
+        solversTools`Private`solutionResultKind[dnfResult] ===
+            solversTools`Private`solutionResultKind[optResult]
+    ],
+    True,
+    TestID -> "solver parity: optimizedDNFReduceSystem matches dnf kind on chain-3v-2exit"
+]
+
+Test[
+    Module[{s, sys, dnfResult, optResult},
+        s = gridScenario[{3}, {{2, 100.0}}, {{1, 0.0}, {3, 10.0}}];
+        sys = makeSystem[s];
+        dnfResult = dnfReduceSystem[sys];
+        optResult = optimizedDNFReduceSystem[sys];
+        solversTools`Private`solutionResultKind[dnfResult] ===
+            solversTools`Private`solutionResultKind[optResult]
+    ],
+    True,
+    TestID -> "solver parity: optimizedDNFReduceSystem matches dnf kind on chain-3-midentry"
+]
+
+Test[
+    Module[{s, sys, dnfResult, optResult, dnfDiag, optDiag},
+        s = gridScenario[{3}, {{1, 120.0}}, {{2, 0.0}, {3, 10.0}}];
+        sys = makeSystem[s];
+        dnfResult = dnfReduceSystem[sys];
+        optResult = optimizedDNFReduceSystem[sys];
+        dnfDiag = solversTools`Private`dnfResidualDiagnostics[dnfResult];
+        optDiag = solversTools`Private`dnfResidualDiagnostics[optResult];
+        Length[Lookup[dnfDiag, "TransitionFlowVariables", {}]] ===
+            Length[Lookup[optDiag, "TransitionFlowVariables", {}]]
+    ],
+    True,
+    TestID -> "solver parity: optimizedDNFReduceSystem matches dnf residual transition flows on chain-3v-2exit"
+]
+
 Test[
     Module[{s, sys, result},
         s = gridScenario[{3}, {{1, 120.0}}, {{2, 0.0}, {3, 10.0}}];
