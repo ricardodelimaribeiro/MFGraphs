@@ -158,6 +158,13 @@ scenarioFailure[msg_String, missingKeys_List] :=
 hamiltonianGTermQ[value_] :=
     NumericQ[value] || MatchQ[value, _Function];
 
+(* A potential term V may be numeric (constant along the edge) or a pure
+   Function giving V as a function of the edge coordinate x in [0,1].
+   System construction uses only Alpha; V is consumed downstream for density
+   and value-profile recovery (see edgeDensityProfile / edgeValueProfile). *)
+hamiltonianVTermQ[value_] :=
+    NumericQ[value] || MatchQ[value, _Function];
+
 buildAdjacencyFromGraph[graph_Graph, vertices_List] :=
     Module[{baseVertices, baseAdjacency, baseIndex, order},
         baseVertices = VertexList[graph];
@@ -342,8 +349,8 @@ normalizeHamiltonianSpec[spec_, model_Association] :=
 
         If[!NumericQ[alphaDefault],
             Return[scenarioFailure["\"Hamiltonian\" default \"Alpha\" must be numeric."], Module]];
-        If[!NumericQ[vDefault],
-            Return[scenarioFailure["\"Hamiltonian\" default \"V\" must be numeric."], Module]];
+        If[!hamiltonianVTermQ[vDefault],
+            Return[scenarioFailure["\"Hamiltonian\" default \"V\" must be numeric or a pure function."], Module]];
         If[!hamiltonianGTermQ[gDefault],
             Return[scenarioFailure["\"Hamiltonian\" default \"G\" must be numeric or a pure function."], Module]];
         If[!AssociationQ[edgeAlpha],
@@ -365,11 +372,11 @@ normalizeHamiltonianSpec[spec_, model_Association] :=
                   "MissingKeys" -> {}, "InvalidEdges" -> badEdges|>], Module]];
 
         badAlpha = Select[Normal[edgeAlpha], !NumericQ[Last[#]] &];
-        badV     = Select[Normal[edgeV],     !NumericQ[Last[#]] &];
+        badV     = Select[Normal[edgeV],     !hamiltonianVTermQ[Last[#]] &];
         badG     = Select[Normal[edgeG],     !hamiltonianGTermQ[Last[#]] &];
         If[badAlpha =!= {} || badV =!= {} || badG =!= {},
             Return[Failure["ScenarioValidation",
-                <|"Message" -> "\"Hamiltonian\" edge-parameter values must be numeric (or Function for EdgeG).",
+                <|"Message" -> "\"Hamiltonian\" edge-parameter values must be numeric (or Function for EdgeV/EdgeG).",
                   "MissingKeys" -> {}, "InvalidRules" -> Join[badAlpha, badV, badG]|>], Module]];
 
         Join[ham, <|

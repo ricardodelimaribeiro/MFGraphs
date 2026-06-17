@@ -12,6 +12,22 @@ richNetworkPlot::usage =
 augmentAuxiliaryGraph::usage =
 "augmentAuxiliaryGraph[sys] constructs the road-traffic augmented infrastructure graph from a system's AuxPairs and AuxTriples. Returns an Association containing the Graph, Vertices, FlowEdges, TransitionEdges, EdgeVariables, and EdgeKinds.";
 
+edgeDensityProfile::usage =
+"edgeDensityProfile[s, sys, edge, rules, x] returns the agent density m on the \
+oriented edge {i,j} at coordinate x in [0,1], for a solved critical-congestion \
+scenario. It reads Alpha, V, G from the scenario Hamiltonian (V may be numeric or \
+a pure Function of x), takes the signed flow from the solution rules, and solves \
+j^2/(2 m^(2-Alpha)) - G(m) == -V(x) for m>0 (cf. the density recovery of the \
+paper). Returns 0 on edges with zero net flow, or a Missing[...] tag if the data \
+is incomplete. x must be numeric (e.g. as supplied by Plot).";
+
+edgeValueProfile::usage =
+"edgeValueProfile[s, sys, edge, rules, x] returns the value function u on the \
+oriented edge {i,j} at coordinate x in [0,1], using the critical-case linear \
+reconstruction u(x) = u_{ji} - j_{ij} x, where u_{ji} is the value at the entering \
+endpoint and j_{ij} is the signed flow from the solution rules. Returns a \
+Missing[...] tag if the required values are absent.";
+
 ShowAuxiliaryVertices::usage = "ShowAuxiliaryVertices is an option for rawNetworkPlot.";
 ShowBoundaryData::usage      = "ShowBoundaryData is an option for rawNetworkPlot and richNetworkPlot.";
 ShowBoundaryValues::usage    = "ShowBoundaryValues is an option for rawNetworkPlot and richNetworkPlot.";
@@ -226,6 +242,57 @@ edgeDensityValue[s_?scenarioQ, sys_?mfgSystemQ, edge_List, rules_List] :=
             Missing["DensityNotSolved"],
             FirstCase[N @ roots, value_?NumericQ /; value > 0, Missing["DensityNotSolved"]]
         ]
+    ];
+
+(* Evaluate a potential term at coordinate x: a numeric V is constant along the
+   edge; a pure Function is applied to x. *)
+evaluatePotentialAt[v_?NumericQ, _] := v;
+evaluatePotentialAt[v_Function, x_] := v[x];
+evaluatePotentialAt[_, _] := Missing["InvalidPotential"];
+
+(* Public: density profile m(x) along an oriented edge for a solved scenario.
+   Mirrors edgeDensityValue but evaluates a possibly x-dependent potential V(x);
+   x must be numeric (as supplied by Plot). *)
+edgeDensityProfile[s_?scenarioQ, sys_?mfgSystemQ, edge_List, rules_List, x_?NumericQ] :=
+    Module[{ham, alpha, v, g, jval, m, gexpr, vAtX, equation, roots},
+        ham = scenarioData[s, "Hamiltonian"];
+        If[!AssociationQ[ham], Return[Missing["InvalidHamiltonian"], Module]];
+        alpha = edgeHamiltonianValue[ham, "Alpha", edge];
+        v     = edgeHamiltonianValue[ham, "V",     edge];
+        g     = edgeHamiltonianValue[ham, "G",     edge];
+        If[MissingQ[alpha] || MissingQ[v] || MissingQ[g],
+            Return[Missing["InvalidHamiltonian"], Module]];
+        jval = edgeSignedFlowValue[sys, edge, rules];
+        If[!NumericQ[jval], Return[Missing["MissingFlow"], Module]];
+        If[Chop[N[jval]] == 0, Return[0, Module]];
+        vAtX = evaluatePotentialAt[v, x];
+        If[!NumericQ[alpha] || !NumericQ[vAtX],
+            Return[Missing["InvalidHamiltonian"], Module]];
+        gexpr = edgeGExpression[g, m];
+        If[MissingQ[gexpr], Return[gexpr, Module]];
+        equation = N[jval]^2/(2 m^(2 - N[alpha])) - gexpr == -N[vAtX];
+        roots = Quiet @ Check[m /. NSolve[{equation, m > 0}, m, Reals], $Failed];
+        If[roots === $Failed || roots === {} || !ListQ[roots],
+            Missing["DensityNotSolved"],
+            FirstCase[N @ roots, value_?NumericQ /; value > 0, Missing["DensityNotSolved"]]
+        ]
+    ];
+
+(* Public: value profile u(x) along an oriented edge {i,j}, using the critical-case
+   linear reconstruction u(x) = u_{ji} - j_{ij} x. The entering-endpoint value
+   u_{ji} is read from the solution as u[j,i]; if only the exit-endpoint value
+   u[i,j] is present, it is converted via u_{ji} = u_{ij} + j_{ij}. *)
+edgeValueProfile[s_?scenarioQ, sys_?mfgSystemQ, edge:{i_, j_}, rules_List, x_] :=
+    Module[{jval, uEnter, uExit},
+        jval = edgeSignedFlowValue[sys, edge, rules];
+        If[!NumericQ[jval], Return[Missing["MissingFlow"], Module]];
+        uEnter = u[j, i] /. rules;
+        If[!NumericQ[uEnter],
+            uExit = u[i, j] /. rules;
+            If[NumericQ[uExit], uEnter = uExit + jval,
+                Return[Missing["MissingValue"], Module]]
+        ];
+        uEnter - jval x
     ];
 
 (* ===========================================================
