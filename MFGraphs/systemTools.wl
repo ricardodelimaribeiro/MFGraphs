@@ -131,15 +131,22 @@ flowGathering[auxTriples_List][x_] :=
 
 switchingCostLookup[sc_Association][r_, i_, w_] := Lookup[sc, Key[{r, i, w}], 0]
 
+(* A switching cost may be a scalar or a pure Function of the transition flow. *)
+evalSwitchingCost[cost_, jVar_] :=
+    If[MatchQ[cost, _Function], cost[jVar], cost];
+
 ineqSwitch[u_, switching_][r_, i_, w_] :=
-    Module[{cost = switching[r, i, w]},
-        u[w, i] + If[MatchQ[cost, _Function], cost[j[r, i, w]], cost] - u[r, i] >= 0
-    ];
+    u[w, i] + evalSwitchingCost[switching[r, i, w], j[r, i, w]] - u[r, i] >= 0;
 
 altSwitch[j_, u_, switching_][r_, i_, w_] :=
-    Module[{cost = switching[r, i, w]},
-        (j[r, i, w] == 0) || (u[w, i] + If[MatchQ[cost, _Function], cost[j[r, i, w]], cost] - u[r, i] == 0)
-    ];
+    (j[r, i, w] == 0) ||
+    (u[w, i] + evalSwitchingCost[switching[r, i, w], j[r, i, w]] - u[r, i] == 0);
+
+(* Build And[ Simplify[e1 == 0], Simplify[e2 == 0], ... ] from a list of expressions.
+   Equivalent to Simplify /@ (And @@ ((# == 0)& /@ exprs)) — preserves the
+   per-conjunct Simplify pass that downstream solvers rely on. *)
+simplifyZeroConjunction[exprs_List] :=
+    And @@ (Simplify[# == 0]& /@ exprs);
 
 interiorTripleQ[triple:{r_, _, w_}, auxEntrySet_, auxExitSet_] :=
     !KeyExistsQ[auxEntrySet, r] && !KeyExistsQ[auxExitSet, w] &&
@@ -157,6 +164,11 @@ mfgComplementarityDataQ[x_] := mfgTypedQ[x, mfgComplementarityData];
 
 mfgHamiltonianDataQ[x_] := mfgTypedQ[x, mfgHamiltonianData];
 
+(* Predicate matching any of the four typed sub-records nested inside mfgSystem. *)
+subRecordQ[x_] :=
+    mfgTypedQ[x, mfgBoundaryData] || mfgTypedQ[x, mfgFlowData] ||
+    mfgTypedQ[x, mfgComplementarityData] || mfgTypedQ[x, mfgHamiltonianData];
+
 (* --- Accessor --- *)
 
 systemData[sys_] := mfgData[sys];
@@ -168,8 +180,7 @@ systemData[sys_, key_] :=
 
         (* Search in typed sub-records only *)
         Do[
-            If[mfgTypedQ[sub, mfgBoundaryData] || mfgTypedQ[sub, mfgFlowData] || 
-               mfgTypedQ[sub, mfgComplementarityData] || mfgTypedQ[sub, mfgHamiltonianData],
+            If[subRecordQ[sub],
                 val = Lookup[mfgData[sub], key, $Failed];
                 If[val =!= $Failed, Return[val, Module]]
             ],
@@ -182,9 +193,7 @@ systemData[sys_, key_] :=
 systemDataFlatten[sys_] :=
     Module[{assoc = mfgData[sys]},
         KeyDrop[
-            Join[assoc, Sequence @@ (mfgData /@ Select[Values[assoc],
-                mfgTypedQ[#, mfgBoundaryData] || mfgTypedQ[#, mfgFlowData] || 
-                mfgTypedQ[#, mfgComplementarityData] || mfgTypedQ[#, mfgHamiltonianData] &])],
+            Join[assoc, Sequence @@ (mfgData /@ Select[Values[assoc], subRecordQ])],
             {"BoundaryData", "FlowData", "ComplementarityData", "HamiltonianData"}
         ]
     ];
@@ -260,7 +269,7 @@ buildFlowData[s_?scenarioQ, topology_Association, unk_?symbolicUnknownsQ] :=
 
         splittingPairs = Join[inAuxEntryPairs, pairs];
         balanceSplittingFlows = (j @@ # - Total[j @@@ Lookup[splittingMaps, Key[#], {}]])& /@ splittingPairs;
-        eqBalanceSplittingFlows = Simplify /@ (And @@ ((# == 0)& /@ balanceSplittingFlows));
+        eqBalanceSplittingFlows = simplifyZeroConjunction[balanceSplittingFlows];
 
         noDeadStarts = Join[pairs, outAuxExitPairs];
         ruleBalanceGatheringFlows = Association[(j @@ # -> Total[j @@@
@@ -268,7 +277,7 @@ buildFlowData[s_?scenarioQ, topology_Association, unk_?symbolicUnknownsQ] :=
 
         balanceGatheringFlows = ((-j @@ # + Total[j @@@ Lookup[gatheringMaps,
             Key[#], {}]])& /@ noDeadStarts);
-        eqBalanceGatheringFlows = Simplify /@ (And @@ (# == 0& /@ balanceGatheringFlows));
+        eqBalanceGatheringFlows = simplifyZeroConjunction[balanceGatheringFlows];
 
         mfgFlowData @ <|
             "SignedFlows"              -> signedFlows,
