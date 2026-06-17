@@ -1,0 +1,56 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{hyperref}
+\title{utilities.wl Module Documentation}
+\author{MFGraphs maintainers}
+\date{}
+\begin{document}
+\maketitle
+
+\section{High-level explanation}
+
+\texttt{utilities.wl} is the shared-helpers layer of MFGraphs. It sits between \texttt{primitives.wl} (which defines the core symbolic heads and runtime flags) and every downstream module that needs typed-object infrastructure, rule manipulation, exact boundary handling, or critical-congestion guards. The file is loaded by \texttt{MFGraphs.wl} as part of the active package surface; users who load \texttt{MFGraphs`} get its public symbols on the unqualified context path.
+
+The module exists so that the same handful of conventions --- how typed wrappers are recognized, how rule lists are merged and normalized, how numeric boundary data is rationalized into exact form, and how solvers refuse non-critical systems --- can be reused without each subpackage reimplementing them.
+
+\section{Low-level explanation of functions and functionality}
+
+\subsection*{\texttt{mfgTypedQ} and \texttt{mfgData}}
+
+\texttt{mfgTypedQ[obj, head]} returns \texttt{True} when \texttt{obj} has the form \texttt{head[\_Association]}. It is the generic predicate behind \texttt{scenarioQ}, \texttt{symbolicUnknownsQ}, \texttt{mfgSystemQ}, and similar typed-object checks. \texttt{mfgData[obj]} returns the wrapped association; \texttt{mfgData[obj, key]} returns the value for a key or \texttt{Missing["KeyAbsent", key]}.
+
+\subsection*{\texttt{mergeRules}, \texttt{normalizeRules}, and \texttt{extractRules}}
+
+\texttt{mergeRules[oldRules, newRules]} joins rule lists while keeping the latest rule for each left-hand side. \texttt{normalizeRules[rules]} pushes the full rule set through the right-hand sides so accumulated substitutions become internally consistent. \texttt{extractRules[sol]} pulls replacement rules out of either a flat rule list or an association-shaped solver result. These three helpers are the backbone of multi-stage symbolic elimination in the solver layer.
+
+\subsection*{\texttt{roundValues}}
+
+\texttt{roundValues[x]} rounds numeric content to a standard precision (\(10^{-10}\)) with overloads for numbers, rules, lists, and associations. It is used to stabilize reporting output without altering the exact symbolic solutions.
+
+\subsection*{\texttt{exactBoundaryValue} and \texttt{exactBoundaryValues}}
+
+\texttt{exactBoundaryValue[val]} converts a numeric real boundary value to an exact rational via \texttt{Rationalize[val, 0]} and returns a \texttt{Failure} object for nonreal or nonnumeric inputs. \texttt{exactBoundaryValues[vals]} broadcasts that conversion over a list and short-circuits on the first failure. These functions guarantee that the symbolic system pipeline sees only exact boundary data.
+
+\subsection*{\texttt{criticalCongestionSystemQ}}
+
+\texttt{criticalCongestionSystemQ[sys]} returns \texttt{True} when every edge in \texttt{sys} has \texttt{Alpha == 1}. It is the predicate used by the critical-congestion solver family before doing any symbolic work.
+
+\subsection*{\texttt{withCriticalCongestionSolver} and \texttt{withCriticalCongestionGuard}}
+
+\texttt{withCriticalCongestionSolver[sys, solverName, bodyFunc]} wraps the shared solver scaffolding: it validates that \texttt{sys} is a critical congestion system, builds the standard solver inputs, invokes \texttt{bodyFunc} on those inputs, and then attaches the accumulated rules to the result. \texttt{withCriticalCongestionGuard[sys, solverName, body]} is the lighter form: it evaluates \texttt{body} only on critical systems and otherwise emits the \texttt{MFGraphs::noncritical} message and returns a \texttt{Failure}. Together they ensure that every critical-congestion solver entrypoint has the same precondition handling without duplicated boilerplate.
+
+\section{Usage guidance}
+
+End users rarely call \texttt{utilities.wl} symbols directly; they are infrastructure for the scenario, system, and solver layers. The two exceptions are \texttt{mergeRules} and \texttt{normalizeRules}, which are useful when post-processing solver output by hand, and \texttt{criticalCongestionSystemQ}, which is the cleanest way to ask whether a particular system is in the regime the active solvers support.
+
+\section*{References}
+
+\begin{enumerate}
+\item Source file: \texttt{MFGraphs/utilities.wl}
+\item Upstream dependency: \texttt{primitives.wl}
+\item Downstream consumers: \texttt{scenarioTools.wl}, \texttt{systemTools.wl}, \texttt{solversTools.wl}
+\end{enumerate}
+
+\end{document}

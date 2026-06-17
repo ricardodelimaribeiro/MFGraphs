@@ -32,6 +32,7 @@ MFGraphs solves for a stationary Mean Field Game (MFG) equilibrium on a network 
 
 Loaded by `Needs["MFGraphs`"]`:
 - `MFGraphs/primitives.wl`
+- `MFGraphs/utilities.wl`
 - `MFGraphs/scenarioTools.wl`
 - `MFGraphs/examples.wl`
 - `MFGraphs/unknownsTools.wl`
@@ -39,6 +40,10 @@ Loaded by `Needs["MFGraphs`"]`:
 - `MFGraphs/solversTools.wl`
 - `MFGraphs/orchestrationTools.wl`
 - `MFGraphs/graphicsTools.wl`
+
+Opt-in subpackages (load explicitly with `Needs["Tawaf`"]` or `Needs["numericOracle`"]`):
+- `MFGraphs/Tawaf.wl` — unrolled circumambulation scenario builder
+- `MFGraphs/numericOracle.wl` — LP-relaxation oracle and `solveScenarioWithOracle` wrapper
 
 Archived/inactive modules live under `MFGraphs/archive/`.
 
@@ -229,7 +234,7 @@ wolframscript -file MFGraphs/Tests/symbolic-unknowns.mt
 ```
 
 Current active runner suites (`Scripts/RunTests.wls`):
-- `fast`: `scenario-kernel.mt`, `symbolic-unknowns.mt`, `reduce-system.mt`, `scenario-consistency.mt`, `graphicsTools.mt`, `orchestration.mt`
+- `fast`: `scenario-kernel.mt`, `symbolic-unknowns.mt`, `reduce-system.mt`, `scenario-consistency.mt`, `graphicsTools.mt`, `orchestration.mt`, `dnf-reducer.mt`, `boolean-minimize.mt`, `tawaf.mt`, `example-coverage.mt`, `numeric-oracle.mt`
 - `all`: alias for `fast`
 - `archive`: archived compatibility/legacy suites (explicit use only)
 - `full`: `fast + archive`

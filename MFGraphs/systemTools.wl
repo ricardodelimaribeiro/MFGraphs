@@ -114,9 +114,7 @@ Begin["`Private`"]
    - exactBoundaryValues
 *)
 
-interiorTripleQ::usage =
-"interiorTripleQ[triple, auxEntrySet, auxExitSet] returns True if the triple \
-does not involve any auxiliary entry or exit vertices.";
+(* interiorTripleQ is a private helper used only by the local builders below. *)
 
 (* --- Structural Helpers Implementation --- *)
 

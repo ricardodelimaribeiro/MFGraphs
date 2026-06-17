@@ -4,7 +4,7 @@
 \usepackage[utf8]{inputenc}
 \usepackage{hyperref}
 \title{orchestrationTools.wl Module Documentation}
-\author{Manus AI}
+\author{MFGraphs maintainers}
 \date{}
 \begin{document}
 \maketitle
@@ -33,9 +33,17 @@ sols = solveScenario[{s1, s2}];
 
 \subsection*{\texttt{SolveMFG}}
 
-\texttt{SolveMFG[assoc]} is a backward-compatibility wrapper for legacy raw-association input. It first calls \texttt{makeScenario} to convert the raw input into the current typed scenario representation. If conversion fails, it emits a message and returns the failure. Otherwise, it delegates to \texttt{solveScenario}.
+\texttt{SolveMFG[assoc]} is a backward-compatibility wrapper for legacy raw-association input. It first calls \texttt{makeScenario} to convert the raw input into the current typed scenario representation. If conversion fails, it emits a message and returns the failure. Otherwise, it delegates to \texttt{solveScenario}. The two-argument form \texttt{SolveMFG[\textellipsis, solver]} forwards the solver selection through to \texttt{solveScenario}.
 
 Its main role is transitional. New code should generally prefer explicit \texttt{makeScenario} plus \texttt{solveScenario}, but \texttt{SolveMFG} preserves a familiar entrypoint for older calling styles.
+
+\subsection*{Session-scoped memoization}
+
+\texttt{solveScenario} is memoized in a session-scoped cache (\texttt{\$solveScenarioCache} in the private context) keyed by the hash of the scenario payload plus the solver symbol. Because every public solver in the package is a pure function of its \texttt{mfgSystem} input, this caching is safe: the first call on a given \texttt{(s, solver)} pair pays the full \texttt{makeSystem} plus solve cost, and subsequent calls return in essentially constant time. Direct calls into \texttt{dnfReduceSystem[sys]} or other low-level solvers bypass this cache by design --- benchmarks that need cold timings should use those entrypoints directly.
+
+\subsection*{\texttt{clearSolveCache}}
+
+\texttt{clearSolveCache[]} empties the session cache. It is the right call between benchmark passes when you want each pass to measure cold-start cost, and it can also be used to release memory in long-running interactive sessions. There is no return value worth keeping.
 
 \section{Usage guidance}
 

@@ -21,7 +21,11 @@ $PublicContexts = {
   "graphicsTools`"
 };
 
-symbols = DeleteDuplicates @ Flatten[Names[# <> "*"] & /@ $PublicContexts];
+(* `Names[ctx<>"*"]` does NOT match `$`-prefix symbols by Wolfram convention,
+   so fold in a second pass with `ctx<>"$*"`. Both passes are then deduped. *)
+symbols = DeleteDuplicates @ Flatten[
+  {Names[# <> "*"], Names[# <> "$*"]} & /@ $PublicContexts
+];
 publicSymbols = Select[
   symbols,
   !StringContainsQ[#, "Private`"] && !StringEndsQ[#, "$"] &
@@ -34,10 +38,16 @@ mdContent = {
   ""
 };
 
+(* Symbols with values (e.g. $MFGraphsVerbose = False) cause
+   `Information[Symbol[s], "Usage"]` to read the value's usage instead of the
+   symbol's. Use `MessageName` on a held symbol so the usage is read off the
+   symbol metadata directly. *)
+readUsage[name_String] := ToExpression[name <> "::usage", InputForm];
+
 Do[
   symName = Last @ StringSplit[s, "`"];
-  usage = Information[Symbol[s], "Usage"];
-  If[StringQ[usage] && !StringStartsQ[usage, "False is the symbol for"],
+  usage = readUsage[s];
+  If[StringQ[usage],
     AppendTo[mdContent, "## " <> symName];
     AppendTo[mdContent, ""];
     AppendTo[mdContent, usage];

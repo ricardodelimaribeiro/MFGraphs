@@ -50,14 +50,21 @@ data["AltFlows"]
 | File | Purpose |
 |------|---------|
 | `MFGraphs/MFGraphs.wl` | Package loader |
+| `MFGraphs/primitives.wl` | Symbolic atoms (`j`, `u`, `z`, `alpha`, `Cost`) and runtime flags |
+| `MFGraphs/utilities.wl` | Shared typed-object, rule, and critical-congestion helpers |
 | `MFGraphs/scenarioTools.wl` | Typed scenario kernel |
 | `MFGraphs/examples.wl` | Example scenario factories |
 | `MFGraphs/unknownsTools.wl` | Symbolic unknown bundle construction |
 | `MFGraphs/systemTools.wl` | Structural equation system kernel |
-| `MFGraphs/solversTools.wl` | Critical-congestion structural solver |
+| `MFGraphs/solversTools.wl` | Critical-congestion structural solvers |
 | `MFGraphs/orchestrationTools.wl` | High-level DNF-first solver orchestration |
 | `MFGraphs/graphicsTools.wl` | Scenario and solution plotting helpers |
+| `MFGraphs/Tawaf.wl` | **Opt-in** unrolled circumambulation scenario builder |
+| `MFGraphs/numericOracle.wl` | **Opt-in** LP-relaxation oracle + `solveScenarioWithOracle` |
 | `Scripts/RunTests.wls` | Test suite runner |
+
+Opt-in subpackages are not loaded by `Needs["MFGraphs`"]`. Load them
+explicitly: `Needs["Tawaf`"]`, `Needs["numericOracle`"]`.
 
 Benchmark selector names include `dnf` (default), `optimizeddnf`, `activeset`,
 `reduce`, `boolean`, and `findinstance`.

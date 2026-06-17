@@ -13,9 +13,11 @@ PrependTo[$Path, "/path/to/MFGraphs"];
 Needs["MFGraphs`"];
 ```
 
-The active loader brings in `primitives.wl`, `scenarioTools.wl`,
-`examples.wl`, `unknownsTools.wl`, `systemTools.wl`, `solversTools.wl`, and
-`graphicsTools.wl`.
+The active loader brings in `primitives.wl`, `utilities.wl`, `scenarioTools.wl`,
+`examples.wl`, `unknownsTools.wl`, `systemTools.wl`, `solversTools.wl`,
+`orchestrationTools.wl`, and `graphicsTools.wl`. `Tawaf.wl` and
+`numericOracle.wl` are opt-in — load them after `Needs["MFGraphs`"]` with
+`Needs["Tawaf`"]` / `Needs["numericOracle`"]`.
 
 ### Scenario validation returns `Failure`
 

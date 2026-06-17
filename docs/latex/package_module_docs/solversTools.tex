@@ -2,9 +2,12 @@
 \usepackage[margin=1in]{geometry}
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{longtable}
 \usepackage{hyperref}
 \title{solversTools.wl Module Documentation}
-\author{Manus AI}
+\author{MFGraphs maintainers}
 \date{}
 \begin{document}
 \maketitle
@@ -14,6 +17,41 @@
 \texttt{solversTools.wl} is the active symbolic solver layer for \texttt{mfgSystem} objects. All public solver entrypoints in this file work on the same basic principle: first preprocess the system structurally, then apply a final solving strategy suited to the residual logical form. The file therefore serves as both the solve-stage API and the shared solver-infrastructure layer.
 
 A central architectural fact about this module is that the active public solvers only support \emph{critical congestion} systems, meaning systems with \texttt{Alpha == 1} on every edge. This restriction is enforced explicitly by several public entrypoints. Another central fact is that the module distinguishes between exact linear preprocessing and the final residual-solve strategy. That is why multiple solver entrypoints can coexist while still sharing most of their setup logic.
+
+\section{Choosing a solver}
+
+The table below summarizes the public solver family. ``Exact'' means the solver returns either a rule list, a residual-equations record, or a no-solution signal --- never a numeric approximation. ``Backend'' identifies whether the final residual solve uses a Wolfram primitive directly or a package-defined reducer on top of one.
+
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\begin{longtable}{@{}p{4.0cm} p{3.2cm} p{8.0cm}@{}}
+\toprule
+\textbf{Solver} & \textbf{Backend} & \textbf{When to use it} \\
+\midrule
+\endhead
+\texttt{reduceSystem} & \texttt{Reduce} (Reals) & Reference baseline. Conceptually simplest; can branch heavily on complementarity and time out on medium-sized systems. \\
+\texttt{dnfReduceSystem} & DFS DNF reducer & \emph{Default} for \texttt{solveScenario}. Equality-substitute-and-distribute, depth-first. Robust across the test suite. \\
+\texttt{bfsDNFReduceSystem} & BFS DNF reducer & Breadth-first analog of the default. Statistically indistinguishable from DFS on the current benchmark suite (see \texttt{BENCHMARKS.md}); kept as a reference variant. \\
+\texttt{optimizedDNFReduceSystem} & Branch-state DNF & Use when the number of tracked unknowns is small enough that exact branch-state enumeration is cheaper than full DNF distribution. Falls back to \texttt{dnfReduceSystem} otherwise. \\
+\texttt{activeSetReduceSystem} & Active-set + DNF & Specialized for the complementarity decomposition. Often the right pick on topologies with many switching alternatives; the oracle path (\texttt{solveScenarioWithOracle}) calls into this solver. \\
+\texttt{booleanReduceSystem} & \texttt{BooleanConvert} then \texttt{Reduce} & DNF expansion at the Boolean layer with one \texttt{Reduce} per disjunct. Avoids some \texttt{Reduce} branching pathologies; controlled by \texttt{"DisjunctTimeout"} and \texttt{"ReturnAll"}. \\
+\texttt{booleanMinimizeSystem} & \texttt{BooleanMinimize} then \texttt{Reduce} & Replaces \texttt{BooleanConvert} with minimal-DNF cover construction. Slower setup, smaller per-disjunct work; useful when the disjunction has many absorbable arms. \\
+\texttt{booleanMinimizeReduceSystem} & Pruning + components + \texttt{BooleanMinimize} & Adds arm pruning and connected-component decomposition before \texttt{BooleanMinimize}. The most aggressive symbolic solver in the package; pays off on large systems whose complementarity graph decomposes. \\
+\texttt{findInstanceSystem} & \texttt{FindInstance} (Reals) & When a single feasible rule set is sufficient and you do not need a full symbolic parameterization. \\
+\texttt{directCriticalSystem} & Distance pruning + \texttt{FindInstance} & Restricted to systems with numeric zero switching costs and equal numeric exit values. Returns \texttt{Failure} otherwise. Fastest path when its preconditions hold. \\
+\texttt{flowFirstCriticalSystem} & \texttt{LeastSquares} + \texttt{FindInstance} & Linear least-squares flow candidate followed by feasibility check. Useful when the flow block is over-determined linearly and the residual is small. \\
+\bottomrule
+\end{longtable}
+\end{center}
+
+\paragraph{Rules of thumb.}
+\begin{itemize}
+\item Start with \texttt{solveScenario[s]} (\texttt{dnfReduceSystem} underneath).
+\item If it times out on a large or highly symmetric system, try \texttt{solveScenarioWithOracle[s]} (opt-in \texttt{numericOracle} subpackage; uses \texttt{activeSetReduceSystem}).
+\item If you only need feasibility, use \texttt{findInstanceSystem}.
+\item If the system has the special structure required by \texttt{directCriticalSystem}, that solver is usually fastest.
+\item Use \texttt{reduceSystem} as a correctness baseline when developing new solvers.
+\end{itemize}
 
 \section{Low-level explanation of functions and functionality}
 
@@ -35,6 +73,10 @@ This function is not the top-level solver most users call first, but it is the k
 
 In the current repository phase, this is the default user-facing symbolic solver route.
 
+\subsection*{\texttt{bfsDNFReduce} and \texttt{bfsDNFReduceSystem}}
+
+\texttt{bfsDNFReduce[xp, sys]} is the breadth-first analog of \texttt{dnfReduce}: at every depth it expands all surviving conjuncts one step before recursing, so that equality substitutions discovered on any sibling branch can be reused across the whole frontier through the shared \texttt{\$dnfSolveCache}. \texttt{bfsDNFReduceSystem[sys]} is the system-level wrapper, parallel to \texttt{dnfReduceSystem} but using the BFS reducer. On the current benchmark suite the two strategies are statistically indistinguishable, so the depth-first variant remains the default; the BFS variant is shipped as a comparable reference.
+
 \subsection*{\texttt{optimizedDNFReduceSystem}}
 
 \texttt{optimizedDNFReduceSystem[sys]} is an opt-in exact solver that uses a small-branch exact branch-state path when the number of tracked variables is sufficiently small, and otherwise falls back to the proven DNF reducer path.
@@ -53,11 +95,23 @@ This solver is structurally more specialized than \texttt{optimizedDNFReduceSyst
 
 Its options are \texttt{"DisjunctTimeout"} and \texttt{"ReturnAll"}. The first bounds each disjunct-level \texttt{Reduce} call. The second chooses whether to return only the first parsed result or all non-false parsed results.
 
+\subsection*{\texttt{booleanMinimizeSystem} and \texttt{booleanMinimizeReduceSystem}}
+
+\texttt{booleanMinimizeSystem[sys, opts]} replaces the \texttt{BooleanConvert} step of \texttt{booleanReduceSystem} with \texttt{BooleanMinimize[..., "DNF"]}, producing a minimal-DNF cover before each per-disjunct \texttt{Reduce}. \texttt{booleanMinimizeReduceSystem[sys, opts]} additionally prunes implausible arms and decomposes the residual constraints into independent components before invoking \texttt{BooleanMinimize} on each component separately. Both are exact and operate on the same critical-congestion preprocessing pipeline as the other solvers.
+
 \subsection*{\texttt{findInstanceSystem}}
 
 \texttt{findInstanceSystem[sys, opts]} applies the shared preprocessing and then asks \texttt{FindInstance} for one feasible rule set on the remaining variables. It is useful when feasibility is more important than obtaining a complete symbolic parameterization.
 
 Its main option is \texttt{"Timeout"}.
+
+\subsection*{\texttt{directCriticalSystem} and \texttt{flowFirstCriticalSystem}}
+
+These are opt-in critical-congestion solvers preserved as proof-of-concept alternatives to the DNF and active-set families. \texttt{directCriticalSystem[sys]} is a graph-distance pruning heuristic that selects a candidate active set and then runs \texttt{FindInstance} on the residual; it is restricted to systems with numeric zero switching costs and equal numeric exit values, returning a \texttt{Failure} object otherwise. \texttt{flowFirstCriticalSystem[sys]} constructs a linear least-squares flow candidate via \texttt{LeastSquares} and then verifies feasibility with \texttt{FindInstance}. Neither solver is part of the default \texttt{solveScenario} path.
+
+\subsection*{\texttt{solutionReport} and \texttt{solutionBranchCostReport}}
+
+\texttt{solutionReport[sys, sol]} returns an association summarizing a solver result: result kind, validation report, Kirchhoff residual, and transition-flow diagnostics. \texttt{solutionBranchCostReport[sys, sol]} ranks the branches of a residual disjunctive solution by total objective value without rewriting the solution itself. Both functions are diagnostics: they consume any solver output and produce a stable inspection record, which makes them useful for benchmarking and for triaging unfinished branches.
 
 \subsection*{\texttt{isValidSystemSolution}}
 
