@@ -96,8 +96,10 @@ wolframscript -file Scripts/GenerateDocs.wls
 - **CLAUDE.md** is the canonical AI/developer workflow guide
 - **GEMINI.md** is a synchronized companion reference for the same workflows
 - **AGENTS.md** must remain a thin pointer (do not duplicate long-form guidance there)
+- **TOUR.md** is the guided reading order for new contributors — refresh when modules are added or removed
 - **BENCHMARKS.md** documents the profiling infrastructure — update when adding new benchmark cases
 - **CONTRIBUTING.md** (this file) — update when workflow changes
+- **`docs/latex/package_module_docs/`** holds per-module long-form `.tex` docs; update when a module's public surface changes
 
 ### What NOT to manually edit
 - `API_REFERENCE.md` — auto-generated; edit `::usage` strings in source instead

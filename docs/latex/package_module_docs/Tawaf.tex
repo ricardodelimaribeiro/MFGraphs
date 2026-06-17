@@ -1,0 +1,109 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath, amssymb}
+\usepackage{hyperref}
+\title{Tawaf.wl Module Documentation (opt-in)}
+\author{MFGraphs maintainers}
+\date{}
+\begin{document}
+\maketitle
+
+\section{High-level explanation}
+
+\texttt{Tawaf.wl} is an \emph{opt-in} subpackage that ships inside the \texttt{MFGraphs} directory but is intentionally \emph{not} loaded by \texttt{Needs["MFGraphs`"]}. It models the Tawaf ritual --- counter-clockwise circumambulation of the Kaaba for a fixed number of rounds --- by \emph{unrolling} the circular ring into a long acyclic chain, then \emph{coupling} the resulting per-round flow variables so that physically identical edges across rounds share the same congestion. Users opt in by loading the main package and then the subpackage:
+
+\begin{verbatim}
+Needs["MFGraphs`"];
+Needs["Tawaf`"];
+\end{verbatim}
+
+After loading, the subpackage's public symbols are available on the context path alongside the rest of the MFGraphs surface. The modelling notes that justify the unroll-then-couple construction live at \texttt{docs/research/notes/tawaf-model.md} in the repository.
+
+\section{Geometric construction}
+
+A scenario built with \texttt{makeTawafScenario[rounds, nodesPerRound, layers]} has $\text{rounds} \times \text{nodesPerRound} \times \text{layers}$ logical vertices. The default value of \texttt{layers} is $1$. Vertices are indexed by triples $(r, p, l)$ with $1 \le r \le \text{rounds}$, $1 \le p \le \text{nodesPerRound}$, $1 \le l \le \text{layers}$, and flattened layer-major by
+\[
+\texttt{tawafEncode}(r, p, l) \;=\; (l - 1)\cdot \text{rounds} \cdot \text{nodesPerRound} \;+\; (r - 1)\cdot \text{nodesPerRound} \;+\; p.
+\]
+Edges come in two families:
+\begin{itemize}
+\item \emph{Tangential} edges run forward only (counter-clockwise) within a fixed layer $l$: $(r, p, l) \to (r, p+1, l)$ when $p < \text{nodesPerRound}$, and $(r, \text{nodesPerRound}, l) \to (r+1, 1, l)$ when $r < \text{rounds}$. The very last position of the last round has no outgoing tangential edge.
+\item \emph{Radial} edges, present only when \texttt{layers} $> 1$, run in both directions between adjacent layers at the same $(r, p)$: $(r, p, l) \leftrightarrow (r, p, l+1)$.
+\end{itemize}
+
+Boundary data is generated automatically: entries of mass $100/\text{layers}$ are placed at $(1, 1, l)$ for each layer, and exits of terminal cost $0$ are placed at $(\text{rounds}, \text{nodesPerRound}, l)$ for each layer. The Black Stone is modelled by setting $V = -5$ on every tangential edge leaving position $p = 1$ of any round; all other edges receive a baseline $V$ (zero by default, a strictly negative \texttt{"BaselinePotential"} when the density extension is enabled). Construction metadata (\texttt{Rounds}, \texttt{NodesPerRound}, \texttt{Layers}, \texttt{Density}, \texttt{BaselinePotential}) is stored on the scenario at \texttt{scenarioData[s, "Tawaf"]}.
+
+\section{Cross-round coupling}
+
+The unrolled graph treats every logical edge as independent, but physically the same arc is traversed once per round. \texttt{makeTawafSystem} therefore groups the per-round flow variables by their \emph{physical id}: tangential flows on $(p_a, p_b, l, \text{direction})$ across all rounds, and radial flows on $(p, l_a, l_b, \text{direction})$ across all rounds. Within each physical cohort the system rewrites \texttt{EqGeneral} and \texttt{AltOptCond} so that every logical flow is replaced by the cohort sum
+\[
+j_{\text{logical}} \;\mapsto\; \sum_{\text{logical edges in the same cohort}} j_{\text{logical}},
+\]
+ensuring that congestion acts on the shared physical flow rather than on each round in isolation. Singleton cohorts and the boundary group are left untouched.
+
+\section{Public symbols}
+
+\subsection*{\texttt{makeTawafScenario}}
+
+\texttt{makeTawafScenario[rounds, nodesPerRound]} and \texttt{makeTawafScenario[rounds, nodesPerRound, layers]} return a typed \texttt{scenario[\textellipsis]} with the geometry described above. Options:
+\begin{itemize}
+\item \texttt{"Density" -> True} (default \texttt{False}) opts into the density-dependent cost extension and requires a strictly negative \texttt{"BaselinePotential"}.
+\item \texttt{"BaselinePotential" -> -1.0} (default) sets the negative baseline $V$ that is added on top of the Black-Stone discount when \texttt{"Density"} is on.
+\end{itemize}
+The builder validates dimensions ($\texttt{rounds} \ge 1$, $\texttt{nodesPerRound} \ge 2$, $\texttt{layers} \ge 1$) and returns a \texttt{Failure} object on violation.
+
+\subsection*{\texttt{makeTawafSystem}}
+
+\texttt{makeTawafSystem[s]} and \texttt{makeTawafSystem[s, unk]} build an \texttt{mfgSystem}, then rewrite \texttt{EqGeneral} and \texttt{AltOptCond} with the cross-round coupling described above. When the scenario was built with \texttt{"Density" -> True}, the builder additionally:
+\begin{itemize}
+\item generates a per-physical-edge density family \texttt{m[\{a, b\}]}, keyed by the lex-smallest logical undirected edge in each cohort;
+\item appends a density--flow consistency block to the Hamiltonian record:
+\[
+j_{\text{phys}}^2 \;+\; 2\, V\, m[\{a, b\}] \;+\; 1 \;=\; 0,
+\]
+where $j_{\text{phys}}$ is the signed physical flow on the cohort and $V$ is the per-edge potential;
+\item appends the positivity inequalities \texttt{m[\{a, b\}] > 0}.
+\end{itemize}
+If the scenario does not carry the \texttt{Tawaf} metadata block, the function returns a \texttt{Failure}.
+
+\subsection*{\texttt{tawafEncode}}
+
+\texttt{tawafEncode[r, p, l, rounds, nodesPerRound]} returns the layer-major flat vertex index for $(r, p, l)$. It is the single source of truth for the codec; downstream code that needs to address Tawaf vertices by coordinate should call this helper rather than re-deriving the formula. (The inverse decoder is private to the subpackage.)
+
+\subsection*{\texttt{m}}
+
+\texttt{m[\{a, b\}]} is the per-physical-edge density symbol used by the density extension. One symbol is generated per non-boundary physical undirected edge, keyed by the lex-smallest logical undirected edge in the cohort. \texttt{EqDensityFlow} contains exactly one consistency equation per such \texttt{m}.
+
+\subsection*{\texttt{tawafDensities}}
+
+\texttt{tawafDensities[sys, sol]} derives the per-physical-edge densities from a solution \texttt{sol} of the $(j, u)$ part of a Tawaf-with-density system. For each $m[\{a, b\}]$, it locates the consistency equation in which it appears, substitutes the rules from \texttt{sol}, and solves the resulting linear equation for $m[\{a, b\}]$. The return value is an \texttt{Association} of rules $\{m[\{a, b\}] \to \text{value}\}$; it is empty when the system was not built with \texttt{"Density" -> True}. The result is designed to be \texttt{Join}-ed with \texttt{sol} so that downstream code sees a complete $(j, u, m)$ rule list.
+
+\section{Usage guidance}
+
+A typical density-extended workflow is:
+
+\begin{verbatim}
+Needs["MFGraphs`"];
+Needs["Tawaf`"];
+
+s   = makeTawafScenario[3, 6, "Density" -> True];
+sys = makeTawafSystem[s];
+sol = solveScenario[s];
+mRules = tawafDensities[sys, sol];
+full   = Join[sol, Normal[mRules]];
+\end{verbatim}
+
+For scenarios that are not circumambulations, use the general scenario constructors (\texttt{makeScenario}, \texttt{gridScenario}, \texttt{cycleScenario}, etc.) instead. Tawaf is a specialized builder, not a general-purpose backend.
+
+\section*{References}
+
+\begin{enumerate}
+\item Source file: \texttt{MFGraphs/Tawaf.wl}
+\item Test suite: \texttt{MFGraphs/Tests/tawaf.mt}
+\item Modelling notes: \texttt{docs/research/notes/tawaf-model.md}
+\item Loader status: opt-in (not in \texttt{MFGraphs.wl}'s \texttt{BeginPackage} dependency list).
+\end{enumerate}
+
+\end{document}

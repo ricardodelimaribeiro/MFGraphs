@@ -2,107 +2,116 @@
 \usepackage[margin=1in]{geometry}
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{longtable}
 \usepackage{hyperref}
 \title{graphicsTools.wl Module Documentation}
-\author{Manus AI}
+\author{MFGraphs maintainers}
 \date{}
 \begin{document}
 \maketitle
 
 \section{High-level explanation}
 
-\texttt{graphicsTools.wl} is the visualization layer of the active MFGraphs package. It turns scenarios, systems, and solver outputs into readable Wolfram \texttt{Graph} objects that display topology, flow, value, transition, and augmented-infrastructure structure.
+\texttt{graphicsTools.wl} is the visualization layer of the active MFGraphs package. It exposes two plotters and one structural helper. \texttt{rawNetworkPlot} renders the physical network as the user sees it (real vertices and physical edges), and \texttt{richNetworkPlot} renders the \emph{augmented state-space graph} (oriented-edge nodes, flow arcs, and transition arcs) that the system builders actually solve over. \texttt{augmentAuxiliaryGraph} produces the underlying augmented-graph data that \texttt{richNetworkPlot} consumes, so external tooling can build its own views without re-deriving the augmented structure.
 
-The module's design is intentionally layered. First, it normalizes solution input into rules. Second, it derives edge orientation, edge labels, and state labels from those rules. Third, it exposes several specialized plotters, each tailored to a different interpretation of the underlying mean field game data. This separation makes the file easier to extend and also keeps plotting concerns distinct from the solver and system modules.
+The module deliberately ships only those two visual idioms. Every styling concern --- whether boundary data is shown, which labels appear, how arcs are coloured, how anti-parallel edges are separated --- is exposed through plot options rather than through additional public functions.
 
-\section{Low-level explanation of functions and functionality}
+\section{Public symbols}
 
-\subsection*{\texttt{scenarioTopologyPlot}}
+\subsection*{\texttt{rawNetworkPlot}}
 
-\texttt{scenarioTopologyPlot[s, sys, opts]} displays the base network topology. Entry vertices, exit vertices, and internal vertices are given distinct colors. The plot ignores solved values and instead emphasizes the structural graph itself.
+\texttt{rawNetworkPlot[s, sys, opts]} and \texttt{rawNetworkPlot[s, sys, sol, opts]} render the physical network. Real network vertices are drawn in gray; auxiliary entry/exit vertices and boundary edges are hidden by default. When a solution is supplied, shown vertex states are coloured by a $u$-value gradient (blue $\to$ red) while physical entry/exit vertices remain gray. Density labels can be overlaid for Tawaf-with-density systems.
 
-The function also provides a convenience overload in which a bare title argument is rewritten as \texttt{PlotLabel -> title}. This makes it easy to label figures succinctly.
+Options (all defaults shown):
 
-\subsection*{\texttt{mfgSolutionPlot}}
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\begin{longtable}{@{}p{4.2cm} p{2.4cm} p{8.4cm}@{}}
+\toprule
+\textbf{Option} & \textbf{Default} & \textbf{Effect} \\
+\midrule
+\endhead
+\texttt{ShowAuxiliaryVertices} & \texttt{False} & Show the auxiliary entry/exit vertices added by \texttt{makeScenario}. \\
+\texttt{ShowBoundaryData}      & \texttt{False} & Overlay boundary entry/exit data; forces \texttt{ShowAuxiliaryVertices} on. \\
+\texttt{ShowBoundaryValues}    & \texttt{True}  & Show $u$-values on auxiliary exit vertices when boundary data is shown. \\
+\texttt{ShowFlowLabels}        & \texttt{Automatic} & Label edges with $j$-values; \texttt{True} when a solution is supplied. \\
+\texttt{ShowValueLabels}       & \texttt{Automatic} & Label vertex states with $u$-values; \texttt{True} when a solution is supplied. \\
+\texttt{ShowDensityLabels}     & \texttt{False} & Show inferred per-edge densities $m$ (Tawaf-with-density). \\
+\texttt{ColorFunction}         & \texttt{Automatic} & Custom colour function over $u$-values (default: blue-to-red blend). \\
+\texttt{ShowLegend}            & \texttt{True}  & Display the legend. \\
+\texttt{GraphLayout}           & \texttt{Automatic} & Forwarded to the underlying \texttt{Graph} call. \\
+\texttt{PlotLabel}             & \texttt{Automatic} & Title styling. \\
+\texttt{ImageSize}             & \texttt{Large} & Forwarded to the underlying \texttt{Graph} call. \\
+\bottomrule
+\end{longtable}
+\end{center}
 
-\texttt{mfgSolutionPlot[s, sys, sol, opts]} plots the auxiliary network with edge directions inferred from solved net flows and with labels that include both \texttt{j} and \texttt{u} values. It is the most information-dense general-purpose visualization in the file.
+\subsection*{\texttt{richNetworkPlot}}
 
-Use this plot when both edge-flow magnitudes and edge-value information matter simultaneously.
+\texttt{richNetworkPlot[s, sys, opts]} and \texttt{richNetworkPlot[s, sys, sol, opts]} render the augmented state-space graph. Nodes are oriented-edge pairs $\{a, b\}$ representing the state ``arriving at $b$ along edge $(a, b)$''. Edges come in two colours: flow arcs $j[a, b]$ in blue and transition arcs $j[r, i, w]$ in red. Arcs are drawn as quadratic Bezier curves so that anti-parallel pairs separate visually. Only nodes whose second component is an auxiliary entry/exit vertex receive boundary colouring.
 
-\subsection*{\texttt{mfgFlowPlot}}
+Options (all defaults shown):
 
-\texttt{mfgFlowPlot[s, sys, sol, opts]} is the flow-only counterpart to \texttt{mfgSolutionPlot}. It emphasizes directed flow structure and labels edges with \texttt{j}-values only.
-
-This is often the best first plot when a user wants to inspect routing patterns without the additional clutter of value labels.
-
-\subsection*{\texttt{mfgTransitionPlot}}
-
-\texttt{mfgTransitionPlot[s, sys, sol, opts]} visualizes the transition graph. In this view, nodes represent auxiliary-pair states and directed edges represent transition-flow variables \texttt{j[r,i,w]}. Where available, node labels include \texttt{u}-values.
-
-This plot is especially helpful when analyzing switching structure rather than only aggregate edge flows.
-
-\subsection*{\texttt{mfgAugmentedPlot}}
-
-\texttt{mfgAugmentedPlot[s, sys, sol, opts]} displays the augmented road-traffic infrastructure graph built by \texttt{augmentAuxiliaryGraph}. In this representation, flow edges and transition edges are visually distinguished, typically by color.
-
-It is the most explicit plotter for understanding the expanded state-transition interpretation of the system.
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\begin{longtable}{@{}p{4.2cm} p{2.4cm} p{8.4cm}@{}}
+\toprule
+\textbf{Option} & \textbf{Default} & \textbf{Effect} \\
+\midrule
+\endhead
+\texttt{ShowFlowEdges}      & \texttt{True}  & Include flow arcs $j[a, b]$. Set to \texttt{False} to obtain the transition-only graph. \\
+\texttt{ShowBoundaryData}   & \texttt{False} & Overlay entry-flow and exit-cost labels. \\
+\texttt{ShowBoundaryValues} & \texttt{True}  & Show $u$ / exit-cost on boundary nodes. \\
+\texttt{ShowFlowLabels}     & \texttt{Automatic} & Label arcs with $j$-values; \texttt{True} when a solution is supplied. \\
+\texttt{ShowValueLabels}    & \texttt{Automatic} & Label nodes with $u$-values; \texttt{True} when a solution is supplied. \\
+\texttt{UseColorFunction}   & \texttt{False} & Colour nodes and eligible edges by $u$-values via \texttt{ColorFunction}. \\
+\texttt{ColorFunction}      & \texttt{Automatic} & Custom colour function over $u$-values. \\
+\texttt{ShowLegend}         & \texttt{True}  & Display the legend. \\
+\texttt{BendFactor}         & \texttt{0.15}  & Arc curvature as a fraction of edge length. \\
+\texttt{GraphLayout}        & \texttt{Automatic} & Forwarded to the underlying \texttt{Graph} call. \\
+\texttt{PlotLabel}          & \texttt{Automatic} & Title styling. \\
+\texttt{ImageSize}          & \texttt{Large} & Forwarded to the underlying \texttt{Graph} call. \\
+\bottomrule
+\end{longtable}
+\end{center}
 
 \subsection*{\texttt{augmentAuxiliaryGraph}}
 
-\texttt{augmentAuxiliaryGraph[sys]} constructs an association containing the augmented graph, its vertices, flow edges, transition edges, a mapping from edges to symbolic variables, and a mapping from edges to edge kinds.
-
-This function is not only a helper for plotting. It is also a compact structural export of the augmented graph model that other tooling could inspect or reuse.
-
-\subsection*{\texttt{extractRules}}
-
-\texttt{extractRules[sol]} normalizes accepted solution formats into a simple rule list. It supports both raw rule lists and associations carrying a \texttt{"Rules"} key.
-
-This helper is crucial because the solver layer can return multiple solution shapes.
-
-\subsection*{\texttt{netEdgeFlow}}
-
-\texttt{netEdgeFlow[a,b,rules]} computes the signed net flow \texttt{j[a,b] - j[b,a]} under the supplied rules, defaulting absent variables to zero. It is used to orient displayed edges consistently with the solved direction of travel.
-
-\subsection*{\texttt{edgeJValue}}
-
-\texttt{edgeJValue[a,b,rules]} retrieves the solved \texttt{j[a,b]} value for an edge, again defaulting absent variables to zero. It is used for labeling and thickness scaling.
-
-\subsection*{\texttt{edgeUValue}}
-
-\texttt{edgeUValue[a,b,rules]} retrieves a solved \texttt{u}-value associated with the edge endpoints when one is available. If neither orientation yields a solved value, it returns \texttt{Missing[]}.
-
-\subsection*{\texttt{directedDisplayEdges}}
-
-\texttt{directedDisplayEdges[edges, rules]} converts undirected display edges into directed ones according to solved net flow. This is a key helper because the system's structural graph and the displayed flow orientation are not always the same thing.
-
-\subsection*{\texttt{stateLabel} and related helpers}
-
-\texttt{stateAtomLabel} and \texttt{stateLabel} create compact readable labels for augmented-state vertices, especially auxiliary boundary labels such as \texttt{auxEntry1} and \texttt{auxExit1}. These helpers keep the transition and augmented plots legible.
-
-\subsection*{\texttt{plotLabelValue}}
-
-\texttt{plotLabelValue[label, default]} standardizes title behavior. It turns \texttt{Automatic} into a styled default title, respects \texttt{None}, and styles custom labels consistently.
+\texttt{augmentAuxiliaryGraph[sys]} constructs the augmented state-space graph from the system's \texttt{AuxPairs} and \texttt{AuxTriples}. It returns an \texttt{Association} with keys:
+\begin{itemize}
+\item \texttt{"Graph"} --- the Wolfram \texttt{Graph} object;
+\item \texttt{"Vertices"} --- the list of oriented-edge node labels;
+\item \texttt{"FlowEdges"} --- flow arcs corresponding to the $j[a, b]$ family;
+\item \texttt{"TransitionEdges"} --- transition arcs corresponding to the $j[r, i, w]$ family;
+\item \texttt{"EdgeVariables"} --- map from each arc to the symbolic variable it represents;
+\item \texttt{"EdgeKinds"} --- map from each arc to either \texttt{"Flow"} or \texttt{"Transition"}.
+\end{itemize}
+This is the data \texttt{richNetworkPlot} renders. External tooling that wants to draw its own augmented-state view (e.g.\ in a notebook, in a publication figure, or in an animation) should consume this association directly rather than reimplementing the augmentation logic.
 
 \section{Usage guidance}
 
 A typical plotting workflow is:
 
 \begin{verbatim}
-s   = gridScenario[{3}, {{1,10}}, {{3,0}}];
+s   = gridScenario[{3}, {{1, 10}}, {{3, 0}}];
 sys = makeSystem[s];
 sol = solveScenario[s];
-plot1 = scenarioTopologyPlot[s, sys];
-plot2 = mfgFlowPlot[s, sys, sol];
+
+raw  = rawNetworkPlot[s, sys, sol];                  (* physical view *)
+rich = richNetworkPlot[s, sys, sol];                 (* augmented view *)
+transOnly = richNetworkPlot[s, sys, sol, ShowFlowEdges -> False];
 \end{verbatim}
 
-In general, choose \texttt{scenarioTopologyPlot} for structure only, \texttt{mfgFlowPlot} for routing, \texttt{mfgSolutionPlot} for joint flow-and-value inspection, \texttt{mfgTransitionPlot} for switching analysis, and \texttt{mfgAugmentedPlot} for augmented-state infrastructure views.
+Choose \texttt{rawNetworkPlot} when the audience cares about the network as a road map or topology, and \texttt{richNetworkPlot} when they need to reason about transition structure and switching choices. The two plots are complementary: showing them side by side is often the clearest way to communicate what an MFGraphs solution means.
 
 \section*{References}
 
 \begin{enumerate}
 \item Source file: \texttt{MFGraphs/graphicsTools.wl}
 \item Upstream dependencies: \texttt{scenarioTools.wl}, \texttt{systemTools.wl}
-\item Current usage examples: \texttt{MFGraphs/Tests/graphicsTools.mt}
+\item Test suite: \texttt{MFGraphs/Tests/graphicsTools.mt}
 \end{enumerate}
 
 \end{document}

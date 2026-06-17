@@ -2,9 +2,10 @@
 \usepackage[margin=1in]{geometry}
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
+\usepackage{amsmath, amssymb}
 \usepackage{hyperref}
 \title{systemTools.wl Module Documentation}
-\author{Manus AI}
+\author{MFGraphs maintainers}
 \date{}
 \begin{document}
 \maketitle
@@ -14,6 +15,49 @@
 \texttt{systemTools.wl} is the structural equation-system kernel of MFGraphs. It takes a typed scenario and a typed symbolic unknown bundle and builds a typed \texttt{mfgSystem} object containing the equations, inequalities, rules, and typed subrecords that represent a stationary mean field game on the network.
 
 Architecturally, this module is where scenario semantics become algebra. It collects boundary conditions, flow balance, complementarity constraints, switching inequalities, and Hamiltonian relations into a consistent system object. The design is modular: four builders produce typed records for boundary, flow, complementarity, and Hamiltonian data, and those records are then merged into the final system association.
+
+\section{The mean field game system this module assembles}
+
+Fix a directed multigraph $G = (V, E)$ obtained by augmenting the user-supplied network with auxiliary entry and exit vertices. On each directed edge $(a, b) \in E$ the module introduces a flow variable $j[a, b]$ and a per-vertex value variable $u[a, b]$ representing the optimal cost-to-go evaluated at vertex $a$ along the edge $(a, b)$. Three structural blocks act on these unknowns.
+
+\paragraph{Boundary conditions.} For each entry vertex $a$ with mass $\mu_a$, the module emits the entry-current equation
+\[
+\sum_{b\,:\,(a,b)\in E} j[a, b] \;=\; \mu_a,
+\]
+and for each exit vertex $a$ with terminal cost $c_a$ the substitution rule $u[\cdot, a] \mapsto c_a$. These exit substitutions are propagated through the rest of the system at build time, so the symbolic solver never has to discover them.
+
+\paragraph{Flow balance (Kirchhoff).} At every interior original vertex $i \in V$, the splitting and gathering balances impose
+\[
+j[\cdot,i] \;=\; \sum_{w} j[i,\,i,\,w]
+\qquad\text{(gathering)},
+\qquad
+j[r,\,i,\,\cdot] \;=\; \sum_{w} j[r,\,i,\,w]
+\qquad\text{(splitting)},
+\]
+where the auxiliary triples $\{(r, i, w)\}$ enumerate admissible transitions through $i$. These are the Kirchhoff laws that say "flow in equals flow out", lifted to the auxiliary topology so that switching costs can be charged on $(r, i, w)$ rather than on $i$ alone.
+
+\paragraph{Hamiltonian residual (edge-level HJB).} For every undirected edge $\{a, b\}$ the module records
+\[
+u[a, b] - u[b, a] + j[a, b] - j[b, a] \;=\; \mathrm{nrhs}_{ab},
+\qquad
+\mathrm{nrhs}_{ab} \;=\;
+\begin{cases}
+0 & \text{if } \alpha = 1 \text{ (critical regime)}, \\[2pt]
+m - \operatorname{sign}(m)\, m^{\alpha} & \text{otherwise},
+\end{cases}
+\]
+which is the integrated form of the edge-level Hamilton--Jacobi--Bellman equation. The factor $\operatorname{sign}(m)$ makes the right-hand side orientation-aware so that one formula handles both travel directions on the undirected edge. The active critical-congestion solver path is exactly the case $\mathrm{nrhs}_{ab} = 0$.
+
+\paragraph{Complementarity (LCP).} Two families of disjunctive constraints encode the equilibrium condition that flow only exists on edges that are part of an optimal path. On every undirected physical edge $\{a, b\}$,
+\[
+j[a, b] = 0 \;\;\vee\;\; j[b, a] = 0
+\qquad\text{(alternative zero-flow)},
+\]
+and on every admissible transition triple $(r, i, w)$,
+\[
+j[r, i, w] \;=\; 0 \;\;\vee\;\; u[w, i] + \mathrm{sc}(r, i, w) - u[r, i] \;=\; 0,
+\]
+paired with the switching optimality inequality $u[w, i] + \mathrm{sc}(r, i, w) - u[r, i] \ge 0$. Together they form the linear complementarity problem (LCP) that the symbolic solvers in \texttt{solversTools.wl} reduce.
 
 \section{Low-level explanation of functions and functionality}
 
@@ -87,7 +131,11 @@ This function directly influences how complementarity alternatives are construct
 
 \subsection*{\texttt{altFlowOp}}
 
-\texttt{altFlowOp[j][list]} builds the alternative \texttt{j@@list == 0 || j@@Reverse@list == 0}. It encodes the idea that, on an undirected underlying edge, at least one orientation of the flow must vanish in the critical complementarity formulation.
+\texttt{altFlowOp[j][\{a, b\}]} builds the alternative
+\[
+j[a, b] = 0 \;\vee\; j[b, a] = 0,
+\]
+encoding the idea that, on an undirected physical edge, at most one orientation carries flow in the critical complementarity formulation. This is the building block of the disjunctive "alternative zero-flow" block in \texttt{ComplementarityData}.
 
 \subsection*{\texttt{flowSplitting}}
 
@@ -103,11 +151,19 @@ This function directly influences how complementarity alternatives are construct
 
 \subsection*{\texttt{ineqSwitch}}
 
-\texttt{ineqSwitch[u, switching][r,i,w]} builds the switching optimality inequality \texttt{u[w,i] + switching[r,i,w] - u[r,i] >= 0}. It represents the local inequality half of the switching optimality logic.
+\texttt{ineqSwitch[u, switching][r, i, w]} builds the local switching optimality inequality at junction $i$ for the transition from $r$ to $w$:
+\[
+u[w, i] + \mathrm{sc}(r, i, w) - u[r, i] \;\ge\; 0.
+\]
+It says that diverting through $w$ cannot strictly improve on the value attached to $r$. When the switching cost is supplied as a function rather than a constant, it is applied to the transition flow $j[r, i, w]$ before the inequality is formed, which lets the system accommodate flow-dependent switching penalties.
 
 \subsection*{\texttt{altSwitch}}
 
-\texttt{altSwitch[j, u, switching][r,i,w]} builds the complementarity alternative \texttt{j[r,i,w] == 0 || u[w,i] + switching[r,i,w] - u[r,i] == 0}. It couples transition activity and switching optimality.
+\texttt{altSwitch[j, u, switching][r, i, w]} builds the complementarity alternative paired with that inequality:
+\[
+j[r, i, w] = 0 \;\;\vee\;\; u[w, i] + \mathrm{sc}(r, i, w) - u[r, i] = 0.
+\]
+Either the transition carries no flow, or the corresponding switching inequality is tight at $i$. The system collects one such alternative per admissible triple $(r, i, w)$; the resulting disjunctive structure is the main source of branching for the symbolic solvers.
 
 \subsection*{\texttt{roundValues}}
 
@@ -133,11 +189,37 @@ This is one of the most structurally important builders because it transforms to
 
 This is the main source of logical disjunction in the final system.
 
+\subsection*{\texttt{boundaryPreservingAutomorphisms}}
+
+\texttt{boundaryPreservingAutomorphisms[scenario]} returns the list of graph automorphisms of the scenario's underlying graph that also preserve the (vertex, value) multisets of \texttt{Entries} and \texttt{Exits}. It is the structural ingredient used to derive symbolic orbit equalities; the function returns the empty list when no nontrivial symmetry survives the boundary data.
+
+\subsection*{\texttt{addSymmetryEqualities}}
+
+\texttt{addSymmetryEqualities[sys, scenario]} returns a new \texttt{mfgSystem} whose \texttt{EqGeneral} block has been extended with the orbit equalities
+\[
+j[a, b] \;=\; j[\sigma(a), \sigma(b)],
+\qquad
+u[a, b] \;=\; u[\sigma(a), \sigma(b)],
+\]
+for every boundary-preserving automorphism $\sigma$ produced by \texttt{boundaryPreservingAutomorphisms}. The augmented system has the same solution set as \texttt{sys}, since any equilibrium is invariant under symmetries of both the graph and the boundary data. The benefit is structural: the solver enters the search with a smaller set of independent unknowns, often by a large factor on symmetric grids and cycles. The function is a no-op when the symmetry group is trivial.
+
+\subsection*{\texttt{addOracleEqualities}}
+
+\texttt{addOracleEqualities[sys, oracleResult]} appends \texttt{j[e] == 0} to \texttt{EqGeneral} for every edge \texttt{e} that the oracle has classified as inactive. It consumes the association returned by \texttt{numericOracleClassify} (in the optional \texttt{numericOracle} subpackage); the function itself is symbolic. Before returning, it runs a \texttt{FindInstance} safety probe on the pruned system: if the over-pruned system has no feasible point, the original \texttt{sys} is returned unchanged. The function is a no-op when the oracle reports no inactive edges or did not converge.
+
 \subsection*{\texttt{buildHamiltonianData}}
 
-\texttt{buildHamiltonianData[s, topology, flowData]} builds the Hamiltonian residual structure. It uses the signed flows and edge exponents to form left-hand and right-hand sides, introduces placeholder cost-current symbols, and assembles the general Hamiltonian equation block.
-
-At a low level, this builder currently emphasizes the \texttt{Alpha}/\texttt{EdgeAlpha} part of the Hamiltonian specification. Other Hamiltonian schema fields may be stored in the scenario but are not all fully activated here.
+\texttt{buildHamiltonianData[s, topology, flowData]} builds the Hamiltonian residual block \texttt{EqGeneral}. For every undirected edge $\{a, b\}$ it records
+\[
+u[a, b] - u[b, a] + j[a, b] - j[b, a] \;=\; \mathrm{nrhs}_{ab},
+\qquad
+\mathrm{nrhs}_{ab} \;=\;
+\begin{cases}
+0 & \alpha_{ab} = 1, \\
+m - \operatorname{sign}(m)\, m^{\alpha_{ab}} & \alpha_{ab} \ne 1,
+\end{cases}
+\]
+where $\alpha_{ab}$ is the edge-specific exponent (\texttt{Alpha} globally, overridable per edge by \texttt{EdgeAlpha}). The equation is enforced unconditionally for every edge; in particular, zero-flow edges force $u[a, b] = u[b, a]$, which propagates through the switching inequalities and pins value variables at bypassed exit nodes to their terminal cost. Placeholder cost-current symbols are stored alongside \texttt{EqGeneral} for future non-critical/numeric work but do not participate in the critical solve.
 
 \section{Usage guidance}
 

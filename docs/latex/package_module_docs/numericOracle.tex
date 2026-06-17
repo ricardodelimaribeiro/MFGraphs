@@ -1,0 +1,73 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{hyperref}
+\title{numericOracle.wl Module Documentation (opt-in)}
+\author{MFGraphs maintainers}
+\date{}
+\begin{document}
+\maketitle
+
+\section{High-level explanation}
+
+\texttt{numericOracle.wl} is an \emph{opt-in} subpackage that pairs a fast numeric classifier with the symbolic critical-congestion solver. The classifier runs a Linear Programming (LP) relaxation of the complementarity system, reads off which flow variables look active, inactive, or ambiguous at a feasible vertex, and returns that classification as a symbolic-only association. Downstream, the symbolic bridge \texttt{addOracleEqualities} (declared in \texttt{systemTools.wl}) consumes that association to append \texttt{j[e] == 0} equalities for the edges the oracle marks inactive, pruning the symbolic system before a solver runs.
+
+This is the only file in the package that intentionally introduces floating-point work. Floats are confined to the LP relaxation; everything that crosses back into the symbolic layer carries only variable names and \texttt{True}/\texttt{False} classifications. The subpackage is loaded explicitly:
+
+\begin{verbatim}
+Needs["MFGraphs`"];
+Needs["numericOracle`"];
+\end{verbatim}
+
+\section{Low-level explanation of functions and functionality}
+
+\subsection*{\texttt{numericOracleClassify}}
+
+\texttt{numericOracleClassify[sys]} drops the complementarity disjunctions from \texttt{sys}, calls \texttt{FindInstance} over the resulting LP relaxation, and classifies each flow variable from one feasible point. Variables whose value is within \texttt{"TightThreshold"} of zero are reported as \texttt{Inactive}; variables larger than \texttt{"SafeThreshold"} are reported as \texttt{Active}; everything in between is \texttt{Ambiguous}. The return value is an association \texttt{<|"Inactive" -> \{\textellipsis\}, "Active" -> \{\textellipsis\}, "Ambiguous" -> \{\textellipsis\}, "Converged" -> True|False|>}.
+
+The options \texttt{"TightThreshold"} (default \(10^{-8}\)), \texttt{"SafeThreshold"} (default \(10^{-3}\)), and \texttt{"Timeout"} (default 30s) control the LP and its interpretation.
+
+\subsection*{\texttt{numericFictitiousPlayClassify}}
+
+\texttt{numericFictitiousPlayClassify[sys, opts]} is an iterative refinement of the basic classifier inspired by the archived fictitious-play backend. Each iteration solves the LP relaxation, classifies edges by current flow, and tightens the next iteration's constraints by enforcing complementarity at confidently classified edges. The loop terminates when the support classification is stable for \texttt{StableIterationsLimit} consecutive iterations, or when \texttt{MaxIterations} is exhausted. The return shape matches \texttt{numericOracleClassify}, so the same \texttt{addOracleEqualities} bridge consumes it.
+
+\subsection*{\texttt{solveScenarioWithOracle}}
+
+\texttt{solveScenarioWithOracle[s]} is the high-level wrapper for the oracle pipeline. It composes:
+
+\begin{verbatim}
+unk    = makeSymbolicUnknowns[s]
+sys    = makeSystem[s, unk]
+sym    = addSymmetryEqualities[sys, s]
+oracle = numericOracleClassify[sym]
+pruned = addOracleEqualities[sym, oracle]
+result = activeSetReduceSystem[pruned]
+\end{verbatim}
+
+If \texttt{result} carries \texttt{"Residual" -> False} (the over-pruned system has no feasible point), the wrapper transparently falls back to \texttt{activeSetReduceSystem[sym]} on the symmetry-augmented but unpruned system and returns that result. \texttt{solveScenarioWithOracle[s, solver]} uses the supplied solver in place of \texttt{activeSetReduceSystem}. Options \texttt{"TightThreshold"}, \texttt{"SafeThreshold"}, and \texttt{"Timeout"} are forwarded to \texttt{numericOracleClassify}.
+
+\section{Usage guidance}
+
+The oracle path is most useful on systems with many edges whose support pattern is hard for a pure symbolic solver to discover by case analysis but easy for an LP to recover. For small or generic systems, the unpruned symbolic solvers are typically faster and avoid the LP setup cost entirely.
+
+A typical call is:
+
+\begin{verbatim}
+Needs["MFGraphs`"];
+Needs["numericOracle`"];
+
+s   = getExampleScenario[21, {{1, 100}}, {{4, 0}}];
+sol = solveScenarioWithOracle[s];
+\end{verbatim}
+
+\section*{References}
+
+\begin{enumerate}
+\item Source file: \texttt{MFGraphs/numericOracle.wl}
+\item Symbolic bridges: \texttt{addOracleEqualities}, \texttt{addSymmetryEqualities} (declared in \texttt{systemTools.wl}).
+\item Test suite: \texttt{MFGraphs/Tests/numeric-oracle.mt}.
+\item Loader status: opt-in (not in \texttt{MFGraphs.wl}'s \texttt{BeginPackage} dependency list).
+\end{enumerate}
+
+\end{document}

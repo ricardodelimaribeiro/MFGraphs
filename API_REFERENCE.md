@@ -34,6 +34,18 @@ u[a, b] is the value of the value function at vertex b of edge {a,b}.
 
 z[v] represents a vertex potential variable.
 
+## $MFGraphsParallelReady
+
+$MFGraphsParallelReady is True after ParallelNeeds["MFGraphs`"] has been called on all subkernels. Reset to False (e.g. after LaunchKernels[]) to force re-initialization.
+
+## $MFGraphsParallelThreshold
+
+$MFGraphsParallelThreshold controls the minimum list length before ParallelMap or ParallelTable is used instead of Map or Table. Default is 6. Set to Infinity to disable all parallelism.
+
+## $MFGraphsVerbose
+
+$MFGraphsVerbose controls whether progress and timing messages are printed. Set $MFGraphsVerbose = False to suppress output. Default is False.
+
 ## buildAuxiliaryTopology
 
 buildAuxiliaryTopology[model] returns an association with the auxiliary graph and metadata derived from the raw model.
@@ -262,7 +274,7 @@ computeKirchhoffResidual[sys, sol] calculates the Kirchhoff Residual (the maximu
 
 ## directCriticalSystem
 
-directCriticalSystem[sys] is an explicit opt-in solver for critical congestion systems with all numeric zero switching costs and equal numeric exit costs. It uses graph distance to exits to forbid flow directions that move farther from every exit, then solves the resulting feasibility system. Returns the standard raw solver shape or Failure["directCriticalSystem", ...].
+directCriticalSystem[sys] is a DEPRECATED, experimental opt-in solver for critical congestion systems with all numeric zero switching costs and equal numeric exit costs. It uses graph distance to exits to forbid flow directions that move farther from every exit, then solves the resulting feasibility system. Its correctness is NOT established: the distance heuristic orients only strictly-non-equidistant edges, so the feasibility system it solves does not encode edge/transition unidirectionality and admits invalid (bidirectional) points on edges whose endpoints are equidistant to the nearest exit. It happens to return valid solutions on tested inputs because the linear solver returns a unidirectional vertex, but this is not guaranteed. Prefer dnfReduceSystem or optimizedDNFReduceSystem. Returns the standard raw solver shape or Failure["directCriticalSystem", ...].
 
 ## dnfReduce
 
@@ -323,6 +335,14 @@ augmentAuxiliaryGraph[sys] constructs the road-traffic augmented infrastructure 
 ## BendFactor
 
 BendFactor is an option for richNetworkPlot.
+
+## edgeDensityProfile
+
+edgeDensityProfile[s, sys, edge, rules, x] returns the agent density m on the oriented edge {i,j} at coordinate x in [0,1], for a solved critical-congestion scenario. It reads Alpha, V, G from the scenario Hamiltonian (V may be numeric or a pure Function of x), takes the signed flow from the solution rules, and solves j^2/(2 m^(2-Alpha)) - G(m) == -V(x) for m>0 (cf. the density recovery of the paper). Returns 0 on edges with zero net flow, or a Missing[...] tag if the data is incomplete. x must be numeric (e.g. as supplied by Plot).
+
+## edgeValueProfile
+
+edgeValueProfile[s, sys, edge, rules, x] returns the value function u on the oriented edge {i,j} at coordinate x in [0,1], using the critical-case linear reconstruction u(x) = u_{ji} - j_{ij} x, where u_{ji} is the value at the entering endpoint and j_{ij} is the signed flow from the solution rules. Returns a Missing[...] tag if the required values are absent.
 
 ## rawNetworkPlot
 

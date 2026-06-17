@@ -2,11 +2,13 @@
 \usepackage[margin=1in]{geometry}
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
+\usepackage{amsmath}
 \usepackage{longtable}
 \usepackage{array}
+\usepackage{booktabs}
 \usepackage{hyperref}
 \title{scenarioTools.wl Module Documentation}
-\author{Manus AI}
+\author{MFGraphs maintainers}
 \date{}
 \begin{document}
 \maketitle
@@ -16,6 +18,28 @@
 \texttt{scenarioTools.wl} is the typed scenario kernel of the active MFGraphs architecture. It converts raw network-and-parameter input into a validated, completed, and cached \texttt{scenario[<|\ldots|>]} object. This is the module that establishes the contract for what a scenario is, what data it must contain, how topology is derived, and which defaults are filled automatically.
 
 Architecturally, this file is where MFGraphs stops being a loose set of associations and becomes a disciplined object pipeline. It performs model normalization, boundary validation, switching-cost normalization, Hamiltonian normalization, topology construction, and default completion. Downstream modules therefore assume that a scenario already contains a consistent \texttt{"Model"}, a normalized \texttt{"Hamiltonian"}, and cached \texttt{"Topology"} data.
+
+\section{Scenario schema}
+
+A completed \texttt{scenario[\textellipsis]} wraps an association with the following top-level keys.
+
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\begin{longtable}{@{}p{2.5cm} p{12.0cm}@{}}
+\toprule
+\textbf{Key} & \textbf{Contents} \\
+\midrule
+\endhead
+\texttt{"Model"} & The user-supplied network description: \texttt{"Vertices"}, \texttt{"Adjacency"} (or \texttt{"Graph"}), \texttt{"Entries"} (vertex/mass pairs), \texttt{"Exits"} (vertex/terminal-cost pairs), \texttt{"Switching"} (cost rows or association keyed by transition triples). \\
+\texttt{"Hamiltonian"} & Normalized Hamiltonian parameters: \texttt{"Alpha"}, \texttt{"V"}, \texttt{"G"}, plus the edge-keyed override maps \texttt{"EdgeAlpha"}, \texttt{"EdgeV"}, \texttt{"EdgeG"}. \\
+\texttt{"Topology"} & Cached auxiliary-graph data produced by \texttt{buildAuxiliaryTopology}: the undirected base graph, auxiliary entry/exit vertices, augmented graph, directed auxiliary pairs, and admissible transition triples. \\
+\texttt{"Identity"} & Optional identifying metadata (name, source). \\
+\texttt{"Benchmark"} & Optional benchmark-related fields (filled with defaults by \texttt{completeScenario}). \\
+\bottomrule
+\end{longtable}
+\end{center}
+
+The \texttt{"Topology"} block is computed once inside \texttt{makeScenario} and is the reason every downstream stage runs in time proportional to its own work rather than re-walking the graph.
 
 \section{Low-level explanation of functions and functionality}
 
@@ -83,7 +107,7 @@ Its main usage is in \texttt{unknownsTools.wl} and other downstream places that 
 
 \subsection*{\texttt{buildAuxTriples}}
 
-\texttt{buildAuxTriples[auxGraph]} returns admissible transition triples \texttt{\{v\_\mathrm{in}, v\_\mathrm{mid}, v\_\mathrm{out}\}} derived from an auxiliary graph. These triples are the basis of transition-flow variables and switching-cost logic.
+\texttt{buildAuxTriples[auxGraph]} returns admissible transition triples $\{v_{\text{in}}, v_{\text{mid}}, v_{\text{out}}\}$ derived from an auxiliary graph. These triples are the basis of transition-flow variables and switching-cost logic.
 
 At a low level, this function converts the graph to directed edge pairs, adds reverse directions, and delegates to the lower-level triple builder implementation.
 
@@ -116,6 +140,14 @@ The low-level purpose is to make graph-based and adjacency-based scenario constr
 \texttt{boundaryValuesNumericQ[model]} checks whether entry and exit boundary values are present in pair form and numerically valued. This is stricter than merely checking list structure.
 
 It is used inside \texttt{makeScenario} to ensure that downstream symbolic-system construction does not receive malformed boundary conditions.
+
+\subsection*{\texttt{disjointBoundaryVerticesQ}}
+
+\texttt{disjointBoundaryVerticesQ[model]} returns \texttt{True} when the entry-vertex set and the exit-vertex set do not overlap. The active scenario kernel rejects models where a single vertex is simultaneously declared an entry and an exit, since the auxiliary-topology construction would then attach two incompatible boundary fixtures to the same node.
+
+\subsection*{\texttt{boundaryVerticesPresentQ}}
+
+\texttt{boundaryVerticesPresentQ[model]} returns \texttt{True} when every entry and exit vertex named in the model also appears in the \texttt{"Vertices"} list. It catches the common authoring mistake of declaring boundary data on a vertex that was never added to the graph.
 
 \subsection*{\texttt{switchingCostsNumericQ}}
 

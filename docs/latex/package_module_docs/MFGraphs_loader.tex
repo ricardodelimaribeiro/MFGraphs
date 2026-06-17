@@ -7,7 +7,7 @@
 \usepackage{hyperref}
 \usepackage{xcolor}
 \title{MFGraphs.wl Module Documentation}
-\author{Manus AI}
+\author{MFGraphs maintainers}
 \date{}
 \begin{document}
 \maketitle
@@ -16,7 +16,19 @@
 
 \texttt{MFGraphs.wl} is the top-level loader for the active MFGraphs package surface. Its job is not to implement mathematics directly, but to make the package usable through a single \texttt{Needs["MFGraphs`"]} call. Concretely, it prepends the package directory to \texttt{\$Path}, declares the dependency contexts, and then relies on \texttt{EndPackage[]} to expose the public symbols from the active subpackages on the Wolfram context path.
 
-The file therefore acts as the architectural front door to the repository. It defines the load order and the public dependency graph: primitives first, then the scenario kernel, then example constructors, then symbolic unknowns, then system construction, then solvers, orchestration, and graphics. In practice, this means that most user-facing workflows begin by loading \texttt{MFGraphs`} rather than any subcontext individually.
+The file therefore acts as the architectural front door to the repository. It defines the load order and the public dependency graph: primitives first, then shared utilities, then the scenario kernel, then example constructors, then symbolic unknowns, then system construction, then solvers, orchestration, and graphics. In practice, this means that most user-facing workflows begin by loading \texttt{MFGraphs`} rather than any subcontext individually.
+
+\subsection*{Optional subpackages}
+
+Two files in the package directory are intentionally \emph{not} loaded by \texttt{Needs["MFGraphs`"]}: \texttt{Tawaf.wl} (unrolled circumambulation scenario builder) and \texttt{numericOracle.wl} (LP-relaxation oracle, the only file in the package that introduces floating-point work). They are loaded explicitly after the main package:
+
+\begin{verbatim}
+Needs["MFGraphs`"];
+Needs["Tawaf`"];          (* makeTawafScenario, ... *)
+Needs["numericOracle`"];  (* numericOracleClassify, solveScenarioWithOracle *)
+\end{verbatim}
+
+The high-level wrapper for the oracle path is \texttt{solveScenarioWithOracle}, which composes \texttt{addSymmetryEqualities} $\to$ \texttt{numericOracleClassify} $\to$ \texttt{addOracleEqualities} $\to$ \texttt{activeSetReduceSystem} and falls back to the unpruned solve when the oracle over-prunes.
 
 \section{Low-level explanation of functions and functionality}
 
@@ -30,7 +42,7 @@ In usage terms, users do not call this expression directly. Its purpose is entir
 
 \subsection*{Context export via \texttt{BeginPackage["MFGraphs`", \{...\}]}}
 
-This call declares the top-level \texttt{MFGraphs`} context and specifies the active dependency contexts that should be loaded with it: \texttt{primitives`}, \texttt{scenarioTools`}, \texttt{examples`}, \texttt{unknownsTools`}, \texttt{systemTools`}, \texttt{solversTools`}, \texttt{orchestrationTools`}, and \texttt{graphicsTools`}.
+This call declares the top-level \texttt{MFGraphs`} context and specifies the active dependency contexts that should be loaded with it: \texttt{primitives`}, \texttt{utilities`}, \texttt{scenarioTools`}, \texttt{examples`}, \texttt{unknownsTools`}, \texttt{systemTools`}, \texttt{solversTools`}, \texttt{orchestrationTools`}, and \texttt{graphicsTools`}. The optional \texttt{Tawaf`} and \texttt{numericOracle`} contexts are intentionally absent from this list.
 
 At a low level, this is how the package defines its public surface. Any symbol documented as public inside those dependent contexts becomes accessible after a single top-level load.
 
