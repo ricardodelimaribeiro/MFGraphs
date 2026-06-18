@@ -21,11 +21,9 @@ $PublicContexts = {
   "graphicsTools`"
 };
 
-(* `Names[ctx<>"*"]` does NOT match `$`-prefix symbols by Wolfram convention,
-   so fold in a second pass with `ctx<>"$*"`. Both passes are then deduped. *)
-symbols = DeleteDuplicates @ Flatten[
-  {Names[# <> "*"], Names[# <> "$*"]} & /@ $PublicContexts
-];
+(* `Names[ctx<>"*"]` already matches `$`-prefixed symbols, so a single pass
+   suffices. ($-symbols are surfaced correctly by `readUsage` below, not here.) *)
+symbols = DeleteDuplicates @ Flatten[Names[# <> "*"] & /@ $PublicContexts];
 publicSymbols = Select[
   symbols,
   !StringContainsQ[#, "Private`"] && !StringEndsQ[#, "$"] &
