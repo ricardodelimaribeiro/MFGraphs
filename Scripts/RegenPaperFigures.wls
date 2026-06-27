@@ -12,6 +12,8 @@
      example22.pdf  -- road fork    (augmented with auxiliary exit edges)
      Triangle.pdf   -- triangular network (with aux entry/exit edges)
      Jama.pdf       -- Jamarat bridge network
+     corridor.pdf   -- §5.3 corridor (direct route vs bypass)
+     crossing.pdf   -- §5.5 non-uniqueness crossing (2-in/2-out at v5)
 
    Usage: wolframscript -file Scripts/RegenPaperFigures.wls
 *)
@@ -97,5 +99,33 @@ jama = Graph[{Labeled[1 \[UndirectedEdge] 2, Subscript["e", "12"]],
   VertexLabelStyle -> 14, EdgeLabelStyle -> 14];
 Export[FileNameJoin[{figDir, "Jama.pdf"}], jama];
 Print["Wrote Jama.pdf"];
+
+(* --- corridor: direct route e14 vs bypass v1-v2-v3-v4 (§5.3).  Explicit
+   coordinates: direct edge along the bottom, bypass arc over the top. *)
+corridor = Graph[{Labeled[1 \[UndirectedEdge] 4, Subscript["e", "14"]],
+  Labeled[1 \[UndirectedEdge] 2, Subscript["e", "12"]],
+  Labeled[2 \[UndirectedEdge] 3, Subscript["e", "23"]],
+  Labeled[3 \[UndirectedEdge] 4, Subscript["e", "34"]]},
+  VertexLabels -> {1 -> Subscript["v", 1], 2 -> Subscript["v", 2],
+    3 -> Subscript["v", 3], 4 -> Subscript["v", 4]},
+  VertexCoordinates -> {1 -> {0, 0}, 2 -> {1, 1}, 3 -> {2, 1}, 4 -> {3, 0}},
+  VertexLabelStyle -> 14, EdgeLabelStyle -> 14];
+Export[FileNameJoin[{figDir, "corridor.pdf"}], corridor];
+Print["Wrote corridor.pdf"];
+
+(* --- crossing: §5.5 non-uniqueness example.  Entries v1,v2 -> center v5 ->
+   exits v3,v4 (a 2-in/2-out vertex: edge currents determined, transition
+   currents free).  Left-center-right layout makes the crossing structure clear. *)
+crossing = Graph[{Labeled[1 \[UndirectedEdge] 5, Subscript["e", "15"]],
+  Labeled[2 \[UndirectedEdge] 5, Subscript["e", "25"]],
+  Labeled[5 \[UndirectedEdge] 3, Subscript["e", "53"]],
+  Labeled[5 \[UndirectedEdge] 4, Subscript["e", "54"]]},
+  VertexLabels -> {1 -> Subscript["v", 1], 2 -> Subscript["v", 2],
+    3 -> Subscript["v", 3], 4 -> Subscript["v", 4], 5 -> Subscript["v", 5]},
+  VertexCoordinates -> {1 -> {0, 1}, 2 -> {0, -1}, 5 -> {1.4, 0},
+    3 -> {2.8, 1}, 4 -> {2.8, -1}},
+  VertexLabelStyle -> 14, EdgeLabelStyle -> 14];
+Export[FileNameJoin[{figDir, "crossing.pdf"}], crossing];
+Print["Wrote crossing.pdf"];
 
 Print["Done."];
