@@ -2136,8 +2136,12 @@ dnfReduceInstrumentedAnd[xp_, conjuncts_List, monitor_, order_String, sysObj_, d
                     dnfCounterIncrement[monitor, "EqualityAttempts"];
                     sol  = cachedSolve[elem];
                     fsol = If[MatchQ[sol, {{__Rule}, ___}], First[sol], {}];
+                    (* EqualityResolutions counts every traversal that yields a
+                       non-empty rule list (cache hit or miss); the actual Solve
+                       CPU count is the cache-miss count, surfaced separately as
+                       EqualitySolves in the summary. See issue #202. *)
                     If[fsol =!= {},
-                        dnfCounterIncrement[monitor, "EqualitySolves"];
+                        dnfCounterIncrement[monitor, "EqualityResolutions"];
                         dnfCounterIncrement[monitor, "Substitutions", Length[fsol]]
                     ];
                     newxp = substituteSolution[xpAcc, fsol];
@@ -2165,7 +2169,7 @@ dnfReduceInstrumented[xp_, rst_, fst_Equal, monitor_, order_String, sysObj_, dep
         sol  = cachedSolve[fst];
         fsol = If[MatchQ[sol, {{__Rule}, ___}], First[sol], {}];
         If[fsol =!= {},
-            dnfCounterIncrement[monitor, "EqualitySolves"];
+            dnfCounterIncrement[monitor, "EqualityResolutions"];
             dnfCounterIncrement[monitor, "Substitutions", Length[fsol]]
         ];
         newxp = substituteSolution[xp, fsol];
@@ -2229,7 +2233,7 @@ dnfReduceDiagnosticReport[sys_?mfgSystemQ, OptionsPattern[]] :=
             "BranchesKeptByDisjunct" -> <||>,
             "BranchesDroppedByDisjunct" -> <||>,
             "EqualityAttempts" -> 0,
-            "EqualitySolves" -> 0,
+            "EqualityResolutions" -> 0,
             "Substitutions" -> 0,
             "MaxRecursionDepth" -> 0,
             "ExpressionLeafCount" -> LeafCount[constraints],
@@ -2288,7 +2292,9 @@ dnfReduceDiagnosticReport[sys_?mfgSystemQ, OptionsPattern[]] :=
             "BranchesKeptByDisjunct" -> Lookup[monitor, "BranchesKeptByDisjunct", <||>],
             "BranchesDroppedByDisjunct" -> Lookup[monitor, "BranchesDroppedByDisjunct", <||>],
             "EqualityAttempts" -> Lookup[monitor, "EqualityAttempts", 0],
-            "EqualitySolves" -> Lookup[monitor, "EqualitySolves", 0],
+            "EqualityResolutions" -> Lookup[monitor, "EqualityResolutions", 0],
+            "EqualitySolves" -> $dnfSolveMiss,
+            "CachedSolveHits" -> $dnfSolveHits,
             "Substitutions" -> Lookup[monitor, "Substitutions", 0],
             "MaxRecursionDepth" -> Lookup[monitor, "MaxRecursionDepth", 0],
             "ExpressionLeafCount" -> Lookup[monitor, "ExpressionLeafCount", Missing["Unavailable"]],

@@ -100,7 +100,7 @@ If[$RecursionLimitOpt =!= Automatic, Print["RecursionLimit\t", $RecursionLimitOp
 If[$SelectedCase =!= "all", Print["CaseFilter\t", $SelectedCase]];
 Print[
   "Header\tCase\tOrder\tBuildMs\tStatus\tKind\tTransitionFlowStatus\tTransitionFlowRules\tTransitionFlowResiduals\tValid\tVertices\tEdges\tVars\tPreRules\tPreConjuncts\tOrs\tOrLeafCounts\t" <>
-  "SolverInputMs\tDNFMs\tProcessed\tBranchesStarted\tBranchesKept\tBranchesDropped\tMaxDepth\tEqualitySolves\tSubstitutions\t" <>
+  "SolverInputMs\tDNFMs\tProcessed\tBranchesStarted\tBranchesKept\tBranchesDropped\tMaxDepth\tEqualitySolves\tCachedSolveHits\tEqualityResolutions\tSubstitutions\t" <>
   "ExpressionLeaves\tResultLeaves\tTimeoutPhase\tLastHead\tLastLeaves\tLastConjunct"
 ];
 
@@ -152,6 +152,8 @@ RunOne[name_String, buildFn_, order_String] :=
         ToString[Lookup[summary, "BranchesDropped", Missing["Unavailable"]]],
         ToString[Lookup[summary, "MaxRecursionDepth", Missing["Unavailable"]]],
         ToString[Lookup[summary, "EqualitySolves", Missing["Unavailable"]]],
+        ToString[Lookup[summary, "CachedSolveHits", Missing["Unavailable"]]],
+        ToString[Lookup[summary, "EqualityResolutions", Missing["Unavailable"]]],
         ToString[Lookup[summary, "Substitutions", Missing["Unavailable"]]],
         ToString[Lookup[summary, "ExpressionLeafCount", Missing["Unavailable"]]],
         ToString[Lookup[summary, "ResultLeafCount", Missing["Unavailable"]]],
