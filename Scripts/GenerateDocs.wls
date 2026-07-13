@@ -115,6 +115,9 @@ scanUsageCallPatterns[shortName_String, usage_String] :=
           prev = StringTake[usage, {start - 1}];
           If[symbolNameCharQ[prev] || prev === "\"", Continue[]]
         ];
+        (* name[[...]] is a Part expression in prose, not a call pattern. *)
+        If[openIdx < len && StringTake[usage, {openIdx + 1}] === "[",
+          Continue[]];
         {tag1, next1} = scanBracketGroup[usage, openIdx];
         Which[
           tag1 === "Unterminated", nUnterminated++,
@@ -123,7 +126,11 @@ scanUsageCallPatterns[shortName_String, usage_String] :=
             If[next1 <= len && StringTake[usage, {next1}] === "[",
               Module[{t2, n2},
                 {t2, n2} = scanBracketGroup[usage, next1];
-                If[IntegerQ[t2], tag2 = t2]
+                Which[
+                  t2 === "Unterminated", nUnterminated++,
+                  t2 === "Ellipsis",     nEllipsis++,
+                  True,                  tag2 = t2
+                ]
               ]
             ];
             AppendTo[pairs, {tag1, tag2}]
@@ -234,7 +241,8 @@ Print["Arity lint: ", checkedCount, " symbols checked (",
   noPatternCount, " without call patterns, ",
   noDefsCount, " without introspectable definitions",
   If[ellipsisCount > 0,
-    ", " <> ToString[ellipsisCount] <> " ellipsis shorthand groups skipped", ""],
+    ", " <> ToString[ellipsisCount] <> " ellipsis shorthand group" <>
+      If[ellipsisCount === 1, "", "s"] <> " skipped", ""],
   "). All call patterns match."];
 
 Do[

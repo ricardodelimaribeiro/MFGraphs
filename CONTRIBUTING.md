@@ -92,8 +92,9 @@ wolframscript -file Scripts/GenerateDocs.wls
 # Regenerates API_REFERENCE.md
 ```
 
-The script arity-lints every documented call pattern against the actual
-definitions and exits nonzero **without regenerating** when they disagree —
+The script arity-lints every checkable documented call pattern against the
+actual definitions and exits nonzero **without regenerating** when they
+disagree —
 check the exit code; a failed run leaves the previous `API_REFERENCE.md`
 untouched.
 
