@@ -8,6 +8,8 @@ Internal documentation that supports development and research but is not part of
 | `validation/` | Validation logs, session summaries, raw benchmark output text |
 | `history/` | Development history and auto-appended performance logs |
 | `research/` | Reference papers and author notes |
+| `latex/` | Long-form per-module package docs (`package_module_docs/`) and the combined-PDF builder |
+| `solvers/` | Solver method map and package-novelty notes (`methods-and-novelty.md`) |
 
 
 For user-facing documentation, see the root-level files: `README.md`, `API_REFERENCE.md`, `CONTRIBUTING.md`, `TROUBLESHOOTING.md`, `BENCHMARKS.md`.

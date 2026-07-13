@@ -28,7 +28,10 @@ wolframscript -file Scripts/RunTests.wls fast
 # Alias for the same active suite
 wolframscript -file Scripts/RunTests.wls all
 
-# Legacy compatibility suites; opt in explicitly
+# Opt-in numeric classifier suites (numeric-oracle + fictitiousPlay)
+wolframscript -file Scripts/RunTests.wls oracle
+
+# Legacy compatibility suites; opt in explicitly (not expected to pass)
 wolframscript -file Scripts/RunTests.wls full
 ```
 
@@ -109,7 +112,7 @@ untouched.
 
 ### What NOT to manually edit
 - `API_REFERENCE.md` — auto-generated; edit `::usage` strings in source instead
-- `DNF_PERFORMANCE_HISTORY.md` / `PARALLEL_PERFORMANCE_HISTORY.md` — auto-appended by benchmark scripts
+- `DNF_PERFORMANCE_HISTORY.md` / `PARALLEL_PERFORMANCE_HISTORY.md` — historical logs written by now-archived scripts; effectively frozen (the active benchmark appends to `BENCHMARKS.md` instead)
 
 ## Repository Structure
 - `MFGraphs/`: Core package source
