@@ -12,6 +12,7 @@ Print["Generating API Reference..."];
 
 $PublicContexts = {
   "primitives`",
+  "utilities`",
   "scenarioTools`",
   "examples`",
   "unknownsTools`",

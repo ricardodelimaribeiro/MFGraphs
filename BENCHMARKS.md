@@ -93,7 +93,7 @@ Current cases:
 | `chain-2v` | two-vertex chain |
 | `chain-3v-1exit` | three-vertex chain, one exit |
 | `chain-3v-2exit` | three-vertex chain, two exits |
-| `example-7` | built-in example 7 |
+| `chain-3-midentry` | three-vertex chain, entry at the middle vertex |
 | `chain-5v-1exit` | five-vertex chain, one exit |
 | `grid-2x3` | 2 by 3 grid, entry `{1, 100}`, exit `{6, 0}` |
 | `grid-3x2` | 3 by 2 grid, entry `{1, 100}`, exit `{6, 0}` |
