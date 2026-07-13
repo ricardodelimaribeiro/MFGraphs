@@ -290,7 +290,7 @@ systemDataFlatten[sys] returns a single flat Association containing all keys fro
 
 ## activeSetReduceSystem
 
-activeSetReduceSystem[sys] is an opt-in exact active-set solver for the critical-congestion linear complementarity structure. It enumerates small complementarity alternatives incrementally with exact linear substitution and falls back to the proven exact DNF reducer for larger residual variable sets. Returns the same rule/residual shape as dnfReduceSystem. Fails for non-critical congestion systems where Alpha != 1 on any edge.
+activeSetReduceSystem[sys] is an opt-in exact active-set solver for the critical-congestion linear complementarity structure. It enumerates small complementarity alternatives incrementally with exact linear substitution and falls back to the proven exact DNF reducer for larger residual variable sets. Returns the same rule/residual shape as dnfReduceSystem. Fails for non-critical congestion systems where Alpha != 1 on any edge. The option "DisjunctOrdering" ("Lexicographic" default, or "Block-Vertex", "Block-Edge", "Block-SCC") reorders complementarity conjuncts by graph anchor before the branch fold; non-default orderings force the branch-state path.
 
 ## bfsDNFReduce
 

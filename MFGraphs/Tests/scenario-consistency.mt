@@ -266,9 +266,10 @@ Module[{sys, rep, sm},
     ]
 ];
 
-(* PR 3 of disjunct-influence study: each Block-* DisjunctOrdering must
-   produce the same solution as the Lexicographic baseline. The orderings
-   only permute disjuncts, so the rule set (after KeySort) must be identical. *)
+(* Each Block-* DisjunctOrdering must produce the same solution as the
+   Lexicographic baseline on a DETERMINED case: the orderings only permute
+   the fold order, so a unique solution must come back identical whichever
+   path computes it. *)
 sortedRules[res_] := Sort[Lookup[res, "Rules", {}]];
 
 Module[{sys, base},
@@ -291,22 +292,61 @@ Module[{sys, base},
     ]
 ];
 
-Module[{sys, base},
-    sys  = makeSystem[getExampleScenario["Grid0303", {{1, 100}}, {{9, 0}}]];
-    base = sortedRules[activeSetReduceSystem[sys]];
+(* Grid0303 is underdetermined (a family of equal-cost routings), and the
+   Lexicographic default routes through dnfReduce while any Block-* ordering
+   routes through the branch-state fold — the two paths may return different,
+   equally valid parametrizations of the same solution family (e.g. free
+   residual variables vs pinned-to-zero representatives). Assert validity,
+   not literal rule identity. *)
+Module[{sys},
+    sys = makeSystem[getExampleScenario["Grid0303", {{1, 100}}, {{9, 0}}]];
     Test[
-        sortedRules[activeSetReduceSystem[sys, "DisjunctOrdering" -> "Block-Vertex"]],
-        base,
-        TestID -> "DisjunctOrdering: Block-Vertex matches Lexicographic on Grid0303"
+        isValidSystemSolution[sys,
+            activeSetReduceSystem[sys, "DisjunctOrdering" -> "Block-Vertex"]],
+        True,
+        TestID -> "DisjunctOrdering: Block-Vertex validates on Grid0303"
     ];
     Test[
-        sortedRules[activeSetReduceSystem[sys, "DisjunctOrdering" -> "Block-Edge"]],
-        base,
-        TestID -> "DisjunctOrdering: Block-Edge matches Lexicographic on Grid0303"
+        isValidSystemSolution[sys,
+            activeSetReduceSystem[sys, "DisjunctOrdering" -> "Block-Edge"]],
+        True,
+        TestID -> "DisjunctOrdering: Block-Edge validates on Grid0303"
     ];
     Test[
-        sortedRules[activeSetReduceSystem[sys, "DisjunctOrdering" -> "Block-SCC"]],
-        base,
-        TestID -> "DisjunctOrdering: Block-SCC matches Lexicographic on Grid0303"
+        isValidSystemSolution[sys,
+            activeSetReduceSystem[sys, "DisjunctOrdering" -> "Block-SCC"]],
+        True,
+        TestID -> "DisjunctOrdering: Block-SCC validates on Grid0303"
+    ]
+];
+
+(* The orderings must actually take effect: a Block-* run must assign
+   anchor-derived ranks to conjuncts that reach the branch fold. The option
+   was previously inert (issue #222) — the rank map was keyed on raw
+   disjuncts the rewrite had already replaced, and the option alone never
+   routed onto the path that consults the ordering — so the invariance tests
+   above passed vacuously. *)
+Module[{sys, res},
+    sys = makeSystem[getExampleScenario[12, {{1, 100}}, {{4, 0}}]];
+    res = activeSetReduceSystem[sys, "DisjunctOrdering" -> "Block-Vertex"];
+    Test[
+        solversTools`Private`$disjunctOrderingRanked > 0 &&
+        isValidSystemSolution[sys, res] === True
+        ,
+        True
+        ,
+        TestID -> "DisjunctOrdering: Block-Vertex assigns anchor ranks to folded conjuncts"
+    ]
+];
+
+Module[{sys},
+    sys = makeSystem[getExampleScenario[12, {{1, 100}}, {{4, 0}}]];
+    activeSetReduceSystem[sys];
+    Test[
+        solversTools`Private`$disjunctOrderingRanked
+        ,
+        0
+        ,
+        TestID -> "DisjunctOrdering: Lexicographic default assigns no anchor ranks"
     ]
 ];

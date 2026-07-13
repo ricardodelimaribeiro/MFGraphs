@@ -158,6 +158,10 @@ Column[
 
 
 (* ::Text:: *)
+(*SUPERSEDED (2026-07, issue #222): the "DisjunctOrdering" option was inert when this benchmark ran, so all four orderings executed identical code and the ratios below reflect kernel warm-up, not ordering effects. Re-run benchmark_orderings.wls with interleaved runs (post-#222 fix) before reading anything into this chart.*)
+
+
+(* ::Text:: *)
 (*Wall-time per (scenario, DisjunctOrdering) from PR 3's benchmark. Bars are normalized to Lexicographic = 1.0 within each scenario; bars > 1.0 mean the Block-* ordering is faster. Timeouts (60s) are clamped, so two timing-out orderings show ratio \[TildeTilde] 1.0.*)
 
 
