@@ -46,6 +46,50 @@ $MFGraphsParallelThreshold controls the minimum list length before ParallelMap o
 
 $MFGraphsVerbose controls whether progress and timing messages are printed. Set $MFGraphsVerbose = False to suppress output. Default is False.
 
+## criticalCongestionSystemQ
+
+criticalCongestionSystemQ[sys] returns True if the system is a critical congestion system (Alpha == 1 everywhere).
+
+## exactBoundaryValue
+
+exactBoundaryValue[val] converts a numeric real boundary value to an exact rational or returns a Failure.
+
+## exactBoundaryValues
+
+exactBoundaryValues[vals] applies exactBoundaryValue to a list and returns the first Failure if conversion fails.
+
+## extractRules
+
+extractRules[sol] extracts replacement rules from a solution list or solution association.
+
+## mergeRules
+
+mergeRules[oldRules, newRules] joins rule lists while keeping the latest rule for each left-hand side.
+
+## mfgData
+
+mfgData[obj] returns the underlying Association of a typed object. mfgData[obj, key] returns the value for key, or Missing["KeyAbsent", key].
+
+## mfgTypedQ
+
+mfgTypedQ[obj, head] returns True if obj is of the form head[assoc_Association].
+
+## normalizeRules
+
+normalizeRules[rules] rewrites right-hand sides through the full rule set.
+
+## roundValues
+
+roundValues[x] rounds numerical values in x to a standard precision (10^-10).
+
+## withCriticalCongestionGuard
+
+withCriticalCongestionGuard[sys, solverName, body] evaluates body only when sys is a critical-congestion system; otherwise emits MFGraphs::noncritical and returns a Failure.
+
+## withCriticalCongestionSolver
+
+withCriticalCongestionSolver[sys, solverName, bodyFunc, buildInputsFunc, attachRulesFunc] guards on critical congestion, calls buildInputsFunc[sys] to obtain {constraints, allVars, rulesAcc}, evaluates bodyFunc[constraints, allVars], and returns attachRulesFunc[result, rulesAcc]. Shared shell for the critical-congestion structural solvers.
+
 ## buildAuxiliaryTopology
 
 buildAuxiliaryTopology[model] returns an association with the auxiliary graph and metadata derived from the raw model.

@@ -51,19 +51,17 @@ primitives  →  utilities  →  scenarioTools  →  examples
                                                                                               →  graphicsTools
 ```
 
-**Optional subpackages.** Several files in the package directory are *not* loaded by `Needs["MFGraphs`"]` and must be loaded explicitly:
+**Optional subpackages.** Two files in the package directory are proper packages that are *not* loaded by `Needs["MFGraphs`"]` and must be loaded explicitly:
 
 ```
 Needs["MFGraphs`"];
 Needs["Tawaf`"];          (* makeTawafScenario, makeTawafSystem, ... *)
 Needs["numericOracle`"];  (* numericOracleClassify, solveScenarioWithOracle *)
-Needs["Jamarat`"];        (* multi-entrance/exit scenario builders *)
-Needs["HardCases`"];      (* curated stress-test scenarios *)
 ```
 
 `numericOracle.wl` is the only file that introduces floating-point work. `solveScenarioWithOracle` is the high-level wrapper for the oracle path; it composes `addSymmetryEqualities` → `numericOracleClassify` → `addOracleEqualities` → `activeSetReduceSystem` and falls back to the unpruned solve when the oracle over-prunes.
 
-**Workbooks (not subpackages).** `MFGraphs/Getting started.wl`, `MFGraphs/TawafWorkbook.wl`, and `MFGraphs/DisjunctInfluenceStudy.wl` are notebook-style worked examples meant to be opened in the Mathematica front end and evaluated cell-by-cell. They are not loadable via `Needs[]`.
+**Workbooks (not subpackages).** `MFGraphs/Getting started.wl`, `MFGraphs/TawafWorkbook.wl`, `MFGraphs/DisjunctInfluenceStudy.wl`, `MFGraphs/Jamarat.wl` (multi-entrance/exit scenario studies), and `MFGraphs/HardCases.wl` (curated stress-test scenarios) are notebook-style worked examples meant to be opened in the Mathematica front end and evaluated cell-by-cell. They are not loadable via `Needs[]` — in particular `Jamarat.wl` and `HardCases.wl` have no `BeginPackage` and run multi-minute solves if evaluated top-to-bottom.
 
 **Composition pipeline.** Every workflow is the same three-step chain, optionally followed by orchestration:
 

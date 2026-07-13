@@ -56,6 +56,9 @@ If[!StringQ[mfgDir] || mfgDir === "",
 mfgParentDir = ParentDirectory[mfgDir];
 If[!MemberQ[$Path, mfgParentDir], PrependTo[$Path, mfgParentDir]];
 Needs["MFGraphs`"];
+(* Tawaf` is an opt-in subpackage: not loaded by MFGraphs`, and every
+   section below uses makeTawafScenario/makeTawafSystem/tawafDensities. *)
+Needs["Tawaf`"];
 
 
 (* ::Subsection:: *)

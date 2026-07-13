@@ -229,15 +229,18 @@ From repository root:
 
 ```bash
 wolframscript -file Scripts/RunTests.wls fast
-wolframscript -file MFGraphs/Tests/scenario-kernel.mt
-wolframscript -file MFGraphs/Tests/symbolic-unknowns.mt
+wolframscript -file Scripts/RunSingleTest.wls MFGraphs/Tests/scenario-kernel.mt
 ```
 
+(`.mt` files cannot be run directly with `wolframscript -file` — they rely on
+the runner to load the package and wrap them in `TestReport`.)
+
 Current active runner suites (`Scripts/RunTests.wls`):
-- `fast`: `scenario-kernel.mt`, `symbolic-unknowns.mt`, `reduce-system.mt`, `scenario-consistency.mt`, `graphicsTools.mt`, `orchestration.mt`, `dnf-reducer.mt`, `boolean-minimize.mt`, `tawaf.mt`, `example-coverage.mt`, `numeric-oracle.mt`
+- `fast`: `scenario-kernel.mt`, `symbolic-unknowns.mt`, `reduce-system.mt`, `scenario-consistency.mt`, `graphicsTools.mt`, `orchestration.mt`, `dnf-reducer.mt`, `boolean-minimize.mt`, `tawaf.mt`, `example-coverage.mt`, `numeric-oracle.mt`, `utilities.mt`
 - `all`: alias for `fast`
+- `oracle`: `numeric-oracle.mt` + `fictitiousPlay.mt` (opt-in classifier suites)
 - `archive`: archived compatibility/legacy suites (explicit use only)
-- `full`: `fast + archive`
+- `full`: `fast` + `fictitiousPlay.mt` + `archive`
 
 ## Repository structure
 
@@ -245,6 +248,7 @@ Current active runner suites (`Scripts/RunTests.wls`):
 MFGraphs/
   MFGraphs.wl
   primitives.wl
+  utilities.wl
   scenarioTools.wl
   examples.wl
   unknownsTools.wl

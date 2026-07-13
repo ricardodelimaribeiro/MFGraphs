@@ -4,17 +4,19 @@ This directory contains the active scenario-kernel tests and archived legacy/sol
 
 ## Runner suites (`Scripts/RunTests.wls`)
 
-- `fast`: active scenario-kernel suite.
+- `fast`: the 12 active suites (see below).
 - `all`: alias for `fast`.
-- `archive`: archived compatibility/legacy suites (explicit use only).
-- `full`: `fast + archive`.
+- `oracle`: `numeric-oracle.mt` + `fictitiousPlay.mt` (the opt-in `numericOracle`` classifier suites).
+- `archive`: archived compatibility/legacy suites (explicit use only; they target the removed legacy API and are not expected to pass).
+- `full`: `fast` + `fictitiousPlay.mt` + `archive`.
 
 ## File groups
 
-- Active tests: root `.mt` files (`scenario-kernel`, `symbolic-unknowns`, `reduce-system`, `scenario-consistency`, `graphicsTools`, `orchestration`).
+- Active tests (`fast`): `scenario-kernel`, `symbolic-unknowns`, `reduce-system`, `scenario-consistency`, `graphicsTools`, `orchestration`, `dnf-reducer`, `boolean-minimize`, `tawaf`, `example-coverage`, `numeric-oracle`, `utilities`.
+- Oracle extra: `fictitiousPlay` (runs in `oracle` and `full`, not `fast`).
 - Archived tests: `archive/` (legacy or non-core surfaces).
 
 ## Notes
 
-- `reference_solutions.json` is generated fixture data for solver regression checks.
+- The live solution cache used by `example-coverage.mt` is `<repo>/solutions/*.wxf` (see `Scripts/SolutionCacheHelpers.wls`); `reference_solutions.json` is a legacy fixture referenced only by archived scripts.
 - Keep `archive/` tests out of CI unless intentionally validating legacy compatibility.
