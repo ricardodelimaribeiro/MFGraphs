@@ -69,9 +69,12 @@ explicitly: `Needs["Tawaf`"]`, `Needs["numericOracle`"]`.
 Benchmark selector names include `dnf` (default), `optimizeddnf`, `activeset`,
 `reduce`, `boolean`, and `findinstance`.
 
-`solutionResultKind` is flow-first: primary classification depends on edge
-flows `j[_,_]` and values `u[__]`; transition-flow determinacy for `j[_,_,_]`
-is reported separately by `solutionVariableDiagnostics[sys, sol]`.
+Result-kind classification is flow-first: primary classification depends on
+edge flows `j[_,_]` and values `u[__]`; transition-flow determinacy for
+`j[_,_,_]` is reported separately. Both helpers (`solutionResultKind`,
+`solutionVariableDiagnostics`) are internal — they live in
+`` solversTools`Private` `` and are not part of the exported API; use the
+public `solutionReport[sys, sol]` for these diagnostics.
 
 Use `solutionReport[sys, sol]` for read-only solution diagnostics and
 `solutionBranchCostReport[sys, sol]` to rank residual branches. The direct and
