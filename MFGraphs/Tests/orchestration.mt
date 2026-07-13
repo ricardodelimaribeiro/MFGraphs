@@ -64,7 +64,8 @@ Test[
         solveScenarioResult = TimeConstrained[solveScenario[s], 5, $TimedOut];
         solveMFGResult = TimeConstrained[SolveMFG[s], 5, $TimedOut];
         (ListQ[solveMFGResult] || AssociationQ[solveMFGResult]) &&
-        solutionResultKind[solveMFGResult] === solutionResultKind[solveScenarioResult]
+        solversTools`Private`solutionResultKind[solveMFGResult] ===
+            solversTools`Private`solutionResultKind[solveScenarioResult]
     ],
     True,
     TestID -> "SolveMFG: accepts typed scenario and produces same result kind as solveScenario"
@@ -83,7 +84,8 @@ Test[
         solveScenarioResult = TimeConstrained[solveScenario[s], 5, $TimedOut];
         solveMFGResult = TimeConstrained[SolveMFG[rawAssoc], 5, $TimedOut];
         (ListQ[solveMFGResult] || AssociationQ[solveMFGResult]) &&
-        solutionResultKind[solveMFGResult] === solutionResultKind[solveScenarioResult]
+        solversTools`Private`solutionResultKind[solveMFGResult] ===
+            solversTools`Private`solutionResultKind[solveScenarioResult]
     ],
     True,
     TestID -> "SolveMFG: legacy association input still works after scenario dispatch added"
