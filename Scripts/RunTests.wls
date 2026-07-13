@@ -84,8 +84,18 @@ Do[
     $t0 = AbsoluteTime[];
     report = TestReport[FileNameJoin[{$TestsDir, file}]];
     $elapsed = Round[AbsoluteTime[] - $t0];
-    passed = report["TestsSucceededCount"];
-    failed = report["TestsFailedCount"];
+    passed = If[MatchQ[report, _TestReportObject], report["TestsSucceededCount"], 0];
+    failed = If[MatchQ[report, _TestReportObject], report["TestsFailedCount"], 0];
+    (* A failed TestReport (missing file, load abort) or a file that ran zero
+       tests must count as a failure — non-numeric counts would otherwise make
+       the final $totalFailed > 0 check non-Boolean and the script exit 0. *)
+    If[!IntegerQ[passed] || !IntegerQ[failed] || passed + failed === 0,
+        Print["  [ERROR] ", file, " produced no test results"];
+        $totalFailed += 1;
+        AppendTo[$allFailed, file <> " (no test results)"];
+        Print[];
+        Continue[]
+    ];
     $totalPassed += passed;
     $totalFailed += failed;
     Print["  Passed: ", passed, "  Failed: ", failed, "  (", $elapsed, "s)"];
