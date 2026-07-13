@@ -35,7 +35,8 @@ wolframscript -file Scripts/ProfileScenarioKernel.wls --case example-12 --timeou
 # Profile the DNF reducer
 wolframscript -file Scripts/ProfileDNFReduce.wls --case all --order all --timeout 60
 
-# Regenerate API_REFERENCE.md from ::usage strings (do not edit it by hand)
+# Regenerate API_REFERENCE.md from ::usage strings (do not edit it by hand);
+# exits nonzero without writing if a usage call pattern contradicts its definition's arity
 wolframscript -file Scripts/GenerateDocs.wls
 ```
 
