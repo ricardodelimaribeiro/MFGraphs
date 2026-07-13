@@ -32,8 +32,10 @@ criticalCongestionSystemQ::usage =
 "criticalCongestionSystemQ[sys] returns True if the system is a critical congestion system (Alpha == 1 everywhere).";
 
 withCriticalCongestionSolver::usage =
-"withCriticalCongestionSolver[sys, solverName, bodyFunc] handles validation, input building, \
-and rule attachment for critical-congestion structural solvers.";
+"withCriticalCongestionSolver[sys, solverName, bodyFunc, buildInputsFunc, attachRulesFunc] \
+guards on critical congestion, calls buildInputsFunc[sys] to obtain {constraints, allVars, \
+rulesAcc}, evaluates bodyFunc[constraints, allVars], and returns attachRulesFunc[result, \
+rulesAcc]. Shared shell for the critical-congestion structural solvers.";
 
 withCriticalCongestionGuard::usage =
 "withCriticalCongestionGuard[sys, solverName, body] evaluates body only when sys is a \

@@ -88,7 +88,7 @@ withCriticalCongestionGuard[sys, solverName, body] evaluates body only when sys 
 
 ## withCriticalCongestionSolver
 
-withCriticalCongestionSolver[sys, solverName, bodyFunc] handles validation, input building, and rule attachment for critical-congestion structural solvers.
+withCriticalCongestionSolver[sys, solverName, bodyFunc, buildInputsFunc, attachRulesFunc] guards on critical congestion, calls buildInputsFunc[sys] to obtain {constraints, allVars, rulesAcc}, evaluates bodyFunc[constraints, allVars], and returns attachRulesFunc[result, rulesAcc]. Shared shell for the critical-congestion structural solvers.
 
 ## buildAuxiliaryTopology
 
