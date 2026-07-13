@@ -25,7 +25,8 @@ $TestSuites = <|
         "tawaf.mt",
         "example-coverage.mt",
         "numeric-oracle.mt",
-        "utilities.mt"
+        "utilities.mt",
+        "usage-arity.mt"
     },
     (* Opt-in oracle suite: the float-isolated numericOracle` classifiers.
        numeric-oracle.mt also runs in fast; fictitiousPlay.mt (the K-fold

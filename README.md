@@ -236,7 +236,7 @@ wolframscript -file Scripts/RunSingleTest.wls MFGraphs/Tests/scenario-kernel.mt
 the runner to load the package and wrap them in `TestReport`.)
 
 Current active runner suites (`Scripts/RunTests.wls`):
-- `fast`: `scenario-kernel.mt`, `symbolic-unknowns.mt`, `reduce-system.mt`, `scenario-consistency.mt`, `graphicsTools.mt`, `orchestration.mt`, `dnf-reducer.mt`, `boolean-minimize.mt`, `tawaf.mt`, `example-coverage.mt`, `numeric-oracle.mt`, `utilities.mt`
+- `fast`: `scenario-kernel.mt`, `symbolic-unknowns.mt`, `reduce-system.mt`, `scenario-consistency.mt`, `graphicsTools.mt`, `orchestration.mt`, `dnf-reducer.mt`, `boolean-minimize.mt`, `tawaf.mt`, `example-coverage.mt`, `numeric-oracle.mt`, `utilities.mt`, `usage-arity.mt`
 - `all`: alias for `fast`
 - `oracle`: `numeric-oracle.mt` + `fictitiousPlay.mt` (opt-in classifier suites)
 - `archive`: archived compatibility/legacy suites (explicit use only)

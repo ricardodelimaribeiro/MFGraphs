@@ -4,7 +4,7 @@ This directory contains the active scenario-kernel tests and archived legacy/sol
 
 ## Runner suites (`Scripts/RunTests.wls`)
 
-- `fast`: the 12 active suites (see below).
+- `fast`: the 13 active suites (see below).
 - `all`: alias for `fast`.
 - `oracle`: `numeric-oracle.mt` + `fictitiousPlay.mt` (the opt-in `numericOracle`` classifier suites).
 - `archive`: archived compatibility/legacy suites (explicit use only; they target the removed legacy API and are not expected to pass).
@@ -12,7 +12,7 @@ This directory contains the active scenario-kernel tests and archived legacy/sol
 
 ## File groups
 
-- Active tests (`fast`): `scenario-kernel`, `symbolic-unknowns`, `reduce-system`, `scenario-consistency`, `graphicsTools`, `orchestration`, `dnf-reducer`, `boolean-minimize`, `tawaf`, `example-coverage`, `numeric-oracle`, `utilities`.
+- Active tests (`fast`): `scenario-kernel`, `symbolic-unknowns`, `reduce-system`, `scenario-consistency`, `graphicsTools`, `orchestration`, `dnf-reducer`, `boolean-minimize`, `tawaf`, `example-coverage`, `numeric-oracle`, `utilities`, `usage-arity`.
 - Oracle extra: `fictitiousPlay` (runs in `oracle` and `full`, not `fast`).
 - Archived tests: `archive/` (legacy or non-core surfaces).
 
