@@ -526,6 +526,12 @@ booleanMinimizeSystem[sys_?mfgSystemQ, opts : OptionsPattern[]] :=
 pruneDisjunctiveArms[linearAtoms_List, disjAtoms_List, allVars_List, armTimeout_] :=
     Module[{lin = linearAtoms, disj = disjAtoms, changed = True, status = "Unchanged",
             newDisj, atom, arms, kept, fi, infeasibleAll = False},
+        (* A literal False in the linear part (a contradiction surfaced during
+           rule accumulation) carries no variables, so the variable-sharing
+           decomposition downstream would silently drop it. It must short-
+           circuit here as infeasibility. *)
+        If[MemberQ[lin, False],
+            Return[{lin, disj, "Infeasible"}, Module]];
         While[changed && !infeasibleAll,
             changed = False;
             newDisj = {};
