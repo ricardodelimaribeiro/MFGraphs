@@ -872,3 +872,49 @@ Test[
     ,
     TestID -> "Example metadata: every registered key resolves to an Association"
 ]
+
+(* Test: edgeEntryTolls expand identically for Graph and adjacency-only models,
+   with no inadmissible U-turn key {nextV, targetV, nextV} *)
+Module[{mG, mA, sG, sA, swG, swA},
+    mG = <|"Graph" -> Graph[{1 -> 2, 2 -> 3, 3 -> 4}],
+           "Entries" -> {{1, 100}}, "Exits" -> {{4, 0}}, "Switching" -> {},
+           "edgeEntryTolls" -> <|{2, 3} -> 5|>|>;
+    mA = <|"Vertices" -> {1, 2, 3, 4},
+           "Adjacency" -> {{0, 1, 0, 0}, {0, 0, 1, 0}, {0, 0, 0, 1}, {0, 0, 0, 0}},
+           "Entries" -> {{1, 100}}, "Exits" -> {{4, 0}}, "Switching" -> {},
+           "edgeEntryTolls" -> <|{2, 3} -> 5|>|>;
+    sG = makeScenario[<|"Model" -> mG|>];
+    sA = makeScenario[<|"Model" -> mA|>];
+    swG = Select[scenarioData[sG, "Model"]["Switching"], # =!= 0 &];
+    swA = Select[scenarioData[sA, "Model"]["Switching"], # =!= 0 &];
+    Test[
+        scenarioQ[sG] && scenarioQ[sA] &&
+        Keys[swG] === {{1, 2, 3}} && Keys[swA] === {{1, 2, 3}} &&
+        swA[{1, 2, 3}][1] === 5
+        ,
+        True
+        ,
+        TestID -> "edgeEntryTolls: adjacency-only model expands like the Graph model, no U-turn keys"
+    ]
+]
+
+(* Test: metric closure of switching costs stays exact — rational costs are
+   stored as rationals and a cheaper two-hop route replaces a direct cost *)
+Module[{m, s, sw},
+    m = <|"Vertices" -> {1, 2, 3, 4},
+          "Adjacency" -> {{0, 1, 0, 0}, {0, 0, 1, 1}, {0, 0, 0, 0}, {0, 0, 0, 0}},
+          "Entries" -> {{1, 100}}, "Exits" -> {{3, 0}, {4, 0}},
+          "Switching" -> {{1, 2, 3, 1/3}, {3, 2, 4, 1/3}, {1, 2, 4, 1}}|>;
+    s = makeScenario[<|"Model" -> m|>];
+    sw = scenarioData[s, "Model"]["Switching"];
+    Test[
+        scenarioQ[s] &&
+        sw[{1, 2, 3}] === 1/3 &&
+        sw[{1, 2, 4}] === 2/3 &&
+        FreeQ[Values[sw], _Real]
+        ,
+        True
+        ,
+        TestID -> "Switching metric closure: exact rationals in, exact rationals out"
+    ]
+]

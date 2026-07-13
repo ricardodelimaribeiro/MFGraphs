@@ -262,20 +262,32 @@ normalizeSwitchingCosts[sc_List] :=
     If[sc === {}, <||>, AssociationThread[Most /@ sc, Last /@ sc]];
 
 expandEdgeEntryTolls[model_Association] :=
-    Module[{tolls, g, expanded},
+    Module[{tolls, g, vertices, adjacency, sym, index, neighborsOf, expanded},
         tolls = Lookup[model, "edgeEntryTolls", <||>];
         If[tolls === <||>, Return[<||>, Module]];
 
+        (* normalizeScenarioModel stores a Graph only for Graph-specified
+           models; adjacency-only models carry just Vertices/Adjacency, so
+           the neighbor lookup must fall back to the undirected closure of
+           the adjacency matrix. *)
         g = Lookup[model, "Graph"];
-
-        (* If we don't have a graph yet, we can't expand tolls.
-           But makeScenario normalizes the model first, so we should have it. *)
-        If[!MatchQ[g, _Graph], Return[<||>, Module]];
+        If[MatchQ[g, _Graph],
+            neighborsOf = AdjacencyList[g, #] &,
+            vertices  = Lookup[model, "Vertices"];
+            adjacency = Lookup[model, "Adjacency"];
+            If[!ListQ[vertices] || !(ListQ[adjacency] || Head[adjacency] === SparseArray),
+                Return[<||>, Module]];
+            sym   = Unitize[Normal[adjacency] + Transpose[Normal[adjacency]]];
+            index = AssociationThread[vertices, Range[Length[vertices]]];
+            neighborsOf = Function[v, Pick[vertices, sym[[index[v]]], 1]]
+        ];
 
         expanded = KeyValueMap[
             Function[{edge, toll},
                 Module[{targetV = edge[[1]], nextV = edge[[2]], incoming},
-                    incoming = AdjacencyList[g, targetV];
+                    (* nextV itself would form the inadmissible U-turn triple
+                       {nextV, targetV, nextV}. *)
+                    incoming = DeleteCases[neighborsOf[targetV], nextV];
                     Association @ Table[
                         {r, targetV, nextV} -> If[MatchQ[toll, _Function], toll, toll &],
                         {r, incoming}
@@ -293,22 +305,38 @@ metricClosureSwitchingCosts[sc_Association] :=
         byVertex = GroupBy[Keys[sc], #[[2]] &];
         closedByVertex = KeyValueMap[
             Function[{v, triples},
-                Module[{numericTriples, nonNumericTriples, g},
+                Module[{numericTriples, nonNumericTriples, labels, index, n, dist},
                     numericTriples = Select[triples, NumericQ[sc[#]] &];
                     nonNumericTriples = Complement[triples, numericTriples];
 
                     If[numericTriples === {},
                         AssociationThread[triples, sc /@ triples],
-                        g = Graph[
-                            DirectedEdge[#[[1]], #[[3]], sc[#]] & /@ numericTriples,
-                            EdgeWeight -> (sc /@ numericTriples)
+                        (* Exact Floyd-Warshall over the edge labels around v.
+                           GraphDistance on a weighted Graph coerces exact
+                           rational costs to machine reals, which would leak
+                           floats into the symbolic pipeline. *)
+                        labels = DeleteDuplicates[
+                            Join[numericTriples[[All, 1]], numericTriples[[All, 3]]]];
+                        n = Length[labels];
+                        index = AssociationThread[labels, Range[n]];
+                        dist = ConstantArray[Infinity, {n, n}];
+                        Do[dist[[k, k]] = 0, {k, n}];
+                        Scan[
+                            Function[triple,
+                                With[{a = index[triple[[1]]], b = index[triple[[3]]]},
+                                    dist[[a, b]] = Min[dist[[a, b]], sc[triple]]
+                                ]
+                            ],
+                            numericTriples
+                        ];
+                        Do[
+                            dist[[a, b]] = Min[dist[[a, b]], dist[[a, k]] + dist[[k, b]]],
+                            {k, n}, {a, n}, {b, n}
                         ];
                         Join[
                             AssociationThread[nonNumericTriples, sc /@ nonNumericTriples],
                             Association @ Map[
-                                With[{dist = GraphDistance[g, #[[1]], #[[3]]]},
-                                    # -> If[IntegerQ[dist] || (NumericQ[dist] && dist == Round[dist]), Round[dist], dist]
-                                ] &,
+                                # -> dist[[index[#[[1]]], index[#[[3]]]]] &,
                                 numericTriples
                             ]
                         ]
