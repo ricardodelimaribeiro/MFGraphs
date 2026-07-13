@@ -182,6 +182,47 @@ Module[{s, sys},
     ]
 ];
 
+(* The probe reads EqEntryIn/EqBalance*/IneqJs/IneqJts through the nested
+   typed records. Pinning the sole entry flow contradicts EqEntryIn
+   (j == entry value), so the pruning must be rejected. *)
+Module[{s, sys, entryVar},
+    s = makeScenario[<|"Model" -> <|
+        "Vertices" -> {1, 2, 3},
+        "Adjacency" -> {{0, 1, 0}, {0, 0, 1}, {0, 0, 0}},
+        "Entries" -> {{1, 1}}, "Exits" -> {{3, 0}},
+        "Switching" -> {}|>|>];
+    sys = makeSystem[s];
+    entryVar = First[First[systemData[sys, "EqEntryIn"]]];
+    Test[
+        addOracleEqualities[sys, <|"Converged" -> True, "Inactive" -> {entryVar}|>] === sys
+        ,
+        True
+        ,
+        TestID -> "Oracle: over-pruning the entry flow is rejected by the feasibility probe"
+    ]
+];
+
+(* A genuinely inactive variable (the backward flow on a forward chain)
+   must still be pinned: the probe accepts it and the j == 0 equality
+   lands in EqGeneral. *)
+Module[{s, sys, pruned},
+    s = makeScenario[<|"Model" -> <|
+        "Vertices" -> {1, 2, 3},
+        "Adjacency" -> {{0, 1, 0}, {0, 0, 1}, {0, 0, 0}},
+        "Entries" -> {{1, 1}}, "Exits" -> {{3, 0}},
+        "Switching" -> {}|>|>];
+    sys = makeSystem[s];
+    pruned = addOracleEqualities[sys, <|"Converged" -> True, "Inactive" -> {j[2, 1]}|>];
+    Test[
+        mfgSystemQ[pruned] && pruned =!= sys &&
+        MemberQ[systemData[pruned, "EqGeneral"], j[2, 1] == 0]
+        ,
+        True
+        ,
+        TestID -> "Oracle: feasible pruning is accepted and appends the pin to EqGeneral"
+    ]
+];
+
 (* Note: addOracleEqualities runs a FindInstance probe on the linear part
    only -- it can detect over-pruning that violates mass balance, but
    complementarity-level over-pruning (oracle's pinned vars conflict with

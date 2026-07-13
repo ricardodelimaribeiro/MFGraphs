@@ -97,3 +97,31 @@ Module[{sys, inputs, constraints, allVars, atoms, linAtoms, disjAtoms,
         TestID -> "BooleanConvert raw disjunct count > 1 on grid-3x2 (sanity)"
     ]
 ]
+
+
+(* --------------------------------------------------------------- *)
+(* Infeasible systems must surface Residual -> False               *)
+(* --------------------------------------------------------------- *)
+
+(* An entry with no exits makes the linear part contradict itself; the
+   contradiction surfaces as a literal (variable-free) False atom, which
+   must short-circuit to the infeasible result shape instead of being
+   dropped by the component decomposition and reported as solved. *)
+Module[{s, sys, ref, bmr},
+    s = makeScenario[<|"Model" -> <|
+        "Vertices" -> {1, 2},
+        "Adjacency" -> {{0, 1}, {0, 0}},
+        "Entries" -> {{1, 1}}, "Exits" -> {},
+        "Switching" -> {}|>|>];
+    sys = makeSystem[s];
+    ref = dnfReduceSystem[sys];
+    bmr = booleanMinimizeReduceSystem[sys];
+    Test[
+        AssociationQ[bmr] && bmr["Residual"] === False &&
+        AssociationQ[ref] && ref["Residual"] === False
+        ,
+        True
+        ,
+        TestID -> "booleanMinimizeReduceSystem: entry with no exits is Residual False, matching dnfReduceSystem"
+    ]
+]

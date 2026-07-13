@@ -565,7 +565,8 @@ boundaryPreservingAutomorphisms[s_?scenarioQ] :=
    pruned system fails its FindInstance safety check -> no-op. *)
 addOracleEqualities[sys_?mfgSystemQ, oracle_Association] :=
     Module[{inactive, eqs, sysAssoc, hamRecord, hamAssoc, newEqGeneral, newHam,
-            newSys, allVars, feasibilityProbe},
+            newSys, allVars, eqEntryIn, eqBalanceSplit, eqBalanceGather,
+            ineqJs, ineqJts, feasibilityProbe},
         If[! TrueQ[Lookup[oracle, "Converged", False]], Return[sys, Module]];
         inactive = Lookup[oracle, "Inactive", {}];
         If[inactive === {}, Return[sys, Module]];
@@ -579,23 +580,30 @@ addOracleEqualities[sys_?mfgSystemQ, oracle_Association] :=
         newSys = mfgSystem[<|sysAssoc, "HamiltonianData" -> newHam|>];
         (* Safety check: does the pruned linear part still admit a feasible
            point? If FindInstance returns {} the oracle over-pruned -- bail
-           out and return the original system. Skip the check if the system
-           lacks the expected linear-program buckets. *)
+           out and return the original system. The probe buckets live inside
+           the nested BoundaryData/FlowData records, so they must be read via
+           systemData (a top-level Lookup returns its default and voids the
+           probe). Skip the check if the system lacks the expected buckets. *)
         allVars = Join[
             Lookup[sysAssoc, "Js",  {}],
             Lookup[sysAssoc, "Jts", {}],
             Lookup[sysAssoc, "Us",  {}]
         ];
+        eqEntryIn       = systemData[sys, "EqEntryIn"];
+        eqBalanceSplit  = systemData[sys, "EqBalanceSplittingFlows"];
+        eqBalanceGather = systemData[sys, "EqBalanceGatheringFlows"];
+        ineqJs          = systemData[sys, "IneqJs"];
+        ineqJts         = systemData[sys, "IneqJts"];
+        If[AnyTrue[{eqEntryIn, eqBalanceSplit, eqBalanceGather, ineqJs, ineqJts}, MissingQ],
+            Return[newSys, Module]];
         feasibilityProbe = TimeConstrained[
             Quiet @ FindInstance[
                 And @@ Join[
-                    Lookup[sysAssoc, "EqEntryIn", {}],
-                    {Lookup[sysAssoc, "EqBalanceSplittingFlows", True],
-                     Lookup[sysAssoc, "EqBalanceGatheringFlows", True]},
-                    Lookup[sysAssoc, "EqGeneral", {}],
+                    eqEntryIn,
+                    {eqBalanceSplit, eqBalanceGather},
                     newEqGeneral,
-                    Lookup[sysAssoc, "IneqJs",  {}],
-                    Lookup[sysAssoc, "IneqJts", {}]
+                    ineqJs,
+                    ineqJts
                 ],
                 allVars, Reals, 1
             ],
