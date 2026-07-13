@@ -3,6 +3,13 @@
    "DisjunctOrdering" choices on activeSetReduceSystem across all 38
    registered scenarios.
 
+   NOTE (2026-07, issue #222): results collected before the #222 fix are
+   invalid — the option was inert and all four orderings executed identical
+   code; Lexicographic-first run order turned kernel warm-up into apparent
+   Block-* speedups. When re-running, interleave the ordering run order per
+   scenario (or use a fresh kernel per run) so warm-up cannot masquerade as
+   a speedup.
+
    Per (scenario, ordering): wall time, Status, MaxRecursionDepth,
    BranchesStarted/Kept/Dropped (from dnfReduceDiagnosticReport's Summary
    when available; otherwise N/A — activeSetReduceSystem itself does not

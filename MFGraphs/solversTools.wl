@@ -104,7 +104,11 @@ critical-congestion linear complementarity structure. It enumerates small \
 complementarity alternatives incrementally with exact linear substitution and \
 falls back to the proven exact DNF reducer for larger residual variable sets. \
 Returns the same rule/residual shape as dnfReduceSystem. Fails for \
-non-critical congestion systems where Alpha != 1 on any edge.";
+non-critical congestion systems where Alpha != 1 on any edge. The option \
+\"DisjunctOrdering\" (\"Lexicographic\" default, or \"Block-Vertex\", \
+\"Block-Edge\", \"Block-SCC\") reorders complementarity conjuncts by graph \
+anchor before the branch fold; non-default orderings force the branch-state \
+path.";
 
 booleanReduceSystem::usage =
 "booleanReduceSystem[sys] solves the mfgSystem sys by converting the \
@@ -410,6 +414,7 @@ activeSetReduceSystem[sys_?mfgSystemQ, OptionsPattern[]] :=
         $lpPrecheckPruned = 0;
         $liaCalls         = 0;
         $liaPinned        = 0;
+        $disjunctOrderingRanked = 0;
         (* v2.0: one-shot implied-equalities pass at the top. Runs in its own
            Block so polytopeImpliedEqualities sees the raw polytope; results
            are merged into rulesAcc / detReduced / activeReduced before v2.1
@@ -434,14 +439,18 @@ activeSetReduceSystem[sys_?mfgSystemQ, OptionsPattern[]] :=
                $lpPrecheckEnabled  = TrueQ[OptionValue["LPPrecheck"]],
                $liaEnabled         = TrueQ[OptionValue["ImpliedEqualities"]],
                $liaTimeout         = OptionValue["ImpliedEqualitiesTimeout"],
-               $disjunctOrderingMap = buildDisjunctOrderingMap[
+               $disjunctRankFunction = buildDisjunctRankFunction[
                    OptionValue["DisjunctOrdering"], sys]},
-            (* Force the branchStateReduce path only for flags that need the
-               per-branch gate inside addBranchConstraint (LPPrecheck, v2.1).
-               v2.0 (ImpliedEqualitiesTop) does its work pre-solve and does
-               NOT need to force a particular solver path. *)
+            (* Force the branchStateReduce path for flags that need the
+               per-branch gate inside addBranchConstraint (LPPrecheck, v2.1)
+               and for non-default DisjunctOrdering — orderedConjuncts only
+               runs on that path, so routing a Block-* ordering through
+               dnfReduce would silently ignore it (issue #222). v2.0
+               (ImpliedEqualitiesTop) does its work pre-solve and does NOT
+               need to force a particular solver path. *)
             result = If[TrueQ[OptionValue["LPPrecheck"]] ||
                          TrueQ[OptionValue["ImpliedEqualities"]] ||
+                         OptionValue["DisjunctOrdering"] =!= "Lexicographic" ||
                          Length[allVars] <= $optimizedDNFVarThreshold,
                 branches = branchStateReduce[activeReduced, allVars];
                 branches = branchStateReduceFromBranches[branches, detReduced, allVars];
@@ -1098,21 +1107,31 @@ constraintPriority[expr_] :=
     ];
 
 (* Block-bound by activeSetReduceSystem when "DisjunctOrdering" is non-default;
-   maps each Or expression to an integer rank used as a SortBy key inside
-   orderedConjuncts. Empty default means no rank perturbation (lexicographic). *)
-$disjunctOrderingMap = <||>;
+   a function mapping an Or-conjunct to an integer rank, applied at sort time
+   inside orderedConjuncts. None means no rank perturbation (lexicographic).
+   Ranking works by anchor extraction from the conjunct itself — NOT by
+   literal-key lookup against the raw systemData disjuncts — because by the
+   time orderedConjuncts runs, accumulateEqualityRules has rewritten the
+   conjuncts and no raw-keyed map entry would ever match (issue #222). *)
+$disjunctRankFunction = None;
+
+(* Diagnostic: how many Or-conjuncts received an anchor-derived rank during
+   the current activeSetReduceSystem call. Zero under a Block-* ordering means
+   the ordering silently did nothing (regression-tested). *)
+$disjunctOrderingRanked = 0;
 
 orderedConjuncts[expr_] :=
     (* Canonical-order tiebreaker via Sort instead of ToString[..., InputForm] —
        both inputs evaluate through the same kernel so structural order suffices.
-       When $disjunctOrderingMap is non-empty (set by activeSetReduceSystem under
-       a Block-ordering option), Or-conjuncts are first sorted by their precomputed
-       rank; non-Or conjuncts get rank 0 (preserving their priority-0/1 placement). *)
-    If[$disjunctOrderingMap === <||>,
+       When $disjunctRankFunction is set (by activeSetReduceSystem under a
+       Block-ordering option), Or-conjuncts are first sorted by their anchor
+       rank; non-Or conjuncts get rank 0 (preserving their priority-0/1
+       placement). *)
+    If[$disjunctRankFunction === None,
         SortBy[flattenConjuncts[expr], {constraintPriority, Identity}],
         SortBy[flattenConjuncts[expr],
             {constraintPriority,
-             Lookup[$disjunctOrderingMap, #, 0] &,
+             Function[c, If[Head[c] === Or, $disjunctRankFunction[c], 0]],
              Identity}]
     ];
 
@@ -1143,102 +1162,82 @@ disjunctAnchorEdge[orExpr_Or] :=
 disjunctAnchorEdge[_] := Missing[];
 
 (* --- Block orderings -------------------------------------------------------
-   Each helper returns an Association <|orExpr -> rank|> consumed by
-   orderedConjuncts via $disjunctOrderingMap. Rank values are integers; ties
-   inside a block fall through to the structural Sort tiebreaker. *)
+   Each builder returns a rank function orExpr -> integer, consumed by
+   orderedConjuncts via $disjunctRankFunction. Ranks derive from the anchor
+   extracted out of the conjunct at sort time, so they apply equally to the
+   raw disjuncts and to their rewritten forms. Ties inside a block fall
+   through to the structural Sort tiebreaker. *)
 
-(* Vertex BFS order from boundary vertices (entries + exits). Vertices not
-   reachable from boundary get a depth past the diameter so they sort last. *)
-vertexBlockOrder[disjuncts_List, sys_?mfgSystemQ] :=
-    Module[{graph, boundary, depth, n, vertexRank, anchors},
+(* BFS depth from boundary vertices (entries + exits) over the auxiliary
+   graph. Vertices not reachable from boundary get a depth past the diameter
+   so they sort last. Returns {vertexCount, depthAssociation}. *)
+boundaryDepthAssociation[sys_?mfgSystemQ] :=
+    Module[{graph, boundary, n},
         graph = Graph[systemData[sys, "AuxVertices"], systemData[sys, "AuxEdges"]];
         boundary = Join[systemData[sys, "AuxEntryVertices"],
                         systemData[sys, "AuxExitVertices"]];
         n = Length[VertexList[graph]];
-        depth = Association @ MapThread[Rule,
+        {n, Association @ MapThread[Rule,
             {VertexList[graph],
              Map[Function[v, Min[Replace[
                  Quiet @ Check[GraphDistance[graph, #, v], n + 1] & /@ boundary,
                  _DirectedInfinity | Infinity -> n + 1, 1]]],
-                 VertexList[graph]]}];
-        vertexRank = Function[v, Lookup[depth, v, n + 1]];
-        anchors = disjunctAnchorVertex /@ disjuncts;
-        Association @ MapThread[Rule,
-            {disjuncts,
-             MapThread[
-                Function[{d, v},
-                    If[v === Missing[], n + 2, vertexRank[v]]],
-                {disjuncts, anchors}]}]
+                 VertexList[graph]]}]}
     ];
 
-(* Edge BFS order: rank an edge {a,b} by min(depth[a], depth[b]) where depth
-   is the BFS depth from boundary vertices. Within an edge-block, spatial-flow
-   disjuncts (j[a,b]==0) sort before transition-flow disjuncts (j[*,a,b]==0)
-   via the structural tiebreaker. *)
-edgeBlockOrder[disjuncts_List, sys_?mfgSystemQ] :=
-    Module[{graph, boundary, depth, n, anchors},
-        graph = Graph[systemData[sys, "AuxVertices"], systemData[sys, "AuxEdges"]];
-        boundary = Join[systemData[sys, "AuxEntryVertices"],
-                        systemData[sys, "AuxExitVertices"]];
-        n = Length[VertexList[graph]];
-        depth = Association @ MapThread[Rule,
-            {VertexList[graph],
-             Map[Function[v, Min[Replace[
-                 Quiet @ Check[GraphDistance[graph, #, v], n + 1] & /@ boundary,
-                 _DirectedInfinity | Infinity -> n + 1, 1]]],
-                 VertexList[graph]]}];
-        anchors = disjunctAnchorEdge /@ disjuncts;
-        Association @ MapThread[Rule,
-            {disjuncts,
-             MapThread[
-                Function[{d, e},
-                    If[!ListQ[e], n + 2,
-                        Min[Lookup[depth, e[[1]], n + 1],
-                            Lookup[depth, e[[2]], n + 1]]]],
-                {disjuncts, anchors}]}]
+(* Vertex BFS order: rank a disjunct by the boundary depth of its anchor
+   vertex. *)
+vertexRankFunction[sys_?mfgSystemQ] :=
+    Module[{n, depth},
+        {n, depth} = boundaryDepthAssociation[sys];
+        Function[orExpr,
+            With[{v = disjunctAnchorVertex[orExpr]},
+                If[v === Missing[], n + 2,
+                    $disjunctOrderingRanked++; Lookup[depth, v, n + 1]]]]
+    ];
+
+(* Edge BFS order: rank an edge {a,b} by min(depth[a], depth[b]). Within an
+   edge-block, spatial-flow disjuncts (j[a,b]==0) sort before transition-flow
+   disjuncts (j[*,a,b]==0) via the structural tiebreaker. *)
+edgeRankFunction[sys_?mfgSystemQ] :=
+    Module[{n, depth},
+        {n, depth} = boundaryDepthAssociation[sys];
+        Function[orExpr,
+            With[{e = disjunctAnchorEdge[orExpr]},
+                If[!ListQ[e], n + 2,
+                    $disjunctOrderingRanked++;
+                    Min[Lookup[depth, e[[1]], n + 1],
+                        Lookup[depth, e[[2]], n + 1]]]]]
     ];
 
 (* SCC ordering: rank by SCC index (topological order of the condensation
-   graph), tiebroken by within-SCC vertex BFS rank. Falls back to plain vertex
-   order if SCC computation fails. *)
-sccBlockOrder[disjuncts_List, sys_?mfgSystemQ] :=
-    Module[{graph, sccs, sccIndex, vertexFallback, anchors},
+   graph), tiebroken by the anchor's vertex BFS depth. *)
+sccRankFunction[sys_?mfgSystemQ] :=
+    Module[{graph, sccs, sccIndex, n, depth},
         graph = Graph[systemData[sys, "AuxVertices"], systemData[sys, "AuxEdges"]];
         sccs = Quiet @ Check[ConnectedComponents[graph], {VertexList[graph]}];
         sccIndex = Association @ Flatten @ MapIndexed[
             Function[{comp, idx}, (# -> First[idx]) & /@ comp],
             sccs];
-        vertexFallback = vertexBlockOrder[disjuncts, sys];
-        anchors = disjunctAnchorVertex /@ disjuncts;
-        Association @ MapThread[Rule,
-            {disjuncts,
-             MapThread[
-                Function[{d, v},
-                    If[v === Missing[],
-                        10000,
-                        1000 * Lookup[sccIndex, v, Length[sccs] + 1] +
-                            Lookup[vertexFallback, d, 0]]],
-                {disjuncts, anchors}]}]
+        {n, depth} = boundaryDepthAssociation[sys];
+        Function[orExpr,
+            With[{v = disjunctAnchorVertex[orExpr]},
+                If[v === Missing[], 10000,
+                    $disjunctOrderingRanked++;
+                    1000 * Lookup[sccIndex, v, Length[sccs] + 1] +
+                        Lookup[depth, v, n + 1]]]]
     ];
 
-(* Build the ordering map for the active-set solver based on the option. *)
-buildDisjunctOrderingMap[ordering_String, sys_?mfgSystemQ] :=
-    Module[{disjuncts},
-        disjuncts = Cases[
-            Flatten[{
-                systemData[sys, "AltFlows"],
-                systemData[sys, "AltTransitionFlows"],
-                systemData[sys, "AltOptCond"],
-                systemData[sys, "AltExitCond"]}],
-            _Or];
-        Switch[ordering,
-            "Block-Vertex", vertexBlockOrder[disjuncts, sys],
-            "Block-Edge",   edgeBlockOrder[disjuncts, sys],
-            "Block-SCC",    sccBlockOrder[disjuncts, sys],
-            _,              <||>
-        ]
+(* Build the ordering rank function for the active-set solver based on the
+   option value; None for the default lexicographic ordering. *)
+buildDisjunctRankFunction[ordering_String, sys_?mfgSystemQ] :=
+    Switch[ordering,
+        "Block-Vertex", vertexRankFunction[sys],
+        "Block-Edge",   edgeRankFunction[sys],
+        "Block-SCC",    sccRankFunction[sys],
+        _,              None
     ];
-buildDisjunctOrderingMap[_, _] := <||>;
+buildDisjunctRankFunction[_, _] := None;
 
 dnfTopLevelConjuncts[expr_] := flattenConjuncts[expr];
 

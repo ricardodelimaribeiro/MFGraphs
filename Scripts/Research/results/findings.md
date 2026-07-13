@@ -152,6 +152,14 @@ NOT MET. The strongest cached-only signals are:
 Useful as ordering heuristics; not strong enough to ship a `presolveByTopology`
 that pins variables before the solver runs.
 
+> **Fork 2 SUPERSEDED (2026-07, issue #222).** The `"DisjunctOrdering"`
+> option was inert when this benchmark ran — all four orderings executed
+> identical code, and the "speedups" below are kernel warm-up artifacts
+> (Lexicographic always ran first). The "MET" verdict and the recommendation
+> to ship a Block-* default are withdrawn; see
+> `block_ordering_findings.md` for details. Fork 1, Fork 3's Active-bias
+> half, and the sensitivity sweep used live mechanisms and stand.
+
 **Fork 2 — strong block-ordering winner.** MET. See
 `block_ordering_findings.md` for the full table. Headline:
 - 21 of 37 scenarios show > 5% speedup under at least one Block-* ordering.

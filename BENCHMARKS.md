@@ -144,6 +144,66 @@ as `dnfReduceSystem`.
 DNF-first benchmark entries from `Scripts/BenchmarkSystemSolver.wls` are appended
 here when the script is run with `--tag`.
 
+### 2026-07-13 - post-disjunct-ordering-fix-rerun
+
+**Commit:** `068bcfd`  
+**Environment:** local `wolframscript`, `$MFGraphsVerbose=False`  
+**Solver:** `activeset`  
+**Timeout per case:** 60s  
+**Solutions file:** `Results/system_solver_activeset_solutions_20260713-193155.wl`
+
+| Case | Solver | Build (ms) | Warmup (ms) | Repeat (ms) | Status | Kind | Transition flows | Residual Jts | Valid |
+|------|--------|-----------|------------|--------------|--------|------|------------------|--------------|-------|
+| chain-2v | activeset | 11.17 | 4.09 | 1.54 | OK | Rules | Unique | 0 | True |
+| chain-3v-1exit | activeset | 3.77 | 1.98 | 1.76 | OK | Rules | Unique | 0 | True |
+| chain-3v-2exit | activeset | 3.62 | 35.71 | 3.49 | OK | Underdetermined | Unique | 0 | True |
+| chain-3-midentry | activeset | 4.44 | 5. | 4.01 | OK | Rules | Unique | 0 | True |
+| chain-5v-1exit | activeset | 4.77 | 2.51 | 2.27 | OK | Rules | Unique | 0 | True |
+| grid-2x3 | activeset | 15.65 | 8.83 | 8.43 | OK | Rules | Unique | 0 | True |
+| grid-3x2 | activeset | 15.17 | 8.73 | 8.27 | OK | Rules | Unique | 0 | True |
+| example-12 | activeset | 10.06 | 9.53 | 9.34 | OK | Rules | Unique | 0 | True |
+---
+
+### 2026-07-13 - post-disjunct-ordering-fix
+
+**Commit:** `068bcfd`  
+**Environment:** local `wolframscript`, `$MFGraphsVerbose=False`  
+**Solver:** `activeset`  
+**Timeout per case:** 60s  
+**Solutions file:** `Results/system_solver_activeset_solutions_20260713-192619.wl`
+
+| Case | Solver | Build (ms) | Warmup (ms) | Repeat (ms) | Status | Kind | Transition flows | Residual Jts | Valid |
+|------|--------|-----------|------------|--------------|--------|------|------------------|--------------|-------|
+| chain-2v | activeset | 25.95 | 8.53 | 5.21 | OK | Rules | Unique | 0 | True |
+| chain-3v-1exit | activeset | 7.85 | 4.55 | 4.67 | OK | Rules | Unique | 0 | True |
+| chain-3v-2exit | activeset | 7.07 | 81.27 | 8.31 | OK | Underdetermined | Unique | 0 | True |
+| chain-3-midentry | activeset | 9.92 | 11.53 | 9.69 | OK | Rules | Unique | 0 | True |
+| chain-5v-1exit | activeset | 10.79 | 5.7 | 5.66 | OK | Rules | Unique | 0 | True |
+| grid-2x3 | activeset | 31.61 | 18.22 | 18.27 | OK | Rules | Unique | 0 | True |
+| grid-3x2 | activeset | 31.04 | 18.07 | 18.09 | OK | Rules | Unique | 0 | True |
+| example-12 | activeset | 20.08 | 21.92 | 9.23 | OK | Rules | Unique | 0 | True |
+---
+
+### 2026-07-13 - pre-disjunct-ordering-fix
+
+**Commit:** `068bcfd`  
+**Environment:** local `wolframscript`, `$MFGraphsVerbose=False`  
+**Solver:** `activeset`  
+**Timeout per case:** 60s  
+**Solutions file:** `Results/system_solver_activeset_solutions_20260713-191930.wl`
+
+| Case | Solver | Build (ms) | Warmup (ms) | Repeat (ms) | Status | Kind | Transition flows | Residual Jts | Valid |
+|------|--------|-----------|------------|--------------|--------|------|------------------|--------------|-------|
+| chain-2v | activeset | 12.73 | 5.01 | 1.78 | OK | Rules | Unique | 0 | True |
+| chain-3v-1exit | activeset | 3.07 | 1.95 | 1.93 | OK | Rules | Unique | 0 | True |
+| chain-3v-2exit | activeset | 3.71 | 36.07 | 3.75 | OK | Underdetermined | Unique | 0 | True |
+| chain-3-midentry | activeset | 3.49 | 4.13 | 4.35 | OK | Rules | Unique | 0 | True |
+| chain-5v-1exit | activeset | 5.72 | 2.91 | 2.54 | OK | Rules | Unique | 0 | True |
+| grid-2x3 | activeset | 15.95 | 8.75 | 8.97 | OK | Rules | Unique | 0 | True |
+| grid-3x2 | activeset | 15.79 | 8.81 | 8.56 | OK | Rules | Unique | 0 | True |
+| example-12 | activeset | 10.57 | 10.13 | 9.66 | OK | Rules | Unique | 0 | True |
+---
+
 ### 2026-07-12 - post-oracle-boolmin-fix
 
 **Commit:** `2a251bd`  
