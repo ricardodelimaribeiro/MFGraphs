@@ -6,7 +6,8 @@ This directory contains active maintenance scripts and an `archive/` folder with
 
 - `RunTests.wls`: suite runner (`fast`, `all`, `oracle`, `archive`, `full`).
 - `RunSingleTest.wls`: run one `.mt` file and print pass/fail summary.
-- `GenerateDocs.wls`: regenerate `API_REFERENCE.md` from `::usage` strings.
+- `GenerateDocs.wls`: regenerate `API_REFERENCE.md` from `::usage` strings; refuses to publish when the usage-arity lint fails.
+- `UsageArityLint.wls`: shared usage-arity lint sourced by `GenerateDocs.wls` and `MFGraphs/Tests/usage-arity.mt` (not a standalone CLI).
 - `AuditPublicAPI.py`: API surface inventory/audit helper.
 - `CheckCriticalSurfaceTests.wls`: gate checks for critical-surface test policy.
 - `CheckReportPlaceholders.wls`: fails when committed history/report files still contain placeholder prose.

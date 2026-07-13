@@ -114,6 +114,7 @@ Active `.mt` files under `MFGraphs/Tests/`:
 | `boolean-minimize.mt` | `booleanMinimizeSystem` / `booleanMinimizeReduceSystem` |
 | `orchestration.mt` | `solveScenario` / `SolveMFG`, full pipeline, and `clearSolveCache` memoization |
 | `utilities.mt` | typed-object infra (`mfgTypedQ`/`mfgData`), rule management, boundary exactification, critical-congestion guard |
+| `usage-arity.mt` | usage-string call patterns vs definition arities (shared lint with `GenerateDocs.wls` via `Scripts/UsageArityLint.wls`) |
 | `graphicsTools.mt` | `rawNetworkPlot`, `richNetworkPlot` |
 | `tawaf.mt` | unrolled-circumambulation scenario builder (opt-in `Tawaf`` context) |
 | `example-coverage.mt` | per-example smoke + cached-solution regression check across every key in `$ExampleScenarios` |
