@@ -21,6 +21,7 @@ This directory contains active maintenance scripts and an `archive/` folder with
 - `BenchmarkActiveSetLPPrecheck.wls`: head-to-head `activeSetReduceSystem` with/without `LPPrecheck`.
 - `BaselinePruningBenchmark.wls`: measures the paper §5.4 `booleanReduceSystem` baseline (materializes all complementarity branches).
 - `PaperBenchmark.wls`: paper §5.4 benchmark (A.2) + C.9 smoke test; modes `merge|fork|jamarat|all`.
+- `RepeatJamarat.wls`: repeated timing of the Jamarat critical-congestion cell (the paper's "under five minutes" claim); reports median/mean/min-max over N runs. Flags: `--runs`, `--timeout`, `--memcap`.
 - `SweepBranchStateThreshold.wls`: sweeps `$optimizedDNFVarThreshold` to find the branch-state/dnfReduce crossover.
 
 ## Profilers
