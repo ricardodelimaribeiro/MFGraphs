@@ -242,6 +242,14 @@ Current active runner suites (`Scripts/RunTests.wls`):
 - `archive`: archived compatibility/legacy suites (explicit use only)
 - `full`: `fast` + `fictitiousPlay.mt` + `archive`
 
+## Reproducibility and release
+
+[`REPRODUCIBILITY.md`](REPRODUCIBILITY.md) documents clean-clone validation,
+the package benchmark workflow, and the release gate for the stationary-MFG
+paper. Manuscript-specific figure and result generators deliberately live with
+the companion paper source in its `scripts/` directory, beside the paper assets
+they produce.
+
 ## Repository structure
 
 ```text

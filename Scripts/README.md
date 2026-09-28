@@ -42,13 +42,15 @@ This directory contains active maintenance scripts and an `archive/` folder with
 - `RegenerateSolutions.wls`: regenerates cached example solutions under `<repo>/solutions/*.wxf`.
 - `SolutionCacheHelpers.wls`: shared cache helpers sourced by `RegenerateSolutions.wls` and `MFGraphs/Tests/example-coverage.mt` (not a standalone CLI).
 
-## Paper artifacts
+## Paper-support utilities
 
-These regenerate material for the stationary-MFG paper; the Regen*/Render*/NonCritical scripts write into the Overleaf/Dropbox paper directory and are machine-specific.
+`PaperBenchmark.wls` and `BaselinePruningBenchmark.wls`, described above, are
+the package-level computation harnesses supporting the stationary-MFG paper.
+Manuscript-specific PDF generators live with the manuscript in its `scripts/`
+directory, beside the `figures/` and `executables/` folders they produce.
+See [`../REPRODUCIBILITY.md`](../REPRODUCIBILITY.md) for the clean-clone
+validation and release workflow.
 
-- `RegenPaperFigures.wls`: regenerates the paper's network diagrams.
-- `RegenPaperResults.wls`: regenerates the paper's §5 result plots.
-- `RenderJamaratFigures.wls`: renders the Jamarat `richNetworkPlot` figures as PDFs.
 - `ExtractPaperResults.wls`: extracts/validates paper-tier benchmark results (consumes the archived `BenchmarkSuite.wls` output format).
 - `MergeBenchmarkResults.py`: merges `Results/benchmark_*.json` outputs (archived pipeline format).
 
