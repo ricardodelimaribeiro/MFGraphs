@@ -64,6 +64,6 @@ Before an article submission or revision, maintainers should:
 3. Inspect the regenerated files and record the execution environment used for performance numbers.
 4. Create an annotated Git tag at the exact commit used for the manuscript.
 5. Publish that tag as a GitHub release and archive it with a permanent DOI.
-6. Ensure the release includes a project license and update `CITATION.cff` with the release version and DOI before publication.
+6. Confirm the included MIT license is appropriate for the release and update `CITATION.cff` with the archival DOI before publication.
 
 The current repository URL is useful for readers, but the versioned release and DOI are the archival reference for a submitted manuscript.

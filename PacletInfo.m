@@ -4,10 +4,9 @@
 
 Paclet[
     Name -> "MFGraphs",
-    Version -> "0.0.2",
+    Version -> "0.5.0",
     Extensions -> {
         {"Kernel", Root -> "MFGraphs", Context -> "MFGraphs`"}
     }
 ]
-
 
