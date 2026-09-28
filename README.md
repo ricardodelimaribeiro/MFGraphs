@@ -242,6 +242,14 @@ Current active runner suites (`Scripts/RunTests.wls`):
 - `archive`: archived compatibility/legacy suites (explicit use only)
 - `full`: `fast` + `fictitiousPlay.mt` + `archive`
 
+## Reproducibility and release
+
+[`REPRODUCIBILITY.md`](REPRODUCIBILITY.md) documents clean-clone validation,
+the package benchmark workflow, and the release gate for the stationary-MFG
+paper. Manuscript-specific figure and result generators deliberately live with
+the companion paper source in its `scripts/` directory, beside the paper assets
+they produce.
+
 ## Repository structure
 
 ```text
@@ -276,4 +284,10 @@ Scripts/
 
 ## License
 
-This project is part of ongoing research. Please contact the authors before using it in publications.
+MFGraphs is released under the [MIT License](LICENSE).
+
+## Citation
+
+Please cite the versioned software release used for your work. Citation metadata
+is available in [`CITATION.cff`](CITATION.cff); the archival DOI will be added to
+that file after the tagged release is deposited.

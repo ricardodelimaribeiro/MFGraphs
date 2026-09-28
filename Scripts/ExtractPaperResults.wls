@@ -2,7 +2,7 @@
 (* Extract and validate paper tier benchmark results *)
 
 (* Load latest benchmark CSV *)
-$RepoRoot = "/Users/ribeirrd/Documents/GitHub/MFGraphs";
+$RepoRoot = FileNameJoin[{DirectoryName[$InputFileName], ".."}];
 csvFile = FileNameJoin[{$RepoRoot, "Results", "benchmark_latest.csv"}];
 If[!FileExistsQ[csvFile],
     Print["ERROR: ", csvFile, " not found"];

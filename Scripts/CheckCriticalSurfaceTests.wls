@@ -1,6 +1,6 @@
 #!/usr/bin/env wolframscript
 
-$RepoRoot = "/Users/ribeirrd/Documents/GitHub/MFGraphs";
+$RepoRoot = FileNameJoin[{DirectoryName[$InputFileName], ".."}];
 
 PrependTo[$Path, $RepoRoot];
 
