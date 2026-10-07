@@ -1,6 +1,22 @@
 (* dnf-reducer.mt — unit tests for harvestDNFBranch and parseDNFReduceResult *)
 Needs["MFGraphs`"];
 
+Test[
+    Module[{parsed},
+        parsed = solversTools`Private`parseDNFReduceResult[
+            (x == 1) || (x == 1 && y >= 0), {x, y}];
+        Resolve[ForAll[{x, y}, Equivalent[
+            If[ListQ[parsed], And @@ (Equal @@@ parsed),
+                And[And @@ (Equal @@@ parsed["Rules"]), parsed["Residual"]]], x == 1]], Reals]
+    ], True, TestID -> "parseDNFReduceResult: unrestricted branch dominates restricted branch"
+]
+Test[
+    solversTools`Private`branchStateFinalizeResult[{
+        <|"Rules" -> {x -> 1}, "Residuals" -> {}|>,
+        <|"Rules" -> {x -> 1}, "Residuals" -> {y >= 0}|>}, {x, y}],
+    {x -> 1}, TestID -> "branchStateFinalizeResult: cannot discard a True disjunct"
+]
+
 (* Helper: reconstruct a testable Boolean expression from a parsed solver result *)
 toExpr[result_List]        := And @@ (Equal @@@ result);
 toExpr[result_Association] := And[
@@ -8,6 +24,26 @@ toExpr[result_Association] := And[
     Lookup[result, "Residual", True]
 ];
 toExpr[result_] := result;
+
+(* A backend that did not evaluate has not proved a branch infeasible. *)
+Test[
+    Block[{Solve}, FailureQ[solversTools`Private`parseDNFReduceResult[x == 1, {x}]]],
+    True, TestID -> "parseDNFReduceResult: unresolved Solve is a failure, not infeasibility"
+]
+Test[
+    Block[{Solve}, FailureQ[solversTools`Private`parseDNFReduceResult[
+        x == 1 || y >= 0, {x, y}]]],
+    True, TestID -> "parseDNFReduceResult: unknown branch cannot disappear from a union"
+]
+Test[
+    Resolve[ForAll[x, Equivalent[
+        toExpr[solversTools`Private`parseDNFReduceResult[x^2 == 1, {x}]], x^2 == 1]], Reals],
+    True, TestID -> "parseDNFReduceResult: finalization preserves all nonlinear roots"
+]
+Test[
+    solversTools`Private`parseDNFReduceResult[$TimedOut, {x}],
+    $TimedOut, TestID -> "parseDNFReduceResult: timeout remains a timeout"
+]
 
 
 (* ------------------------------------------------------------------ *)

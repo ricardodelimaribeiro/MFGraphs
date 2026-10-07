@@ -27,6 +27,7 @@ $UsageArityContexts = {
   "examples`",
   "unknownsTools`",
   "systemTools`",
+  "validationTools`",
   "solversTools`",
   "orchestrationTools`",
   "graphicsTools`"

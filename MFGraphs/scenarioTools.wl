@@ -607,8 +607,23 @@ completeScenario[x_] := (Message[completeScenario::notscenario, x]; x);
 (* --- Constructor --- *)
 
 makeScenario[rawAssoc_Association] :=
-    Module[{rawModel, normalizedAssoc, validated, validatedAssoc, model, topology, hamiltonian},
+    Module[{rawModel, inputProvenance, normalizedAssoc, validated, validatedAssoc,
+            model, topology, hamiltonian},
         rawModel = Lookup[rawAssoc, "Model", Missing["KeyAbsent", "Model"]];
+
+        (* Preserve mathematically relevant source data before normalization,
+           metric closure, completion, or other derived transformations can
+           erase evidence of inexact user input. *)
+        inputProvenance = If[AssociationQ[rawModel],
+            <|
+                "Model" -> KeyTake[
+                    rawModel,
+                    {"Entries", "Exits", "Switching", "edgeEntryTolls"}
+                ],
+                "Hamiltonian" -> Lookup[rawAssoc, "Hamiltonian", <||>]
+            |>,
+            <||>
+        ];
         (* Ensure Switching key exists for validation even if it will be overwritten later *)
         If[AssociationQ[rawModel] && !KeyExistsQ[rawModel, "Switching"] && KeyExistsQ[rawModel, "edgeEntryTolls"],
             rawModel = Join[rawModel, <|"Switching" -> <||>|>]
@@ -663,7 +678,9 @@ makeScenario[rawAssoc_Association] :=
 
         completeScenario[scenario[Join[
             validatedAssoc,
-            <|"Model" -> model, "Topology" -> topology, "Hamiltonian" -> hamiltonian|>
+            <|"Model" -> model, "Topology" -> topology,
+              "Hamiltonian" -> hamiltonian,
+              "InputProvenance" -> inputProvenance|>
         ]]]
     ];
 

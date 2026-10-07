@@ -26,6 +26,9 @@ $TestSuites = <|
         "example-coverage.mt",
         "numeric-oracle.mt",
         "utilities.mt",
+        "exact-validation.mt",
+        "exact-artifact.mt",
+        "exact-reductions.mt",
         "usage-arity.mt"
     },
     (* Opt-in oracle suite: the float-isolated numericOracle` classifiers.

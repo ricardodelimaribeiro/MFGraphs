@@ -9,6 +9,7 @@ Active package surface (loaded by Needs["MFGraphs`"]):
   unknownsTools.tex     -- symbolic unknown bundle
   systemTools.tex       -- structural equation system
   solversTools.tex      -- symbolic solvers and validation
+  validationTools.tex  -- independent exact soundness and completeness checks
   orchestrationTools.tex -- solveScenario, SolveMFG, clearSolveCache
   graphicsTools.tex     -- rawNetworkPlot, richNetworkPlot, augmentAuxiliaryGraph
 

@@ -46,7 +46,9 @@ makeSystem::usage =
 "makeSystem[s_scenario, unk_symbolicUnknowns] constructs an mfgSystem by building the \
 structural equations (SignedFlows, Balance equations, HJ conditions, etc.) from \
 the provided scenario and exact symbolic unknown bundle. makeSystem[s_scenario] \
-automatically derives symbolicUnknowns using makeSymbolicUnknowns[s].";
+automatically derives symbolicUnknowns using makeSymbolicUnknowns[s]. \
+Switching costs must be real numeric scalars, affine functions with real numeric \
+coefficients, or Infinity; nonlinear switching functions return a Failure.";
 
 buildBoundaryData::usage =
 "buildBoundaryData[s, topology] builds typed boundary equations, entry rules, exit inequalities, and \
@@ -61,11 +63,11 @@ buildComplementarityData::usage =
 
 buildHamiltonianData::usage =
 "buildHamiltonianData[s, topology, flowData] builds typed Hamiltonian residual equations for the system. \
-EqGeneral encodes the edge-level HJB equation u[a,b]-u[b,a]+j[a,b]-j[b,a] = nrhs unconditionally for every \
-undirected edge {a,b}, where nrhs = 0 for Alpha==1 and m - Sign[m] m^alpha otherwise. \
+EqGeneral encodes the critical edge relation u[a,b]-u[b,a]+j[a,b]-j[b,a] == 0 unconditionally for every \
+undirected edge {a,b}. Non-critical systems are rejected by the solver guard. \
 The equation is enforced even when net flow is zero (zero-flow edges force u[a,b]=u[b,a]), which propagates \
-through switching inequalities to pin value variables at bypassed exit nodes to their terminal cost. \
-Current system construction uses Alpha/EdgeAlpha; V/G/EdgeV/EdgeG are preserved on scenarios for future work.";
+through switching inequalities. Auxiliary values at unused exits may remain parametric. \
+Alpha/EdgeAlpha determine solver eligibility; V/G/EdgeV/EdgeG are preserved on scenarios for future work.";
 
 systemData::usage =
 "systemData[sys, key] returns the value associated with key in the system sys, or \
@@ -132,6 +134,16 @@ switchingCostLookup[sc_Association][r_, i_, w_] := Lookup[sc, Key[{r, i, w}], 0]
 (* A switching cost may be a scalar or a pure Function of the transition flow. *)
 evalSwitchingCost[cost_, jVar_] :=
     If[MatchQ[cost, _Function], cost[jVar], cost];
+
+(* The structural solvers perform affine elimination. Accepting an arbitrary
+   Function here previously allowed higher-order terms to be silently dropped
+   by a linear backend. Infinity is the explicit blocked-transition sentinel. *)
+affineSwitchingCostQ[Infinity] := True;
+affineSwitchingCostQ[cost_] := Module[{flow = Unique["switchFlow$"], expression},
+    expression = Quiet[evalSwitchingCost[cost, flow]];
+    TrueQ[PolynomialQ[expression, flow] && Exponent[expression, flow] <= 1 &&
+        AllTrue[CoefficientList[expression, flow], NumericQ[#] && TrueQ[Im[#] == 0] &]]
+];
 
 ineqSwitch[u_, switching_][r_, i_, w_] :=
     u[w, i] + evalSwitchingCost[switching[r, i, w], j[r, i, w]] - u[r, i] >= 0;
@@ -443,6 +455,11 @@ makeSystem[s_?scenarioQ, unk_?symbolicUnknownsQ] :=
         model    = scenarioData[s, "Model"];
         topology = scenarioData[s, "Topology"];
 
+        If[!AllTrue[Values[model["Switching"]], affineSwitchingCostQ],
+            Return[Failure["makeSystem", <|"Reason" -> "UnsupportedSwitchingCost",
+                "Message" -> "Switching costs must be real numeric scalars, affine functions with real numeric coefficients, or Infinity; nonlinear costs are not supported by the structural solvers."|>], Module]
+        ];
+
         graph          = topology["Graph"];
         auxiliaryGraph = topology["AuxiliaryGraph"];
         auxEdges       = EdgeList[auxiliaryGraph];
@@ -493,6 +510,10 @@ makeSystem[s_?scenarioQ, unk_?symbolicUnknownsQ] :=
                 "Js"          -> symbolicUnknownsData[unk, "Js"],
                 "Us"          -> symbolicUnknownsData[unk, "Us"],
                 "Jts"         -> symbolicUnknownsData[unk, "Jts"],
+                (* Keep source provenance separate from the transformed
+                   operational model so exact validation can detect inexact
+                   source data even when normalization/closure removes it. *)
+                "InputProvenance" -> scenarioData[s, "InputProvenance"],
                 (* Keep modeling metadata available to solver-layer eligibility checks. *)
                 "Hamiltonian" -> scenarioData[s, "Hamiltonian"],
                 "Edges"       -> edges,

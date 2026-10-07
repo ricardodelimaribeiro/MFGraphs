@@ -60,7 +60,7 @@ Needs["Tawaf`"];          (* makeTawafScenario, makeTawafSystem, ... *)
 Needs["numericOracle`"];  (* numericOracleClassify, solveScenarioWithOracle *)
 ```
 
-`numericOracle.wl` is the only file that introduces floating-point work. `solveScenarioWithOracle` is the high-level wrapper for the oracle path; it composes `addSymmetryEqualities` → `numericOracleClassify` → `addOracleEqualities` → `activeSetReduceSystem` and falls back to the unpruned solve when the oracle over-prunes.
+`numericOracle.wl` is an explicitly numerical path. The experimental flow-first solver and some diagnostic cost/residual helpers also use floating-point arithmetic. `solveScenarioWithOracle` composes `addSymmetryEqualities` → `numericOracleClassify` → `addOracleEqualities` → `activeSetReduceSystem`; it may restrict the solution family and is not a completeness reference.
 
 **Workbooks (not subpackages).** `MFGraphs/Getting started.wl`, `MFGraphs/TawafWorkbook.wl`, `MFGraphs/DisjunctInfluenceStudy.wl`, `MFGraphs/Jamarat.wl` (multi-entrance/exit scenario studies), and `MFGraphs/HardCases.wl` (curated stress-test scenarios) are notebook-style worked examples meant to be opened in the Mathematica front end and evaluated cell-by-cell. They are not loadable via `Needs[]` — in particular `Jamarat.wl` and `HardCases.wl` have no `BeginPackage` and run multi-minute solves if evaluated top-to-bottom.
 
@@ -98,6 +98,7 @@ makeScenario  →  makeSymbolicUnknowns  →  makeSystem  →  solveScenario
 - **Topology caching.** `buildAuxiliaryTopology` runs once inside `makeScenario`; downstream builders read from the cached `scenario[]` rather than recomputing.
 - **DNF-first reduction.** `dnfReduceSystem` / `optimizedDNFReduceSystem` factor the complementarity system into a disjunction of branches. The optimized variant prunes infeasible branches early; the plain variant is the reference.
 - **Active-set reducer.** `activeSetReduceSystem` is the alternative path used when DNF-first is too expensive on a given topology.
+- **Exact net-flow propagation.** `linearNetReduceSystem` is an explicit opt-in that propagates already-determined rational net currents and zero sums of nonnegative flows before DNF enumeration. The default remains `dnfReduceSystem`.
 - **Verbose gating.** Use `mfgPrint[...]` (not `Print`) for debug output — it is silent unless `$MFGraphsVerbose = True`.
 
 ## Test Suites
@@ -114,6 +115,9 @@ Active `.mt` files under `MFGraphs/Tests/`:
 | `boolean-minimize.mt` | `booleanMinimizeSystem` / `booleanMinimizeReduceSystem` |
 | `orchestration.mt` | `solveScenario` / `SolveMFG`, full pipeline, and `clearSolveCache` memoization |
 | `utilities.mt` | typed-object infra (`mfgTypedQ`/`mfgData`), rule management, boundary exactification, critical-congestion guard |
+| `exact-validation.mt` | exact soundness/completeness, branch preservation, net-flow implications, nonlinear-input guard, timeout distinction |
+| `exact-artifact.mt` | WXF content preservation and deliberate solution/domain/metadata corruption |
+| `exact-reductions.mt` | reduction identities proved by real quantifier elimination; small networks compared against the original-system reference |
 | `usage-arity.mt` | usage-string call patterns vs definition arities (shared lint with `GenerateDocs.wls` via `Scripts/UsageArityLint.wls`) |
 | `graphicsTools.mt` | `rawNetworkPlot`, `richNetworkPlot` |
 | `tawaf.mt` | unrolled-circumambulation scenario builder (opt-in `Tawaf`` context) |
@@ -130,6 +134,13 @@ Active `.mt` files under `MFGraphs/Tests/`:
 - `API_REFERENCE.md` is generated from `::usage` strings — edit the source, then run `Scripts/GenerateDocs.wls`.
 
 ## Documentation
+
+For research computations, follow [docs/research/exact-foundation.md](docs/research/exact-foundation.md).
+Use `exactSolutionReport[sys, sol]` for proof-oriented validation against the original
+generated system. A residual expression or a legacy `Rules` label is not by itself a
+completed exact solution. Run `python3 Scripts/run_curated_exact.py --help` for the
+bounded collection runner; timing runs are sequential, each has a unique directory,
+and exact content integrity is reported separately from mathematical validity.
 
 - `README.md` — model overview and mathematical setup
 - `TOUR.md` — guided reading order for newcomers (markdown first, then workbooks)
