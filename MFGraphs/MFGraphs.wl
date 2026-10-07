@@ -37,6 +37,7 @@ BeginPackage["MFGraphs`",
     "examples`",
     "unknownsTools`",
     "systemTools`",
+    "validationTools`",
     "solversTools`",
     "orchestrationTools`",
     "graphicsTools`"

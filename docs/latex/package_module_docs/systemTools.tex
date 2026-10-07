@@ -24,7 +24,10 @@ Fix a directed multigraph $G = (V, E)$ obtained by augmenting the user-supplied 
 \[
 \sum_{b\,:\,(a,b)\in E} j[a, b] \;=\; \mu_a,
 \]
-and for each exit vertex $a$ with terminal cost $c_a$ the substitution rule $u[\cdot, a] \mapsto c_a$. These exit substitutions are propagated through the rest of the system at build time, so the symbolic solver never has to discover them.
+For each exit vertex $a$ with terminal cost $c_a$, the auxiliary exit value obeys
+$u[\mathrm{auxExit}_a,a]\leq c_a$. Positive exiting current forces equality
+through complementarity. An unused exit can retain a free auxiliary value;
+there is no unconditional substitution of all incident values by the terminal cost.
 
 \paragraph{Flow balance (Kirchhoff).} At every interior original vertex $i \in V$, the splitting and gathering balances impose
 \[
@@ -155,7 +158,9 @@ encoding the idea that, on an undirected physical edge, at most one orientation 
 \[
 u[w, i] + \mathrm{sc}(r, i, w) - u[r, i] \;\ge\; 0.
 \]
-It says that diverting through $w$ cannot strictly improve on the value attached to $r$. When the switching cost is supplied as a function rather than a constant, it is applied to the transition flow $j[r, i, w]$ before the inequality is formed, which lets the system accommodate flow-dependent switching penalties.
+It says that diverting through $w$ cannot strictly improve on the value attached to $r$.
+An affine switching function is applied to $j[r,i,w]$. The system constructor
+rejects nonlinear switching functions before they can enter linear elimination.
 
 \subsection*{\texttt{altSwitch}}
 
@@ -211,15 +216,14 @@ for every boundary-preserving automorphism $\sigma$ produced by \texttt{boundary
 
 \texttt{buildHamiltonianData[s, topology, flowData]} builds the Hamiltonian residual block \texttt{EqGeneral}. For every undirected edge $\{a, b\}$ it records
 \[
-u[a, b] - u[b, a] + j[a, b] - j[b, a] \;=\; \mathrm{nrhs}_{ab},
-\qquad
-\mathrm{nrhs}_{ab} \;=\;
-\begin{cases}
-0 & \alpha_{ab} = 1, \\
-m - \operatorname{sign}(m)\, m^{\alpha_{ab}} & \alpha_{ab} \ne 1,
-\end{cases}
+u[a, b] - u[b, a] + j[a, b] - j[b, a] \;=\; 0.
 \]
-where $\alpha_{ab}$ is the edge-specific exponent (\texttt{Alpha} globally, overridable per edge by \texttt{EdgeAlpha}). The equation is enforced unconditionally for every edge; in particular, zero-flow edges force $u[a, b] = u[b, a]$, which propagates through the switching inequalities and pins value variables at bypassed exit nodes to their terminal cost. Placeholder cost-current symbols are stored alongside \texttt{EqGeneral} for future non-critical/numeric work but do not participate in the critical solve.
+This is the critical structural relation actually generated. Active structural
+solvers require \texttt{Alpha == 1} globally and on every edge. The equation is
+unconditional, so zero-flow edges give $u[a,b]=u[b,a]$; this does not fix every
+unused auxiliary exit value. Hamiltonian exponent, potential, coupling, and
+cost-current metadata do not supply a supported non-critical solve or a density
+reconstruction in this structural kernel.
 
 \section{Usage guidance}
 

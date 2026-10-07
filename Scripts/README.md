@@ -8,6 +8,8 @@ This directory contains active maintenance scripts and an `archive/` folder with
 - `RunSingleTest.wls`: run one `.mt` file and print pass/fail summary.
 - `GenerateDocs.wls`: regenerate `API_REFERENCE.md` from `::usage` strings; refuses to publish when the usage-arity lint fails.
 - `UsageArityLint.wls`: shared usage-arity lint sourced by `GenerateDocs.wls` and `MFGraphs/Tests/usage-arity.mt` (not a standalone CLI).
+- `AuditCuratedResults.wls`: recheck exact soundness of the selected saved WXF artifacts and export readable rules, domains, and original constraints into a new directory; does not solve again or replace saved completeness outcomes.
+- `DiagnoseArtifactRoundtrip.wls`: read-only diagnosis of original vs WXF-reloaded mathematical content; writes a new evidence directory and never overwrites the failing run.
 - `AuditPublicAPI.py`: API surface inventory/audit helper.
 - `CheckCriticalSurfaceTests.wls`: gate checks for critical-surface test policy.
 - `CheckReportPlaceholders.wls`: fails when committed history/report files still contain placeholder prose.
@@ -73,3 +75,26 @@ validation and release workflow.
 
 - `Scripts/archive/` holds older benchmark/profiling/CI scripts not used in the active scenario-kernel workflow.
 - `Scripts/repro/` holds preserved debugging and reproduction scripts from active investigation sessions.
+
+## Curated exact research collection
+
+For the bounded paper-foundation collection, use
+`python3 Scripts/run_curated_exact.py --help` and the
+[technical report](../docs/research/exact-foundation.md).
+`CuratedExactScenarios.wls` contains exact inputs. `RunCuratedExact.wls` is the
+fresh-kernel worker; `ExactArtifactIntegrity.wls` checks reopened content separately
+from `exactSolutionReport`'s mathematical proofs. Every invocation saves a unique
+directory under `Results/exact-foundation/`, including timeouts and skipped retries.
+Run timing experiments sequentially. For an interleaved source comparison:
+
+```bash
+python3 Scripts/run_curated_exact.py --cases grid3,grid4 --methods dnf,linear-net \
+  --compare-root PATH_TO_EXTRACTED_BASELINE --baseline-methods dnf \
+  --timeout 60 --validation-timeout 5 --repetitions 2 --tag comparison
+```
+
+Inspect a saved exact solution and parameter domain without solving again:
+
+```bash
+wolframscript -file Scripts/InspectCuratedResult.wls PATH_TO_RESULT_WXF
+```

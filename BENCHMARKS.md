@@ -692,3 +692,31 @@ Benchmark results are exported as CSV and JSON with these fields:
 1. Broaden `BenchmarkSystemSolver.wls` with additional scenario-kernel cases once they are stable in the active API.
 2. Keep legacy benchmark scripts archived until their dependencies are restored to the default package load path.
 3. Track solver regressions through tagged benchmark entries plus active test-suite runs.
+
+## Exact foundation — focused before/after and validated collection (2026-10-03)
+
+The [technical report](docs/research/exact-foundation.md), [results table](Results/exact-foundation/curated-results.md), and [preserved run ledger](Results/exact-foundation/README.md) document ten exact-input networks with independently proved soundness. Completeness is independently proved for two; eight reference checks timed out. Artifact content integrity is a separate recorded check. No inventory benchmark sweep was run.
+
+Required tagged compatibility benchmark, identical `grid-2x3` input and 5-second cap, in isolated source snapshots:
+
+| Tag | Build (ms) | Warm-up solve (ms) | Direct repeat (ms) | Status |
+|---|---:|---:|---:|---|
+| `exact-foundation-before` | 19.178 | 9.893 | 8.365898 | OK |
+| `exact-foundation-after` | 18.329 | 9.211 | 6.954148 | OK |
+
+The exact CSVs and full logs are preserved in [before](Results/exact-foundation/20261001T184636Z-baseline-af97a523/focused-benchmark-artifacts/) and [after](Results/exact-foundation/20261003T113007Z-tagged-after-b5057204/benchmark-artifacts/). Both commands use `wolframscript -file <snapshot>/Scripts/BenchmarkSystemSolver.wls --case grid-2x3 --tag <tag> --timeout 5`. These single repetitions satisfy the repository workflow; they are not the basis for general performance claims. Existing `Kind: Rules` / `Valid` fields in this older harness are not substituted for the new exact validator.
+
+Controlled fresh-kernel, interleaved comparisons (seconds; every row and timeout retained):
+
+| Case | Baseline default | Current default | New `linearNetReduceSystem` | Evidence |
+|---|---:|---:|---:|---|
+| 3×3 grid | 0.106367 | 0.089816 | 0.023475 | Two-repetition medians, common 60 s cap |
+| 4×4 grid | 29.452212 | 29.386865 | 0.087293 | Two-repetition medians, common 60 s cap; about 337× versus preserved default |
+| Case 23 | Timeout 60 s | Timeout 60 s | 1.881734 | Two successful new-method repetitions; default retries explicitly skipped after timeout |
+| Jamarat | Not rerun | 28.000112 | 28.069179 | One measurement each, 60 s cap; no demonstrated speed benefit |
+
+The new solver adds exact consequences of nonnegativity, complementarity, and conservation; it is opt-in and does not alter default routing. Construction was inexpensive; redundant branch enumeration was the limiting grid/case-23 stage. The first net-pinning-only diagnostic did not solve the difficult cases; zero-sum flow propagation was needed. Independent completeness checking remains the main unresolved validation cost.
+
+The focused ordering check on Braess congest gave medians: default DNF **0.224643 s**, forced lexicographic branch-state **1.149425 s**, Block-Edge **0.823867 s**, new reduction **0.222689 s** (two repetitions). Thus Block-Edge is about 28% faster than lexicographic ordering **within branch-state solving**, but about 3.67× slower than the **default DNF path**. These are distinct comparisons; the result does not justify defaulting to Block-Edge. On case 23, forced lexicographic solving still rescued the default timeout in **47.461958 / 48.083986 s**.
+
+Machine: Apple M3 Max, 48 GiB RAM, macOS 15.8.1, Wolfram 15.0.1 ARM. Initial commit `f00fb27d557c6d253268c94a7e699ed0ccb2224f`, measured uncommitted changes on `research/exact-foundation`; archives/manifests capture exact sources. All timing experiments ran sequentially with controlled warm-up and bypassed memoized retrieval. Final fast suite: **387 passed, 0 failed, exit 0**; the broader `full` suite was not run.

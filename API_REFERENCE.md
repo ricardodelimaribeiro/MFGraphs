@@ -213,7 +213,7 @@ buildFlowData[s, topology, unk] builds typed flow-balance equations and non-nega
 
 ## buildHamiltonianData
 
-buildHamiltonianData[s, topology, flowData] builds typed Hamiltonian residual equations for the system. EqGeneral encodes the edge-level HJB equation u[a,b]-u[b,a]+j[a,b]-j[b,a] = nrhs unconditionally for every undirected edge {a,b}, where nrhs = 0 for Alpha==1 and m - Sign[m] m^alpha otherwise. The equation is enforced even when net flow is zero (zero-flow edges force u[a,b]=u[b,a]), which propagates through switching inequalities to pin value variables at bypassed exit nodes to their terminal cost. Current system construction uses Alpha/EdgeAlpha; V/G/EdgeV/EdgeG are preserved on scenarios for future work.
+buildHamiltonianData[s, topology, flowData] builds typed Hamiltonian residual equations for the system. EqGeneral encodes the critical edge relation u[a,b]-u[b,a]+j[a,b]-j[b,a] == 0 unconditionally for every undirected edge {a,b}. Non-critical systems are rejected by the solver guard. The equation is enforced even when net flow is zero (zero-flow edges force u[a,b]=u[b,a]), which propagates through switching inequalities. Auxiliary values at unused exits may remain parametric. Alpha/EdgeAlpha determine solver eligibility; V/G/EdgeV/EdgeG are preserved on scenarios for future work.
 
 ## flowGathering
 
@@ -234,7 +234,7 @@ u[w, i] + switchingCosts[r, i, w] - u[r, i] >= 0.
 
 ## makeSystem
 
-makeSystem[s_scenario, unk_symbolicUnknowns] constructs an mfgSystem by building the structural equations (SignedFlows, Balance equations, HJ conditions, etc.) from the provided scenario and exact symbolic unknown bundle. makeSystem[s_scenario] automatically derives symbolicUnknowns using makeSymbolicUnknowns[s].
+makeSystem[s_scenario, unk_symbolicUnknowns] constructs an mfgSystem by building the structural equations (SignedFlows, Balance equations, HJ conditions, etc.) from the provided scenario and exact symbolic unknown bundle. makeSystem[s_scenario] automatically derives symbolicUnknowns using makeSymbolicUnknowns[s]. Switching costs must be real numeric scalars, affine functions with real numeric coefficients, or Infinity; nonlinear switching functions return a Failure.
 
 ## mfgBoundaryData
 
@@ -288,6 +288,10 @@ systemData[sys, key] returns the value associated with key in the system sys, or
 
 systemDataFlatten[sys] returns a single flat Association containing all keys from all nested typed sub-records within the system. Useful for backward compatibility with legacy solvers.
 
+## exactSolutionReport
+
+exactSolutionReport[sys, sol] verifies a rule list or rules/residual family against all original generated constraints over the reals. Reports exact input provenance, nonemptiness, per-block soundness, parameter domain, and independently checks completeness by searching for an original solution outside the returned set. External family parameters are existentially projected for completeness; non-critical systems are reported as UnsupportedModel. Numerical inputs/results, unresolved conditions, infeasibility, and timeouts remain distinct. Options: "TimeLimit" (10 seconds for each of soundness and completeness), "CheckCompleteness" (True). No floating-point tolerance or rationalization is used.
+
 ## activeSetReduceSystem
 
 activeSetReduceSystem[sys] is an opt-in exact active-set solver for the critical-congestion linear complementarity structure. It enumerates small complementarity alternatives incrementally with exact linear substitution and falls back to the proven exact DNF reducer for larger residual variable sets. Returns the same rule/residual shape as dnfReduceSystem. Fails for non-critical congestion systems where Alpha != 1 on any edge. The option "DisjunctOrdering" ("Lexicographic" default, or "Block-Vertex", "Block-Edge", "Block-SCC") reorders complementarity conjuncts by graph anchor before the branch fold; non-default orderings force the branch-state path.
@@ -302,15 +306,15 @@ bfsDNFReduceSystem[sys] is dnfReduceSystem with bfsDNFReduce as the engine. Same
 
 ## booleanMinimizeReduceSystem
 
-booleanMinimizeReduceSystem[sys] solves the mfgSystem sys by attacking the disjunctive structure of the preprocessed constraint system before DNF expansion. It (1) prunes individual complementarity arms that are infeasible against the linear part via FindInstance; (2) decomposes the surviving disjunctive atoms into connected components by shared variables; (3) BooleanMinimizes each component to minimal DNF and Reduces per disjunct. Returns the same rule/residual shape as booleanReduceSystem. Fails for non-critical congestion systems where Alpha != 1 on any edge. Options: "ArmTimeout" (default 2s per FindInstance arm check), "DisjunctTimeout" (default 30s per Reduce call), "ReturnAll" (default False).
+booleanMinimizeReduceSystem[sys] solves the mfgSystem sys by attacking the disjunctive structure of the preprocessed constraint system before DNF expansion. It (1) prunes individual complementarity arms that are infeasible against the linear part via FindInstance; (2) decomposes the surviving disjunctive atoms into connected components by shared variables; (3) BooleanMinimizes each component to minimal DNF and Reduces per disjunct. Returns the same rule/residual shape as booleanReduceSystem. Fails for non-critical congestion systems where Alpha != 1 on any edge. Options: "ArmTimeout" (default 2s per FindInstance arm check), "DisjunctTimeout" (default 30s per Reduce call), "ReturnAll" (default False selects one branch per component; True returns per-component branch collections). Unknown feasibility retains an arm; a reduction timeout returns $TimedOut and an unresolved backend returns Failure.
 
 ## booleanMinimizeSystem
 
-booleanMinimizeSystem[sys] is a head-to-head variant of booleanReduceSystem that calls BooleanMinimize[constraints, "DNF"] in place of BooleanConvert[constraints, "DNF"]. This is exact minimal-DNF Boolean minimization, analogous to classical two-level SOP minimization such as Quine-McCluskey/Petrick-style methods, followed by Reduce per disjunct. Wolfram does not document BooleanMinimize as a specific QMC/Petrick implementation. Same preprocessing and return shape as booleanReduceSystem. Use to compare the two Boolean-stage operations on identical input. Fails for non-critical congestion systems where Alpha != 1 on any edge. Options: "DisjunctTimeout" (default 30s per Reduce call), "ReturnAll" (default False).
+booleanMinimizeSystem[sys] is a head-to-head variant of booleanReduceSystem that calls BooleanMinimize[constraints, "DNF"] in place of BooleanConvert[constraints, "DNF"]. This is exact minimal-DNF Boolean minimization, analogous to classical two-level SOP minimization such as Quine-McCluskey/Petrick-style methods, followed by Reduce per disjunct. Wolfram does not document BooleanMinimize as a specific QMC/Petrick implementation. Same preprocessing and return shape as booleanReduceSystem. Use to compare the two Boolean-stage operations on identical input. Fails for non-critical congestion systems where Alpha != 1 on any edge. Options: "DisjunctTimeout" (default 30s per Reduce call), "ReturnAll" (default False selects one branch). A disjunct timeout returns $TimedOut; an unresolved backend returns Failure.
 
 ## booleanReduceSystem
 
-booleanReduceSystem[sys] solves the mfgSystem sys by converting the preprocessed constraint system to DNF via BooleanConvert, then calling Reduce independently on each disjunct. This is DNF conversion followed by real quantifier elimination / CAD-style solving per pure conjunction. Each disjunct has no Or, so Reduce avoids case-splitting. Non-False results are collected; if the system has a unique equilibrium all non-False results are equivalent. Returns a list of rules when fully determined, or <|"Rules" -> rules, "Residual" -> residual|> when underdetermined. Fails for non-critical congestion systems where Alpha != 1 on any edge. Options: "DisjunctTimeout" (default 30s per Reduce call), "ReturnAll" (default False; True returns all non-False parsed results).
+booleanReduceSystem[sys] solves the mfgSystem sys by converting the preprocessed constraint system to DNF via BooleanConvert, then calling Reduce independently on each disjunct. This is DNF conversion followed by real quantifier elimination / CAD-style solving per pure conjunction. Each disjunct has no Or, so Reduce avoids case-splitting. Non-False results are collected; if the system has a unique equilibrium all non-False results are equivalent. Returns a list of rules when fully determined, or <|"Rules" -> rules, "Residual" -> residual|> when underdetermined. Fails for non-critical congestion systems where Alpha != 1 on any edge. Options: "DisjunctTimeout" (default 30s per Reduce call), "ReturnAll" (default False selects one branch; True returns all non-False parsed results). A disjunct timeout returns $TimedOut; an unresolved backend returns Failure.
 
 ## computeKirchhoffResidual
 
@@ -334,7 +338,7 @@ dnfReduceSystem[sys] solves the mfgSystem sys using linear preprocessing followe
 
 ## findInstanceSystem
 
-findInstanceSystem[sys] solves the mfgSystem sys by collecting and linearly preprocessing constraints, then calling FindInstance over the remaining real variables. This is real satisfiability / instance finding using Wolfram's real-system solver backend. Returns one feasible list of rules. If no instance is found or the final solve times out, returns <|"Rules" -> accumulatedRules, "Residual" -> False|>. Fails for non-critical congestion systems where Alpha != 1 on any edge. Options: "Timeout" (default Infinity).
+findInstanceSystem[sys] solves the mfgSystem sys by collecting and linearly preprocessing constraints, then calling FindInstance over the remaining real variables. This is real satisfiability / instance finding using Wolfram's real-system solver backend. Returns one feasible list of rules. If no instance is found, returns <|"Rules" -> accumulatedRules, "Residual" -> False|>. A final-solve timeout returns $TimedOut, and an unevaluated backend returns a Failure. Fails for non-critical congestion systems where Alpha != 1 on any edge. Options: "Timeout" (default Infinity).
 
 ## flowFirstCriticalSystem
 
@@ -342,7 +346,11 @@ flowFirstCriticalSystem[sys] is an explicit opt-in solver for critical congestio
 
 ## isValidSystemSolution
 
-isValidSystemSolution[sys, sol] checks whether sol (the output of reduceSystem[sys]) satisfies the constraint blocks of sys. Returns True or False. With option "ReturnReport" -> True, returns a detailed association with per-block results. Tolerance for numeric checks is set via "Tolerance" (default 10^-6). For underdetermined solutions the partial rules are checked; blocks that remain symbolic after substitution are reported as Indeterminate, not False.
+isValidSystemSolution[sys, sol] checks whether sol (the output of reduceSystem[sys]) satisfies the constraint blocks of sys. Returns True or False. With option "ReturnReport" -> True, returns a detailed association with per-block results. Tolerance for numeric checks is set via "Tolerance" (default 10^-6). For underdetermined solutions the partial rules are checked; blocks that remain symbolic after substitution are reported as Indeterminate. Valid is True only when every block is proved; residual domains are used to verify parametric families. This tolerance-based compatibility check does not establish completeness; use exactSolutionReport for exact input provenance and independent completeness checks.
+
+## linearNetReduceSystem
+
+linearNetReduceSystem[sys] is an opt-in exact DNF solver that propagates determined rational net edge flows before branch enumeration. Nonnegative complementary directional flows with difference m must equal Max[m,0] and Max[-m,0]. Only differences already implied by the original equalities are used, and all original residual constraints are retained. Preserves the full solution set, including transition-flow families. Supports Alpha == 1.
 
 ## optimizedDNFReduceSystem
 

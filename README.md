@@ -49,6 +49,13 @@ Archived/inactive modules live under `MFGraphs/archive/`.
 
 ## Solver Status
 
+The bounded [exact computational foundation report](docs/research/exact-foundation.md)
+records scientifically varied scenarios, exact solution artifacts, independent
+validation, controlled timings, and unresolved limitations. Use
+`exactSolutionReport[sys, sol]` for proof-oriented diagnostics. The explicit opt-in
+`linearNetReduceSystem[sys]` propagates exact net-current consequences before DNF
+enumeration; default `solveScenario` routing remains unchanged.
+
 The symbolic solvers (`MFGraphs/solversTools.wl`) are designed for **critical congestion only** (`Alpha = 1` on every edge). Non-critical systems (`Alpha != 1` or edge-specific non-1 `EdgeAlpha`) fail explicitly. The default user-facing path is `solveScenario`, which uses `dnfReduceSystem`; raw `reduceSystem` remains available as a direct Wolfram `Reduce` baseline.
 
 Hamiltonian parameters `V`, `G`, `EdgeV`, and `EdgeG` are validated and preserved on scenarios for future density-per-edge visualization work, but current structural system construction applies only `Alpha` and `EdgeAlpha`.

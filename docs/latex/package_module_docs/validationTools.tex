@@ -1,0 +1,28 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\title{validationTools.wl Module Documentation}
+\author{MFGraphs maintainers}
+\date{}
+\begin{document}
+\maketitle
+\section{Exact solution validation}
+\texttt{exactSolutionReport[sys,sol]} distinguishes exact determined solutions,
+exact parametric families, numerical provenance, unresolved results, infeasibility,
+and timeouts. It checks the original generated constraint blocks, independently
+of solver preprocessing. Soundness requires a nonempty real parameter domain and
+an exact proof that every returned member satisfies every block. Completeness
+requires a separate original-system counterexample search to prove that no
+solutions were omitted. A timeout leaves that obligation unproved.
+
+The \texttt{TimeLimit} option bounds each of soundness and completeness checking;
+\texttt{CheckCompleteness} can disable the latter explicitly. Exactness excludes
+inexact boundary metadata even if the constructor rationalized its equations.
+Artifact serialization integrity is a separate concern handled by the research
+runner's explicit content comparison.
+
+External family parameters are existentially projected when checking completeness;
+soundness covers every allowed parameter value. Non-critical models are rejected
+as unsupported, even if their structural equations admit a candidate.
+\end{document}

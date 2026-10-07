@@ -844,12 +844,10 @@ Test[
         s = gridScenario[{3}, {{2, 80.0}}, {{1, 0.0}, {3, 10.0}}, {{1,2,3,2},{3,2,1,2}}];
         sys = makeSystem[s];
         result = findInstanceSystem[sys, "Timeout" -> 0];
-        AssociationQ[result] &&
-        KeyExistsQ[result, "Rules"] &&
-        Lookup[result, "Residual", Missing["KeyAbsent", "Residual"]] === False
+        result === $TimedOut
     ],
     True,
-    TestID -> "findInstanceSystem: timeout returns rules plus false residual"
+    TestID -> "findInstanceSystem: timeout remains distinct from infeasibility"
 ]
 
 (* --- ZeroSwitchUEqualities --- *)

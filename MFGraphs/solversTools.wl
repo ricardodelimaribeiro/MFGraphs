@@ -48,7 +48,10 @@ False. With option \"ReturnReport\" -> True, returns a detailed association \
 with per-block results. Tolerance for numeric checks is set via \
 \"Tolerance\" (default 10^-6). For underdetermined solutions the partial \
 rules are checked; blocks that remain symbolic after substitution are \
-reported as Indeterminate, not False.";
+reported as Indeterminate. Valid is True only when every block is proved; \
+residual domains are used to verify parametric families. This tolerance-based \
+compatibility check does not establish completeness; use exactSolutionReport \
+for exact input provenance and independent completeness checks.";
 
 computeKirchhoffResidual::usage =
 "computeKirchhoffResidual[sys, sol] calculates the Kirchhoff Residual (the maximum absolute divergence \
@@ -88,6 +91,14 @@ bfsDNFReduceSystem::usage =
 Same input/output contract; differs only in worklist discipline (FIFO vs LIFO). \
 Useful for head-to-head benchmarking against dnfReduceSystem.";
 
+linearNetReduceSystem::usage =
+"linearNetReduceSystem[sys] is an opt-in exact DNF solver that propagates \
+determined rational net edge flows before branch enumeration. Nonnegative \
+complementary directional flows with difference m must equal Max[m,0] and \
+Max[-m,0]. Only differences already implied by the original equalities are \
+used, and all original residual constraints are retained. Preserves the full \
+solution set, including transition-flow families. Supports Alpha == 1.";
+
 optimizedDNFReduceSystem::usage =
 "optimizedDNFReduceSystem[sys] is an opt-in exact solver for critical \
 congestion systems. It follows the same preprocessing and output contract as \
@@ -121,7 +132,8 @@ Returns a list of rules when fully determined, or \
 <|\"Rules\" -> rules, \"Residual\" -> residual|> when underdetermined. \
 Fails for non-critical congestion systems where Alpha != 1 on any edge. \
 Options: \"DisjunctTimeout\" (default 30s per Reduce call), \
-\"ReturnAll\" (default False; True returns all non-False parsed results).";
+\"ReturnAll\" (default False selects one branch; True returns all non-False parsed \
+results). A disjunct timeout returns $TimedOut; an unresolved backend returns Failure.";
 
 booleanReduceSystem::multisol =
 "booleanReduceSystem found `1` non-False disjuncts with differing rules. \
@@ -138,7 +150,8 @@ implementation. Same preprocessing and return shape as booleanReduceSystem. \
 Use to compare the two Boolean-stage operations on identical input. Fails for \
 non-critical congestion systems where Alpha != 1 on any edge. Options: \
 \"DisjunctTimeout\" (default 30s per Reduce call), \
-\"ReturnAll\" (default False).";
+\"ReturnAll\" (default False selects one branch). A disjunct timeout returns \
+$TimedOut; an unresolved backend returns Failure.";
 
 booleanMinimizeSystem::multisol =
 "booleanMinimizeSystem found `1` non-False disjuncts with differing rules. \
@@ -155,7 +168,9 @@ Returns the same rule/residual shape as booleanReduceSystem. Fails for \
 non-critical congestion systems where Alpha != 1 on any edge. \
 Options: \"ArmTimeout\" (default 2s per FindInstance arm check), \
 \"DisjunctTimeout\" (default 30s per Reduce call), \
-\"ReturnAll\" (default False).";
+\"ReturnAll\" (default False selects one branch per component; True returns \
+per-component branch collections). Unknown feasibility retains an arm; a reduction \
+timeout returns $TimedOut and an unresolved backend returns Failure.";
 
 booleanMinimizeReduceSystem::multisol =
 "booleanMinimizeReduceSystem found `1` non-False disjuncts in a component with \
@@ -166,8 +181,8 @@ findInstanceSystem::usage =
 linearly preprocessing constraints, then calling FindInstance over the \
 remaining real variables. This is real satisfiability / instance finding using \
 Wolfram's real-system solver backend. Returns one feasible list of rules. If no instance is \
-found or the final solve times out, returns \
-<|\"Rules\" -> accumulatedRules, \"Residual\" -> False|>. \
+found, returns <|\"Rules\" -> accumulatedRules, \"Residual\" -> False|>. \
+A final-solve timeout returns $TimedOut, and an unevaluated backend returns a Failure. \
 Fails for non-critical congestion systems where Alpha != 1 on any edge. \
 Options: \"Timeout\" (default Infinity).";
 
@@ -343,6 +358,14 @@ bfsDNFReduceSystem[sys_?mfgSystemQ] :=
         ]
     ];
 
+linearNetReduceSystem[sys_?mfgSystemQ] :=
+    withDnfSolveCache["linearNetReduceSystem",
+        withCriticalCongestionSolver[sys, "linearNetReduceSystem",
+            Function[{constraints, allVars},
+                parseDNFReduceResult[dnfReduce[True, constraints], allVars]],
+            buildFixedNetSolverInputs, attachAccumulatedRules]
+    ];
+
 optimizedDNFReduceSystem[sys_?mfgSystemQ] :=
     withDnfSolveCache["optimizedDNFReduceSystem",
         withCriticalCongestionSolver[sys, "optimizedDNFReduceSystem",
@@ -467,12 +490,21 @@ activeSetReduceSystem[sys_?mfgSystemQ, OptionsPattern[]] :=
    dnfFn is the Boolean DNF operation (BooleanConvert or BooleanMinimize);
    multisolEmit is a 1-arg callback that emits the solver-specific
    ::multisol message when distinct disjuncts produce differing rule sets. *)
+booleanReductionFailure[results_List] := Which[
+    !FreeQ[results, $Aborted | $TimedOut], $TimedOut,
+    !FreeQ[results, _Reduce | _Resolve | _FindInstance | _Solve | _Failure | _Exists | _ForAll],
+        Failure["UnresolvedReduction", <|"Results" -> results|>],
+    True, None
+];
+
 booleanDnfReducePipeline[dnfFn_, multisolEmit_][constraints_, allVars_, timeout_, returnAll_] :=
-    Module[{dnf, disjuncts, reducedList, nonFalse, parsed},
+    Module[{dnf, disjuncts, reducedList, nonFalse, parsed, failure},
         dnf         = dnfFn[constraints, "DNF"];
         disjuncts   = If[Head[dnf] === Or, List @@ dnf, {dnf}];
         reducedList = TimeConstrained[Reduce[#, allVars, Reals], timeout, $Aborted] & /@ disjuncts;
-        nonFalse    = Select[reducedList, # =!= False && # =!= $Aborted &];
+        failure = booleanReductionFailure[reducedList];
+        If[failure =!= None, Return[failure, Module]];
+        nonFalse    = Select[reducedList, # =!= False &];
         If[nonFalse === {},
             Return[<|"Rules" -> {}, "Residual" -> False|>, Module]
         ];
@@ -553,11 +585,9 @@ pruneDisjunctiveArms[linearAtoms_List, disjAtoms_List, allVars_List, armTimeout_
                             FindInstance[And @@ Append[lin, arm], allVars, Reals, 1],
                             armTimeout, $Aborted
                         ];
-                        Which[
-                            fi === $Aborted,             True,    (* keep on timeout *)
-                            MatchQ[fi, {{___Rule}, ___}], True,
-                            True,                         False
-                        ]
+                        (* Only an exact empty instance set proves infeasibility.
+                           Timeouts, failures and unevaluated calls retain the arm. *)
+                        fi =!= {}
                     ]
                 ];
                 Which[
@@ -640,7 +670,7 @@ booleanMinimizeReduceSystem[sys_?mfgSystemQ, opts : OptionsPattern[]] :=
         Function[{constraints, allVars},
             Module[{atoms, linearAtoms, disjAtoms, status, components,
                     armTimeout, disjTimeout, returnAll, mergedRules,
-                    componentResults, anyFalse = False, infeasible = False},
+                    componentResults, anyFalse = False, failure},
                 armTimeout  = OptionValue[booleanMinimizeReduceSystem, {opts}, "ArmTimeout"];
                 disjTimeout = OptionValue[booleanMinimizeReduceSystem, {opts}, "DisjunctTimeout"];
                 returnAll   = TrueQ[OptionValue[booleanMinimizeReduceSystem, {opts}, "ReturnAll"]];
@@ -663,7 +693,7 @@ booleanMinimizeReduceSystem[sys_?mfgSystemQ, opts : OptionsPattern[]] :=
                     Function[comp,
                         Module[{compDisjAtoms, compLinear, compVars,
                                 dnf, disjuncts, reducedList, nonFalse, parsed,
-                                fullSystem, redOne},
+                                redOne, reductionFailure},
                             {compDisjAtoms, compLinear, compVars} = comp;
                             If[compDisjAtoms === {},
                                 (* Pure-linear component: one Reduce call. *)
@@ -674,7 +704,9 @@ booleanMinimizeReduceSystem[sys_?mfgSystemQ, opts : OptionsPattern[]] :=
                                     ],
                                     disjTimeout, $Aborted
                                 ];
-                                If[redOne === False || redOne === $Aborted,
+                                reductionFailure = booleanReductionFailure[{redOne}];
+                                If[reductionFailure =!= None, Return[reductionFailure, Module]];
+                                If[redOne === False,
                                     anyFalse = True;
                                     Return[<|"Rules" -> {}, "Residual" -> False|>, Module]
                                 ];
@@ -689,7 +721,9 @@ booleanMinimizeReduceSystem[sys_?mfgSystemQ, opts : OptionsPattern[]] :=
                                 ],
                                 disjTimeout, $Aborted
                             ] & /@ disjuncts;
-                            nonFalse = Select[reducedList, # =!= False && # =!= $Aborted &];
+                            reductionFailure = booleanReductionFailure[reducedList];
+                            If[reductionFailure =!= None, Return[reductionFailure, Module]];
+                            nonFalse = Select[reducedList, # =!= False &];
                             If[nonFalse === {},
                                 anyFalse = True;
                                 Return[<|"Rules" -> {}, "Residual" -> False|>, Module]
@@ -711,6 +745,8 @@ booleanMinimizeReduceSystem[sys_?mfgSystemQ, opts : OptionsPattern[]] :=
                 If[anyFalse,
                     Return[<|"Rules" -> {}, "Residual" -> False|>, Module]
                 ];
+                failure = booleanReductionFailure[componentResults];
+                If[failure =!= None, Return[failure, Module]];
 
                 (* Merge per-component rule sets: components are variable-disjoint. *)
                 If[returnAll,
@@ -756,9 +792,11 @@ findInstanceSystem[sys_?mfgSystemQ, opts : OptionsPattern[]] :=
                     timeout,
                     $Aborted
                 ];
-                If[MatchQ[instance, {{___Rule}, ___}],
-                    First[instance],
-                    <|"Rules" -> {}, "Residual" -> False|>
+                Which[
+                    MatchQ[instance, {{___Rule}, ___}], First[instance],
+                    instance === {}, <|"Rules" -> {}, "Residual" -> False|>,
+                    instance === $Aborted, $TimedOut,
+                    True, Failure["findInstanceSystem", <|"Reason" -> "UnresolvedBackend", "Result" -> instance|>]
                 ]
             ]
         ],
@@ -1012,6 +1050,93 @@ buildSolverInputs[sys_?mfgSystemQ] :=
         allVars = DeleteCases[allVars, Alternatives @@ (First /@ rulesAcc)];
         {constraints, allVars, rulesAcc}
     ];
+
+fixedNetFlowEqualities[data_Association, rules_List] := Flatten @ Map[
+    Function[pair, Module[{forward = j @@ pair, backward = j @@ Reverse[pair], net},
+        (* Check the premises in the ORIGINAL system, including for a caller
+           who has edited a typed system's records. Never infer a direction
+           from graph distance, numerical size, or a scenario name. *)
+        If[!MemberQ[data["AltFlows"], forward == 0 || backward == 0] ||
+            !MemberQ[data["IneqJs"], forward >= 0] || !MemberQ[data["IneqJs"], backward >= 0],
+            Return[{}, Module]];
+        net = Expand[(forward - backward) /. rules];
+        If[!MatchQ[net, _Integer | _Rational], Return[{}, Module]];
+        {forward == Max[net, 0], backward == Max[-net, 0]}
+    ]], data["HalfPairs"]];
+
+zeroSumFlowEqualities[data_Association, forced_List, rules_List] := Module[
+    {zeroVars, zeros, equations, balances, nonnegative},
+    zeroVars = Union[
+        Cases[forced, Equal[v_, 0] :> v],
+        Cases[rules, Rule[v_, 0] :> v]
+    ];
+    zeros = Thread[zeroVars -> 0];
+
+    (* Only enforced balance equations are logical premises.  Raw
+       Balance* metadata records the underlying expressions but does not,
+       by itself, assert that they vanish. *)
+    equations = Join[
+        flattenConjuncts[Lookup[data, "EqBalanceSplittingFlows", True]],
+        flattenConjuncts[Lookup[data, "EqBalanceGatheringFlows", True]]
+    ];
+
+    (* Apply already-proved zero values first, then normalize lhs == rhs
+       to lhs-rhs == 0 for exact coefficient analysis. *)
+    balances = Cases[
+        equations /. zeros,
+        Equal[lhs_, rhs_] :> Expand[lhs - rhs]
+    ];
+
+    nonnegative = Join[
+        Lookup[data, "IneqJs", {}],
+        Lookup[data, "IneqJts", {}]
+    ];
+
+    Flatten @ Map[Function[balance, Module[{terms, arrays, coefficients},
+        terms = Variables[balance];
+        If[
+            terms === {} ||
+                !AllTrue[terms, MemberQ[nonnegative, # >= 0] &],
+            Return[{}, Module]
+        ];
+
+        arrays = CoefficientArrays[{balance}, terms];
+        If[
+            Length[arrays] =!= 2 ||
+                Normal[arrays[[1]]] =!= {0},
+            Return[{}, Module]
+        ];
+
+        coefficients = First[Normal[arrays[[2]]]];
+        If[
+            AllTrue[coefficients, TrueQ[# > 0] &] ||
+                AllTrue[coefficients, TrueQ[# < 0] &],
+            (# == 0 & /@ terms),
+            {}
+        ]
+    ]], balances]
+];
+
+buildFixedNetSolverInputs[sys_?mfgSystemQ] := Module[
+    {inputs, data, constraints, vars, rules, forced, next, budget},
+    inputs = buildSolverInputs[sys];
+    {constraints, vars, rules} = inputs;
+    data = systemDataFlatten[sys];
+    budget = 2 Length[data["HalfPairs"]] + 1;
+    Do[
+        forced = fixedNetFlowEqualities[data, rules];
+        forced = Join[forced, zeroSumFlowEqualities[data, forced, rules]];
+        forced = DeleteCases[forced /. rules, True];
+        If[forced === {}, Break[]];
+        (* Add equations BEFORE substituting, rather than overwrite an edge
+           rule j[a,b]->Sum[transitions]; overwriting would lose conservation. *)
+        next = accumulateEqualityRules[constraints && And @@ forced, vars, rules];
+        If[next === {constraints, rules}, Break[]];
+        {constraints, rules} = next;
+        vars = DeleteCases[vars, Alternatives @@ (First /@ rules)],
+        {budget}];
+    {constraints, vars, rules}
+];
 
 flattenConjuncts::usage = "flattenConjuncts[expr] unpacks expr into a conjunct list for iterative processing.";
 substituteSolution::usage = "substituteSolution[rst, sol] substitutes solution rules sol into rst.";
@@ -1635,10 +1760,10 @@ branchStateFinalizeResult[branches_List, allVars_List] :=
             ],
             branches
         ];
-        branchExprs = DeleteDuplicates @ DeleteCases[DeleteCases[branchExprs, False], True];
+        branchExprs = DeleteDuplicates @ DeleteCases[branchExprs, False];
         residualExpr = Simplify @ And[
             And @@ (commonResiduals /. commonGround),
-            If[branchExprs === {}, True, If[Length[branchExprs] === 1, First[branchExprs], Or @@ branchExprs]]
+            Or @@ branchExprs
         ];
         (* Promote top-level equalities surviving in residualExpr into rules
            (ground or parametric — the package treats both the same; see
@@ -2352,7 +2477,7 @@ rulesFromEqualities[equations_List, vars_List, existingRules_List] :=
             CoefficientArrays[equations /. Equal[a_, b_] :> a - b, vars],
             $Failed
         ];
-        If[!ListQ[arrays] || Length[arrays] < 2, Return[{}, Module]];
+        If[!ListQ[arrays] || Length[arrays] =!= 2, Return[{}, Module]];
         {c0, c1} = Normal /@ Take[arrays, 2];
         augmented = ArrayFlatten[{{c1, Transpose[{-c0}]}}];
         rref = RowReduce[augmented];
@@ -2477,7 +2602,33 @@ harvestDNFBranch[branch_, allVars_List] :=
             {{}},
             Quiet[Solve[eqs, allVars], Solve::svars]
         ];
-        If[!ListQ[sol] || sol === {}, Return[False, Module]];
+
+        (* Only an empty solution set proves contradiction.  Failure or an
+           unevaluated backend result is unknown and must not be collapsed
+           to False. *)
+        If[sol === $TimedOut, Return[$TimedOut, Module]];
+        If[FailureQ[sol], Return[sol, Module]];
+        If[!ListQ[sol],
+            Return[
+                Failure["UnresolvedSolve",
+                    <|"Equations" -> Apply[HoldComplete, {eqs}],
+                      "Variables" -> Apply[HoldComplete, {allVars}],
+                      "Result" -> Apply[HoldComplete, {sol}]|>
+                ],
+                Module
+            ]
+        ];
+        If[sol === {}, Return[False, Module]];
+
+        (* Several solution sets are a genuine disjunction.  Do not select
+           First[sol]; preserve the complete branch as residual logic. *)
+        If[Length[sol] =!= 1,
+            Return[
+                <|"Rules" -> {}, "Residual" -> Simplify[branch]|>,
+                Module
+            ]
+        ];
+
         allVarsSet = AssociationThread[allVars -> True];
         varsAlt = Alternatives @@ allVars;
         rules = Cases[First[sol],
@@ -2501,10 +2652,20 @@ harvestDNFBranch[branch_, allVars_List] :=
     ];
 
 parseDNFReduceResult[reduced_, allVars_List] :=
-    Module[{branches, harvested, ruleSets, common, branchExprs},
+    Module[{branches, harvested, failure, ruleSets, common, branchExprs},
+        If[reduced === $TimedOut, Return[$TimedOut, Module]];
+        If[FailureQ[reduced], Return[reduced, Module]];
         If[reduced === False, Return[<|"Rules" -> {}, "Residual" -> False|>, Module]];
+
         branches = If[Head[reduced] === Or, List @@ reduced, {reduced}];
-        harvested = DeleteCases[harvestDNFBranch[#, allVars] & /@ branches, False];
+        harvested = harvestDNFBranch[#, allVars] & /@ branches;
+
+        (* Unknown computation cannot be discarded from a union. *)
+        If[MemberQ[harvested, $TimedOut], Return[$TimedOut, Module]];
+        failure = SelectFirst[harvested, FailureQ, Missing["NotFound"]];
+        If[FailureQ[failure], Return[failure, Module]];
+
+        harvested = DeleteCases[harvested, False];
         If[harvested === {},
             Return[<|"Rules" -> {}, "Residual" -> False|>, Module]
         ];
@@ -2532,11 +2693,11 @@ parseDNFReduceResult[reduced_, allVars_List] :=
             ] &,
             harvested
         ];
-        branchExprs = DeleteDuplicates @ DeleteCases[DeleteCases[branchExprs, False], True];
-        If[branchExprs === {},
+        branchExprs = DeleteDuplicates @ DeleteCases[branchExprs, False];
+        If[MemberQ[branchExprs, True],
             common,
             <|"Rules" -> common,
-              "Residual" -> Simplify @ If[Length[branchExprs] === 1, First[branchExprs], Or @@ branchExprs]|>
+              "Residual" -> Simplify[Or @@ branchExprs]|>
         ]
     ];
 
@@ -2548,8 +2709,8 @@ Options[isValidSystemSolution] = {
 };
 
 isValidSystemSolution[sys_?mfgSystemQ, sol_, OptionsPattern[]] :=
-    Module[{tol, returnReportQ, kind, rules,
-            blocks, blockResults, concretelyFailed, overall, report},
+    Module[{tol, returnReportQ, kind, rules, residual, vars, nonempty,
+            blocks, blockResults, concretelyFailed, unresolved, overall, report},
         tol          = OptionValue["Tolerance"];
         returnReportQ = TrueQ[OptionValue["ReturnReport"]];
 
@@ -2598,14 +2759,34 @@ isValidSystemSolution[sys_?mfgSystemQ, sol_, OptionsPattern[]] :=
             blocks
         ];
 
+        (* A family is valid only throughout a nonempty residual domain. The
+           previous aggregate silently counted Indeterminate blocks as True. *)
+        residual = If[AssociationQ[sol], Lookup[sol, "Residual", True], True] /. rules;
+        If[residual =!= True && MemberQ[Values[blockResults], Indeterminate],
+            vars = collectTrackedVars[sys, {residual, Values[blocks] /. rules}];
+            nonempty = TimeConstrained[Quiet[Reduce[residual, vars, Reals]], 5, $TimedOut];
+            If[nonempty =!= False && nonempty =!= $TimedOut && FreeQ[nonempty, _Reduce],
+                blockResults = TimeConstrained[
+                    Association @ KeyValueMap[Function[{name, value}, name ->
+                        If[value === Indeterminate,
+                            With[{counterexamples = Quiet[Reduce[
+                                residual && Not[blocks[name] /. rules], vars, Reals]]},
+                                Which[counterexamples === False, True,
+                                    FreeQ[counterexamples, _Reduce], False, True, Indeterminate]],
+                            value]], blockResults], 5, blockResults]
+            ]
+        ];
+
         concretelyFailed = Keys @ Select[blockResults, (# === False) &];
-        overall = concretelyFailed === {};
+        unresolved = Keys @ Select[blockResults, (# =!= True && # =!= False) &];
+        overall = AllTrue[Values[blockResults], TrueQ];
 
         report = <|
             "Valid"                  -> overall,
             "Kind"                   -> kind,
-            "Reason"                 -> If[overall, None, "ConstraintViolation"],
+            "Reason"                 -> Which[overall, None, concretelyFailed =!= {}, "ConstraintViolation", True, "UnresolvedConstraints"],
             "ConcretelyFailedBlocks" -> concretelyFailed,
+            "UnresolvedBlocks"       -> unresolved,
             "BlockChecks"            -> blockResults,
             "Tolerance"              -> tol
         |>;

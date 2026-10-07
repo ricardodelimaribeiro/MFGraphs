@@ -57,6 +57,7 @@ data["AltFlows"]
 | `MFGraphs/unknownsTools.wl` | Symbolic unknown bundle construction |
 | `MFGraphs/systemTools.wl` | Structural equation system kernel |
 | `MFGraphs/solversTools.wl` | Critical-congestion structural solvers |
+| `MFGraphs/validationTools.wl` | Independent exact soundness and completeness checks against original constraints |
 | `MFGraphs/orchestrationTools.wl` | High-level DNF-first solver orchestration |
 | `MFGraphs/graphicsTools.wl` | Scenario and solution plotting helpers |
 | `MFGraphs/Tawaf.wl` | **Opt-in** unrolled circumambulation scenario builder |
@@ -81,6 +82,14 @@ Use `solutionReport[sys, sol]` for read-only solution diagnostics and
 flow-first critical solvers are explicit opt-ins (`directCriticalSystem`,
 `flowFirstCriticalSystem`); the default `solveScenario` path remains
 `dnfReduceSystem`.
+
+For research computations, use `exactSolutionReport[sys, sol]` and follow
+[docs/research/exact-foundation.md](docs/research/exact-foundation.md). Legacy
+`Rules` diagnostics are not proofs of a fully determined solution. The opt-in
+`linearNetReduceSystem` propagates determined rational net currents and zero
+sums of nonnegative flows before DNF enumeration; the default is unchanged.
+`Scripts/run_curated_exact.py` runs the bounded collection sequentially and
+records artifact integrity separately from mathematical validity.
 
 Hamiltonian signed-cost convention: for physical edge `{a,b}`, use oriented net
 flow `m = j[a,b] - j[b,a]`; `m Sign[m]` is the critical traversal cost `Abs[m]`.

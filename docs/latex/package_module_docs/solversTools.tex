@@ -20,7 +20,11 @@ A central architectural fact about this module is that the active public solvers
 
 \section{Choosing a solver}
 
-The table below summarizes the public solver family. ``Exact'' means the solver returns either a rule list, a residual-equations record, or a no-solution signal --- never a numeric approximation. ``Backend'' identifies whether the final residual solve uses a Wolfram primitive directly or a package-defined reducer on top of one.
+The table below summarizes the public solver family. A rule list or residual record
+alone is not an exactness certificate. Use \texttt{exactSolutionReport} to check
+source exactness and every original constraint, and distinguish soundness from
+completeness. The experimental flow-first path and optional numeric oracle use
+floating-point operations. ``Backend'' identifies the final solving strategy.
 
 \begin{center}
 \renewcommand{\arraystretch}{1.2}
@@ -31,6 +35,7 @@ The table below summarizes the public solver family. ``Exact'' means the solver 
 \endhead
 \texttt{reduceSystem} & \texttt{Reduce} (Reals) & Reference baseline. Conceptually simplest; can branch heavily on complementarity and time out on medium-sized systems. \\
 \texttt{dnfReduceSystem} & DFS DNF reducer & \emph{Default} for \texttt{solveScenario}. Equality-substitute-and-distribute, depth-first. Robust across the test suite. \\
+\texttt{linearNetReduceSystem} & Exact consequences + DFS DNF & Opt-in propagation of determined rational net currents and zero sums of nonnegative flows. Retains the full constraint set and all transition-routing freedom. \\
 \texttt{bfsDNFReduceSystem} & BFS DNF reducer & Breadth-first analog of the default. Statistically indistinguishable from DFS on the current benchmark suite (see \texttt{BENCHMARKS.md}); kept as a reference variant. \\
 \texttt{optimizedDNFReduceSystem} & Branch-state DNF & Use when the number of tracked unknowns is small enough that exact branch-state enumeration is cheaper than full DNF distribution. Falls back to \texttt{dnfReduceSystem} otherwise. \\
 \texttt{activeSetReduceSystem} & Active-set + DNF & Specialized for the complementarity decomposition. Often the right pick on topologies with many switching alternatives; the oracle path (\texttt{solveScenarioWithOracle}) calls into this solver. \\

@@ -1,6 +1,23 @@
 (* boolean-minimize.mt — tests for booleanMinimizeSystem and booleanMinimizeReduceSystem *)
 Needs["MFGraphs`"];
 
+Test[
+    solversTools`Private`booleanDnfReducePipeline[BooleanConvert, Function[n, Null]][
+        x == 0 || x == 1, {x}, 0, True],
+    $TimedOut, TestID -> "boolean pipeline: timed-out branches cannot become infeasibility"
+]
+Test[
+    Module[{sys}, sys = makeSystem[gridScenario[{3}, {{1, 10}}, {{2, 0}, {3, 10}}]];
+        booleanMinimizeReduceSystem[sys, "ArmTimeout" -> 0, "DisjunctTimeout" -> 0]],
+    $TimedOut, TestID -> "boolean components: timed-out component cannot become infeasibility"
+]
+Test[
+    Quiet[solversTools`Private`pruneDisjunctiveArms[{},
+        {x == unknownExactFunction[x] || x == 1 + unknownExactFunction[x]}, {x}, 1]][[2]],
+    {x == unknownExactFunction[x] || x == 1 + unknownExactFunction[x]},
+    TestID -> "boolean pruning: unresolved feasibility retains both arms"
+]
+
 $smallCases = {
     {"grid-2x2", gridScenario[{2, 2}, {{1, 100}}, {{4, 0}}]},
     {"grid-3x2", gridScenario[{3, 2}, {{1, 100}}, {{6, 0}}]},
