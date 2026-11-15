@@ -2,49 +2,21 @@
 
 This document is automatically generated from the Wolfram Language package usage metadata.
 
-## alpha
-
-alpha[edge] is the congestion exponent for an edge. Default is 1.
-
-## Cost
-
-Cost[m, edge] is the congestion cost function.
-
-## ensureParallelKernels
-
-ensureParallelKernels[] launches parallel subkernels if none are running.
-
 ## j
 
-j[a, b] is the flow on edge {a,b} from a to b. j[r, i, w] is the fraction of the flow j[r,i] that transitions to edge e_{i,w} at junction i.
+j[a, b] is the flow on edge {a,b} from a to b. j[r, i, w] is the transition flow at junction i from edge {r,i} onto edge {i,w}: summing over w gives j[r, i], and summing over r gives j[i, w].
 
 ## mfgPrint
 
 mfgPrint[args___] prints args only when $MFGraphsVerbose is True.
 
-## mfgPrintTemporary
-
-mfgPrintTemporary[args___] prints a temporary message only when $MFGraphsVerbose is True.
-
 ## u
 
 u[a, b] is the value of the value function at vertex b of edge {a,b}.
 
-## z
-
-z[v] represents a vertex potential variable.
-
-## $MFGraphsParallelReady
-
-$MFGraphsParallelReady is True after ParallelNeeds["MFGraphs`"] has been called on all subkernels. Reset to False (e.g. after LaunchKernels[]) to force re-initialization.
-
-## $MFGraphsParallelThreshold
-
-$MFGraphsParallelThreshold controls the minimum list length before ParallelMap or ParallelTable is used instead of Map or Table. Default is 6. Set to Infinity to disable all parallelism.
-
 ## $MFGraphsVerbose
 
-$MFGraphsVerbose controls whether progress and timing messages are printed. Set $MFGraphsVerbose = False to suppress output. Default is False.
+$MFGraphsVerbose controls whether progress and timing messages are printed. Default is False; set $MFGraphsVerbose = True to see them.
 
 ## criticalCongestionSystemQ
 

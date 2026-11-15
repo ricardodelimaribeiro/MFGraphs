@@ -49,7 +49,8 @@ See `Scripts/README.md` for the full inventory of benchmark, profiling, comparis
 ```
 primitives  →  utilities  →  scenarioTools  →  examples
                                             →  unknownsTools  →  systemTools  →  solversTools  →  orchestrationTools
-                                                                                              →  graphicsTools
+                                                                              →  validationTools
+                                                                              →  graphicsTools
 ```
 
 **Optional subpackages.** Two files in the package directory are proper packages that are *not* loaded by `Needs["MFGraphs`"]` and must be loaded explicitly:
@@ -71,7 +72,7 @@ makeScenario  →  makeSymbolicUnknowns  →  makeSystem  →  solveScenario
 ```
 
 - `makeScenario` normalizes input (Graph → adjacency), validates, fills defaults, and caches `buildAuxiliaryTopology` output inside the returned `scenario[<|...|>]`.
-- `makeSymbolicUnknowns` reads the cached topology and emits the symbolic variable families `j`, `u`, `z`.
+- `makeSymbolicUnknowns` reads the cached topology and emits the symbolic variable families `j` (edge and transition flows) and `u` (value function).
 - `makeSystem` runs `buildBoundaryData`, `buildFlowData`, `buildComplementarityData`, `buildHamiltonianData` and merges their typed records into one `mfgSystem`.
 - `solveScenario` (in `orchestrationTools`) wraps the chain end-to-end.
 

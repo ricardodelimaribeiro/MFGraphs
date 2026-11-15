@@ -221,7 +221,7 @@ Symbolic unknown/system kernels:
 - `solutionReport`, `solutionBranchCostReport`, `directCriticalSystem`, `flowFirstCriticalSystem`
 
 Core symbolic primitives:
-- `j`, `u`, `z`, `alpha`, `Cost`
+- `j`, `u` (Protected symbolic heads)
 
 ## Intentionally unavailable in this phase
 
