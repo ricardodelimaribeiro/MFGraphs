@@ -24,7 +24,20 @@
 
 BeginPackage["scenarioTools`", {"primitives`", "utilities`"}]
 
+(* Lets a re-evaluation of this file reset the usage messages below. *)
+Unprotect[auxEntry, auxExit];
+
 (* --- Public API declarations --- *)
+
+auxEntry::usage =
+"auxEntry[v] labels the auxiliary entry vertex attached to entry vertex v. \
+Boundary inflow enters along the edge {auxEntry[v], v}. auxEntry is Protected \
+and has no definitions; it only marks a vertex's role.";
+
+auxExit::usage =
+"auxExit[v] labels the auxiliary exit vertex attached to exit vertex v. \
+Boundary outflow leaves along the edge {v, auxExit[v]}. auxExit is Protected \
+and has no definitions; it only marks a vertex's role.";
 
 scenario::usage =
 "scenario[assoc] is the typed head for a MFGraphs scenario object. Use makeScenario \
@@ -420,10 +433,7 @@ normalizeHamiltonianSpec[spec_, model_Association] :=
 (* --- Topology Helpers --- *)
 
 buildAuxTriplesImpl[directedEdges_List] :=
-    Module[{incomingByVertex, outgoingByVertex, middleVertices, triples,
-            auxEntryVertexQ, auxExitVertexQ},
-        auxEntryVertexQ[v_] := StringQ[v] && StringStartsQ[v, "auxEntry"];
-        auxExitVertexQ[v_]  := StringQ[v] && StringStartsQ[v, "auxExit"];
+    Module[{incomingByVertex, outgoingByVertex, middleVertices, triples},
         incomingByVertex = GroupBy[directedEdges, Last -> First];
         outgoingByVertex = GroupBy[directedEdges, First -> Last];
         middleVertices   = Intersection[Keys[incomingByVertex], Keys[outgoingByVertex]];
@@ -436,7 +446,7 @@ buildAuxTriplesImpl[directedEdges_List] :=
             ],
             2
         ];
-        Select[triples, !(auxExitVertexQ[First[#]] || auxEntryVertexQ[Last[#]]) &]
+        Select[triples, !(MatchQ[First[#], _auxExit] || MatchQ[Last[#], _auxEntry]) &]
     ];
 
 buildAuxTriples[auxGraph_Graph] :=
@@ -486,8 +496,8 @@ buildAuxiliaryTopology[model_Association] :=
 
         entryVertices    = First /@ entryFlows;
         exitVertices     = First /@ exitCosts;
-        auxEntryVertices = ("auxEntry" <> ToString[#]) & /@ entryVertices;
-        auxExitVertices  = ("auxExit"  <> ToString[#]) & /@ exitVertices;
+        auxEntryVertices = auxEntry /@ entryVertices;
+        auxExitVertices  = auxExit /@ exitVertices;
 
         entryEdges = MapThread[DirectedEdge, {auxEntryVertices, entryVertices}];
         exitEdges  = MapThread[DirectedEdge, {exitVertices, auxExitVertices}];
@@ -688,5 +698,7 @@ makeScenario[_] :=
     scenarioFailure["makeScenario requires an Association as input."];
 
 End[]
+
+Protect[auxEntry, auxExit];
 
 EndPackage[]

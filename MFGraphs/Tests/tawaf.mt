@@ -112,10 +112,10 @@ Test[
         s = makeTawafScenario[2, 3, 1];
         sys = makeTawafSystem[s];
         js = systemData[sys, "Js"];
-        (* Boundary flows have a string vertex (auxEntry / auxExit). They must
+        (* Boundary flows have an aux vertex (auxEntry[v] / auxExit[v]). They must
            NOT be coupled together — each must remain a singleton variable. *)
         hasBoundary = Cases[js,
-            j[a_, b_] /; (StringQ[a] || StringQ[b]) :> j[a, b]];
+            j[a_, b_] /; (MatchQ[a, _auxEntry | _auxExit] || MatchQ[b, _auxEntry | _auxExit]) :> j[a, b]];
         Length[hasBoundary] >= 2 &&
         AllTrue[hasBoundary, FreeQ[
             systemData[sys, "EqGeneral"],

@@ -352,7 +352,7 @@ Test[
 
 (* Test: topology auxiliary vertices are string labels *)
 Test[
-    Module[{model, s, topology, auxEntry, auxExit, auxEntryEdges, auxExitEdges},
+    Module[{model, s, topology, auxEntryVs, auxExitVs, auxEntryEdges, auxExitEdges},
         model = <|
             "Vertices" -> {1, 2, 3},
             "Adjacency" -> {{0, 1, 0}, {1, 0, 1}, {0, 1, 0}},
@@ -362,18 +362,18 @@ Test[
         |>;
         s = makeScenario[<|"Model" -> model|>];
         topology = scenarioData[s, "Topology"];
-        auxEntry = topology["AuxEntryVertices"];
-        auxExit = topology["AuxExitVertices"];
+        auxEntryVs = topology["AuxEntryVertices"];
+        auxExitVs = topology["AuxExitVertices"];
         auxEntryEdges = topology["AuxEntryEdges"];
         auxExitEdges = topology["AuxExitEdges"];
         scenarioQ[s] &&
-        AllTrue[auxEntry, StringQ] &&
-        AllTrue[auxExit, StringQ] &&
-        MatchQ[First[auxEntryEdges], DirectedEdge[_String, _Integer]] &&
-        MatchQ[First[auxExitEdges], DirectedEdge[_Integer, _String]] &&
+        auxEntryVs === {auxEntry[1]} &&
+        auxExitVs === {auxExit[3]} &&
+        MatchQ[First[auxEntryEdges], DirectedEdge[_auxEntry, _Integer]] &&
+        MatchQ[First[auxExitEdges], DirectedEdge[_Integer, _auxExit]] &&
         topology["AuxPairs"] === {
-            {"auxEntry1", 1},
-            {3, "auxExit3"},
+            {auxEntry[1], 1},
+            {3, auxExit[3]},
             {1, 2},
             {2, 3},
             {2, 1},
@@ -381,14 +381,13 @@ Test[
         } &&
         AllTrue[
             topology["AuxTriples"],
-            !(StringQ[First[#]] && StringStartsQ[First[#], "auxExit"]) &&
-            !(StringQ[Last[#]] && StringStartsQ[Last[#], "auxEntry"]) &
+            !MatchQ[First[#], _auxExit] && !MatchQ[Last[#], _auxEntry] &
         ]
     ]
     ,
     True
     ,
-    TestID -> "Scenario kernel: auxiliary vertices are strings and aux triples respect boundary direction"
+    TestID -> "Scenario kernel: auxiliary vertices are typed auxEntry/auxExit labels and aux triples respect boundary direction"
 ]
 
 (* Test: user-provided sparse adjacency is preserved when Graph is also present *)

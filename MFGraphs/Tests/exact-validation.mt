@@ -115,7 +115,7 @@ Test[
 ]
 Test[
     isValidSystemSolution[makeSystem[gridScenario[{2}, {{1, 10}}, {{2, 0}}]],
-        {j["auxEntry1", 1] -> 10}],
+        {j[auxEntry[1], 1] -> 10}],
     False, TestID -> "validation: unresolved blocks are not validation success"
 ]
 Test[

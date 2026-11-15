@@ -69,11 +69,11 @@ Test[
         js = symbolicUnknownsData[unk, "Js"];
         us = symbolicUnknownsData[unk, "Us"];
         jts = symbolicUnknownsData[unk, "Jts"];
-        MemberQ[js, j["auxEntry1", 1]] &&
+        MemberQ[js, j[auxEntry[1], 1]] &&
         MemberQ[js, j[1, 2]] &&
-        MemberQ[us, u["auxEntry1", 1]] &&
+        MemberQ[us, u[auxEntry[1], 1]] &&
         MemberQ[us, u[1, 2]] &&
-        MemberQ[jts, j["auxEntry1", 1, 2]] &&
+        MemberQ[jts, j[auxEntry[1], 1, 2]] &&
         MemberQ[jts, j[1, 2, 3]]
     ],
     True,
@@ -257,8 +257,8 @@ Test[
         s = makeScenario[<|"Model" -> data|>];
         sys = makeSystem[s];
         mfgSystemQ[sys] &&
-        MemberQ[systemData[sys, "Js"], j["auxEntry1", 1]] &&
-        MemberQ[systemData[sys, "Us"], u["auxEntry1", 1]]
+        MemberQ[systemData[sys, "Js"], j[auxEntry[1], 1]] &&
+        MemberQ[systemData[sys, "Us"], u[auxEntry[1], 1]]
     ],
     True,
     TestID -> "makeSystem: automatically builds symbolic unknowns"
@@ -288,13 +288,13 @@ Test[
         entryOutRules = systemData[sys, "RuleEntryOut"];
         {B, KM, vars} = getKirchhoffLinearSystem[sys];
         mfgSystemQ[sys] &&
-        MemberQ[entryEq, j["auxEntry1", 1] == 10] &&
-        KeyExistsQ[entryRules, j["auxEntry1", 1]] &&
-        entryRules[j["auxEntry1", 1]] === 10 &&
-        MemberQ[exitIneqs, u["auxExit3", 3] <= 0] &&
-        MemberQ[altExitCond, (j[3, "auxExit3"] == 0) || (u["auxExit3", 3] == 0)] &&
+        MemberQ[entryEq, j[auxEntry[1], 1] == 10] &&
+        KeyExistsQ[entryRules, j[auxEntry[1], 1]] &&
+        entryRules[j[auxEntry[1], 1]] === 10 &&
+        MemberQ[exitIneqs, u[auxExit[3], 3] <= 0] &&
+        MemberQ[altExitCond, (j[3, auxExit[3]] == 0) || (u[auxExit[3], 3] == 0)] &&
         AssociationQ[entryOutRules] && entryOutRules === <||> &&
-        !MemberQ[vars, j["auxEntry1", 1]]
+        !MemberQ[vars, j[auxEntry[1], 1]]
     ],
     True,
     TestID -> "makeSystem: boundary conditions include RuleEntryIn and Kirchhoff eliminates entry boundary variables"

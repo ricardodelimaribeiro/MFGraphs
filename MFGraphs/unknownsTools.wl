@@ -40,7 +40,7 @@ makeSymbolicUnknownsFromPairsTriples::usage =
 symbolicUnknowns object from auxiliary pairs and triples.";
 
 canonicalUPair[pair : {a_, b_}] :=
-    If[StringQ[b] && (StringStartsQ[b, "auxEntry"] || StringStartsQ[b, "auxExit"]),
+    If[MatchQ[b, _auxEntry | _auxExit],
         {b, a},
         pair
     ];

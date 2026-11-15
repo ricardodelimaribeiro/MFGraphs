@@ -22,15 +22,19 @@ Test[
 
 (* Solution-equality predicate: directly compare canonicalised forms.
    Both solveScenario outputs and cached forms come from the same code,
-   so byte-equality after Sort on rule lists is the right check. *)
-solutionEquivalent[a_, b_] :=
-    Module[{ca = a, cb = b},
-        If[ListQ[ca] && AllTrue[ca, MatchQ[#, _Rule | _RuleDelayed] &],
-            ca = SortBy[ca, ToString[First[#]] &]];
-        If[ListQ[cb] && AllTrue[cb, MatchQ[#, _Rule | _RuleDelayed] &],
-            cb = SortBy[cb, ToString[First[#]] &]];
-        ca === cb
+   so byte-equality after sorting rule lists is the right check. Rule order
+   follows the canonical order of the variables, so it is not compared:
+   that includes the "Rules" of a <|"Rules" -> ..., "Residual" -> ...|> result. *)
+canonicalSolution[x_] :=
+    Which[
+        ListQ[x] && AllTrue[x, MatchQ[#, _Rule | _RuleDelayed] &],
+            SortBy[x, ToString[First[#]] &],
+        AssociationQ[x] && KeyExistsQ[x, "Rules"],
+            Append[x, "Rules" -> canonicalSolution[x["Rules"]]],
+        True,
+            x
     ];
+solutionEquivalent[a_, b_] := canonicalSolution[a] === canonicalSolution[b];
 
 (* Per-key smoke + cache-comparison Test. *)
 Scan[
