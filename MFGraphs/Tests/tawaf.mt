@@ -330,3 +330,12 @@ Test[
     True,
     TestID -> "Tawaf: tawafDensities returns <||> on non-density system"
 ]
+
+(* Test: a completed Tawaf scenario passes validateScenario *)
+Test[
+    validateScenario[makeTawafScenario[2, 3, 1]]
+    ,
+    True
+    ,
+    TestID -> "Tawaf: completed scenario passes validateScenario"
+]

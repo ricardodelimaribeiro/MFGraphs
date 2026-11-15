@@ -143,7 +143,10 @@ Test[
     "NumericalApproximation", TestID -> "exact validation: rationalized boundary retains inexact provenance"
 ]
 Test[
-    Module[{sys}, sys = makeSystem[gridScenario[{2}, {{1, -1}}, {{2, 0}}]];
+    (* Infeasible by construction: the entry's component {1, 2} has no exit. *)
+    Module[{sys}, sys = makeSystem[makeScenario[<|"Model" -> <|"Vertices" -> {1, 2, 3, 4},
+            "Adjacency" -> {{0, 1, 0, 0}, {1, 0, 0, 0}, {0, 0, 0, 1}, {0, 0, 1, 0}},
+            "Entries" -> {{1, 10}}, "Exits" -> {{4, 0}}, "Switching" -> {}|>|>]];
         exactSolutionReport[sys, <|"Rules" -> {}, "Residual" -> False|>]["ResultType"]],
     "ExactInfeasible", TestID -> "exact validation: infeasibility independently proved"
 ]

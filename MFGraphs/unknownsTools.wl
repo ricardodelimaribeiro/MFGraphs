@@ -91,10 +91,7 @@ makeSymbolicUnknowns[s_] :=
             Return[Failure["makeSymbolicUnknowns", <|"Message" -> "Could not build auxiliary topology."|>], Module]
         ];
 
-        auxPairs   = Lookup[topology, "AuxPairs",   deriveAuxPairs[topology]];
-        auxTriples = Lookup[topology, "AuxTriples",  buildAuxTriples[topology["AuxiliaryGraph"]]];
-
-        makeSymbolicUnknownsFromPairsTriples[auxPairs, auxTriples]
+        makeSymbolicUnknownsFromPairsTriples[topology["AuxPairs"], topology["AuxTriples"]]
     ];
 
 End[]

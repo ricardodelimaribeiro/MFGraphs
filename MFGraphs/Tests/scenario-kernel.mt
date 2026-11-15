@@ -290,13 +290,30 @@ Test[
     TestID -> "Scenario kernel: absent Model key yields Failure"
 ]
 
-(* Test: non-scenario input to validateScenario yields Failure *)
+(* Test: non-scenario input to validateScenario returns False with a message *)
 Test[
-    FailureQ[validateScenario["not a scenario"]]
+    validateScenario["not a scenario"]
     ,
-    True
+    False
+    ,
+    {validateScenario::notscenario}
     ,
     TestID -> "Scenario kernel: non-scenario input rejected by validateScenario"
+]
+
+(* Test: validateScenario returns True for a valid scenario and False, with a
+   message, for an invalid one *)
+Test[
+    {
+        validateScenario[makeScenario[<|"Model" -> $testModel12|>]],
+        validateScenario[scenario[<|"Model" -> Join[$testModel12, <|"Entries" -> {{1, -1}}|>]|>]]
+    }
+    ,
+    {True, False}
+    ,
+    {validateScenario::invalid}
+    ,
+    TestID -> "Scenario kernel: validateScenario returns True, or False with a message"
 ]
 
 (* Test: scenarioData accessor returns underlying association *)
@@ -414,7 +431,8 @@ Test[
     TestID -> "Scenario kernel: graph normalization preserves explicit sparse adjacency"
 ]
 
-(* Test: makeScenario fails when required keys exist but topology cannot be built *)
+(* Test: makeScenario rejects a malformed adjacency before building topology,
+   so no AdjacencyGraph/EdgeList messages leak out *)
 Test[
     Module[{model, result},
         model = <|
@@ -430,18 +448,14 @@ Test[
     ,
     True
     ,
-    {AdjacencyGraph::matsq, EdgeList::graph, EdgeList::graph}
-    ,
     TestID -> "Scenario kernel: invalid topology shape is rejected during construction"
 ]
 
 (* Test: completeScenario can be called directly on a validated scenario *)
 Test[
-    Module[{data, raw, validated, completed},
-        data      = $testModel12;
-        raw       = scenario[<|"Model" -> data|>];
-        validated = validateScenario[raw];
-        completed = completeScenario[validated];
+    Module[{raw, completed},
+        raw       = scenario[<|"Model" -> $testModel12|>];
+        completed = If[validateScenario[raw], completeScenario[raw], $Failed];
         scenarioQ[completed]
     ]
     ,
@@ -452,24 +466,26 @@ Test[
     TestID -> "Scenario kernel: completeScenario callable directly on validated scenario"
 ]
 
-(* Test: completeScenario direct call warns and completes switching costs when topology is absent *)
+(* Test: completeScenario direct call warns, rebuilds the missing topology,
+   stores it, and completes switching costs over its transitions *)
 Test[
-    Module[{raw, validated, completed, sc},
+    Module[{raw, completed, sc, topology},
         raw = scenario[<|"Model" -> <|
             "Vertices" -> {1, 2},
             "Adjacency" -> {{0, 1}, {1, 0}},
             "Entries" -> {{1, 10}},
             "Exits" -> {{2, 0}},
-            "Switching" -> {{1, 1, 2, 3}}
+            "Switching" -> {{auxEntry[1], 1, 2, 3}}
         |>|>];
-        validated = validateScenario[raw];
-        completed = completeScenario[validated];
+        completed = If[validateScenario[raw], completeScenario[raw], $Failed];
         sc = scenarioData[completed, "Model"]["Switching"];
-        scenarioQ[completed] && AssociationQ[sc]
+        topology = scenarioData[completed, "Topology"];
+        scenarioQ[completed] && AssociationQ[topology] &&
+        Keys[sc] === topology["AuxTriples"] && sc[{auxEntry[1], 1, 2}] === 3
     ],
     True,
     {completeScenario::notopology},
-    TestID -> "Scenario kernel: completeScenario rebuilds missing topology with warning"
+    TestID -> "Scenario kernel: completeScenario rebuilds and stores missing topology with warning"
 ]
 
 (* Test: makeScenario rejects legacy Data substitutions *)
@@ -872,16 +888,16 @@ Test[
     TestID -> "Example metadata: every registered key resolves to an Association"
 ]
 
-(* Test: edgeEntryTolls expand identically for Graph and adjacency-only models,
+(* Test: EdgeEntryTolls expand identically for Graph and adjacency-only models,
    with no inadmissible U-turn key {nextV, targetV, nextV} *)
 Module[{mG, mA, sG, sA, swG, swA},
     mG = <|"Graph" -> Graph[{1 -> 2, 2 -> 3, 3 -> 4}],
            "Entries" -> {{1, 100}}, "Exits" -> {{4, 0}}, "Switching" -> {},
-           "edgeEntryTolls" -> <|{2, 3} -> 5|>|>;
+           "EdgeEntryTolls" -> <|{2, 3} -> 5|>|>;
     mA = <|"Vertices" -> {1, 2, 3, 4},
            "Adjacency" -> {{0, 1, 0, 0}, {0, 0, 1, 0}, {0, 0, 0, 1}, {0, 0, 0, 0}},
            "Entries" -> {{1, 100}}, "Exits" -> {{4, 0}}, "Switching" -> {},
-           "edgeEntryTolls" -> <|{2, 3} -> 5|>|>;
+           "EdgeEntryTolls" -> <|{2, 3} -> 5|>|>;
     sG = makeScenario[<|"Model" -> mG|>];
     sA = makeScenario[<|"Model" -> mA|>];
     swG = Select[scenarioData[sG, "Model"]["Switching"], # =!= 0 &];
@@ -893,7 +909,7 @@ Module[{mG, mA, sG, sA, swG, swA},
         ,
         True
         ,
-        TestID -> "edgeEntryTolls: adjacency-only model expands like the Graph model, no U-turn keys"
+        TestID -> "EdgeEntryTolls: adjacency-only model expands like the Graph model, no U-turn keys"
     ]
 ]
 
@@ -916,4 +932,53 @@ Module[{m, s, sw},
         ,
         TestID -> "Switching metric closure: exact rationals in, exact rationals out"
     ]
+]
+
+(* Tests: makeScenario rejects each malformed input with a ScenarioValidation
+   Failure and no messages *)
+Module[{chain, rejects},
+    chain = <|"Vertices" -> {1, 2, 3}, "Adjacency" -> {{0, 1, 0}, {1, 0, 1}, {0, 1, 0}},
+              "Entries" -> {{1, 10}}, "Exits" -> {{3, 0}}, "Switching" -> {}|>;
+    rejects = <|
+        "a duplicate entry vertex"      -> <|"Model" -> Join[chain, <|"Entries" -> {{1, 10}, {1, 5}}|>]|>,
+        "a duplicate exit vertex"       -> <|"Model" -> Join[chain, <|"Exits" -> {{3, 0}, {3, 5}}|>]|>,
+        "a negative inflow"             -> <|"Model" -> Join[chain, <|"Entries" -> {{1, -10}}|>]|>,
+        "a complex boundary value"      -> <|"Model" -> Join[chain, <|"Entries" -> {{1, 10 + I}}|>]|>,
+        "a self-loop"                   -> <|"Model" -> Join[chain, <|"Adjacency" -> {{0, 1, 0}, {1, 1, 1}, {0, 1, 0}}|>]|>,
+        "an adjacency size mismatch"    -> <|"Model" -> Join[chain, <|"Adjacency" -> {{0, 1}, {1, 0}}|>]|>,
+        "duplicate vertices"            -> <|"Model" -> Join[chain, <|"Vertices" -> {1, 2, 2}|>]|>,
+        "a switching triple off the graph" -> <|"Model" -> Join[chain, <|"Switching" -> {{1, 3, 2, 5}}|>]|>,
+        "a U-turn switching triple"     -> <|"Model" -> Join[chain, <|"Switching" -> {{1, 2, 1, 5}}|>]|>,
+        "a negative switching cost"     -> <|"Model" -> Join[chain, <|"Switching" -> {{1, 2, 3, -5}}|>]|>,
+        "an unknown Hamiltonian key"    -> <|"Model" -> chain, "Hamiltonian" -> <|"alpha" -> 2|>|>,
+        "a non-Association Hamiltonian" -> <|"Model" -> chain, "Hamiltonian" -> {"Alpha" -> 1}|>,
+        "the old edgeEntryTolls key"    -> <|"Model" -> Join[chain, <|"edgeEntryTolls" -> <|{2, 3} -> 5|>|>]|>,
+        "a toll on a non-edge"          -> <|"Model" -> Join[chain, <|"EdgeEntryTolls" -> <|{1, 3} -> 5|>|>]|>,
+        "Vertices that are not in Graph" -> <|"Model" -> <|"Graph" -> PathGraph[{1, 2, 3}], "Vertices" -> {1, 2, 4},
+                                              "Entries" -> {{1, 10}}, "Exits" -> {{4, 0}}, "Switching" -> {}|>|>
+    |>;
+    KeyValueMap[
+        Function[{label, input},
+            Test[
+                MatchQ[makeScenario[input], Failure["ScenarioValidation", _Association]]
+                ,
+                True
+                ,
+                TestID -> "Scenario validation: makeScenario rejects " <> label
+            ]
+        ],
+        rejects
+    ]
+]
+
+(* Test: Switching may be omitted when EdgeEntryTolls is given *)
+Test[
+    scenarioQ[makeScenario[<|"Model" -> <|
+        "Vertices" -> {1, 2, 3}, "Adjacency" -> {{0, 1, 0}, {1, 0, 1}, {0, 1, 0}},
+        "Entries" -> {{1, 10}}, "Exits" -> {{3, 0}},
+        "EdgeEntryTolls" -> <|{2, 3} -> 5|>|>|>]]
+    ,
+    True
+    ,
+    TestID -> "Scenario validation: Switching is optional with EdgeEntryTolls"
 ]

@@ -20,6 +20,17 @@ Test[
     TestID -> "Example coverage: defaults table covers every registered key"
 ]
 
+(* Test: every example scenario, once completed, still passes validateScenario *)
+Test[
+    AllTrue[listExampleScenarios[],
+        Function[key, With[{d = $ExampleBoundaryDefaults[key]},
+            validateScenario[getExampleScenario[key, d[[1]], d[[2]]]]]]]
+    ,
+    True
+    ,
+    TestID -> "Example coverage: every example scenario passes validateScenario"
+]
+
 (* Solution-equality predicate: directly compare canonicalised forms.
    Both solveScenario outputs and cached forms come from the same code,
    so byte-equality after sorting rule lists is the right check. Rule order

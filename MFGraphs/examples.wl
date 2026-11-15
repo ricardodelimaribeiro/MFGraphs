@@ -184,7 +184,10 @@ $CaseDefaultSC = <|
     13 -> {{1,2,4,1},{1,3,4,1},{4,2,1,1},{4,3,1,1}},
     14 -> {{1,2,3,2},{3,2,1,1}},
     15 -> {{2,1,3,2},{3,1,2,1}},
-    16 -> {{1,3,2,1}},
+    (* Was {{1,3,2,1}}: {1,3,2} is not a transition on the chain 1-2-3 (no
+       edge 1-3), so it never had any effect and makeScenario now rejects it.
+       Empty keeps case 16's behaviour; the intended shortcut is unknown. *)
+    16 -> {},
     17 -> {{1,2,3,2},{3,2,1,1}},
     18 -> {{1,2,3,2},{3,2,1,1}},
     "Braess split"       -> {{1,2,4,1},{5,7,8,1}},
