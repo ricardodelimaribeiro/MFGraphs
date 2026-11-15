@@ -25,6 +25,12 @@
    Auxiliary vertices: each entry vertex v gets the vertex auxEntry[v] and each
    exit vertex v gets auxExit[v]; boundary flows run along {auxEntry[v], v}
    and {v, auxExit[v]}.
+
+   Switching costs: every admissible transition without an explicit cost gets
+   cost 0, then the finite costs at each junction are replaced by their metric
+   closure, so c(r,v,w) <= c(r,v,k) + c(k,v,w) holds among them. Blocked
+   transitions (Infinity) and flow-dependent costs (pure functions) are left
+   unchanged.
 *)
 
 BeginPackage["scenarioTools`", {"primitives`", "utilities`"}]
@@ -65,9 +71,11 @@ is given. Boundary values must be real; each vertex may appear at most once in \
 Entries and at most once in Exits, and the two sets must be disjoint. Switching \
 costs must be keyed by admissible transitions (consecutive edges, no U-turn) and \
 be nonnegative numbers, Infinity (a blocked transition), or pure functions of the \
-transition flow. Explicit switching costs and expanded tolls at each junction are \
-replaced by their metric closure (the cheapest sequence of switches), and every \
-other admissible transition gets cost 0. \
+transition flow. Every admissible transition without an explicit cost or toll gets \
+cost 0; the finite costs at each junction are then replaced by their metric closure \
+(the cheapest sequence of switches), so they satisfy the triangle inequality \
+c(r,v,w) <= c(r,v,k) + c(k,v,w). Blocked transitions (Infinity) and pure-function \
+costs are not changed by the closure. \
 Optional keys: \"Hamiltonian\" (<|\"Alpha\" -> a, \"V\" -> v, \"G\" -> g, \
 \"EdgeAlpha\" -> <|{u,v} -> a_uv, ...|>, \"EdgeV\" -> <|{u,v} -> v_uv, ...|>, \
 \"EdgeG\" -> <|{u,v} -> g_uv, ...|>|>; other keys are rejected), \
@@ -163,7 +171,7 @@ auxTriplesFromPairs::usage =
 "auxTriplesFromPairs[directedPairs] returns the admissible transitions {r, v, w}: consecutive directed pairs {r, v} and {v, w} with r != w.";
 
 completedSwitchingCosts::usage =
-"completedSwitchingCosts[model, auxTriples] combines explicit switching costs with expanded edge entry tolls, closes them, and fills every other admissible transition with 0.";
+"completedSwitchingCosts[model, auxTriples] gives every admissible transition a cost: explicit switching costs, then expanded edge entry tolls, then 0; the finite costs are then replaced by their metric closure.";
 
 (* Required keys that must appear inside the "Model" block. *)
 $RequiredModelKeys = {"Vertices", "Adjacency", "Entries", "Exits", "Switching"};
@@ -416,13 +424,14 @@ metricClosureSwitchingCosts[sc_Association] :=
     Join[sc, Association @ Flatten @ Values @ GroupBy[
         Select[Keys[sc], NumericQ[sc[#]] &], #[[2]] &, junctionClosure[sc, #] &]];
 
+(* Missing transitions cost 0 before the closure runs, so the finite costs
+   the solver sees satisfy the triangle inequality
+   c(r, v, w) <= c(r, v, k) + c(k, v, w) at every junction v. *)
 completedSwitchingCosts[model_Association, auxTriples_List] :=
-    Join[
+    metricClosureSwitchingCosts[Join[
         AssociationMap[0 &, auxTriples],
-        metricClosureSwitchingCosts[Join[
-            expandEdgeEntryTolls[model],
-            normalizeSwitchingCosts[Lookup[model, "Switching", <||>]]]]
-    ];
+        expandEdgeEntryTolls[model],
+        normalizeSwitchingCosts[Lookup[model, "Switching", <||>]]]];
 
 (* --- Topology --- *)
 

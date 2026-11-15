@@ -31,6 +31,24 @@ Test[
     TestID -> "Example coverage: every example scenario passes validateScenario"
 ]
 
+(* Test: in every example, finite switching costs satisfy the triangle
+   inequality c(r,v,w) <= c(r,v,k) + c(k,v,w) at each junction v *)
+Test[
+    Select[listExampleScenarios[],
+        Function[key, Module[{d = $ExampleBoundaryDefaults[key], sw, finite},
+            sw = scenarioData[getExampleScenario[key, d[[1]], d[[2]]], "Model"]["Switching"];
+            finite = Select[sw, NumericQ];
+            !AllTrue[Keys[finite],
+                Function[t, AllTrue[Keys[finite],
+                    Function[t2,
+                        !(t2[[1]] === t[[1]] && t2[[2]] === t[[2]] && KeyExistsQ[finite, {t2[[3]], t[[2]], t[[3]]}]) ||
+                        finite[t] <= finite[t2] + finite[{t2[[3]], t[[2]], t[[3]]}]]]]]]]]
+    ,
+    {}
+    ,
+    TestID -> "Example coverage: switching costs satisfy the triangle inequality"
+]
+
 (* Solution-equality predicate: directly compare canonicalised forms.
    Both solveScenario outputs and cached forms come from the same code,
    so byte-equality after sorting rule lists is the right check. Rule order

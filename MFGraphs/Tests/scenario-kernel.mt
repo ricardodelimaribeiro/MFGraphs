@@ -982,3 +982,35 @@ Test[
     ,
     TestID -> "Scenario validation: Switching is optional with EdgeEntryTolls"
 ]
+
+(* Tests: switching costs are closed after missing transitions get cost 0, so
+   the triangle inequality holds among finite costs; blocked transitions stay
+   blocked; completing a completed scenario changes nothing *)
+Module[{star, swOf},
+    star = <|"Vertices" -> {1, 2, 3, 4},
+             "Adjacency" -> {{0, 1, 0, 0}, {1, 0, 1, 1}, {0, 1, 0, 0}, {0, 1, 0, 0}},
+             "Entries" -> {{1, 10}}, "Exits" -> {{3, 0}, {4, 0}}|>;
+    swOf[sc_] := scenarioData[makeScenario[<|"Model" -> Join[star, <|"Switching" -> sc|>]|>], "Model"]["Switching"];
+    Test[
+        Lookup[swOf[{{1, 2, 3, 10}}], {{1, 2, 3}, {1, 2, 4}, {4, 2, 3}}]
+        ,
+        {0, 0, 0}
+        ,
+        TestID -> "Switching closure: a direct cost is capped by a two-step route through default zeros"
+    ];
+    Test[
+        Lookup[swOf[{{1, 2, 3, Infinity}, {1, 2, 4, 1}, {4, 2, 3, 1}}], {{1, 2, 3}, {1, 2, 4}, {4, 2, 3}}]
+        ,
+        {Infinity, 1, 1}
+        ,
+        TestID -> "Switching closure: a blocked transition stays blocked"
+    ];
+    Test[
+        With[{s = makeScenario[<|"Model" -> Join[star, <|"Switching" -> {{1, 2, 3, 5}, {3, 2, 4, 1/2}}|>]|>]},
+            completeScenario[s] === s]
+        ,
+        True
+        ,
+        TestID -> "Scenario kernel: completeScenario is idempotent on a completed scenario"
+    ]
+]
