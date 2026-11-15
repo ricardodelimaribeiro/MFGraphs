@@ -25,7 +25,7 @@ The flat-context load order from `CLAUDE.md`:
 
 8. `MFGraphs/primitives.wl` → `MFGraphs/utilities.wl` (foundations)
 9. `MFGraphs/scenarioTools.wl` (`makeScenario`, validation, topology cache)
-10. `MFGraphs/unknownsTools.wl` (the `j`, `u`, `z` symbolic families)
+10. `MFGraphs/unknownsTools.wl` (the `j`, `u` symbolic families)
 11. `MFGraphs/systemTools.wl` (boundary / flow / complementarity / Hamiltonian builders)
 12. `MFGraphs/validationTools.wl` (`exactSolutionReport`: exact soundness / completeness checks against the original system)
 13. `MFGraphs/solversTools.wl` (DNF + active-set reducers)

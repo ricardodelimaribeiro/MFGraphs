@@ -50,7 +50,7 @@ data["AltFlows"]
 | File | Purpose |
 |------|---------|
 | `MFGraphs/MFGraphs.wl` | Package loader |
-| `MFGraphs/primitives.wl` | Symbolic atoms (`j`, `u`, `z`, `alpha`, `Cost`) and runtime flags |
+| `MFGraphs/primitives.wl` | Symbolic heads (`j`, `u`), the `$MFGraphsVerbose` flag, and `mfgPrint` |
 | `MFGraphs/utilities.wl` | Shared typed-object, rule, and critical-congestion helpers |
 | `MFGraphs/scenarioTools.wl` | Typed scenario kernel |
 | `MFGraphs/examples.wl` | Example scenario factories |

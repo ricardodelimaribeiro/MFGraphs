@@ -14,7 +14,7 @@
 
    Package loading DAG (each ↓ leads from the line directly above it; every
    package also needs primitives):
-     primitives          (shared primitives: j, u, z, alpha, Cost, flags)
+     primitives          (symbolic heads j, u; $MFGraphsVerbose; mfgPrint)
        ↓
      utilities           (typed-object infra, rule management, shared helpers)
        ↓
