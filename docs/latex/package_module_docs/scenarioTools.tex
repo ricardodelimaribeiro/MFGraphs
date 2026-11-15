@@ -12,12 +12,13 @@
 \date{}
 \begin{document}
 \maketitle
+\sloppy
 
 \section{High-level explanation}
 
 \texttt{scenarioTools.wl} is the typed scenario kernel of the active MFGraphs architecture. It converts raw network-and-parameter input into a validated, completed, and cached \texttt{scenario[<|\ldots|>]} object. This is the module that establishes the contract for what a scenario is, what data it must contain, how topology is derived, and which defaults are filled automatically.
 
-Architecturally, this file is where MFGraphs stops being a loose set of associations and becomes a disciplined object pipeline. It performs model normalization, boundary validation, switching-cost normalization, Hamiltonian normalization, topology construction, and default completion. Downstream modules therefore assume that a scenario already contains a consistent \texttt{"Model"}, a normalized \texttt{"Hamiltonian"}, and cached \texttt{"Topology"} data.
+Architecturally, this file is where MFGraphs stops being a loose set of associations and becomes a disciplined object pipeline. It performs model normalization, validation, switching-cost completion and closure, Hamiltonian normalization, topology construction, and default completion. Downstream modules therefore assume that a scenario already contains a consistent \texttt{"Model"}, a normalized \texttt{"Hamiltonian"}, and cached \texttt{"Topology"} data.
 
 \section{Scenario schema}
 
@@ -25,41 +26,54 @@ A completed \texttt{scenario[\textellipsis]} wraps an association with the follo
 
 \begin{center}
 \renewcommand{\arraystretch}{1.2}
-\begin{longtable}{@{}p{2.5cm} p{12.0cm}@{}}
+\begin{longtable}{@{}p{3.6cm} p{10.9cm}@{}}
 \toprule
 \textbf{Key} & \textbf{Contents} \\
 \midrule
 \endhead
-\texttt{"Model"} & The user-supplied network description: \texttt{"Vertices"}, \texttt{"Adjacency"} (or \texttt{"Graph"}), \texttt{"Entries"} (vertex/mass pairs), \texttt{"Exits"} (vertex/terminal-cost pairs), \texttt{"Switching"} (cost rows or association keyed by transition triples). \\
+\texttt{"Model"} & The network description: \texttt{"Vertices"}, \texttt{"Adjacency"} (or \texttt{"Graph"}), \texttt{"Entries"} (vertex/inflow pairs), \texttt{"Exits"} (vertex/exit-cost pairs), \texttt{"Switching"} (cost rows or an association keyed by transition triples), and optionally \texttt{"EdgeEntryTolls"}. After completion \texttt{"Switching"} holds a cost for every admissible transition. \\
 \texttt{"Hamiltonian"} & Normalized Hamiltonian parameters: \texttt{"Alpha"}, \texttt{"V"}, \texttt{"G"}, plus the edge-keyed override maps \texttt{"EdgeAlpha"}, \texttt{"EdgeV"}, \texttt{"EdgeG"}. \\
 \texttt{"Topology"} & Cached auxiliary-graph data produced by \texttt{buildAuxiliaryTopology}: the undirected base graph, auxiliary entry/exit vertices, augmented graph, directed auxiliary pairs, and admissible transition triples. \\
+\texttt{"InputProvenance"} & The boundary, switching, toll and Hamiltonian input exactly as given, kept before any normalization so exactness checks can see inexact input. \\
 \texttt{"Identity"} & Optional identifying metadata (name, source). \\
-\texttt{"Benchmark"} & Optional benchmark-related fields (filled with defaults by \texttt{completeScenario}). \\
+\texttt{"Benchmark"} & Benchmark-related fields, filled with defaults by \texttt{completeScenario}. \\
 \bottomrule
 \end{longtable}
 \end{center}
 
 The \texttt{"Topology"} block is computed once inside \texttt{makeScenario} and is the reason every downstream stage runs in time proportional to its own work rather than re-walking the graph.
 
+\subsection*{Auxiliary vertices}
+
+Each entry vertex $v$ gets an auxiliary vertex \texttt{auxEntry[v]} and each exit vertex $v$ gets \texttt{auxExit[v]}. Boundary inflow runs along $\{\texttt{auxEntry[v]}, v\}$ and boundary outflow along $\{v, \texttt{auxExit[v]}\}$, so these labels appear in flow and value variables such as \texttt{j[auxEntry[1], 1]} and \texttt{u[auxExit[3], 3]}. The heads are protected, inert symbols: code identifies an auxiliary vertex by pattern (\texttt{\_auxEntry}, \texttt{\_auxExit}) or by the topology's \texttt{"AuxEntryVertices"} and \texttt{"AuxExitVertices"} lists, never by parsing a name.
+
+\subsection*{Switching costs}
+
+A switching cost $c(r,v,w)$ is the cost of moving at junction $v$ from edge $(r,v)$ onto edge $(v,w)$. Only admissible transitions may carry costs: $\{r,v\}$ and $\{v,w\}$ must be edges and $r \neq w$. A cost is a nonnegative number, \texttt{Infinity} (a blocked transition), or a pure function of the transition flow.
+
+Completion gives every admissible transition a cost: the explicit cost, otherwise the expanded edge entry toll, otherwise $0$. The finite costs at each junction are then replaced by their metric closure, the cheapest sequence of switches, so that
+\[
+  c(r,v,w) \le c(r,v,k) + c(k,v,w)
+\]
+holds among them. The closure is an exact Floyd--Warshall computation, so rational costs stay rational. Blocked transitions and pure-function costs are neither changed by the closure nor used as intermediate steps.
+
 \section{Low-level explanation of functions and functionality}
 
 \subsection*{\texttt{scenario}}
 
-\texttt{scenario[assoc]} is the typed wrapper head for scenario objects. It is intentionally simple: its meaning comes from the convention that the wrapped value is an association with keys such as \texttt{"Model"}, \texttt{"Topology"}, \texttt{"Hamiltonian"}, \texttt{"Identity"}, and \texttt{"Benchmark"}.
-
-Users normally do not construct \texttt{scenario} objects by hand. The supported path is \texttt{makeScenario}, which guarantees validation and completion.
+\texttt{scenario[assoc]} is the typed wrapper head for scenario objects. Its meaning comes from the convention that the wrapped value is an association with the keys listed above. Users normally do not construct \texttt{scenario} objects by hand; the supported path is \texttt{makeScenario}, which guarantees validation and completion.
 
 \subsection*{\texttt{scenarioQ}}
 
 \texttt{scenarioQ[x]} returns \texttt{True} exactly when \texttt{x} matches the typed scenario wrapper pattern \texttt{scenario[\_Association]}. It is the basic predicate used throughout the package to guard scenario-only entrypoints.
 
-The main usage is defensive programming. Any function that expects a completed typed scenario can rely on \texttt{scenarioQ} in its left-hand side pattern or internal validation.
+\subsection*{\texttt{auxEntry} and \texttt{auxExit}}
+
+\texttt{auxEntry[v]} and \texttt{auxExit[v]} label the auxiliary entry and exit vertices attached to boundary vertex \texttt{v}. They have no definitions and are \texttt{Protected}, so a notebook assignment cannot redefine them.
 
 \subsection*{\texttt{makeScenario}}
 
-\texttt{makeScenario[assoc]} is the module's main constructor. It takes a raw association, requires a \texttt{"Model"} block, normalizes graph-derived data when possible, validates structural and numeric conditions, normalizes Hamiltonian specification, builds auxiliary topology, and then calls \texttt{completeScenario} to fill derived defaults.
-
-This function is the recommended way to enter the active MFGraphs pipeline. Typical usage looks like:
+\texttt{makeScenario[assoc]} is the module's main constructor. It records the input provenance, fills \texttt{"Vertices"} and \texttt{"Adjacency"} from a \texttt{"Graph"} when needed, validates the input, builds the auxiliary topology, and calls \texttt{completeScenario}. It returns the first problem found as \texttt{Failure["ScenarioValidation", \ldots]} without issuing messages.
 
 \begin{verbatim}
 s = makeScenario[<|
@@ -73,119 +87,47 @@ s = makeScenario[<|
 |>];
 \end{verbatim}
 
-Low-level responsibilities include integer-vertex enforcement, boundary-value numeric checks, boundary-vertex membership checks, disjoint entry/exit checks, switching-cost validation, and topology construction.
+Validation rejects:
+\begin{itemize}
+\item a missing or non-association \texttt{"Model"}, missing required model keys (\texttt{"Switching"} may be omitted when \texttt{"EdgeEntryTolls"} is given), the retired \texttt{"Data"} key, and the old key name \texttt{"edgeEntryTolls"};
+\item \texttt{"Vertices"} that are not distinct integers, or that are not vertices of a given \texttt{"Graph"};
+\item an \texttt{"Adjacency"} that is not a square numeric matrix with one row per vertex, or that has self-loops;
+\item boundary values that are not real, negative inflows, boundary vertices outside \texttt{"Vertices"}, a vertex listed twice in \texttt{"Entries"} or twice in \texttt{"Exits"}, and a vertex that is both an entry and an exit;
+\item switching costs that are negative or of the wrong form, and switching keys that are not admissible transitions;
+\item tolls on pairs that are not edges;
+\item a \texttt{"Hamiltonian"} that is not an association, has keys other than the six listed above, or has invalid defaults or edge overrides.
+\end{itemize}
 
 \subsection*{\texttt{validateScenario}}
 
-\texttt{validateScenario[s]} verifies the minimum structural contract of a scenario. It checks that the input is a typed scenario, that the top-level \texttt{"Model"} key exists, that the model is an association, and that the required model keys are present.
-
-Its purpose is structural validation rather than full semantic completion. This makes it useful as an early guard or a reusable substep inside \texttt{makeScenario}.
+\texttt{validateScenario[s]} returns \texttt{True} when \texttt{s} is a scenario object that passes every check \texttt{makeScenario} applies, and \texttt{False} otherwise. On \texttt{False} it issues \texttt{validateScenario::invalid} naming the first problem, or \texttt{validateScenario::notscenario} for input that is not a scenario. It uses the cached topology when the scenario has one, so a completed scenario validates.
 
 \subsection*{\texttt{completeScenario}}
 
-\texttt{completeScenario[s]} fills in derived scenario fields and default values. In particular, it ensures benchmark defaults are present and, when topology is available, completes the switching-cost association over the entire auxiliary transition set by filling missing costs with zero.
-
-A subtle but important behavior is that if topology is absent, \texttt{completeScenario} warns and attempts to rebuild topology from the model before completing switching costs. The function therefore serves as a robustness layer, not only a finalizer.
+\texttt{completeScenario[s]} fills in defaults: absent Hamiltonian values, benchmark defaults, and a complete, closed switching-cost association over every admissible transition. If the scenario has no cached topology, it issues \texttt{completeScenario::notopology}, rebuilds the topology, and stores it in the result. It does not validate; call \texttt{validateScenario} first. Completing an already completed scenario returns it unchanged.
 
 \subsection*{\texttt{scenarioData}}
 
-\texttt{scenarioData[s]} returns the underlying association, while \texttt{scenarioData[s,key]} performs key lookup with \texttt{Missing["KeyAbsent", key]} fallback.
-
-This accessor is the standard low-level read interface for every downstream module. In usage terms, it is the correct way to inspect scenario contents without depending on the raw wrapper representation.
+\texttt{scenarioData[s]} returns the underlying association, while \texttt{scenarioData[s,key]} performs key lookup with \texttt{Missing["KeyAbsent", key]} fallback. It is the standard read interface for every downstream module.
 
 \subsection*{\texttt{buildAuxiliaryTopology}}
 
-\texttt{buildAuxiliaryTopology[model]} constructs the cached topology block used everywhere downstream. It creates the undirected graph used as the base network, introduces synthetic auxiliary entry and exit vertices, constructs the augmented graph, derives directed pair lists, and computes admissible transition triples.
+\texttt{buildAuxiliaryTopology[model]} constructs the cached topology block: the undirected base network, the auxiliary entry and exit vertices and edges, the augmented graph, the directed pair lists (\texttt{"AuxPairs"}), and the admissible transition triples (\texttt{"AuxTriples"}). It returns \texttt{\$Failed} when the model's vertices, adjacency, entries, or exits are malformed.
 
-This function is performance-critical because topology construction is substantially more expensive than a simple key lookup. The module's design therefore computes it once and stores it inside the completed scenario.
+\subsection*{Private helpers}
 
-\subsection*{\texttt{deriveAuxPairs}}
-
-\texttt{deriveAuxPairs[topology]} returns the directed auxiliary-pair list used to build two-argument flow unknowns and related structural data. It combines entry pairs, exit pairs, and both orientations of the base graph edges.
-
-Its main usage is in \texttt{unknownsTools.wl} and other downstream places that need a canonical ordered pair surface.
-
-\subsection*{\texttt{buildAuxTriples}}
-
-\texttt{buildAuxTriples[auxGraph]} returns admissible transition triples $\{v_{\text{in}}, v_{\text{mid}}, v_{\text{out}}\}$ derived from an auxiliary graph. These triples are the basis of transition-flow variables and switching-cost logic.
-
-At a low level, this function converts the graph to directed edge pairs, adds reverse directions, and delegates to the lower-level triple builder implementation.
-
-\subsection*{\texttt{scenarioFailure}}
-
-\texttt{scenarioFailure} is the private helper used to standardize validation failures. It returns \texttt{Failure["ScenarioValidation", \ldots]} with a message and optional missing-key list.
-
-Its value is consistency. All validation failures produced by this module therefore share a predictable shape.
-
-\subsection*{\texttt{hamiltonianGTermQ}}
-
-\texttt{hamiltonianGTermQ[value]} recognizes valid forms for Hamiltonian \texttt{G}: either numeric values or pure functions. It is part of the Hamiltonian-validation path.
-
-Users do not normally call it directly, but it clarifies which forms of \texttt{"G"} the current scenario schema accepts.
-
-\subsection*{\texttt{buildAdjacencyFromGraph}}
-
-\texttt{buildAdjacencyFromGraph[graph, vertices]} derives an adjacency matrix from a Wolfram \texttt{Graph}, ordered according to the requested vertex list. If unknown vertices are requested, it returns \texttt{\$Failed}.
-
-This helper exists to make \texttt{makeScenario} flexible when input provides a graph object but omits explicit adjacency data.
-
-\subsection*{\texttt{normalizeScenarioModel}}
-
-\texttt{normalizeScenarioModel[model]} fills missing \texttt{"Vertices"} and \texttt{"Adjacency"} from an embedded graph when possible, and also stores a normalized undirected graph representation.
-
-The low-level purpose is to make graph-based and adjacency-based scenario construction converge to one canonical internal shape.
-
-\subsection*{\texttt{boundaryValuesNumericQ}}
-
-\texttt{boundaryValuesNumericQ[model]} checks whether entry and exit boundary values are present in pair form and numerically valued. This is stricter than merely checking list structure.
-
-It is used inside \texttt{makeScenario} to ensure that downstream symbolic-system construction does not receive malformed boundary conditions.
-
-\subsection*{\texttt{disjointBoundaryVerticesQ}}
-
-\texttt{disjointBoundaryVerticesQ[model]} returns \texttt{True} when the entry-vertex set and the exit-vertex set do not overlap. The active scenario kernel rejects models where a single vertex is simultaneously declared an entry and an exit, since the auxiliary-topology construction would then attach two incompatible boundary fixtures to the same node.
-
-\subsection*{\texttt{boundaryVerticesPresentQ}}
-
-\texttt{boundaryVerticesPresentQ[model]} returns \texttt{True} when every entry and exit vertex named in the model also appears in the \texttt{"Vertices"} list. It catches the common authoring mistake of declaring boundary data on a vertex that was never added to the graph.
-
-\subsection*{\texttt{switchingCostsNumericQ}}
-
-\texttt{switchingCostsNumericQ[model]} validates the \texttt{"Switching"} field, supporting either list-of-rows or association form. Accepted values are numeric costs and \texttt{Infinity} as an explicit blocked-transition sentinel.
-
-The main usage note is that malformed switching entries are rejected before topology completion and before solver construction.
-
-\subsection*{\texttt{normalizeSwitchingCosts}}
-
-\texttt{normalizeSwitchingCosts[sc]} converts list-style switching rows into an association keyed by triples and leaves associations unchanged. This gives the rest of the pipeline a single canonical representation.
-
-\subsection*{\texttt{integerVertexLabelsQ}}
-
-\texttt{integerVertexLabelsQ[model]} enforces the current active policy that scenario vertices must be integer-labeled. This keeps the topology and example pipeline simple and predictable.
-
-\subsection*{\texttt{modelDirectedEdgePairs}}
-
-\texttt{modelDirectedEdgePairs[model]} extracts directed edge pairs from the model's vertices and adjacency matrix. It is used chiefly by Hamiltonian edge-parameter validation.
-
-\subsection*{\texttt{normalizeHamiltonianSpec}}
-
-\texttt{normalizeHamiltonianSpec[spec, model]} expands default Hamiltonian fields and validates both default values and edge-specific overrides. It ensures that \texttt{"Alpha"}, \texttt{"V"}, and \texttt{"G"} all have acceptable default forms, and that edge override associations only refer to valid edges.
-
-Usage-wise, this function is why end users can provide either a minimal Hamiltonian block or a partially specified one and still obtain a fully normalized scenario.
-
-\subsection*{\texttt{buildAuxTriplesImpl}}
-
-\texttt{buildAuxTriplesImpl[directedEdges]} performs the actual admissible-triple construction. It groups incoming and outgoing edges by middle vertex and generates all nontrivial transitions, excluding patterns that would start from an auxiliary exit or end at an auxiliary entry.
-
-This helper is where the combinatorial topology surface is really formed.
-
-\subsection*{\texttt{completeSwitchingCosts}}
-
-\texttt{completeSwitchingCosts[model, topology]} expands the switching-cost association over the full set of auxiliary triples, assigning zero to any admissible transition with no explicitly supplied cost. This makes downstream complementarity logic total rather than sparse.
+\begin{itemize}
+\item \texttt{scenarioInputProblem}, \texttt{hamiltonianProblem}, \texttt{switchingProblem} and \texttt{checkedTopology} implement validation; each returns a \texttt{ScenarioValidation} failure for the first problem found.
+\item \texttt{normalizeScenarioModel} and \texttt{buildAdjacencyFromGraph} derive \texttt{"Vertices"} and \texttt{"Adjacency"} from a \texttt{"Graph"}; a model that does not match its graph is left unchanged for validation to report.
+\item \texttt{normalizeSwitchingCosts} and \texttt{normalizeHamiltonianSpec} put switching costs and Hamiltonian specs into canonical association form.
+\item \texttt{expandEdgeEntryTolls} turns a toll on entering edge $\{v,w\}$ at $v$ into the costs $c(r,v,w)$ for every other neighbour $r$ of $v$; numeric tolls become constant functions of the flow.
+\item \texttt{completedSwitchingCosts}, \texttt{metricClosureSwitchingCosts} and \texttt{junctionClosure} complete and close the switching costs as described above.
+\item \texttt{auxTriplesFromPairs} enumerates admissible transitions from directed pairs, and \texttt{undirectedAdjacency} symmetrizes an adjacency matrix.
+\end{itemize}
 
 \section{Usage guidance}
 
-Users should think of this file as the package's gatekeeper. Any raw network or graph should enter the active MFGraphs workflow through \texttt{makeScenario}. Advanced users may inspect \texttt{scenarioData} and topology helpers, but bypassing the constructor usually means taking responsibility for normalization and validation manually.
+Users should think of this file as the package's gatekeeper. Any raw network or graph should enter the active MFGraphs workflow through \texttt{makeScenario}. Advanced users may inspect \texttt{scenarioData} and the topology, but bypassing the constructor means taking responsibility for normalization and validation manually; \texttt{validateScenario} checks a hand-built scenario against the same rules.
 
 \section*{References}
 
