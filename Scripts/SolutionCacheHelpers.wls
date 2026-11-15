@@ -37,8 +37,6 @@ $ExampleBoundaryDefaults = <|
     "Camilli 2015 simple"              -> {{{3, 50}, {4, 50}}, {{1, 0}}},
     "Camilli 2015 general"             -> {{{14, 25}, {15, 25}, {7, 25}, {9, 25}}, {{1, 0}}},
     "Achdou 2023 junction"             -> {{{2, 25}, {3, 25}, {4, 25}, {5, 25}}, {{1, 0}}},
-    "Inconsistent Y shortcut"          -> {{{1, 80}}, {{3, 0}, {4, 0}}},
-    "Inconsistent attraction shortcut" -> {{{1, 80}}, {{4, 0}}},
     "Grid0303"                         -> {{{1, 100}}, {{9, 0}}},
     "Grid0404"                         -> {{{1, 100}}, {{16, 0}}},
     "Grid0505"                         -> {{{1, 100}}, {{25, 0}}},
