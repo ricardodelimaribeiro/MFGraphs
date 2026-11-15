@@ -210,24 +210,24 @@ case21FlowRules = Join[
      j[6, 4] -> 0, j[6, 5] -> 0, j[7, 5] -> 0, j[8, 6] -> 0,
      j[8, 7] -> 0, j[9, 7] -> 0, j[10, 7] -> 0,
      j[9, 8] -> 0, j[11, 8] -> 0, j[12, 9] -> 0,
-     j["auxEntry1", 1] -> 50, j["auxEntry2", 2] -> 50,
-     j[10, "auxExit10"] -> 75/2, j[11, "auxExit11"] -> 75/2,
-     j[12, "auxExit12"] -> 25},
-    {j["auxEntry1", 1, 3] -> 50, j["auxEntry2", 2, 4] -> 50,
+     j[auxEntry[1], 1] -> 50, j[auxEntry[2], 2] -> 50,
+     j[10, auxExit[10]] -> 75/2, j[11, auxExit[11]] -> 75/2,
+     j[12, auxExit[12]] -> 25},
+    {j[auxEntry[1], 1, 3] -> 50, j[auxEntry[2], 2, 4] -> 50,
      j[1, 3, 5] -> 50, j[2, 4, 6] -> 50,
      j[3, 5, 7] -> 50, j[4, 6, 8] -> 50,
      j[5, 7, 10] -> 75/2, j[5, 7, 9] -> 25/2,
      j[6, 8, 11] -> 75/2, j[6, 8, 9] -> 25/2,
      j[7, 9, 12] -> 25/2, j[8, 9, 12] -> 25/2,
-     j[7, 10, "auxExit10"] -> 75/2, j[8, 11, "auxExit11"] -> 75/2,
-     j[9, 12, "auxExit12"] -> 25}
+     j[7, 10, auxExit[10]] -> 75/2, j[8, 11, auxExit[11]] -> 75/2,
+     j[9, 12, auxExit[12]] -> 25}
 ];
 case21FlowRules = Join[case21FlowRules,
     (# -> 0) & /@ Complement[systemData[case21System, "Jts"], First /@ case21FlowRules]
 ];
 
 case21URules = {
-    u["auxExit10", 10] -> 0, u["auxExit11", 11] -> 0, u["auxExit12", 12] -> 0,
+    u[auxExit[10], 10] -> 0, u[auxExit[11], 11] -> 0, u[auxExit[12], 12] -> 0,
     u[7, 10] -> 0, u[8, 11] -> 0, u[9, 12] -> 0,
     u[10, 7] -> 75/2, u[11, 8] -> 75/2, u[12, 9] -> 25,
     u[5, 7] -> 75/2, u[8, 7] -> 75/2, u[9, 7] -> 75/2,
@@ -238,7 +238,7 @@ case21URules = {
     u[5, 3] -> 275/2, u[1, 3] -> 275/2, u[4, 3] -> 275/2,
     u[6, 4] -> 275/2, u[2, 4] -> 275/2, u[3, 4] -> 275/2,
     u[3, 1] -> 375/2, u[4, 2] -> 375/2,
-    u["auxEntry1", 1] -> 375/2, u["auxEntry2", 2] -> 375/2
+    u[auxEntry[1], 1] -> 375/2, u[auxEntry[2], 2] -> 375/2
 };
 
 case21Solution = Join[case21FlowRules, case21URules];

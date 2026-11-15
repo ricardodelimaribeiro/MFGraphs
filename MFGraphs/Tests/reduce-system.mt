@@ -113,11 +113,11 @@ Test[
         sys = makeSystem[s];
         exitIneqs = systemData[sys, "IneqExitValues"];
         altExit   = systemData[sys, "AltExitCond"];
-        MemberQ[exitIneqs, u["auxExit2", 2] <= 0] &&
-        MemberQ[exitIneqs, u["auxExit3", 3] <= 10] &&
-        !MemberQ[exitIneqs, u[2, "auxExit2"] <= _] &&
-        MemberQ[altExit, (j[2, "auxExit2"] == 0) || (u["auxExit2", 2] == 0)] &&
-        MemberQ[altExit, (j[3, "auxExit3"] == 0) || (u["auxExit3", 3] == 10)]
+        MemberQ[exitIneqs, u[auxExit[2], 2] <= 0] &&
+        MemberQ[exitIneqs, u[auxExit[3], 3] <= 10] &&
+        !MemberQ[exitIneqs, u[2, auxExit[2]] <= _] &&
+        MemberQ[altExit, (j[2, auxExit[2]] == 0) || (u[auxExit[2], 2] == 0)] &&
+        MemberQ[altExit, (j[3, auxExit[3]] == 0) || (u[auxExit[3], 3] == 10)]
     ],
     True,
     TestID -> "reduceSystem: IneqExitValues and AltExitCond use u[auxExit, vertex] orientation"
@@ -517,8 +517,8 @@ Test[
             ListQ[rules],
             (j[2, 1] /. rules) === 55,
             (j[2, 3] /. rules) === 45,
-            (j[1, "auxExit1"] /. rules) === 55,
-            (j[3, "auxExit3"] /. rules) === 45,
+            (j[1, auxExit[1]] /. rules) === 55,
+            (j[3, auxExit[3]] /. rules) === 45,
             isValidSystemSolution[sys, result]
         ]
     ],
@@ -571,7 +571,7 @@ Test[
         And[
             ListQ[rules],
             (j[2, 3] /. rules) === 5,
-            (j[2, "auxExit2"] /. rules) === 0,
+            (j[2, auxExit[2]] /. rules) === 0,
             isValidSystemSolution[sys, result]
         ]
     ],

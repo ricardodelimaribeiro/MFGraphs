@@ -4,9 +4,15 @@
 $entries12 = {{1, 100}};
 $exits12   = {{4, 0}};
 
-(* Inconsistent Y shortcut - inconsistent *)
-$entriesY  = {{1, 100}};
-$exitsY    = {{3, 0}, {4, 0}};
+(* A Y network (edges 1-2, 2-3, 2-4) whose switching costs, as written,
+   break the triangle inequality at junction 2: 1 -> 3 costs 5 directly but
+   1 -> 4 -> 3 costs 1 + 1. makeScenario closes the costs, so 1 -> 3 becomes 2.
+   (This table was the retired "Inconsistent Y shortcut" example.) *)
+$inconsistentY = <|"Model" -> <|
+    "Vertices" -> {1, 2, 3, 4},
+    "Adjacency" -> {{0,1,0,0},{0,0,1,1},{0,0,0,0},{0,0,0,0}},
+    "Entries" -> {{1, 100}}, "Exits" -> {{3, 0}, {4, 0}},
+    "Switching" -> {{1,2,3,5},{1,2,4,1},{3,2,1,1},{3,2,4,1},{4,2,1,1},{4,2,3,1}}|>|>;
 
 Test[
     Module[{s, sys},
@@ -22,14 +28,14 @@ Test[
 
 Test[
     Module[{s, sys},
-        s = getExampleScenario["Inconsistent Y shortcut", $entriesY, $exitsY, Automatic];
+        s = makeScenario[$inconsistentY];
         sys = makeSystem[s];
-        systemData[sys, "ConsistentCosts"] === True
+        {scenarioData[s, "Model"]["Switching"][{1, 2, 3}], systemData[sys, "ConsistentCosts"]}
     ]
     ,
-    True
+    {2, True}
     ,
-    TestID -> "Scenario consistency: Inconsistent Y shortcut is enforced consistent"
+    TestID -> "Scenario consistency: a cost table that breaks the triangle inequality is closed to a consistent one"
 ]
 
 Test[
@@ -46,15 +52,14 @@ Test[
 ]
 
 Test[
-    Module[{s, result},
-        s = getExampleScenario["Inconsistent Y shortcut", $entriesY, $exitsY, Automatic];
-        result = solveScenario[s];
+    Module[{result},
+        result = solveScenario[makeScenario[$inconsistentY]];
         ListQ[result] && result =!= {}
     ]
     ,
     True
     ,
-    TestID -> "Scenario consistency: Inconsistent Y shortcut solver execution (enforced consistent)"
+    TestID -> "Scenario consistency: the closed cost table solves to a feasible equilibrium"
 ]
 
 (* Test[

@@ -20,17 +20,50 @@ Test[
     TestID -> "Example coverage: defaults table covers every registered key"
 ]
 
+(* Test: every example scenario, once completed, still passes validateScenario *)
+Test[
+    AllTrue[listExampleScenarios[],
+        Function[key, With[{d = $ExampleBoundaryDefaults[key]},
+            validateScenario[getExampleScenario[key, d[[1]], d[[2]]]]]]]
+    ,
+    True
+    ,
+    TestID -> "Example coverage: every example scenario passes validateScenario"
+]
+
+(* Test: in every example, finite switching costs satisfy the triangle
+   inequality c(r,v,w) <= c(r,v,k) + c(k,v,w) at each junction v *)
+Test[
+    Select[listExampleScenarios[],
+        Function[key, Module[{d = $ExampleBoundaryDefaults[key], sw, finite},
+            sw = scenarioData[getExampleScenario[key, d[[1]], d[[2]]], "Model"]["Switching"];
+            finite = Select[sw, NumericQ];
+            !AllTrue[Keys[finite],
+                Function[t, AllTrue[Keys[finite],
+                    Function[t2,
+                        !(t2[[1]] === t[[1]] && t2[[2]] === t[[2]] && KeyExistsQ[finite, {t2[[3]], t[[2]], t[[3]]}]) ||
+                        finite[t] <= finite[t2] + finite[{t2[[3]], t[[2]], t[[3]]}]]]]]]]]
+    ,
+    {}
+    ,
+    TestID -> "Example coverage: switching costs satisfy the triangle inequality"
+]
+
 (* Solution-equality predicate: directly compare canonicalised forms.
    Both solveScenario outputs and cached forms come from the same code,
-   so byte-equality after Sort on rule lists is the right check. *)
-solutionEquivalent[a_, b_] :=
-    Module[{ca = a, cb = b},
-        If[ListQ[ca] && AllTrue[ca, MatchQ[#, _Rule | _RuleDelayed] &],
-            ca = SortBy[ca, ToString[First[#]] &]];
-        If[ListQ[cb] && AllTrue[cb, MatchQ[#, _Rule | _RuleDelayed] &],
-            cb = SortBy[cb, ToString[First[#]] &]];
-        ca === cb
+   so byte-equality after sorting rule lists is the right check. Rule order
+   follows the canonical order of the variables, so it is not compared:
+   that includes the "Rules" of a <|"Rules" -> ..., "Residual" -> ...|> result. *)
+canonicalSolution[x_] :=
+    Which[
+        ListQ[x] && AllTrue[x, MatchQ[#, _Rule | _RuleDelayed] &],
+            SortBy[x, ToString[First[#]] &],
+        AssociationQ[x] && KeyExistsQ[x, "Rules"],
+            Append[x, "Rules" -> canonicalSolution[x["Rules"]]],
+        True,
+            x
     ];
+solutionEquivalent[a_, b_] := canonicalSolution[a] === canonicalSolution[b];
 
 (* Per-key smoke + cache-comparison Test. *)
 Scan[

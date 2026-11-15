@@ -89,7 +89,6 @@ edgePairsToAdjacency::usage =
 
 (* --- Shared topology constants --- *)
 
-$Y1In2OutAM    = {{0,1,0,0},{0,0,1,1},{0,0,0,0},{0,0,0,0}};
 $Attraction4AM = {{0,1,1,0},{0,0,1,1},{0,0,0,1},{0,0,0,0}};
 
 $Camilli2015SourcePath =
@@ -184,21 +183,17 @@ $CaseDefaultSC = <|
     13 -> {{1,2,4,1},{1,3,4,1},{4,2,1,1},{4,3,1,1}},
     14 -> {{1,2,3,2},{3,2,1,1}},
     15 -> {{2,1,3,2},{3,1,2,1}},
-    16 -> {{1,3,2,1}},
+    (* Was {{1,3,2,1}}: {1,3,2} is not a transition on the chain 1-2-3 (no
+       edge 1-3), so it never had any effect. {1,2,3,1} is the single
+       shortcut at vertex 2 that the case description names. *)
+    16 -> {{1,2,3,1}},
     17 -> {{1,2,3,2},{3,2,1,1}},
     18 -> {{1,2,3,2},{3,2,1,1}},
     "Braess split"       -> {{1,2,4,1},{5,7,8,1}},
     "Braess congest"     -> {{1,2,4,1},{4,6,7,1}},
     "Big Braess split"   -> {{1,3,6,1},{5,7,10,1}},
     "Big Braess congest" -> {{1,3,5,1},{5,7,9,1}},
-    "Paper example"      -> {{1,2,3,2},{3,2,1,1},{2,3,4,3},{4,3,2,1}},
-    (* SC violates triangle inequality — infeasible by design *)
-    "Inconsistent Y shortcut" ->
-        {{1,2,3,5},{1,2,4,1},{3,2,1,1},{3,2,4,1},{4,2,1,1},{4,2,3,1}},
-    "Inconsistent attraction shortcut" ->
-        {{1,2,4,5},{1,2,3,1},{3,2,1,1},{3,2,4,1},{4,2,1,1},{4,2,3,1},
-         {1,3,4,1},{4,3,1,1},{1,3,2,1},{2,3,1,1},{3,4,2,1},{2,4,3,1},
-         {2,3,4,1},{4,3,2,1},{3,1,2,1},{2,1,3,1}}
+    "Paper example"      -> {{1,2,3,2},{3,2,1,1},{2,3,4,3},{4,3,2,1}}
 |>;
 
 $ExamplesDefaultHamiltonianValue = Automatic;
@@ -437,14 +432,6 @@ $ExampleScenarioMetadata = <|
         "Title" -> "Paper example: 4-vertex chain",
         "Description" -> "Four-vertex chain used as a worked example in early write-ups; shipped with a non-trivial SC profile."
     |>,
-    "Inconsistent Y shortcut" -> <|
-        "Title" -> "Y-topology with infeasible switching costs",
-        "Description" -> "4-vertex Y graph whose canonical SC violates the triangle inequality. Used to validate infeasibility detection."
-    |>,
-    "Inconsistent attraction shortcut" -> <|
-        "Title" -> "Attraction diamond with infeasible switching costs",
-        "Description" -> "Attraction-4 topology whose canonical SC violates the triangle inequality. Used to validate infeasibility detection."
-    |>,
     "Grid0303" -> <|
         "Title" -> "3x3 grid",
         "Description" -> "GridGraph[{3,3}] connections; vertices 1..9 in row-major order."
@@ -651,13 +638,6 @@ $ExampleScenarios = Association[
         $AchdouJunctionVertices,
         edgePairsToAdjacency[$AchdouJunctionVertices, $AchdouJunctionEdges]
     ],
-
-    (* ------------------------------------------------------------------ *)
-    (* Inconsistent switching (feature validation — infeasible by design)  *)
-    (* ------------------------------------------------------------------ *)
-
-    "Inconsistent Y shortcut"          -> makeAmFactory[{1,2,3,4}, $Y1In2OutAM],
-    "Inconsistent attraction shortcut" -> makeAmFactory[{1,2,3,4}, $Attraction4AM],
 
     (* ------------------------------------------------------------------ *)
     (* Grid cases: GridGraph[{r,c}] connections                           *)

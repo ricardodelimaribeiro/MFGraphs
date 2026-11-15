@@ -62,25 +62,25 @@ withCriticalCongestionGuard[sys, solverName, body] evaluates body only when sys 
 
 withCriticalCongestionSolver[sys, solverName, bodyFunc, buildInputsFunc, attachRulesFunc] guards on critical congestion, calls buildInputsFunc[sys] to obtain {constraints, allVars, rulesAcc}, evaluates bodyFunc[constraints, allVars], and returns attachRulesFunc[result, rulesAcc]. Shared shell for the critical-congestion structural solvers.
 
+## auxEntry
+
+auxEntry[v] labels the auxiliary entry vertex attached to entry vertex v. Boundary inflow enters along the edge {auxEntry[v], v}. auxEntry is Protected and has no definitions; it only marks a vertex's role.
+
+## auxExit
+
+auxExit[v] labels the auxiliary exit vertex attached to exit vertex v. Boundary outflow leaves along the edge {v, auxExit[v]}. auxExit is Protected and has no definitions; it only marks a vertex's role.
+
 ## buildAuxiliaryTopology
 
-buildAuxiliaryTopology[model] returns an association with the auxiliary graph and metadata derived from the raw model.
-
-## buildAuxTriples
-
-buildAuxTriples[auxGraph] returns the list of all possible {v_in, v_mid, v_out} transitions (triples) in the graph.
+buildAuxiliaryTopology[model] returns an association with the network graph, the auxiliary graph (with auxEntry[v] / auxExit[v] boundary vertices), the directed pairs, and the admissible transition triples derived from the model, or $Failed if the model's vertices, adjacency, entries, or exits are malformed.
 
 ## completeScenario
 
-completeScenario[s] fills in derived fields and supplies default Benchmark values ("Tier" -> "core", "Timeout" -> 300) when missing. If cached topology is absent, it warns and rebuilds topology from the Model before completing. Returns a new scenario object.
-
-## deriveAuxPairs
-
-deriveAuxPairs[topology] returns the list of all directed edge pairs {u, v} in the auxiliary graph (including entry/exit and reversed graph edges).
+completeScenario[s] returns s with defaults filled in: absent Hamiltonian values take their defaults, Benchmark defaults ("Tier" -> "core", "Timeout" -> 300) are added when missing, and switching costs are completed over every admissible transition. If s has no cached "Topology", it issues completeScenario::notopology, rebuilds the topology from the Model, and stores it in the result. completeScenario does not validate s; use validateScenario first.
 
 ## makeScenario
 
-makeScenario[assoc] constructs a typed scenario from a raw association. The input must contain a "Model" key whose value is a network topology association (required keys: "Vertices", "Adjacency", "Entries", "Exits", "Switching"). If "Model" contains a Wolfram Graph under key "Graph", missing "Vertices" and/or "Adjacency" are derived automatically. Optional keys: "Hamiltonian" (<|"Alpha" -> a, "V" -> v, "G" -> g, "EdgeAlpha" -> <|{u,v} -> a_uv, ...|>, "EdgeV" -> <|{u,v} -> v_uv, ...|>, "EdgeG" -> <|{u,v} -> g_uv, ...|>|>), "Identity" (name, version), "Benchmark" (tier, timeout), "Visualization", "Inheritance". Default Hamiltonian is Alpha=1 and V=-1 on all edges, with G[z]=-1/z (overridable globally and per edge). V/G/EdgeV/EdgeG are validated and preserved for future density and visualization work, but current system construction applies only Alpha/EdgeAlpha. Boundary values must be numeric; switching-cost values must be numeric or Infinity. Returns a scenario[...] object on success or Failure[...] on error.
+makeScenario[assoc] constructs a typed scenario from a raw association. The input must contain a "Model" key whose value is a network association with keys "Vertices" (distinct integers), "Adjacency" (square matrix, zero diagonal), "Entries" ({vertex, inflow} pairs, inflow >= 0), "Exits" ({vertex, exit cost} pairs), and "Switching" ({r, v, w, cost} rows or an Association {r, v, w} -> cost). If "Model" contains a Wolfram Graph under key "Graph", missing "Vertices" and/or "Adjacency" are derived from it. "Switching" may be omitted when "EdgeEntryTolls" (<|{v, w} -> toll, ...|>, a toll for entering edge {v, w} at v) is given. Boundary values must be real; each vertex may appear at most once in Entries and at most once in Exits, and the two sets must be disjoint. Switching costs must be keyed by admissible transitions (consecutive edges, no U-turn) and be nonnegative numbers, Infinity (a blocked transition), or pure functions of the transition flow. Every admissible transition without an explicit cost or toll gets cost 0; the finite costs at each junction are then replaced by their metric closure (the cheapest sequence of switches), so they satisfy the triangle inequality c(r,v,w) <= c(r,v,k) + c(k,v,w). Blocked transitions (Infinity) and pure-function costs are not changed by the closure. Optional keys: "Hamiltonian" (<|"Alpha" -> a, "V" -> v, "G" -> g, "EdgeAlpha" -> <|{u,v} -> a_uv, ...|>, "EdgeV" -> <|{u,v} -> v_uv, ...|>, "EdgeG" -> <|{u,v} -> g_uv, ...|>|>; other keys are rejected), "Identity" (name, version), "Benchmark" (tier, timeout), "Visualization", "Inheritance". Default Hamiltonian is Alpha=1 and V=-1 on all edges, with G[z]=-1/z (overridable globally and per edge). V/G/EdgeV/EdgeG are validated and preserved for density and visualization work; system construction does not use them, and the solvers accept only Alpha=1. Returns a scenario[...] object on success or Failure["ScenarioValidation", ...] describing the first problem found.
 
 ## scenario
 
@@ -96,7 +96,7 @@ scenarioQ[x] returns True if x is a typed scenario[assoc_Association] object, Fa
 
 ## validateScenario
 
-validateScenario[s] checks that the scenario s has all required Model keys and that the Model value is an Association. Returns s unchanged on success, or Failure["ScenarioValidation", <|"Message" -> msg, "MissingKeys" -> {...}|>] on failure.
+validateScenario[s] returns True if s is a scenario object whose "Model" and "Hamiltonian" pass every check that makeScenario applies, and False otherwise. On False it issues validateScenario::invalid (or validateScenario::notscenario) naming the first problem found; makeScenario reports the same problems as a Failure.
 
 ## amScenario
 

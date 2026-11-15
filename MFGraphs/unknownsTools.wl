@@ -40,7 +40,7 @@ makeSymbolicUnknownsFromPairsTriples::usage =
 symbolicUnknowns object from auxiliary pairs and triples.";
 
 canonicalUPair[pair : {a_, b_}] :=
-    If[StringQ[b] && (StringStartsQ[b, "auxEntry"] || StringStartsQ[b, "auxExit"]),
+    If[MatchQ[b, _auxEntry | _auxExit],
         {b, a},
         pair
     ];
@@ -91,10 +91,7 @@ makeSymbolicUnknowns[s_] :=
             Return[Failure["makeSymbolicUnknowns", <|"Message" -> "Could not build auxiliary topology."|>], Module]
         ];
 
-        auxPairs   = Lookup[topology, "AuxPairs",   deriveAuxPairs[topology]];
-        auxTriples = Lookup[topology, "AuxTriples",  buildAuxTriples[topology["AuxiliaryGraph"]]];
-
-        makeSymbolicUnknownsFromPairsTriples[auxPairs, auxTriples]
+        makeSymbolicUnknownsFromPairsTriples[topology["AuxPairs"], topology["AuxTriples"]]
     ];
 
 End[]

@@ -81,8 +81,9 @@ Options[richNetworkPlot] = {
 formatPlotNumber[value_?NumericQ] := NumberForm[N[value], {5, 2}];
 formatPlotNumber[_] := "?";
 
-stateAtomLabel[x_] :=
-    StringReplace[ToString[x], {"auxEntry" -> "in", "auxExit" -> "out"}];
+stateAtomLabel[auxEntry[v_]] := "in" <> ToString[v];
+stateAtomLabel[auxExit[v_]]  := "out" <> ToString[v];
+stateAtomLabel[x_] := ToString[x];
 
 stateLabel[{a_, b_}] := stateAtomLabel[b];
 

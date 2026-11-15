@@ -536,20 +536,11 @@ makeSystem[_] :=
 (* ---- Boundary-aware symmetry folding ---- *)
 
 (* Apply a Cycles permutation to a single vertex label. Integer vertices
-   permute directly. Aux identifiers ("auxEntry<n>" / "auxExit<n>") are
-   strings carrying the underlying vertex in their name — extract n,
-   permute, reassemble so swapping vertex i with vertex j also swaps the
-   matching aux. *)
+   permute directly. Aux labels auxEntry[n] / auxExit[n] permute their
+   underlying vertex n, so swapping vertex i with vertex j also swaps the
+   matching aux vertices. *)
 applyPermVertex[v_Integer, perm_Cycles] := PermutationReplace[v, perm];
-applyPermVertex[v_String, perm_Cycles] :=
-    Module[{digits, prefix, n, permed},
-        digits = StringCases[v, DigitCharacter ..];
-        If[digits === {}, Return[v, Module]];
-        prefix = StringDrop[v, -StringLength[Last[digits]]];
-        n      = ToExpression[Last[digits]];
-        permed = PermutationReplace[n, perm];
-        If[permed === n, v, prefix <> ToString[permed]]
-    ];
+applyPermVertex[(h : auxEntry | auxExit)[n_Integer], perm_Cycles] := h[PermutationReplace[n, perm]];
 applyPermVertex[v_, _Cycles] := v;
 
 (* Apply perm to a flow / value variable. j[a,b], j[a,b,c], u[a,b]
@@ -559,8 +550,8 @@ applyPermVar[j[a_, b_, c_], perm_Cycles] := j[applyPermVertex[a, perm], applyPer
 applyPermVar[u[a_, b_],    perm_Cycles] := u[applyPermVertex[a, perm], applyPermVertex[b, perm]];
 
 (* True iff perm preserves the (vertex,value) multiset. Integer vertices
-   get permuted; non-integers (aux symbols) stay put because applyPermVertex
-   is the identity on them. *)
+   get permuted; any other label stays put because applyPermVertex is the
+   identity on it. *)
 boundaryPreservedByQ[pairs_List, perm_Cycles] :=
     Sort[pairs] === Sort[{applyPermVertex[#[[1]], perm], #[[2]]} & /@ pairs];
 

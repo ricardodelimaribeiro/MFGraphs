@@ -75,8 +75,8 @@ Test[
         sys = makeSystem[s];
         plot = rawNetworkPlot[s, sys, ShowAuxiliaryVertices -> True];
         vlist = VertexList[plot];
-        MemberQ[vlist, "auxEntry1"] && MemberQ[vlist, "auxExit2"] &&
-        MemberQ[vlist, "auxExit3"]
+        MemberQ[vlist, auxEntry[1]] && MemberQ[vlist, auxExit[2]] &&
+        MemberQ[vlist, auxExit[3]]
     ],
     True,
     TestID -> "GraphicsTools: ShowAuxiliaryVertices includes auxiliary vertices"
@@ -88,8 +88,8 @@ Test[
         sys = makeSystem[s];
         plot = rawNetworkPlot[s, sys, ShowAuxiliaryVertices -> True];
         labels = Association[AbsoluteOptions[plot, VertexLabels][[1, 2]]];
-        entryLabel = ToString[InputForm[Lookup[labels, "auxEntry1", Missing[]]]];
-        exitLabel = ToString[InputForm[Lookup[labels, "auxExit3", Missing[]]]];
+        entryLabel = ToString[InputForm[Lookup[labels, auxEntry[1], Missing[]]]];
+        exitLabel = ToString[InputForm[Lookup[labels, auxExit[3], Missing[]]]];
         StringContainsQ[entryLabel, "in1"] &&
         StringContainsQ[exitLabel, "out3"]
     ],
@@ -108,12 +108,12 @@ Test[
         rawCoords = AssociationThread[VertexList[raw], GraphEmbedding[raw]];
         richCoords = AssociationThread[VertexList[rich], GraphEmbedding[rich]];
         entryDelta = Norm[
-            Lookup[rawCoords, "auxEntry1"] -
-            Lookup[richCoords, Key[{1, "auxEntry1"}]]
+            Lookup[rawCoords, auxEntry[1]] -
+            Lookup[richCoords, Key[{1, auxEntry[1]}]]
         ];
         exitDelta = Norm[
-            Lookup[rawCoords, "auxExit3"] -
-            Lookup[richCoords, Key[{3, "auxExit3"}]]
+            Lookup[rawCoords, auxExit[3]] -
+            Lookup[richCoords, Key[{3, auxExit[3]}]]
         ];
         entryDelta < 10^-8 && exitDelta < 10^-8
     ],
@@ -129,7 +129,7 @@ Test[
         plot = rawNetworkPlot[s, sys, ShowBoundaryData -> True,
                               ShowAuxiliaryVertices -> False];
         vlist = VertexList[plot];
-        MemberQ[vlist, "auxEntry1"]
+        MemberQ[vlist, auxEntry[1]]
     ],
     True,
     TestID -> "GraphicsTools: ShowBoundaryData forces aux visibility"
@@ -210,8 +210,8 @@ Test[
         plot = rawNetworkPlot[s, sys, ShowAuxiliaryVertices -> True];
         vstyle = AbsoluteOptions[plot, VertexStyle][[1, 2]];
         styles = Association[vstyle];
-        entryColor = Lookup[styles, "auxEntry1", Missing[]];
-        exitColor = Lookup[styles, "auxExit3", Missing[]];
+        entryColor = Lookup[styles, auxEntry[1], Missing[]];
+        exitColor = Lookup[styles, auxExit[3], Missing[]];
         MatchQ[entryColor, _RGBColor] && MatchQ[exitColor, _RGBColor]
     ],
     True,
@@ -239,8 +239,8 @@ Test[
         sys = makeSystem[s];
         plot = richNetworkPlot[s, sys];
         edges = EdgeList[Replace[plot, Legended[g_, _] :> g]];
-        MemberQ[edges, DirectedEdge[{1, "auxEntry1"}, {"auxEntry1", 1}]] &&
-        MemberQ[edges, DirectedEdge[{"auxEntry1", 1}, {2, 1}]]
+        MemberQ[edges, DirectedEdge[{1, auxEntry[1]}, {auxEntry[1], 1}]] &&
+        MemberQ[edges, DirectedEdge[{auxEntry[1], 1}, {2, 1}]]
     ],
     True,
     TestID -> "GraphicsTools: richNetworkPlot includes flow and transition edges by default"
@@ -253,7 +253,7 @@ Test[
         plot = richNetworkPlot[s, sys, ShowFlowEdges -> False];
         edges = EdgeList[Replace[plot, Legended[g_, _] :> g]];
         (* Without flow edges, the entry-flow self-loop arc should not appear *)
-        !MemberQ[edges, DirectedEdge[{1, "auxEntry1"}, {"auxEntry1", 1}]] &&
+        !MemberQ[edges, DirectedEdge[{1, auxEntry[1]}, {auxEntry[1], 1}]] &&
         Length[edges] > 0
     ],
     True,
@@ -269,9 +269,9 @@ Test[
             Replace[plot, Legended[g_, _] :> g], VertexStyle][[1, 2]];
         styles = Association[vstyle];
         (* {realV, auxEntry} is the "in" node — should be green RGBColor *)
-        inNode = Lookup[styles, Key[{1, "auxEntry1"}], Missing[]];
+        inNode = Lookup[styles, Key[{1, auxEntry[1]}], Missing[]];
         (* {auxEntry, realV} has aux at position 1 — should be gray *)
-        otherNode = Lookup[styles, Key[{"auxEntry1", 1}], Missing[]];
+        otherNode = Lookup[styles, Key[{auxEntry[1], 1}], Missing[]];
         MatchQ[inNode, _RGBColor] && MatchQ[otherNode, _GrayLevel]
     ],
     True,
@@ -287,10 +287,10 @@ Test[
         rich = richNetworkPlot[s, sys, ShowLegend -> False];
         rawStyles = Association[AbsoluteOptions[raw, VertexStyle][[1, 2]]];
         richStyles = Association[AbsoluteOptions[rich, VertexStyle][[1, 2]]];
-        Lookup[richStyles, Key[{1, "auxEntry1"}], Missing[]] ===
-            Lookup[rawStyles, "auxEntry1", Missing[]] &&
-        Lookup[richStyles, Key[{3, "auxExit3"}], Missing[]] ===
-            Lookup[rawStyles, "auxExit3", Missing[]]
+        Lookup[richStyles, Key[{1, auxEntry[1]}], Missing[]] ===
+            Lookup[rawStyles, auxEntry[1], Missing[]] &&
+        Lookup[richStyles, Key[{3, auxExit[3]}], Missing[]] ===
+            Lookup[rawStyles, auxExit[3], Missing[]]
     ],
     True,
     TestID -> "GraphicsTools: richNetworkPlot reuses raw auxiliary category colors"
@@ -302,13 +302,13 @@ Test[
         sys = makeSystem[s];
         plot = richNetworkPlot[
             s, sys,
-            {u[1, "auxEntry1"] -> 0., u["auxEntry1", 1] -> 10.},
+            {u[1, auxEntry[1]] -> 0., u[auxEntry[1], 1] -> 10.},
             UseColorFunction -> True,
             ColorFunction -> (RGBColor[#, 0, 1 - #] &),
             ShowLegend -> False
         ];
         styles = Association[AbsoluteOptions[plot, VertexStyle][[1, 2]]];
-        color = Lookup[styles, Key[{1, "auxEntry1"}], Missing[]];
+        color = Lookup[styles, Key[{1, auxEntry[1]}], Missing[]];
         MatchQ[color, _RGBColor] && color =!= RGBColor[0.38, 0.74, 0.9]
     ],
     True,
@@ -437,11 +437,11 @@ Test[
         augmented = augmentAuxiliaryGraph[sys];
         flowEdges = augmented["FlowEdges"];
         transitionEdges = augmented["TransitionEdges"];
-        MemberQ[flowEdges, DirectedEdge[{1, "auxEntry1"}, {"auxEntry1", 1}]] &&
-        MemberQ[flowEdges, DirectedEdge[{"auxExit3", 3}, {3, "auxExit3"}]] &&
-        MemberQ[transitionEdges, DirectedEdge[{"auxEntry1", 1}, {2, 1}]] &&
-        MemberQ[transitionEdges, DirectedEdge[{2, 3}, {"auxExit3", 3}]] &&
-        !MemberQ[transitionEdges, DirectedEdge[{1, "auxEntry1"}, {1, 2}]]
+        MemberQ[flowEdges, DirectedEdge[{1, auxEntry[1]}, {auxEntry[1], 1}]] &&
+        MemberQ[flowEdges, DirectedEdge[{auxExit[3], 3}, {3, auxExit[3]}]] &&
+        MemberQ[transitionEdges, DirectedEdge[{auxEntry[1], 1}, {2, 1}]] &&
+        MemberQ[transitionEdges, DirectedEdge[{2, 3}, {auxExit[3], 3}]] &&
+        !MemberQ[transitionEdges, DirectedEdge[{1, auxEntry[1]}, {1, 2}]]
     ],
     True,
     TestID -> "GraphicsTools: augmentAuxiliaryGraph uses road-traffic edge directions"
@@ -453,12 +453,12 @@ Test[
         sys = makeSystem[s];
         augmented = augmentAuxiliaryGraph[sys];
         edgeVariables = augmented["EdgeVariables"];
-        entryFlowEdge = DirectedEdge[{1, "auxEntry1"}, {"auxEntry1", 1}];
-        exitFlowEdge = DirectedEdge[{"auxExit3", 3}, {3, "auxExit3"}];
-        transitionEdge = DirectedEdge[{"auxEntry1", 1}, {2, 1}];
-        edgeVariables[entryFlowEdge] === j["auxEntry1", 1] &&
-        edgeVariables[exitFlowEdge] === j[3, "auxExit3"] &&
-        edgeVariables[transitionEdge] === j["auxEntry1", 1, 2]
+        entryFlowEdge = DirectedEdge[{1, auxEntry[1]}, {auxEntry[1], 1}];
+        exitFlowEdge = DirectedEdge[{auxExit[3], 3}, {3, auxExit[3]}];
+        transitionEdge = DirectedEdge[{auxEntry[1], 1}, {2, 1}];
+        edgeVariables[entryFlowEdge] === j[auxEntry[1], 1] &&
+        edgeVariables[exitFlowEdge] === j[3, auxExit[3]] &&
+        edgeVariables[transitionEdge] === j[auxEntry[1], 1, 2]
     ],
     True,
     TestID -> "GraphicsTools: augmentAuxiliaryGraph maps edges to canonical j variables"
@@ -470,8 +470,8 @@ Test[
         sys = makeSystem[s];
         augmented = augmentAuxiliaryGraph[sys];
         edgeKinds = augmented["EdgeKinds"];
-        entryFlowEdge = DirectedEdge[{1, "auxEntry1"}, {"auxEntry1", 1}];
-        transitionEdge = DirectedEdge[{"auxEntry1", 1}, {2, 1}];
+        entryFlowEdge = DirectedEdge[{1, auxEntry[1]}, {auxEntry[1], 1}];
+        transitionEdge = DirectedEdge[{auxEntry[1], 1}, {2, 1}];
         edgeKinds[entryFlowEdge] === "Flow" &&
         edgeKinds[transitionEdge] === "Transition"
     ],

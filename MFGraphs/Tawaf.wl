@@ -49,7 +49,7 @@ tawafDecode[v_Integer, rounds_Integer, nodesPerRound_Integer] :=
 
 (* Physical-edge identifier for a logical flow variable j[u, v].
    - Both endpoints must be integers (logical nodes). Any non-integer endpoint
-     (e.g. "auxEntry1" / "auxExit3" strings) marks the edge as boundary.
+     (the aux labels auxEntry[v] / auxExit[v]) marks the edge as boundary.
    - Tangential: same layer; key by ordered position pair, layer, direction.
    - Radial: same position; key by position, layer pair, direction. *)
 tawafPhysicalId[var_, rounds_Integer, nodesPerRound_Integer] :=
