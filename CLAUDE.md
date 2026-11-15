@@ -49,7 +49,8 @@ See `Scripts/README.md` for the full inventory of benchmark, profiling, comparis
 ```
 primitives  →  utilities  →  scenarioTools  →  examples
                                             →  unknownsTools  →  systemTools  →  solversTools  →  orchestrationTools
-                                                                                              →  graphicsTools
+                                                                              →  validationTools
+                                                                              →  graphicsTools
 ```
 
 **Optional subpackages.** Two files in the package directory are proper packages that are *not* loaded by `Needs["MFGraphs`"]` and must be loaded explicitly:

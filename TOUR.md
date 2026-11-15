@@ -27,15 +27,16 @@ The flat-context load order from `CLAUDE.md`:
 9. `MFGraphs/scenarioTools.wl` (`makeScenario`, validation, topology cache)
 10. `MFGraphs/unknownsTools.wl` (the `j`, `u`, `z` symbolic families)
 11. `MFGraphs/systemTools.wl` (boundary / flow / complementarity / Hamiltonian builders)
-12. `MFGraphs/solversTools.wl` (DNF + active-set reducers)
-13. `MFGraphs/orchestrationTools.wl` (`solveScenario` wrapper)
-14. `MFGraphs/graphicsTools.wl` (`rawNetworkPlot`, `richNetworkPlot`)
-15. `MFGraphs/Tawaf.wl` — opt-in subpackage (load with `Needs["Tawaf`"]` after `Needs["MFGraphs`"]`); the unroll-then-couple specialisation, read after the core
-16. `MFGraphs/numericOracle.wl` — opt-in subpackage (load with `Needs["numericOracle`"]`); LP-relaxation classifier plus the `solveScenarioWithOracle` wrapper
+12. `MFGraphs/validationTools.wl` (`exactSolutionReport`: exact soundness / completeness checks against the original system)
+13. `MFGraphs/solversTools.wl` (DNF + active-set reducers)
+14. `MFGraphs/orchestrationTools.wl` (`solveScenario` wrapper)
+15. `MFGraphs/graphicsTools.wl` (`rawNetworkPlot`, `richNetworkPlot`)
+16. `MFGraphs/Tawaf.wl` — opt-in subpackage (load with `Needs["Tawaf`"]` after `Needs["MFGraphs`"]`); the unroll-then-couple specialisation, read after the core
+17. `MFGraphs/numericOracle.wl` — opt-in subpackage (load with `Needs["numericOracle`"]`); LP-relaxation classifier plus the `solveScenarioWithOracle` wrapper
 
 ## Tests as documentation
 
-17. `MFGraphs/Tests/scenario-kernel.mt` and `MFGraphs/Tests/scenario-consistency.mt` are the cleanest worked specs of what each stage guarantees — short, readable, authoritative when the prose drifts.
+18. `MFGraphs/Tests/scenario-kernel.mt` and `MFGraphs/Tests/scenario-consistency.mt` are the cleanest worked specs of what each stage guarantees — short, readable, authoritative when the prose drifts.
 
 ## The one-liner
 
