@@ -185,9 +185,9 @@ $CaseDefaultSC = <|
     14 -> {{1,2,3,2},{3,2,1,1}},
     15 -> {{2,1,3,2},{3,1,2,1}},
     (* Was {{1,3,2,1}}: {1,3,2} is not a transition on the chain 1-2-3 (no
-       edge 1-3), so it never had any effect and makeScenario now rejects it.
-       Empty keeps case 16's behaviour; the intended shortcut is unknown. *)
-    16 -> {},
+       edge 1-3), so it never had any effect. {1,2,3,1} is the single
+       shortcut at vertex 2 that the case description names. *)
+    16 -> {{1,2,3,1}},
     17 -> {{1,2,3,2},{3,2,1,1}},
     18 -> {{1,2,3,2},{3,2,1,1}},
     "Braess split"       -> {{1,2,4,1},{5,7,8,1}},
