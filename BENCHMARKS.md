@@ -144,6 +144,46 @@ as `dnfReduceSystem`.
 DNF-first benchmark entries from `Scripts/BenchmarkSystemSolver.wls` are appended
 here when the script is run with `--tag`.
 
+### 2026-11-15 - after-scenario-validation
+
+**Commit:** `ab83dcb`  
+**Environment:** local `wolframscript`, `$MFGraphsVerbose=False`  
+**Solver:** `dnf`  
+**Timeout per case:** 60s  
+**Solutions file:** `Results/system_solver_dnf_solutions_20261115-122511.wl`
+
+| Case | Solver | Build (ms) | Warmup (ms) | Repeat (ms) | Status | Kind | Transition flows | Residual Jts | Valid |
+|------|--------|-----------|------------|--------------|--------|------|------------------|--------------|-------|
+| chain-2v | dnf | 9.73 | 0.94 | 0.55 | OK | Rules | Unique | 0 | True |
+| chain-3v-1exit | dnf | 2.95 | 0.93 | 0.83 | OK | Rules | Unique | 0 | True |
+| chain-3v-2exit | dnf | 2.8 | 30.56 | 2.32 | OK | Underdetermined | Unique | 0 | True |
+| chain-3-midentry | dnf | 3.43 | 3.72 | 2.61 | OK | Rules | Unique | 0 | True |
+| chain-5v-1exit | dnf | 3.79 | 1.35 | 1.26 | OK | Rules | Unique | 0 | True |
+| grid-2x3 | dnf | 12.98 | 7.49 | 6.95 | OK | Rules | Unique | 0 | True |
+| grid-3x2 | dnf | 12.36 | 7. | 6.82 | OK | Rules | Unique | 0 | True |
+| example-12 | dnf | 8.15 | 7.38 | 7.26 | OK | Rules | Unique | 0 | True |
+---
+
+### 2026-11-15 - before-scenario-validation
+
+**Commit:** `447bf05`  
+**Environment:** local `wolframscript`, `$MFGraphsVerbose=False`  
+**Solver:** `dnf`  
+**Timeout per case:** 60s  
+**Solutions file:** `Results/system_solver_dnf_solutions_20261115-114339.wl`
+
+| Case | Solver | Build (ms) | Warmup (ms) | Repeat (ms) | Status | Kind | Transition flows | Residual Jts | Valid |
+|------|--------|-----------|------------|--------------|--------|------|------------------|--------------|-------|
+| chain-2v | dnf | 9.98 | 0.98 | 0.54 | OK | Rules | Unique | 0 | True |
+| chain-3v-1exit | dnf | 3.05 | 0.88 | 0.83 | OK | Rules | Unique | 0 | True |
+| chain-3v-2exit | dnf | 2.87 | 29.77 | 2.24 | OK | Underdetermined | Unique | 0 | True |
+| chain-3-midentry | dnf | 3.58 | 3.65 | 2.51 | OK | Rules | Unique | 0 | True |
+| chain-5v-1exit | dnf | 3.69 | 1.23 | 1.25 | OK | Rules | Unique | 0 | True |
+| grid-2x3 | dnf | 12.7 | 7.09 | 6.88 | OK | Rules | Unique | 0 | True |
+| grid-3x2 | dnf | 12.09 | 6.73 | 6.62 | OK | Rules | Unique | 0 | True |
+| example-12 | dnf | 8.06 | 7.19 | 7.43 | OK | Rules | Unique | 0 | True |
+---
+
 ### 2026-07-13 - post-disjunct-ordering-fix-rerun
 
 **Commit:** `068bcfd`  
