@@ -441,10 +441,10 @@ getKirchhoffLinearSystem[sys_] :=
 (* The generated system consists of linear equations, alternatives between
    linear equations, and linear inequalities; nothing is non-linear. Linearity
    is preserved by two conventions: (i) switching costs are scalars or affine
-   Function[x, a x + b], so cost[j[r,i,w]] stays linear in j; (ii) non-linear
-   Hamiltonian terms (e.g. m^alpha for Alpha != 1) are represented by cpf
-   placeholder symbols, with the non-linear relationship deferred to a
-   separate closure equation outside this kernel. *)
+   Function[x, a x + b], so cost[j[r,i,w]] stays linear in j; (ii) only the
+   critical case Alpha = 1 is built, where the Hamiltonian equation reduces
+   to the linear nlhs == 0 (see buildHamiltonianData); solvers reject other
+   Alpha values through withCriticalCongestionGuard. *)
 makeSystem[s_?scenarioQ] := makeSystem[s, makeSymbolicUnknowns[s]];
 
 makeSystem[s_?scenarioQ, unk_?symbolicUnknownsQ] :=

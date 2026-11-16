@@ -915,12 +915,14 @@ Module[{mG, mA, sG, sA, swG, swA},
 
 (* Test: metric closure of switching costs stays exact — rational costs are
    stored as rationals and a cheaper two-hop route replaces a direct cost *)
-Module[{m, s, sw},
-    m = <|"Vertices" -> {1, 2, 3, 4},
+(* The model local is not named m: a local m would create Global`m when this
+   file is read and make Needs["Tawaf`"] report m::shdw. *)
+Module[{model, s, sw},
+    model = <|"Vertices" -> {1, 2, 3, 4},
           "Adjacency" -> {{0, 1, 0, 0}, {0, 0, 1, 1}, {0, 0, 0, 0}, {0, 0, 0, 0}},
           "Entries" -> {{1, 100}}, "Exits" -> {{3, 0}, {4, 0}},
           "Switching" -> {{1, 2, 3, 1/3}, {3, 2, 4, 1/3}, {1, 2, 4, 1}}|>;
-    s = makeScenario[<|"Model" -> m|>];
+    s = makeScenario[<|"Model" -> model|>];
     sw = scenarioData[s, "Model"]["Switching"];
     Test[
         scenarioQ[s] &&

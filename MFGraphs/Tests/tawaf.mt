@@ -339,3 +339,12 @@ Test[
     ,
     TestID -> "Tawaf: completed scenario passes validateScenario"
 ]
+
+(* Test: the density symbol m is Protected, so assigning to it is refused *)
+Test[
+    {MemberQ[Attributes[m], Protected], Quiet[Check[m = 5, "refused", Set::wrsym], Set::wrsym]}
+    ,
+    {True, "refused"}
+    ,
+    TestID -> "Tawaf: density symbol m is Protected"
+]

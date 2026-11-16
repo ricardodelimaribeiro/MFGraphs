@@ -128,7 +128,7 @@ listExampleScenarios[] returns the sorted list of all keys recognised by getExam
 
 ## makeSymbolicUnknowns
 
-makeSymbolicUnknowns[s] returns symbolicUnknowns[<|"Js" -> ..., "Jts" -> ..., "Us" -> ...|>] for scenario s. "Js" are exact flow variables j[a,b], "Jts" are exact transition-flow variables j[r,i,w], and "Us" are exact value-function variables u[a,b].
+makeSymbolicUnknowns[s] returns symbolicUnknowns[<|"Js" -> ..., "Jts" -> ..., "Us" -> ...|>] for scenario s. "Js" are exact flow variables j[a,b], "Jts" are exact transition-flow variables j[r,i,w], and "Us" are exact value-function variables u[a,b]. A scenario with cached topology is used directly. Any other input (a scenario without topology, a raw scenario association, or a bare model association) is first passed through makeScenario, so it is validated the same way, and makeScenario's Failure is returned when it is invalid.
 
 ## symbolicUnknowns
 
