@@ -299,3 +299,20 @@ Test[
     True,
     TestID -> "makeSystem: boundary conditions include RuleEntryIn and Kirchhoff eliminates entry boundary variables"
 ]
+
+(* Test: a bare model that makeScenario rejects is rejected here too, with
+   makeScenario's validation Failure, rather than producing unknowns *)
+Test[
+    MatchQ[
+        makeSymbolicUnknowns[<|
+            "Vertices" -> {1, 2, 3},
+            "Adjacency" -> {{0, 1, 0}, {1, 0, 1}, {0, 1, 0}},
+            "Entries" -> {{1, -5}},
+            "Exits" -> {{1, 0}},
+            "Switching" -> {}
+        |>],
+        Failure["ScenarioValidation", _Association]
+    ],
+    True,
+    TestID -> "makeSymbolicUnknowns: validates raw model input like makeScenario"
+]

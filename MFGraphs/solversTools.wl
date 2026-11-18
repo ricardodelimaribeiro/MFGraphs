@@ -2468,9 +2468,9 @@ rulesFromEqualities[equations_List, vars_List, existingRules_List] :=
         If[equations === {} || n === 0, Return[{}, Module]];
         (* Equations represent c1.vars + c0 == 0; RowReduce on the augmented
            matrix [c1 | -c0] reads off solved rules in one pass. Safe because
-           (a) makeSystem guarantees linearity in {j, u, z} and (b) eqGeneral
-           no longer carries Cost[__] coefficients, so coefficients here are
-           pure rationals. Pivot priority is column order; vars arrive u-first
+           makeSystem guarantees linearity in {j, u} and eqGeneral carries no
+           symbolic cost coefficients, so coefficients here are pure
+           rationals. Pivot priority is column order; vars arrive u-first
            via collectTrackedVars so RowReduce eliminates value variables ahead
            of flow variables, keeping Alt* disjunctions collapsible downstream. *)
         arrays = Quiet @ Check[

@@ -18,7 +18,10 @@ makeSymbolicUnknowns::usage =
 "makeSymbolicUnknowns[s] returns symbolicUnknowns[<|\"Js\" -> ..., \"Jts\" -> ..., \
 \"Us\" -> ...|>] for scenario s. \"Js\" are exact flow variables j[a,b], \
 \"Jts\" are exact transition-flow variables j[r,i,w], and \"Us\" are exact \
-value-function variables u[a,b].";
+value-function variables u[a,b]. A scenario with cached topology is used directly. \
+Any other input (a scenario without topology, a raw scenario association, or a \
+bare model association) is first passed through makeScenario, so it is validated \
+the same way, and makeScenario's Failure is returned when it is invalid.";
 
 unknown::usage =
 "unknown is reserved for future numeric MFGraphs solver fields over grids or \
@@ -62,33 +65,25 @@ symbolicUnknownsData[u_] := mfgData[u];
 symbolicUnknownsData[u_, key_] := mfgData[u, key];
 
 makeSymbolicUnknowns[s_] :=
-    Module[{model, topology, rawAssoc, auxPairs, auxTriples},
-        rawAssoc = Which[
-            scenarioQ[s], scenarioData[s],
-            MatchQ[s, _[ _Association]], First[s],
-            AssociationQ[s], s,
-            True, $Failed
-        ];
+    Module[{topology, rawAssoc, built},
+        topology = If[scenarioQ[s], scenarioData[s, "Topology"], Missing["NotAScenario"]];
 
-        If[!AssociationQ[rawAssoc],
-            Return[Failure["makeSymbolicUnknowns", <|"Message" -> "Input must be a scenario or a model association."|>], Module]
-        ];
-
-        topology = If[scenarioQ[s],
-            scenarioData[s, "Topology"],
-            Lookup[rawAssoc, "Topology", $Failed]
-        ];
-
+        (* Anything other than a scenario with cached topology goes through
+           makeScenario, so this path cannot accept a model that makeScenario
+           would reject. *)
         If[!AssociationQ[topology],
-            model = Lookup[rawAssoc, "Model", rawAssoc];
-            If[!AssociationQ[model],
+            rawAssoc = Which[
+                scenarioQ[s], scenarioData[s],
+                MatchQ[s, _[_Association]], First[s],
+                AssociationQ[s], s,
+                True, $Failed
+            ];
+            If[!AssociationQ[rawAssoc],
                 Return[Failure["makeSymbolicUnknowns", <|"Message" -> "Input must be a scenario or a model association."|>], Module]
             ];
-            topology = buildAuxiliaryTopology[model];
-        ];
-
-        If[topology === $Failed,
-            Return[Failure["makeSymbolicUnknowns", <|"Message" -> "Could not build auxiliary topology."|>], Module]
+            built = makeScenario[If[KeyExistsQ[rawAssoc, "Model"], rawAssoc, <|"Model" -> rawAssoc|>]];
+            If[FailureQ[built], Return[built, Module]];
+            topology = scenarioData[built, "Topology"]
         ];
 
         makeSymbolicUnknownsFromPairsTriples[topology["AuxPairs"], topology["AuxTriples"]]
