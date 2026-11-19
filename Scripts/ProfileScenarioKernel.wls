@@ -1,9 +1,12 @@
 #!/usr/bin/env wolframscript
-(* Usage: wolframscript -file Scripts/ProfileScenarioKernel.wls [--solver dnf|optimizeddnf|activeset|reduce|boolean|findinstance] [--timeout s] [--case name] *)
+(* Usage: wolframscript -file Scripts/ProfileScenarioKernel.wls [--solver dnf|optimizeddnf|activeset|reduce|boolean|findinstance] [--solve-timeout s] [--case name] *)
 (* Non-mutating staged profiler for scenario -> symbolic unknowns -> system -> solver. *)
 
 (* :!CodeAnalysis::BeginBlock:: *)
 (* :!CodeAnalysis::Disable::SuspiciousSessionSymbol:: *)
+
+(* Rejects --timeout, which wolframscript takes for itself; the limit here is --solve-timeout. *)
+Get[FileNameJoin[{DirectoryName[$InputFileName], "TimeoutFlagGuard.wls"}]];
 
 $RepoRoot = FileNameJoin[{DirectoryName[$InputFileName], ".."}];
 PrependTo[$Path, $RepoRoot];
@@ -19,7 +22,7 @@ Module[{args = Rest[$ScriptCommandLine], i = 1, arg},
   While[i <= Length[args],
     arg = args[[i]];
     Switch[arg,
-      "--timeout",
+      "--solve-timeout",
         i++; If[i <= Length[args],
           Module[{v = Quiet @ Check[ToExpression[args[[i]]], $Failed]},
             If[NumericQ[v] && v > 0, $TimeoutSecs = v]]],

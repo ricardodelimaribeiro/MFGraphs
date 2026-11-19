@@ -1,9 +1,12 @@
 #!/usr/bin/env wolframscript
-(* Usage: wolframscript -file Scripts/BenchmarkReduceSystem.wls [--tag label] [--timeout s] [--case name] *)
+(* Usage: wolframscript -file Scripts/BenchmarkReduceSystem.wls [--tag label] [--solve-timeout s] [--case name] *)
 (* Benchmarks reduceSystem across representative cases and stores solutions to a file. *)
 
 (* :!CodeAnalysis::BeginBlock:: *)
 (* :!CodeAnalysis::Disable::SuspiciousSessionSymbol:: *)
+
+(* Rejects --timeout, which wolframscript takes for itself; the limit here is --solve-timeout. *)
+Get[FileNameJoin[{DirectoryName[$InputFileName], "TimeoutFlagGuard.wls"}]];
 
 Print["MFGraphs reduceSystem Benchmark"];
 Print["================================"];
@@ -29,7 +32,7 @@ Module[{args = Rest[$ScriptCommandLine], i = 1, arg},
     Switch[arg,
       "--tag",
         i++; If[i <= Length[args], $HistoryTag = args[[i]]],
-      "--timeout",
+      "--solve-timeout",
         i++; If[i <= Length[args],
           Module[{v = Quiet @ Check[ToExpression[args[[i]]], $Failed]},
             If[NumericQ[v] && v > 0, $TimeoutSecs = v]]],

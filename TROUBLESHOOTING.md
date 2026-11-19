@@ -105,7 +105,7 @@ symbols. Use the active benchmark unless you are explicitly working on legacy
 solver migration:
 
 ```bash
-wolframscript -file Scripts/BenchmarkSystemSolver.wls --tag "my change" --timeout 60
+wolframscript -file Scripts/BenchmarkSystemSolver.wls --tag "my change" --solve-timeout 60
 ```
 
 (`Scripts/BenchmarkReduceSystem.wls` still exists but is the historical

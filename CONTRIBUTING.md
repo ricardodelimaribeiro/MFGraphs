@@ -64,7 +64,7 @@ Before and after structural solver changes, benchmark to measure impact:
 wolframscript -file Scripts/BenchmarkSystemSolver.wls --tag "baseline"
 
 # Compare the raw Reduce baseline through the active benchmark harness
-wolframscript -file Scripts/BenchmarkSystemSolver.wls --solver reduce --case chain-3v-2exit --timeout 120
+wolframscript -file Scripts/BenchmarkSystemSolver.wls --solver reduce --case chain-3v-2exit --solve-timeout 120
 
 # Tagged runs append a benchmark-history entry to BENCHMARKS.md
 ```

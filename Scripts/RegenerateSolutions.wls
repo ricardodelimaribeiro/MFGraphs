@@ -5,10 +5,13 @@
    Usage:
      wolframscript -file Scripts/RegenerateSolutions.wls
      wolframscript -file Scripts/RegenerateSolutions.wls Jamaratv9 Grid0303
-     wolframscript -file Scripts/RegenerateSolutions.wls --timeout 600
+     wolframscript -file Scripts/RegenerateSolutions.wls --solve-timeout 600
 
    Scenarios that exceed the per-scenario timeout are skipped (no file
    written; existing cache file, if any, is left in place). *)
+
+(* Rejects --timeout, which wolframscript takes for itself; the limit here is --solve-timeout. *)
+Get[FileNameJoin[{DirectoryName[$InputFileName], "TimeoutFlagGuard.wls"}]];
 
 $RepoRoot = ParentDirectory[DirectoryName[$InputFileName]];
 PrependTo[$Path, $RepoRoot];
@@ -30,9 +33,9 @@ processArgs[args_List] :=
         While[rest =!= {},
             head = First[rest];
             Which[
-                head === "--timeout" || head === "-t",
+                head === "--solve-timeout" || head === "-t",
                 If[Length[rest] < 2,
-                    Print["Missing value for --timeout"]; Exit[2]];
+                    Print["Missing value for --solve-timeout"]; Exit[2]];
                 $timeoutSec = ToExpression[rest[[2]]];
                 rest = rest[[3 ;;]],
                 head === "--verbose" || head === "-v",

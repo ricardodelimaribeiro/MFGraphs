@@ -23,10 +23,10 @@ must include a before/after benchmark run using `--tag`:
 
 ```bash
 # Before the change (on the base branch)
-wolframscript -file Scripts/BenchmarkSystemSolver.wls --tag "before: <description>" --timeout 60
+wolframscript -file Scripts/BenchmarkSystemSolver.wls --tag "before: <description>" --solve-timeout 60
 
 # After the change (on the feature branch)
-wolframscript -file Scripts/BenchmarkSystemSolver.wls --tag "after: <description>" --timeout 60
+wolframscript -file Scripts/BenchmarkSystemSolver.wls --tag "after: <description>" --solve-timeout 60
 ```
 
 Include the resulting table rows from `BENCHMARKS.md` in the PR description.
@@ -58,18 +58,20 @@ Add a tag to append a dated history entry to this file:
 wolframscript -file Scripts/BenchmarkSystemSolver.wls --tag "baseline"
 ```
 
-Run a specific case with a custom timeout:
+Run a specific case with a custom per-solve limit. The flag is `--solve-timeout`:
+`wolframscript` takes `--timeout` for itself and ends the whole run after that
+many seconds with exit code 0, so the scripts reject that spelling.
 
 ```bash
-wolframscript -file Scripts/BenchmarkSystemSolver.wls --case example-12 --timeout 60
+wolframscript -file Scripts/BenchmarkSystemSolver.wls --case example-12 --solve-timeout 60
 ```
 
 Compare an alternate solver explicitly:
 
 ```bash
-wolframscript -file Scripts/BenchmarkSystemSolver.wls --solver reduce --case example-12 --timeout 60
-wolframscript -file Scripts/BenchmarkSystemSolver.wls --solver optimizeddnf --case example-12 --timeout 60
-wolframscript -file Scripts/BenchmarkSystemSolver.wls --solver activeset --case example-12 --timeout 60
+wolframscript -file Scripts/BenchmarkSystemSolver.wls --solver reduce --case example-12 --solve-timeout 60
+wolframscript -file Scripts/BenchmarkSystemSolver.wls --solver optimizeddnf --case example-12 --solve-timeout 60
+wolframscript -file Scripts/BenchmarkSystemSolver.wls --solver activeset --case example-12 --solve-timeout 60
 ```
 
 Results are exported to:
@@ -82,8 +84,8 @@ Results are exported to:
 For non-mutating staged diagnostics, run:
 
 ```bash
-wolframscript -file Scripts/ProfileScenarioKernel.wls --case example-12 --timeout 10
-wolframscript -file Scripts/ProfileScenarioKernel.wls --solver optimizeddnf --case example-12 --timeout 10
+wolframscript -file Scripts/ProfileScenarioKernel.wls --case example-12 --solve-timeout 10
+wolframscript -file Scripts/ProfileScenarioKernel.wls --solver optimizeddnf --case example-12 --solve-timeout 10
 ```
 
 Current cases:
