@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**MFGraphs** is a Wolfram Language paclet (`PacletInfo.m`, v0.0.2) for solving stationary **Mean Field Games on networks**. A large population of rational agents move through a graph under Hamiltonian dynamics; mass conservation (Kirchhoff laws) and complementarity constraints yield a Linear Complementarity Problem that the package builds and reduces symbolically.
+**MFGraphs** is a Wolfram Language paclet (version in `PacletInfo.m`) for solving stationary **Mean Field Games on networks**. A large population of rational agents move through a graph under Hamiltonian dynamics; mass conservation (Kirchhoff laws) and complementarity constraints yield a Linear Complementarity Problem that the package builds and reduces symbolically.
 
 The repository is currently oriented toward an in-progress paper on the **critical congestion solver** (the Alpha = 1 regime). The active package surface — scenario construction, symbolic unknowns, structural system assembly, and critical-congestion symbolic solvers — is exactly what supports that paper. Anything outside that scope lives in `MFGraphs/archive/` and is **not** loaded by `Needs["MFGraphs`"]`.
 
@@ -20,10 +20,11 @@ The repository is currently oriented toward an in-progress paper on the **critic
 # Load the package interactively
 wolframscript -e 'Needs["MFGraphs`"]'
 
-# Run the active test suite
+# Run the active test suite (several minutes; example-coverage.mt alone takes about 3,
+# so allow a timeout well above the 2-minute default)
 wolframscript -file Scripts/RunTests.wls fast
 
-# Run a single test file
+# Run a single test file (.mt files cannot be run directly with `wolframscript -file`)
 wolframscript -file Scripts/RunSingleTest.wls MFGraphs/Tests/scenario-kernel.mt
 
 # Benchmark the system solver (required before/after for solver-sensitive PRs)
@@ -76,6 +77,8 @@ makeScenario  →  makeSymbolicUnknowns  →  makeSystem  →  solveScenario
 - `makeSystem` runs `buildBoundaryData`, `buildFlowData`, `buildComplementarityData`, `buildHamiltonianData` and merges their typed records into one `mfgSystem`.
 - `solveScenario` (in `orchestrationTools`) wraps the chain end-to-end.
 
+**Model scope.** The solvers accept critical congestion only (`Alpha = 1` on every edge) and fail explicitly otherwise. The Hamiltonian parameters `V`, `G`, `EdgeV` and `EdgeG` are validated and stored on the scenario, but they do not enter the generated system: changing them leaves the solved flows and values unchanged. Only the opt-in Tawaf density extension uses `EdgeV`, to derive densities from an already-solved flow.
+
 **Typed wrapper pattern.** Every domain object is `Head[Association]` plus a predicate and an accessor. `typeData[obj, key]` returns `Missing["KeyAbsent", key]` if the key is absent.
 
 | Head | Predicate | Accessor |
@@ -100,6 +103,7 @@ makeScenario  →  makeSymbolicUnknowns  →  makeSystem  →  solveScenario
 - **DNF-first reduction.** `dnfReduceSystem` / `optimizedDNFReduceSystem` factor the complementarity system into a disjunction of branches. The optimized variant prunes infeasible branches early; the plain variant is the reference.
 - **Active-set reducer.** `activeSetReduceSystem` is the alternative path used when DNF-first is too expensive on a given topology.
 - **Exact net-flow propagation.** `linearNetReduceSystem` is an explicit opt-in that propagates already-determined rational net currents and zero sums of nonnegative flows before DNF enumeration. The default remains `dnfReduceSystem`.
+- **Other solvers are opt-in.** The "Solver Status" table in `README.md` lists every solver (`reduceSystem`, the Boolean solvers, `findInstanceSystem`, `directCriticalSystem`, `flowFirstCriticalSystem`). Treat `dnfReduceSystem` as the reference; several opt-in paths have open correctness issues, so check the open `bug` issues before relying on one.
 - **Verbose gating.** Use `mfgPrint[...]` (not `Print`) for debug output — it is silent unless `$MFGraphsVerbose = True`.
 
 ## Test Suites
@@ -126,12 +130,18 @@ Active `.mt` files under `MFGraphs/Tests/`:
 | `numeric-oracle.mt` | opt-in `numericOracle`` classifier and `solveScenarioWithOracle` wrapper |
 | `fictitiousPlay.mt` | opt-in K-fold consensus classifier `numericFictitiousPlayClassify` (in the `oracle`/`full` suites, not `fast`) |
 
+Runner suites (`Scripts/RunTests.wls <suite>`): `fast` is the gate; `all` is an alias for it and the default with no argument. `oracle` runs `numeric-oracle.mt` and `fictitiousPlay.mt`. `archive` and `full` include archived legacy tests under `MFGraphs/Tests/archive/` and are not expected to pass.
+
+No GitHub workflow runs the tests (the workflows are assistant automation only), so a local `fast` run is the only check before a merge.
+
 ## Conventions
 
 - Avoid single-letter System symbol shadows (`K`, `D`, `C`, ...) — use descriptive names so the `MFGraphs`` context does not collide with built-ins.
 - Prefer typed constructors and accessors over building raw associations by hand.
 - **Solver-sensitive PRs must include before/after benchmark output** produced with `BenchmarkSystemSolver.wls --tag`. Append results to `BENCHMARKS.md`.
 - Do not commit to `master`; use feature branches and PRs.
+- Commit subjects follow Conventional Commits (`fix(scenario): ...`, `docs(loader): ...`, `chore: ...`), 50 characters at most. PR bodies use the four sections in `CONTRIBUTING.md`: Summary, Test plan, Performance impact, Related issues.
+- `j` and `u` (`primitives.wl`) and `Tawaf`'s `m` are `Protected` public symbols; never assign to them. In `.mt` files, do not use `m` as a `Module` local: test files are read before `Tawaf`` loads, so the local becomes ``Global`m`` and raises `m::shdw`.
 - `API_REFERENCE.md` is generated from `::usage` strings — edit the source, then run `Scripts/GenerateDocs.wls`.
 
 ## Documentation
@@ -149,8 +159,11 @@ and exact content integrity is reported separately from mathematical validity.
 - `API_REFERENCE.md` — auto-generated public API reference (do not edit)
 - `BENCHMARKS.md` — solver benchmark policy and historical tagged results
 - `TROUBLESHOOTING.md` — package load failures, scenario validation errors, solver timeouts
+- `docs/solvers/methods-and-novelty.md` — which solver steps are Wolfram backends and which are package contributions
 - `AGENTS.md` / `GEMINI.md` — assistant-specific pointers; `CLAUDE.md` is canonical
 
 ## Project Skills
 
-This repo ships three Claude Code skills: `/test` (run the fast suite and report pass/fail), `/scenario` (walk `makeScenario → makeSystem → ReduceSystem` with consistency checks), and `/ship` (auto-branch, test, commit, push, open PR). Prefer them over reinventing the equivalent shell pipelines.
+This repo ships three Claude Code skills: `/test` (run the fast suite and report pass/fail), `/ship` (auto-branch, test, commit, push, open PR), and `/scenario` (walk the solver pipeline with consistency checks). Prefer `/test` and `/ship` over reinventing the equivalent shell pipelines.
+
+`/scenario` still describes the API from before the scenario-first refactor: `GetExampleScenario`, `ScenarioData`, `makeUnknowns`, `SystemDataFlatten` and `ReduceSystem` are not defined in the loaded package. Until it is rewritten, follow the composition pipeline above (`getExampleScenario`, `scenarioData`, `makeSymbolicUnknowns`, `systemDataFlatten`, `dnfReduceSystem`).
