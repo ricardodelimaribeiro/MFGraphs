@@ -39,6 +39,8 @@ This directory contains active maintenance scripts and an `archive/` folder with
 - `CompareSolverSolutions.wls`: compares residuals/rules between stored benchmark solution files (`Results/*_latest.wl`).
 - `AnalyzeSolutionBranches.wls`: analyzes residual solution branches by entry costs.
 - `NonCriticalDiagnostic.wls`: convergence diagnostic for the iterative non-critical (Alpha != 1) solver.
+- `WalkScenario.wls`: walks one scenario through the pipeline gate by gate (scenario, unknowns, system, solve, valid, exact soundness) and stops at the first gate that does not pass; the runner behind the `/scenario` skill. Flags: `--list`, `--case`, `--scenario-file`, `--solve-timeout`, `--completeness`. Exit codes: 0 all gates passed, 1 gate failed, 2 usage error, 3 no solution, 4 solve timeout.
+- `WalkScenarioHelpers.wls`: the walk itself, sourced by `WalkScenario.wls` and `MFGraphs/Tests/walk-scenario.mt` (not a standalone CLI).
 
 ## Solution cache
 
