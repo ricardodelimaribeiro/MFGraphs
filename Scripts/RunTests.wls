@@ -29,7 +29,8 @@ $TestSuites = <|
         "exact-validation.mt",
         "exact-artifact.mt",
         "exact-reductions.mt",
-        "usage-arity.mt"
+        "usage-arity.mt",
+        "walk-scenario.mt"
     },
     (* Opt-in oracle suite: the float-isolated numericOracle` classifiers.
        numeric-oracle.mt also runs in fast; fictitiousPlay.mt (the K-fold

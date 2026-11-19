@@ -124,6 +124,7 @@ Active `.mt` files under `MFGraphs/Tests/`:
 | `exact-artifact.mt` | WXF content preservation and deliberate solution/domain/metadata corruption |
 | `exact-reductions.mt` | reduction identities proved by real quantifier elimination; small networks compared against the original-system reference |
 | `usage-arity.mt` | usage-string call patterns vs definition arities (shared lint with `GenerateDocs.wls` via `Scripts/UsageArityLint.wls`) |
+| `walk-scenario.mt` | the gate-by-gate walk behind `/scenario` and `Scripts/WalkScenario.wls` (shared with the CLI via `Scripts/WalkScenarioHelpers.wls`) |
 | `graphicsTools.mt` | `rawNetworkPlot`, `richNetworkPlot` |
 | `tawaf.mt` | unrolled-circumambulation scenario builder (opt-in `Tawaf`` context) |
 | `example-coverage.mt` | per-example smoke + cached-solution regression check across every key in `$ExampleScenarios` |
@@ -164,6 +165,4 @@ and exact content integrity is reported separately from mathematical validity.
 
 ## Project Skills
 
-This repo ships three Claude Code skills: `/test` (run the fast suite and report pass/fail), `/ship` (auto-branch, test, commit, push, open PR), and `/scenario` (walk the solver pipeline with consistency checks). Prefer `/test` and `/ship` over reinventing the equivalent shell pipelines.
-
-`/scenario` still describes the API from before the scenario-first refactor: `GetExampleScenario`, `ScenarioData`, `makeUnknowns`, `SystemDataFlatten` and `ReduceSystem` are not defined in the loaded package. Until it is rewritten, follow the composition pipeline above (`getExampleScenario`, `scenarioData`, `makeSymbolicUnknowns`, `systemDataFlatten`, `dnfReduceSystem`).
+This repo ships three Claude Code skills: `/test` (run the fast suite and report pass/fail), `/ship` (auto-branch, test, commit, push, open PR), and `/scenario` (walk one scenario through the pipeline gate by gate with `Scripts/WalkScenario.wls`: scenario, unknowns, system, solve, valid, exact soundness). Prefer them over reinventing the equivalent shell pipelines.
