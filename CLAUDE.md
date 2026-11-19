@@ -28,13 +28,13 @@ wolframscript -file Scripts/RunTests.wls fast
 wolframscript -file Scripts/RunSingleTest.wls MFGraphs/Tests/scenario-kernel.mt
 
 # Benchmark the system solver (required before/after for solver-sensitive PRs)
-wolframscript -file Scripts/BenchmarkSystemSolver.wls --tag "short-description" --timeout 60
+wolframscript -file Scripts/BenchmarkSystemSolver.wls --tag "short-description" --solve-timeout 60
 
 # Profile the scenario kernel (non-mutating stage timings)
-wolframscript -file Scripts/ProfileScenarioKernel.wls --case example-12 --timeout 10
+wolframscript -file Scripts/ProfileScenarioKernel.wls --case example-12 --solve-timeout 10
 
 # Profile the DNF reducer
-wolframscript -file Scripts/ProfileDNFReduce.wls --case all --order all --timeout 60
+wolframscript -file Scripts/ProfileDNFReduce.wls --case all --order all --solve-timeout 60
 
 # Regenerate API_REFERENCE.md from ::usage strings (do not edit it by hand);
 # exits nonzero without writing if a usage call pattern contradicts its definition's arity

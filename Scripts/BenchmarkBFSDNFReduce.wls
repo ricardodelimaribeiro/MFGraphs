@@ -4,11 +4,14 @@
    cachedSolve hit/miss counts.
 
    Usage: wolframscript -file Scripts/BenchmarkBFSDNFReduce.wls
-                       [--timeout s]   default 60
-                       [--case name]   default all  (one of: grid-2x3, grid-3x2, grid-3x3, case-12, case-21) *)
+                       [--solve-timeout s]   default 60
+                       [--case name]         default all  (one of: grid-2x3, grid-3x2, grid-3x3, case-12, case-21) *)
 
 (* :!CodeAnalysis::BeginBlock:: *)
 (* :!CodeAnalysis::Disable::SuspiciousSessionSymbol:: *)
+
+(* Rejects --timeout, which wolframscript takes for itself; the limit here is --solve-timeout. *)
+Get[FileNameJoin[{DirectoryName[$InputFileName], "TimeoutFlagGuard.wls"}]];
 
 $RepoRoot = FileNameJoin[{DirectoryName[$InputFileName], ".."}];
 PrependTo[$Path, $RepoRoot];
@@ -23,7 +26,7 @@ Module[{args = Rest[$ScriptCommandLine], i = 1, arg},
   While[i <= Length[args],
     arg = args[[i]];
     Switch[arg,
-      "--timeout",
+      "--solve-timeout",
         i++; If[i <= Length[args],
           Module[{v = Quiet @ Check[ToExpression[args[[i]]], $Failed]},
             If[NumericQ[v] && v > 0, $Timeout = v]]],

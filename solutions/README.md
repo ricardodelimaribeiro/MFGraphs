@@ -19,7 +19,7 @@ Each file stores an `Association`:
 ```bash
 wolframscript -file Scripts/RegenerateSolutions.wls               # all keys
 wolframscript -file Scripts/RegenerateSolutions.wls Jamaratv9     # one key
-wolframscript -file Scripts/RegenerateSolutions.wls --timeout 600 # custom per-scenario timeout
+wolframscript -file Scripts/RegenerateSolutions.wls --solve-timeout 600 # custom per-scenario timeout
 ```
 
 The regenerate script overwrites existing files. Solutions for scenarios that exceed the timeout are left absent (no file written).

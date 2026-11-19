@@ -1,6 +1,6 @@
 #!/usr/bin/env wolframscript
 (* Usage:
-   wolframscript -file Scripts/ProfileDNFReduce.wls [--case name|all] [--timeout s]
+   wolframscript -file Scripts/ProfileDNFReduce.wls [--case name|all] [--solve-timeout s]
      [--order original|nonor-stable|or-small|or-large|j-before-u|u-before-j|
               transition-before-edge|edge-before-transition|few-vars|path-aware|all]
      [--recursion-limit n]
@@ -8,6 +8,9 @@
 
 (* :!CodeAnalysis::BeginBlock:: *)
 (* :!CodeAnalysis::Disable::SuspiciousSessionSymbol:: *)
+
+(* Rejects --timeout, which wolframscript takes for itself; the limit here is --solve-timeout. *)
+Get[FileNameJoin[{DirectoryName[$InputFileName], "TimeoutFlagGuard.wls"}]];
 
 $RepoRoot = FileNameJoin[{DirectoryName[$InputFileName], ".."}];
 PrependTo[$Path, $RepoRoot];
@@ -26,7 +29,7 @@ Module[{args = Rest[$ScriptCommandLine], i = 1, arg},
     Switch[arg,
       "--case",
         i++; If[i <= Length[args], $SelectedCase = ToLowerCase[args[[i]]]],
-      "--timeout",
+      "--solve-timeout",
         i++; If[i <= Length[args],
           Module[{v = Quiet @ Check[ToExpression[args[[i]]], $Failed]},
             If[NumericQ[v] && v >= 0, $TimeoutSecs = v]]],

@@ -1,9 +1,12 @@
 #!/usr/bin/env wolframscript
-(* Usage: wolframscript -file Scripts/BenchmarkSystemSolver.wls [--solver dnf|optimizeddnf|activeset|reduce|boolean|findinstance] [--tag label] [--timeout s] [--case name] *)
+(* Usage: wolframscript -file Scripts/BenchmarkSystemSolver.wls [--solver dnf|optimizeddnf|activeset|reduce|boolean|findinstance] [--tag label] [--solve-timeout s] [--case name] *)
 (* Benchmarks the active scenario-kernel solver path and stores solutions to Results/. *)
 
 (* :!CodeAnalysis::BeginBlock:: *)
 (* :!CodeAnalysis::Disable::SuspiciousSessionSymbol:: *)
+
+(* Rejects --timeout, which wolframscript takes for itself; the limit here is --solve-timeout. *)
+Get[FileNameJoin[{DirectoryName[$InputFileName], "TimeoutFlagGuard.wls"}]];
 
 Print["MFGraphs System Solver Benchmark"];
 Print["================================"];
@@ -29,7 +32,7 @@ Module[{args = Rest[$ScriptCommandLine], i = 1, arg},
     Switch[arg,
       "--tag",
         i++; If[i <= Length[args], $HistoryTag = args[[i]]],
-      "--timeout",
+      "--solve-timeout",
         i++; If[i <= Length[args],
           Module[{v = Quiet @ Check[ToExpression[args[[i]]], $Failed]},
             If[NumericQ[v] && v > 0, $TimeoutSecs = v]]],

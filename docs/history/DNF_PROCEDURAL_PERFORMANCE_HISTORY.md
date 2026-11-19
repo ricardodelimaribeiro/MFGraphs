@@ -16,7 +16,7 @@ Run the baseline profile and record the new TSV alongside the rationale:
 
 ```bash
 caffeinate -dimsu wolframscript -file Scripts/ProfileDNFProcedural.wls \
-    --case all --timeout 300
+    --case all --solve-timeout 300
 ```
 
 Then append a new section below following the template at the bottom.

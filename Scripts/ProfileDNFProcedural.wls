@@ -8,10 +8,13 @@
    recursive/procedural comparison report.
 
    Usage:
-     wolframscript -file Scripts/ProfileDNFProcedural.wls [--case name|all] [--timeout s]
+     wolframscript -file Scripts/ProfileDNFProcedural.wls [--case name|all] [--solve-timeout s]
 
    Output: TSV rows on stdout, one per case.
 *)
+
+(* Rejects --timeout, which wolframscript takes for itself; the limit here is --solve-timeout. *)
+Get[FileNameJoin[{DirectoryName[$InputFileName], "TimeoutFlagGuard.wls"}]];
 
 $RepoRoot = FileNameJoin[{DirectoryName[$InputFileName], ".."}];
 PrependTo[$Path, $RepoRoot];
@@ -27,7 +30,7 @@ Module[{args = Rest[$ScriptCommandLine], i = 1, arg},
         arg = args[[i]];
         Switch[arg,
             "--case",    i++; If[i <= Length[args], $SelectedCase = ToLowerCase[args[[i]]]],
-            "--timeout", i++; If[i <= Length[args],
+            "--solve-timeout", i++; If[i <= Length[args],
                 Module[{v = Quiet @ Check[ToExpression[args[[i]]], $Failed]},
                     If[NumericQ[v] && v >= 0, $TimeoutSecs = v]]],
             _, Null

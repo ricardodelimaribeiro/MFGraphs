@@ -16,20 +16,21 @@ This directory contains active maintenance scripts and an `archive/` folder with
 
 ## Benchmarks
 
-- `BenchmarkSystemSolver.wls`: **the active solver benchmark** (required for before/after runs on solver-sensitive PRs). Flags: `--solver dnf|optimizeddnf|activeset|reduce|boolean|findinstance`, `--tag`, `--timeout`, `--case`. Appends a history entry to `BENCHMARKS.md` and stores solutions under `Results/`.
+- `BenchmarkSystemSolver.wls`: **the active solver benchmark** (required for before/after runs on solver-sensitive PRs). Flags: `--solver dnf|optimizeddnf|activeset|reduce|boolean|findinstance`, `--tag`, `--solve-timeout`, `--case`. Appends a history entry to `BENCHMARKS.md` and stores solutions under `Results/`.
 - `BenchmarkReduceSystem.wls`: historical focused benchmark for raw `reduceSystem`.
 - `BenchmarkDNF.wls`: DNF reducer micro-benchmark (assumes cwd is the repo root).
 - `BenchmarkBFSDNFReduce.wls`: head-to-head `dnfReduceSystem` (DFS) vs `bfsDNFReduceSystem` (BFS).
 - `BenchmarkActiveSetLPPrecheck.wls`: head-to-head `activeSetReduceSystem` with/without `LPPrecheck`.
 - `BaselinePruningBenchmark.wls`: measures the paper §5.4 `booleanReduceSystem` baseline (materializes all complementarity branches).
 - `PaperBenchmark.wls`: paper §5.4 benchmark (A.2) + C.9 smoke test; modes `merge|fork|jamarat|all`.
-- `RepeatJamarat.wls`: repeated timing of the Jamarat critical-congestion cell (the paper's "under five minutes" claim); reports median/mean/min-max over N runs. Flags: `--runs`, `--timeout`, `--memcap`.
+- `RepeatJamarat.wls`: repeated timing of the Jamarat critical-congestion cell (the paper's "under five minutes" claim); reports median/mean/min-max over N runs. Flags: `--runs`, `--solve-timeout`, `--memcap`.
+- `TimeoutFlagGuard.wls`: shared guard sourced first by every script with a `--solve-timeout` flag (not a standalone CLI). It rejects `--timeout`, which `wolframscript` takes for itself: the whole run ends after that many seconds with exit code 0.
 - `SweepBranchStateThreshold.wls`: sweeps `$optimizedDNFVarThreshold` to find the branch-state/dnfReduce crossover.
 
 ## Profilers
 
-- `ProfileScenarioKernel.wls`: non-mutating staged profiler for scenario → unknowns → system → solver (`--solver`, `--case`, `--timeout`).
-- `ProfileDNFReduce.wls`: DNF reducer profiler (`--case name|all`, `--order`, `--timeout`).
+- `ProfileScenarioKernel.wls`: non-mutating staged profiler for scenario → unknowns → system → solver (`--solver`, `--case`, `--solve-timeout`).
+- `ProfileDNFReduce.wls`: DNF reducer profiler (`--case name|all`, `--order`, `--solve-timeout`).
 - `ProfileDNFProcedural.wls`: baseline profiler for `dnfReduceProcedural`.
 
 ## Solver comparison and diagnostics

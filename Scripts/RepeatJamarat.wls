@@ -20,12 +20,15 @@
    full cost and the runs are independent.
 
    Usage:
-     wolframscript -file Scripts/RepeatJamarat.wls [--runs N] [--timeout S] [--memcap GB]
-   Defaults: --runs 5 --timeout 1800 --memcap 8
+     wolframscript -file Scripts/RepeatJamarat.wls [--runs N] [--solve-timeout S] [--memcap GB]
+   Defaults: --runs 5 --solve-timeout 1800 --memcap 8
 *)
 
 (* :!CodeAnalysis::BeginBlock:: *)
 (* :!CodeAnalysis::Disable::SuspiciousSessionSymbol:: *)
+
+(* Rejects --timeout, which wolframscript takes for itself; the limit here is --solve-timeout. *)
+Get[FileNameJoin[{DirectoryName[$InputFileName], "TimeoutFlagGuard.wls"}]];
 
 $RepoRoot = FileNameJoin[{DirectoryName[$InputFileName], ".."}];
 PrependTo[$Path, $RepoRoot];
@@ -42,7 +45,7 @@ argValue[flag_String, default_] := Module[{pos},
 ];
 
 nRuns   = argValue["--runs", 5];
-tmo     = argValue["--timeout", 1800];
+tmo     = argValue["--solve-timeout", 1800];
 memCapGB = argValue["--memcap", 8];
 memCap   = memCapGB * 10^9;
 
